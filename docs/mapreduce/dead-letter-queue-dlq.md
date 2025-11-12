@@ -8,6 +8,40 @@ When a map agent fails to process a work item after exhausting retry attempts, t
 
 The DLQ integrates with MapReduce through the `on_item_failure` policy, which defaults to `dlq` for MapReduce workflows. Alternative policies include `retry` (immediate retry), `skip` (ignore failures), `stop` (halt workflow), and `custom` (user-defined handling).
 
+```mermaid
+flowchart TD
+    Start[Work Item Processing] --> Execute[Execute Agent Command]
+    Execute --> Success{Success?}
+    Success -->|Yes| Next[Process Next Item]
+    Success -->|No| Retry{Retry<br/>Attempts<br/>Left?}
+
+    Retry -->|Yes| Backoff[Exponential Backoff]
+    Backoff --> Execute
+
+    Retry -->|No| Policy{on_item_failure<br/>Policy}
+
+    Policy -->|dlq| CreateDLQ[Create DeadLetteredItem]
+    Policy -->|stop| Halt[Halt Workflow]
+    Policy -->|skip| Skip[Mark Skipped]
+    Policy -->|custom| Custom[Run Custom Handler]
+
+    CreateDLQ --> SaveDLQ[Save to DLQ Storage]
+    SaveDLQ --> Next
+    Skip --> Next
+    Custom --> Next
+
+    Halt --> End[Workflow Failed]
+    Next --> End
+
+    style Success fill:#e8f5e9
+    style Policy fill:#fff3e0
+    style CreateDLQ fill:#e1f5ff
+    style SaveDLQ fill:#e1f5ff
+    style Halt fill:#ffebee
+```
+
+**Figure**: DLQ failure flow showing retry logic and policy-based handling.
+
 ### Storage Structure
 
 DLQ data is stored in the global Prodigy directory using this structure:
@@ -49,14 +83,13 @@ This global storage architecture enables:
 Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive failure information:
 
 ```json
-# Source: src/cook/execution/dlq.rs:32-43 (DeadLetteredItem struct)
 {
-  "item_id": "item-123",
-  "item_data": { "file": "src/main.rs", "priority": 5 },
-  "first_attempt": "2025-01-11T10:25:00Z",
+  "item_id": "item-123",                    // (1)!
+  "item_data": { "file": "src/main.rs", "priority": 5 },  // (2)!
+  "first_attempt": "2025-01-11T10:25:00Z",  // (3)!
   "last_attempt": "2025-01-11T10:30:00Z",
-  "failure_count": 3,
-  "failure_history": [
+  "failure_count": 3,                       // (4)!
+  "failure_history": [                      // (5)!
     {
       "attempt_number": 1,
       "timestamp": "2025-01-11T10:30:00Z",
@@ -69,10 +102,10 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
       "json_log_location": "/Users/user/.local/state/claude/logs/session-abc123.json"
     }
   ],
-  "error_signature": "CommandFailed::cargo test failed with exit",
-  "reprocess_eligible": true,
+  "error_signature": "CommandFailed::cargo test failed with exit",  // (6)!
+  "reprocess_eligible": true,               // (7)!
   "manual_review_required": false,
-  "worktree_artifacts": {
+  "worktree_artifacts": {                   // (8)!
     "worktree_path": "/Users/user/.prodigy/worktrees/prodigy/agent-1",
     "branch_name": "agent-1",
     "uncommitted_changes": "src/main.rs modified",
@@ -80,6 +113,17 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
   }
 }
 ```
+
+1. Unique identifier for the work item
+2. Original work item data from input JSON
+3. When the item first failed (used for age-based filtering)
+4. Number of retry attempts made
+5. Complete history of all failure attempts with detailed error information
+6. Simplified error pattern for grouping similar failures
+7. Whether item can be automatically retried
+8. Preserved state from failed agent's execution environment
+
+**Source**: `DeadLetteredItem` struct (src/cook/execution/dlq.rs:32-43)
 
 #### Key Fields
 
@@ -130,19 +174,31 @@ Each attempt in `failure_history` is a `FailureDetail` object (src/cook/executio
 
 The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-71):
 
-- `Timeout`: Agent execution exceeded timeout
-- `CommandFailed { exit_code: i32 }`: Shell or Claude command returned non-zero exit code (includes exit code for diagnostics)
-- `WorktreeError`: Git worktree operation failed
-- `MergeConflict`: Merge back to parent worktree failed
-- `ValidationFailed`: Validation command failed
-- `ResourceExhausted`: System resources (memory, disk) exhausted
-- `Unknown`: Unclassified error
+=== "Execution Errors"
+    **`Timeout`**: Agent execution exceeded timeout limit
 
-**Example from tests**:
-```rust
-// Source: tests/dlq_agent_integration_test.rs:69
-error_type: ErrorType::CommandFailed { exit_code: 1 }
-```
+    **`CommandFailed { exit_code: i32 }`**: Shell or Claude command returned non-zero exit code
+
+    Example:
+    ```json
+    { "CommandFailed": { "exit_code": 101 } }
+    ```
+
+    **`ValidationFailed`**: Post-execution validation command failed
+
+=== "Git Errors"
+    **`WorktreeError`**: Git worktree operation failed (creation, cleanup)
+
+    **`MergeConflict`**: Merge back to parent worktree failed
+
+    Common when multiple agents modify the same files.
+
+=== "System Errors"
+    **`ResourceExhausted`**: System resources (memory, disk) exhausted
+
+    **`Unknown`**: Unclassified error
+
+    Review `error_message` and `stack_trace` for details.
 
 ### Worktree Artifacts
 
@@ -159,14 +215,16 @@ These artifacts are preserved for debugging and can be accessed after failure.
 
 ## DLQ Commands
 
-> **⚠️ PLANNED FEATURE**: The DLQ CLI commands are currently implemented as stubs that only print status messages. Full functionality is planned for a future release.
->
-> **Current Status** (as of implementation):
-> - Command definitions exist in src/cli/args.rs:577-677
-> - Stub implementations in src/cli/commands/dlq.rs:1-74
-> - Commands will print confirmation messages but do not execute actual operations
->
-> See [DLQ Integration](#integration-with-mapreduce) for current workflow-level DLQ functionality.
+!!! warning "Planned Feature - Stub Implementation"
+    The DLQ CLI commands are currently implemented as stubs that only print status messages. Full functionality is planned for a future release.
+
+    **Current Status**:
+
+    - Command definitions exist in src/cli/args.rs:577-677
+    - Stub implementations in src/cli/commands/dlq.rs:1-74
+    - Commands will print confirmation messages but do not execute actual operations
+
+    See [DLQ Integration](#integration-with-mapreduce) for current workflow-level DLQ functionality.
 
 Prodigy provides comprehensive CLI commands for managing the DLQ. The following sections describe the planned command interface.
 
@@ -358,6 +416,9 @@ For more details on Claude JSON logs, see [Best Practices for Debugging](../trou
 
 ### Common Debugging Workflow
 
+!!! example "Step-by-Step Debugging"
+    Follow this workflow to diagnose and fix failures systematically:
+
 1. **List failed items**:
    ```bash
    prodigy dlq list --job-id mapreduce-1234567890
@@ -437,6 +498,9 @@ Continue Processing Other Items
 
 ### When to Retry vs Manual Fix
 
+!!! tip "Choosing the Right Approach"
+    Before retrying failed items, analyze the failure patterns with `prodigy dlq analyze` to determine if the issue is transient (safe to retry) or systematic (requires code changes first).
+
 **Automatic Retry** (via `prodigy dlq retry`):
 - Transient failures (network timeouts, resource contention)
 - Flaky tests or intermittent issues
@@ -456,6 +520,9 @@ Continue Processing Other Items
 4. **Set review flags**: Mark `manual_review_required: true` for items needing human investigation
 
 ### Performance Considerations
+
+!!! warning "Resource Management"
+    When retrying large DLQs, start with lower parallelism (e.g., `--max-parallel 5`) to avoid overwhelming system resources. Monitor the first few retries before increasing parallelism.
 
 - **Large DLQs**: Retry command uses streaming to handle thousands of items efficiently
 - **Parallelism**: Tune `--max-parallel` based on failure type (CPU-bound vs I/O-bound)
