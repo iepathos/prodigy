@@ -3,9 +3,10 @@ number: 158
 title: Fix Silent Merge Failure After Workflow Completion
 category: foundation
 priority: high
-status: draft
+status: completed
 dependencies: []
 created: 2025-01-11
+completed: 2025-11-12
 ---
 
 # Specification 158: Fix Silent Merge Failure After Workflow Completion
@@ -330,3 +331,53 @@ The workflow completed all 19 agents successfully (100% success rate), user appr
 ```bash
 git merge --no-ff prodigy-session-4c1dcbe8-722b-44fc-bd43-3e57802ad0d7
 ```
+
+## Additional Bug Fixed: Wrong Target Branch (2025-11-12)
+
+While investigating this spec, a related bug was discovered and fixed in the same area:
+
+### Problem
+When executing a workflow **without** a custom `merge:` block, the default Claude-assisted merge would merge to the wrong branch (`master`) instead of the original branch the user started from.
+
+### Root Cause
+In `src/worktree/merge_orchestrator.rs:127`, the `execute_claude_merge` method was not receiving the `target_branch` parameter even though it was available in the caller:
+
+```rust
+// Before (line 127):
+self.execute_claude_merge(name, worktree_branch).await  // Missing target_branch!
+
+// Method only received source branch:
+async fn execute_claude_merge(&self, name: &str, worktree_branch: &str) -> Result<String> {
+    // ...
+    .execute_claude_command(
+        &format!("/prodigy-merge-worktree {worktree_branch}"),  // Missing target!
+        // ...
+    )
+}
+```
+
+### Fix
+Pass the `target_branch` parameter through the call stack and include it in the Claude command:
+
+```rust
+// After (line 127):
+self.execute_claude_merge(name, worktree_branch, target_branch).await
+
+// Updated method:
+async fn execute_claude_merge(
+    &self,
+    name: &str,
+    worktree_branch: &str,
+    target_branch: &str  // ✅ Now receives target
+) -> Result<String> {
+    // ...
+    .execute_claude_command(
+        &format!("/prodigy-merge-worktree {worktree_branch} {target_branch}"),  // ✅ Both branches
+        // ...
+    )
+}
+```
+
+**Files Changed**: `src/worktree/merge_orchestrator.rs` (lines 127, 145, 153, 162)
+
+**Impact**: Workflows without custom `merge:` blocks now correctly merge back to the branch the user started from, matching the expected default behavior described in Spec 110 (Branch Tracking).

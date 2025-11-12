@@ -124,7 +124,7 @@ impl MergeOrchestrator {
             }
             None => {
                 println!("🔄 Merging worktree '{name}' into '{target_branch}' using Claude-assisted merge...");
-                self.execute_claude_merge(name, worktree_branch).await
+                self.execute_claude_merge(name, worktree_branch, target_branch).await
             }
         }
     }
@@ -137,11 +137,12 @@ impl MergeOrchestrator {
     ///
     /// * `name` - Worktree session name
     /// * `worktree_branch` - Source branch to merge from
+    /// * `target_branch` - Target branch to merge into
     ///
     /// # Returns
     ///
     /// Output from the Claude merge command
-    async fn execute_claude_merge(&self, name: &str, worktree_branch: &str) -> Result<String> {
+    async fn execute_claude_merge(&self, name: &str, worktree_branch: &str, target_branch: &str) -> Result<String> {
         let worktree_path = self.base_dir.join(name);
 
         if !worktree_path.exists() {
@@ -149,7 +150,7 @@ impl MergeOrchestrator {
         }
 
         if self.verbosity >= 1 {
-            eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
+            eprintln!("Running claude /prodigy-merge-worktree with source: {worktree_branch}, target: {target_branch}");
             eprintln!("Working directory: {}", worktree_path.display());
         }
 
@@ -158,7 +159,7 @@ impl MergeOrchestrator {
 
         let result = claude_executor
             .execute_claude_command(
-                &format!("/prodigy-merge-worktree {worktree_branch}"),
+                &format!("/prodigy-merge-worktree {worktree_branch} {target_branch}"),
                 &worktree_path,
                 env_vars,
             )
