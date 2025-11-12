@@ -7,7 +7,12 @@ Global configuration settings apply across all Prodigy projects and workflows. T
 The global configuration is defined by the `GlobalConfig` struct, which contains system-wide settings for Prodigy's behavior, external tool integration, and operational parameters.
 
 ```rust
-// Source: src/config/mod.rs:50-59
+// Source: src/config/mod.rs:45-59
+/// Global configuration settings for Prodigy
+///
+/// These settings apply across all projects and workflows. Can be overridden
+/// by project-specific configuration. Stored in the user's home
+/// directory under ~/.prodigy/config.yml.
 pub struct GlobalConfig {
     pub prodigy_home: PathBuf,
     pub default_editor: Option<String>,
@@ -263,6 +268,9 @@ validate_config_format(extension)
 
 !!! note "TOML Deprecated"
     Earlier versions of Prodigy supported TOML format (`.toml`), but this has been deprecated in favor of YAML for consistency with workflow definitions.
+
+!!! info "Internal Representation"
+    While all Prodigy configuration files must be written in YAML format, some internal data structures (like `ProjectConfig.variables`) use `toml::Table` for historical reasons and backward compatibility. This is an implementation detail - **users should always write configuration in YAML format** with the `.yml` extension.
 
 ## Default Values
 
