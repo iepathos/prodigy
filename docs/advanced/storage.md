@@ -51,6 +51,9 @@ Event logs are stored as JSONL files for efficient streaming:
 ~/.prodigy/events/{repo_name}/{job_id}/events-{timestamp}.jsonl
 ```
 
+!!! note "Auto-Generated Paths"
+    Event file paths include auto-generated timestamp suffixes (e.g., `events-20250111120000.jsonl`). This enables log rotation and prevents conflicts when multiple processes write events simultaneously.
+
 ### Event Organization
 
 - **By repository**: Events grouped by repo for easy filtering
@@ -90,6 +93,7 @@ Job state and checkpoints are stored globally:
 
 **Setup Phase**:
 ```json
+// Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "setup",
   "completed": true,
@@ -100,6 +104,7 @@ Job state and checkpoints are stored globally:
 
 **Map Phase**:
 ```json
+// Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "map",
   "completed_items": ["item-1", "item-2"],
@@ -112,6 +117,7 @@ Job state and checkpoints are stored globally:
 
 **Reduce Phase**:
 ```json
+// Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "reduce",
   "completed_steps": [0, 1],
@@ -121,6 +127,12 @@ Job state and checkpoints are stored globally:
   "timestamp": "2025-01-11T12:10:00Z"
 }
 ```
+
+!!! note "Checkpoint File Naming"
+    Checkpoint files include auto-generated timestamp suffixes:
+    - Setup: `setup-checkpoint.json` (no timestamp, only one per job)
+    - Map: `map-checkpoint-{timestamp}.json` (multiple checkpoints during map phase)
+    - Reduce: `reduce-checkpoint-v1-{timestamp}.json` (versioned with timestamp)
 
 ## Session Storage
 
@@ -136,6 +148,7 @@ Sessions are stored in a flat directory:
 ### Session File Format
 
 ```json
+// Source: src/storage/types.rs
 {
   "id": "session-abc123",
   "session_type": "Workflow",
@@ -249,6 +262,61 @@ Bidirectional mapping enables resume with session or job IDs:
   "mapreduce-123": "session-mapreduce-xyz"
 }
 ```
+
+## Performance Characteristics
+
+### JSONL Streaming vs Batch Operations
+
+Prodigy uses JSONL (JSON Lines) format for event storage to enable efficient streaming:
+
+**JSONL Streaming Benefits**:
+- **Incremental writes**: Events append without reading entire file
+- **Memory efficient**: Process one event at a time
+- **Concurrent safe**: Multiple processes can append simultaneously
+- **Resumable**: Stream from any position in the file
+
+**Usage Patterns**:
+
+```bash
+# Streaming read (memory efficient for large logs)
+cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | \
+  while IFS= read -r line; do
+    echo "$line" | jq -c .
+  done
+
+# Batch read (faster for small logs)
+cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | jq -s '.'
+```
+
+**Performance Comparison**:
+| Operation | JSONL Streaming | Batch JSON |
+|-----------|----------------|------------|
+| Memory usage | O(1) per event | O(n) all events |
+| Write speed | Fast (append) | Slow (rewrite) |
+| Read speed | Slower (parse per line) | Faster (parse once) |
+| Concurrent writes | Safe | Requires locking |
+| Resume support | Built-in | Complex |
+
+!!! tip "Choose the Right Pattern"
+    - Use streaming for: Large event logs, real-time monitoring, concurrent writers
+    - Use batch for: Small logs, one-time analysis, reporting
+
+### Storage Access Patterns
+
+**Event Log Access**:
+- Write: Append-only, lock-free
+- Read: Sequential streaming or batch analysis
+- Typical size: 1KB-10KB per event, 100-10000 events per job
+
+**Checkpoint Access**:
+- Write: Atomic file replacement
+- Read: Full file load into memory
+- Typical size: 10KB-1MB per checkpoint
+
+**Session Access**:
+- Write: Atomic update (read-modify-write with lock)
+- Read: Direct file access
+- Typical size: 1KB-10KB per session
 
 ## Storage Benefits
 
