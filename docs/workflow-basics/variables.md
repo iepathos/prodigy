@@ -13,6 +13,37 @@ Variables in Prodigy allow you to:
 
 ## Variable Categories
 
+```mermaid
+graph TD
+    Variables[Variable System] --> Standard[Standard Variables]
+    Variables --> MapReduce[MapReduce Variables]
+    Variables --> Merge[Merge Variables]
+    Variables --> Computed[Computed Variables]
+
+    Standard --> Item["item, item_index, item_total"]
+    Standard --> Workflow["workflow.name, workflow.id"]
+    Standard --> Step["step.name, step.index"]
+    Standard --> Last["last.output, last.exit_code"]
+
+    MapReduce --> MapResults["map.results, map.successful"]
+    MapReduce --> Worker["worker.id"]
+
+    Merge --> MergeVars["merge.worktree, merge.source_branch"]
+
+    Computed --> Env["env.VAR"]
+    Computed --> File["file:path"]
+    Computed --> Cmd["cmd:command"]
+    Computed --> Date["date:format"]
+    Computed --> UUID["uuid"]
+
+    style Standard fill:#e1f5ff
+    style MapReduce fill:#fff3e0
+    style Merge fill:#f3e5f5
+    style Computed fill:#e8f5e9
+```
+
+**Figure**: Variable system overview showing four main categories and their available variables.
+
 ### Standard Variables
 
 Available in all execution modes:
@@ -70,31 +101,45 @@ Available in merge workflows:
 
 Capture command outputs for use in subsequent steps:
 
+!!! tip "When to Use Capture"
+    Use output capture when you need to:
+
+    - Pass data between commands (commit SHA, file paths, configuration)
+    - Make decisions based on command results (`when:` conditions)
+    - Access structured data (JSON) with nested field access
+    - Track metadata (exit codes, duration, success status)
+
 ```yaml
 # Source: examples/capture-json-processing.yml
 # Capture as string (default)
 - shell: "git rev-parse HEAD"
-  capture_output: commit_sha
+  capture_output: commit_sha                # (1)!
 
 # Capture as JSON
 - shell: "cat items.json"
   capture_output: items
-  capture_format: json
+  capture_format: json                      # (2)!
 
 # Capture as lines array
 - shell: "find src -name '*.rs'"
   capture_output: rust_files
-  capture_format: lines
+  capture_format: lines                     # (3)!
 
 # Capture as number
 - shell: "wc -l < file.txt"
   capture_output: line_count
-  capture_format: number
+  capture_format: number                    # (4)!
 
 # Capture as boolean
 - shell: "git diff --quiet && echo true || echo false"
   capture_output: repo_clean
-  capture_format: boolean
+  capture_format: boolean                   # (5)!
+
+1. Default format - captures raw text output
+2. Parses JSON to enable nested field access with dot notation
+3. Splits output into array (one element per line)
+4. Parses numeric value for arithmetic operations
+5. Parses boolean for conditional logic
 ```
 
 ### Capture Formats
@@ -144,18 +189,52 @@ Additional metadata available for captured outputs:
 ```yaml
 # Source: src/cook/execution/interpolation.rs:420-522
 # Access nested JSON fields - always use braced syntax
-- shell: "echo ${item.metadata.priority}"
-- claude: "/process ${user.config.api_url}"
+- shell: "echo ${item.metadata.priority}"       # (1)!
+- claude: "/process ${user.config.api_url}"     # (2)!
+
+1. Dot notation for nested object fields
+2. Works with any captured JSON output
 ```
+
+!!! example "Nested Field Example"
+    Given this captured JSON:
+    ```json
+    {
+      "user": {
+        "name": "Alice",
+        "config": {
+          "api_url": "https://api.example.com"
+        }
+      }
+    }
+    ```
+
+    Access nested fields:
+    ```yaml
+    - shell: "echo Name: ${user.name}"              # Output: Name: Alice
+    - shell: "echo URL: ${user.config.api_url}"     # Output: URL: https://api.example.com
+    ```
 
 ### Default Values
 
 ```yaml
 # Source: src/cook/execution/interpolation.rs:274-288
 # Provide default if variable missing (using :- syntax)
-- shell: "echo ${PORT:-8080}"
-- claude: "/deploy ${environment:-dev}"
+- shell: "echo ${PORT:-8080}"                   # (1)!
+- claude: "/deploy ${environment:-dev}"         # (2)!
+
+1. If PORT not set, use 8080
+2. If environment not set, use "dev"
 ```
+
+!!! warning "Default Value Syntax"
+    Use the `:-` syntax (with colon and dash) for default values:
+
+    - **Correct**: `${VAR:-default}` - Uses "default" if VAR is unset or empty
+    - **Incorrect**: `${VAR-default}` - Only works if VAR is unset (not if empty)
+    - **Incorrect**: `${VAR:default}` - Not supported, will cause parsing error
+
+    The `:-` operator is the recommended and most robust option.
 
 ### Array Access
 
@@ -184,47 +263,69 @@ Source: `src/cook/execution/variables.rs:1-1378`
 
 Prodigy supports computed variables that dynamically generate values at runtime:
 
-**Environment Variables:**
-```yaml
-# Access environment variables
-- shell: "echo Database: ${env.DATABASE_URL}"
-- shell: "echo User: ${env.USER}"
-```
+!!! tip "Computed Variable Use Cases"
+    Computed variables are ideal for:
 
-**File Content:**
-```yaml
-# Read file content into variable
-- shell: "echo Version: ${file:/path/to/VERSION}"
-- claude: "/analyze ${file:config.json}"
-```
+    - **Dynamic configuration**: Read config files at runtime (`file:config.json`)
+    - **Environment-specific values**: Access environment variables (`env.DATABASE_URL`)
+    - **Command integration**: Embed command output (`cmd:git rev-parse HEAD`)
+    - **Timestamps**: Generate dated filenames (`${date:%Y%m%d}`)
+    - **Unique IDs**: Create correlation IDs (`${uuid}`)
 
-**Command Output:**
-```yaml
-# Execute command and capture output
-- shell: "echo Commit: ${cmd:git rev-parse HEAD}"
-- shell: "echo Branch: ${cmd:git branch --show-current}"
-```
+=== "Environment Variables"
+    ```yaml
+    # Access environment variables
+    - shell: "echo Database: ${env.DATABASE_URL}"
+    - shell: "echo User: ${env.USER}"
+    - shell: "echo Path: ${env.PATH}"
+    ```
 
-**JSON Extraction:**
-```yaml
-# Extract value from JSON file using path
-- shell: "echo Name: ${json:name:package.json}"
-- shell: "echo Version: ${json:version:package.json}"
-```
+    Access system environment variables using the `env:` prefix.
 
-**Date Formatting:**
-```yaml
-# Generate formatted date strings
-- shell: "echo Today: ${date:%Y-%m-%d}"
-- shell: "echo Timestamp: ${date:%Y%m%d_%H%M%S}"
-```
+=== "File Content"
+    ```yaml
+    # Read file content into variable
+    - shell: "echo Version: ${file:/path/to/VERSION}"
+    - claude: "/analyze ${file:config.json}"
+    ```
 
-**UUID Generation:**
-```yaml
-# Generate unique identifiers
-- shell: "echo Request ID: ${uuid}"
-- shell: "echo Session: ${uuid}"
-```
+    Read file contents at runtime. Useful for configuration files and version strings.
+
+=== "Command Output"
+    ```yaml
+    # Execute command and capture output
+    - shell: "echo Commit: ${cmd:git rev-parse HEAD}"
+    - shell: "echo Branch: ${cmd:git branch --show-current}"
+    ```
+
+    Execute commands inline and use their output. Cached for performance.
+
+=== "JSON Extraction"
+    ```yaml
+    # Extract value from JSON file using path
+    - shell: "echo Name: ${json:name:package.json}"
+    - shell: "echo Version: ${json:version:package.json}"
+    ```
+
+    Extract specific fields from JSON files without loading the entire file.
+
+=== "Date Formatting"
+    ```yaml
+    # Generate formatted date strings
+    - shell: "echo Today: ${date:%Y-%m-%d}"
+    - shell: "echo Timestamp: ${date:%Y%m%d_%H%M%S}"
+    ```
+
+    Generate timestamps using [strftime format codes](https://docs.rs/chrono/latest/chrono/format/strftime/).
+
+=== "UUID Generation"
+    ```yaml
+    # Generate unique identifiers
+    - shell: "echo Request ID: ${uuid}"
+    - shell: "echo Session: ${uuid}"
+    ```
+
+    Generate unique UUIDs (v4). Each use generates a new UUID.
 
 !!! tip "Performance: Computed Variable Caching"
     Expensive operations (`file:`, `cmd:`) are cached with an LRU cache (100 entry limit) to improve performance. However, `${uuid}` always generates a new value for each use.
@@ -266,6 +367,30 @@ For advanced workflows, Prodigy provides aggregate functions for data processing
 Source: `src/cook/execution/variables.rs:382-407`
 
 Prodigy uses a three-tier variable scoping system with precedence rules:
+
+```mermaid
+flowchart TD
+    Start[Variable Resolution] --> CheckLocal{Variable in<br/>Local Scope?}
+    CheckLocal -->|Yes| UseLocal[Use Local Value<br/>Highest Precedence]
+    CheckLocal -->|No| CheckPhase{Variable in<br/>Phase Scope?}
+
+    CheckPhase -->|Yes| UsePhase[Use Phase Value<br/>Middle Precedence]
+    CheckPhase -->|No| CheckGlobal{Variable in<br/>Global Scope?}
+
+    CheckGlobal -->|Yes| UseGlobal[Use Global Value<br/>Lowest Precedence]
+    CheckGlobal -->|No| Error[Error: Variable Not Found]
+
+    UseLocal --> Return[Return Value]
+    UsePhase --> Return
+    UseGlobal --> Return
+
+    style CheckLocal fill:#e1f5ff
+    style CheckPhase fill:#fff3e0
+    style CheckGlobal fill:#f3e5f5
+    style Error fill:#ffebee
+```
+
+**Figure**: Variable resolution flow showing scope precedence from local (highest) to global (lowest).
 
 **Scope Hierarchy (highest to lowest precedence):**
 
