@@ -153,10 +153,6 @@
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>
-         <loc>https://entropicdrift.com/configuration/best-practices/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
          <loc>https://entropicdrift.com/configuration/complete-configuration-examples/</loc>
          <lastmod>2025-11-12</lastmod>
     </url>
@@ -181,15 +177,7 @@
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>
-         <loc>https://entropicdrift.com/configuration/migration-guide-toml-to-yaml/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
          <loc>https://entropicdrift.com/configuration/project-configuration-structure/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
-         <loc>https://entropicdrift.com/configuration/related-documentation/</loc>
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>
@@ -206,10 +194,6 @@
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
-         <loc>https://entropicdrift.com/environment/best-practices/</loc>
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>
@@ -309,10 +293,6 @@
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>
-         <loc>https://entropicdrift.com/retry-configuration/best-practices/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
          <loc>https://entropicdrift.com/retry-configuration/complete-examples/</loc>
          <lastmod>2025-11-12</lastmod>
     </url>
@@ -353,10 +333,6 @@
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>
-         <loc>https://entropicdrift.com/troubleshooting/best-practices-for-debugging/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
          <loc>https://entropicdrift.com/troubleshooting/common-error-messages/</loc>
          <lastmod>2025-11-12</lastmod>
     </url>
@@ -374,10 +350,6 @@
     </url>
     <url>
          <loc>https://entropicdrift.com/variables/custom-variable-capture/</loc>
-         <lastmod>2025-11-12</lastmod>
-    </url>
-    <url>
-         <loc>https://entropicdrift.com/variables/see-also/</loc>
          <lastmod>2025-11-12</lastmod>
     </url>
     <url>

@@ -1895,8 +1895,6 @@
       
         
       
-        
-      
     
     
     
@@ -2040,34 +2038,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../variables/see-also/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    See Also
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -2087,8 +2057,6 @@
       
         
           
-        
-      
         
       
         
@@ -2339,34 +2307,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../environment/best-practices/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Best Practices
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../environment/common-patterns/" class="md-nav__link">
         
   
@@ -2407,12 +2347,6 @@
       
         
           
-        
-      
-        
-      
-        
-      
         
       
         
@@ -2753,34 +2687,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration/best-practices/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Best Practices
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../configuration/troubleshooting/" class="md-nav__link">
         
   
@@ -2789,62 +2695,6 @@
     
   
     Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../configuration/migration-guide-toml-to-yaml/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Migration Guide: TOML to YAML
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../configuration/related-documentation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Related Documentation
   
 
     
@@ -3702,8 +3552,6 @@
       
         
       
-        
-      
     
     
     
@@ -4027,34 +3875,6 @@
     
   
     Retry Metrics and Observability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../retry-configuration/best-practices/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Best Practices
   
 
     
@@ -4679,8 +4499,6 @@
       
         
       
-        
-      
     
     
     
@@ -4808,34 +4626,6 @@
     
   
     Common Error Messages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../troubleshooting/best-practices-for-debugging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Best Practices for Debugging
   
 
     
@@ -5460,7 +5250,7 @@
 - <code>agent_id</code>: ID of the agent that failed
 - <code>step_failed</code>: Command string that failed (e.g., "shell: cargo test")
 - <code>duration_ms</code>: How long the attempt ran before failing (u64)
-- <code>json_log_location</code>: Path to Claude JSON log for debugging (Optional, see <a href="../../troubleshooting/best-practices-for-debugging/">Best Practices for Debugging</a>)</p>
+- <code>json_log_location</code>: Path to Claude JSON log for debugging (Optional)</p>
 <h4 id="error-types">Error Types<a class="headerlink" href="#error-types" title="Permanent link">&para;</a></h4>
 <p>The <code>error_type</code> field uses the <code>ErrorType</code> enum (src/cook/execution/dlq.rs:62-71):</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Execution Errors</label><label for="__tabbed_1_2">Git Errors</label><label for="__tabbed_1_3">System Errors</label></div>
@@ -5649,7 +5439,7 @@
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Pretty-print with jq</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>cat<span class="w"> </span>/path/to/session.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.&#39;</span>
 </code></pre></div>
-<p>For more details on Claude JSON logs, see <a href="../../troubleshooting/best-practices-for-debugging/">Best Practices for Debugging</a> and <a href="../../retry-configuration/retry-metrics-and-observability/">Retry Metrics and Observability</a>.</p>
+<p>For more details on Claude JSON logs, see <a href="../../retry-configuration/retry-metrics-and-observability/">Retry Metrics and Observability</a>.</p>
 <h3 id="common-debugging-workflow">Common Debugging Workflow<a class="headerlink" href="#common-debugging-workflow" title="Permanent link">&para;</a></h3>
 <div class="admonition example">
 <p class="admonition-title">Step-by-Step Debugging</p>
@@ -5789,7 +5579,6 @@
 <li><a href="../event-tracking/">Event Tracking</a>: DLQ operations emit trackable events</li>
 <li><a href="../../workflow-basics/error-handling/">Error Handling</a>: Broader error handling strategies</li>
 <li><a href="../../mapreduce-worktree-architecture/">Worktree Architecture</a>: Agent isolation and artifact preservation</li>
-<li><a href="../../troubleshooting/best-practices-for-debugging/">Best Practices for Debugging</a>: Using JSON logs and DLQ for debugging failed items</li>
 <li><a href="../../retry-configuration/retry-metrics-and-observability/">Retry Metrics and Observability</a>: Monitoring retry behavior and failures</li>
 </ul>
 
