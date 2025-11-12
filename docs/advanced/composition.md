@@ -38,6 +38,25 @@ imports:
     alias: workflow_name  # Optional alias for referencing
 ```
 
+### Import Caching
+
+Imported workflows are cached in memory to avoid reloading the same file multiple times during composition. This improves performance when multiple workflows reference the same imports.
+
+```yaml
+# Source: src/cook/workflow/composition/composer.rs:661-698
+# Both workflows below share the same cached import
+name: workflow-1
+imports:
+  - path: "common/steps.yml"
+    alias: common
+
+---
+name: workflow-2
+imports:
+  - path: "common/steps.yml"  # Loaded from cache
+    alias: common
+```
+
 ## Inheritance
 
 Extend base workflows to customize behavior:
@@ -69,6 +88,24 @@ env:
 - Environment variables are merged (child overrides parent)
 - Steps from parent executed first
 - Child can override specific fields
+
+### Base Workflow Resolution
+
+When using `extends`, base workflows are searched in priority order:
+
+```yaml
+# Source: src/cook/workflow/composition/composer.rs:625-642
+# Search order:
+# 1. bases/{name}.yml
+# 2. templates/{name}.yml
+# 3. workflows/{name}.yml
+# 4. {name}.yml (current directory)
+
+name: my-workflow
+extends: "common-steps"  # Searches in order above
+```
+
+This allows organizing base workflows in dedicated directories while maintaining backward compatibility with workflows in the project root.
 
 ## Templates
 
@@ -177,14 +214,32 @@ parameters:
 
 ### Using Parameters
 
+Parameters can be used in commands, environment variables, and merge workflows:
+
 ```yaml
+# Source: src/cook/workflow/composition/composer.rs:438-453
 parameters:
   environment:
     type: string
     required: true
+  api_key:
+    type: string
+    required: true
 
+# In commands
 - shell: "deploy.sh --env ${environment}"
 - shell: "kubectl apply -f k8s/${environment}/"
+
+# In environment variables
+env:
+  DEPLOY_ENV: "${environment}"
+  API_KEY: "${api_key}"
+
+# In merge workflows
+merge:
+  commands:
+    - shell: "git merge origin/${environment}-branch"
+    - claude: "/validate --env ${environment}"
 ```
 
 ## Sub-Workflows
