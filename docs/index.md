@@ -67,8 +67,8 @@ Create a simple workflow in `workflow.yml`:
     claude: "/fix-failing-tests"          # (3)!
 - shell: "cargo clippy"                   # (4)!
 
-1. Build the project (commits on success)
-2. Run tests (commits on success)
+1. Build the project
+2. Run tests
 3. If tests fail, Claude automatically attempts fixes
 4. Run linting checks
 ```
