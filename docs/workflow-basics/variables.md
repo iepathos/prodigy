@@ -17,12 +17,29 @@ Variables in Prodigy allow you to:
 
 Available in all execution modes:
 
+**Work Item Variables:**
+
 - `${item}` - Current work item in foreach/MapReduce
 - `${item_index}` - Zero-based index of current item
 - `${item_total}` - Total number of items being processed
+
+**Workflow Variables:**
+
 - `${workflow.name}` - Workflow identifier
 - `${workflow.id}` - Unique workflow execution ID
 - `${workflow.iteration}` - Current iteration number
+
+**Step Variables:**
+
+Source: `src/cook/workflow/variables.rs:10-42`
+
+- `${step.name}` - Name of the currently executing step
+- `${step.index}` - Zero-based index of the current step in the workflow
+
+**Previous Command Results:**
+
+- `${last.output}` - Output from the previous command
+- `${last.exit_code}` - Exit code from the previous command
 
 ### MapReduce Variables
 
@@ -34,6 +51,11 @@ Available in MapReduce workflows:
 - `${map.total}` - Total item count
 - `${map.key}` - Optional key for grouping or identifying map outputs (rarely used)
 - `${worker.id}` - Identifier for parallel worker processing the current item
+
+!!! note "String Representation"
+    MapReduce aggregate variables (`${map.successful}`, `${map.failed}`, `${map.total}`) contain string representations of counts, not numeric values. If you need to perform arithmetic operations, convert them to numbers first.
+
+    Source: `src/cook/execution/mapreduce/utils.rs:114-116`
 
 ### Merge Variables
 
@@ -99,15 +121,29 @@ Additional metadata available for captured outputs:
 ### Basic Interpolation
 
 ```yaml
-# Both syntaxes work
+# Both syntaxes work for simple variables
 - shell: "echo $VARIABLE"
 - shell: "echo ${VARIABLE}"
 ```
 
+!!! warning "Unbraced $VAR Syntax Limitation"
+    The unbraced `$VAR` syntax only works for simple identifiers (A-Z, a-z, 0-9, _). For nested field access like `map.total`, you **MUST** use braced syntax `${map.total}`. The syntax `$map.total` will fail because the unbraced parser cannot handle dots.
+
+    ```yaml
+    # ❌ WRONG - unbraced syntax with dots fails
+    - shell: "echo $map.total"
+
+    # ✅ CORRECT - braced syntax required for nested access
+    - shell: "echo ${map.total}"
+    ```
+
+    Source: `src/cook/execution/interpolation.rs:33-36`
+
 ### Nested Field Access
 
 ```yaml
-# Access nested JSON fields
+# Source: src/cook/execution/interpolation.rs:420-522
+# Access nested JSON fields - always use braced syntax
 - shell: "echo ${item.metadata.priority}"
 - claude: "/process ${user.config.api_url}"
 ```
@@ -115,33 +151,180 @@ Additional metadata available for captured outputs:
 ### Default Values
 
 ```yaml
-# Provide default if variable missing
-- shell: "echo ${PORT|default:8080}"
-- claude: "/deploy ${environment|default:dev}"
+# Source: src/cook/execution/interpolation.rs:274-288
+# Provide default if variable missing (using :- syntax)
+- shell: "echo ${PORT:-8080}"
+- claude: "/deploy ${environment:-dev}"
 ```
 
 ### Array Access
 
 ```yaml
-# Source: src/cook/execution/interpolation.rs:781-789
-# Access array elements using bracket notation
-- shell: "echo ${items[0]}"      # First element
+# Source: src/cook/execution/interpolation.rs:420-522
+# Access array elements - two syntaxes supported
+- shell: "echo ${items[0]}"      # Bracket notation (preferred)
+- shell: "echo ${items.0}"       # Dot notation with number (also supported)
 - shell: "echo ${items[1]}"      # Second element
-- shell: "echo ${items[-1]}"     # Last element (if supported)
+- shell: "echo ${items.1}"       # Same as items[1]
 ```
 
 !!! note "Array Indexing Syntax"
-    Prodigy uses bracket notation `[index]` for array access. Dot notation (e.g., `items.0`) is not supported for array indexing.
+    Prodigy supports two notations for array access:
+
+    - **Bracket syntax** `${items[0]}` - Preferred for clarity and consistency
+    - **Dot notation** `${items.0}` - Also supported, resolves to the same element
+
+    **Important:** Negative indices like `${items[-1]}` are **NOT** supported. Use explicit positive indices or compute the index in a shell command.
+
+## Advanced Features
+
+### Computed Variables
+
+Source: `src/cook/execution/variables.rs:1-1378`
+
+Prodigy supports computed variables that dynamically generate values at runtime:
+
+**Environment Variables:**
+```yaml
+# Access environment variables
+- shell: "echo Database: ${env.DATABASE_URL}"
+- shell: "echo User: ${env.USER}"
+```
+
+**File Content:**
+```yaml
+# Read file content into variable
+- shell: "echo Version: ${file:/path/to/VERSION}"
+- claude: "/analyze ${file:config.json}"
+```
+
+**Command Output:**
+```yaml
+# Execute command and capture output
+- shell: "echo Commit: ${cmd:git rev-parse HEAD}"
+- shell: "echo Branch: ${cmd:git branch --show-current}"
+```
+
+**JSON Extraction:**
+```yaml
+# Extract value from JSON file using path
+- shell: "echo Name: ${json:name:package.json}"
+- shell: "echo Version: ${json:version:package.json}"
+```
+
+**Date Formatting:**
+```yaml
+# Generate formatted date strings
+- shell: "echo Today: ${date:%Y-%m-%d}"
+- shell: "echo Timestamp: ${date:%Y%m%d_%H%M%S}"
+```
+
+**UUID Generation:**
+```yaml
+# Generate unique identifiers
+- shell: "echo Request ID: ${uuid}"
+- shell: "echo Session: ${uuid}"
+```
+
+!!! tip "Performance: Computed Variable Caching"
+    Expensive operations (`file:`, `cmd:`) are cached with an LRU cache (100 entry limit) to improve performance. However, `${uuid}` always generates a new value for each use.
+
+    Source: `src/cook/execution/variables.rs:415-421, 662-669`
+
+### Aggregate Functions (Enhanced Variable System)
+
+Source: `src/cook/execution/variables.rs:44-97`
+
+For advanced workflows, Prodigy provides aggregate functions for data processing:
+
+**Statistical Functions:**
+
+- `Count(filter?)` - Count items (with optional filter)
+- `Sum` - Sum numeric values
+- `Average` - Calculate mean
+- `Min` - Find minimum value
+- `Max` - Find maximum value
+- `Median` - Calculate median
+- `StdDev` - Standard deviation
+- `Variance` - Calculate variance
+
+**Collection Functions:**
+
+- `Collect` - Gather values into array
+- `Unique` - Get unique values
+- `Concat` - Concatenate strings
+- `Merge` - Merge objects
+- `Flatten` - Flatten nested arrays
+- `Sort(ascending|descending)` - Sort values
+- `GroupBy` - Group by key
+
+!!! note "Enhanced Variable System"
+    Aggregate functions are part of the enhanced variable system designed for advanced workflows. Consult the source code or examples for detailed usage patterns.
+
+### Variable Scoping
+
+Source: `src/cook/execution/variables.rs:382-407`
+
+Prodigy uses a three-tier variable scoping system with precedence rules:
+
+**Scope Hierarchy (highest to lowest precedence):**
+
+1. **Local Scope** - Step-level variables (highest precedence)
+   - Set within a specific command or step
+   - Only visible within that step
+   - Overrides phase and global variables
+
+2. **Phase Scope** - Phase-level variables (middle precedence)
+   - Available within a workflow phase (setup, map, reduce)
+   - Shared across steps in the same phase
+   - Overrides global variables
+
+3. **Global Scope** - Workflow-level variables (lowest precedence)
+   - Available throughout the entire workflow
+   - Set at workflow start or in environment
+   - Can be overridden by phase or local variables
+
+**Example:**
+
+```yaml
+# Global scope
+env:
+  ENVIRONMENT: "production"
+
+setup:
+  # Phase scope - overrides global
+  - shell: "export ENVIRONMENT=staging"
+    capture_output: phase_env
+
+map:
+  agent_template:
+    # Local scope - overrides phase and global
+    - shell: "ENVIRONMENT=dev npm test"
+```
 
 ## Variable Aliases
 
 Prodigy supports aliases for backward compatibility:
 
-- `$item` → `${item}` (both syntaxes work)
+**Syntax Aliases:**
+
+- `$item` → `${item}` (both syntaxes work for simple identifiers)
 - `$workflow_name` → `${workflow.name}` (legacy snake_case maps to dot notation)
 
-!!! tip "Use Dot Notation"
-    New workflows should prefer dot notation (`${workflow.name}`) over legacy underscore variables (`$workflow_name`) for consistency and clarity.
+**Backward Compatibility Aliases:**
+
+Source: `src/cook/workflow/variables.rs:10-42`
+
+- `$ARG` or `$ARGUMENT` → `${item.value}` (legacy item value access)
+- `$FILE` or `$FILE_PATH` → `${item.path}` (legacy item path access)
+
+These aliases exist for backward compatibility with older workflow formats.
+
+!!! tip "Use Modern Syntax"
+    New workflows should prefer:
+    - Dot notation (`${workflow.name}`) over legacy underscore variables (`$workflow_name`)
+    - Braced syntax (`${var}`) over unbraced (`$var`) for consistency
+    - Direct item access (`${item.value}`) over aliases (`$ARG`)
 
 ## Examples
 
@@ -206,9 +389,10 @@ Access metadata from captured outputs:
 Provide fallbacks when variables may not be set:
 
 ```yaml
-- shell: "echo API URL: ${API_URL|default:http://localhost:3000}"
-- shell: "echo Environment: ${ENVIRONMENT|default:development}"
-- shell: "echo Timeout: ${TIMEOUT|default:300} seconds"
+# Source: src/cook/execution/interpolation.rs:274-288
+- shell: "echo API URL: ${API_URL:-http://localhost:3000}"
+- shell: "echo Environment: ${ENVIRONMENT:-development}"
+- shell: "echo Timeout: ${TIMEOUT:-300} seconds"
 ```
 
 ## See Also
