@@ -11,10 +11,12 @@ Prodigy supports two workflow formats, allowing you to start simple and add comp
 The simplest workflow is just an array of commands:
 
 ```yaml
-# Source: examples/standard-workflow.yml
-- shell: "echo 'Starting code analysis...'"
-- shell: "cargo check --quiet"
-- shell: "echo 'Workflow complete'"
+# Source: examples/standard-workflow.yml:3-13
+- shell: echo "Starting code analysis..."
+- shell: find . -name "*.rs" -type f | wc -l | xargs -I {} echo "Found {} Rust files"
+- shell: echo "Running cargo check..."
+- shell: cargo check --quiet 2>&1 || echo "Check completed"
+- shell: echo "Workflow complete"
 ```
 
 This format is ideal for:
@@ -70,7 +72,10 @@ This format enables:
 - Variables from earlier commands are available to later commands
 - Each command's output can be captured and used downstream
 
-**Source**: Sequential execution logic in `src/executor/orchestrator.rs`
+**Source**: Sequential execution logic in `src/cook/workflow/executor/orchestration.rs`
+
+!!! note "MapReduce Workflows"
+    MapReduce workflows (`mode: mapreduce`) use a different execution model with parallel processing. Instead of sequential command execution, they process work items in parallel across multiple agents. See the [MapReduce Guide](../mapreduce/overview.md) for details.
 
 ## Top-Level Fields
 
@@ -79,6 +84,7 @@ The full workflow format supports these top-level fields:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `commands` | Yes | Array of commands to execute |
+| `mode` | No | Workflow execution mode (`standard` or `mapreduce`) - defaults to `standard` |
 | `env` | No | Global environment variables for all commands |
 | `secrets` | No | Secret environment variables (masked in logs) |
 | `env_files` | No | Environment files to load (`.env` format) |
@@ -95,10 +101,10 @@ See [Available Fields](available-fields.md) for detailed documentation of each f
 ### Example 1: Simple Test Workflow
 
 ```yaml
-# Source: examples/standard-workflow.yml:1-14
-- shell: "cargo check --quiet"
-- shell: "cargo test"
-- shell: "echo 'Tests passed!'"
+# Source: examples/standard-workflow.yml:3-5
+- shell: echo "Starting code analysis..."
+- shell: cargo check --quiet 2>&1 || echo "Check completed"
+- shell: echo "Workflow complete"
 ```
 
 ### Example 2: Workflow with Environment Variables
@@ -124,7 +130,7 @@ Commands can capture output for use in later commands:
 ```yaml
 # Source: examples/capture-conditional-flow.yml:26-28
 commands:
-  - shell: "grep '^version' Cargo.toml | cut -d'\"' -f2"
+  - shell: "grep '^version' Cargo.toml | cut -d'\"' -f2 || echo '0.0.0'"
     capture: "current_version"
 
   - shell: "echo 'Building version ${current_version}'"
