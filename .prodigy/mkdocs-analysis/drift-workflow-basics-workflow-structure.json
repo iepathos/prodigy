@@ -5,81 +5,113 @@
   "page_id": "workflow-structure",
   "page_title": "Workflow Structure",
   "page_file": "docs/workflow-basics/workflow-structure.md",
-  "feature_mappings": [],
   "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Page does not exist - critical documentation gap for fundamental workflow concepts",
+  "severity": "medium",
+  "quality_assessment": "Page accurately documents workflow structure with good examples, but has broken example references and one incorrect source reference",
   "issues": [
     {
-      "type": "missing_content",
-      "severity": "critical",
-      "section": "Entire Page",
-      "description": "The workflow-structure.md file does not exist. This is a critical gap as it should explain basic workflow structure and syntax.",
-      "feature_reference": "workflow_basics",
-      "fix_suggestion": "Create workflow-structure.md covering: 1) Basic YAML structure, 2) Simple vs full format, 3) Top-level fields (commands, env, merge), 4) How commands are executed sequentially, 5) Basic example with explanation",
-      "source_reference": "src/config/workflow.rs, src/config/command.rs"
-    },
-    {
-      "type": "missing_content",
+      "type": "broken_example_reference",
       "severity": "high",
-      "section": "Basic Structure",
-      "description": "No documentation of the two workflow formats: simple array format vs full object format with env/merge configuration",
-      "feature_reference": "workflow_basics.sequential_execution",
-      "fix_suggestion": "Document both formats with examples: 1) Simple format (array of commands), 2) Full format (object with commands, env, merge fields)",
-      "source_reference": "docs/workflow-basics/index.md:16-24"
+      "section": "Simple Array Format",
+      "description": "Documentation references non-existent example file 'examples/standard-workflow.yml'",
+      "current_content": "# Source: examples/standard-workflow.yml",
+      "fix_suggestion": "Either create the examples directory with actual working examples, or remove the source comments and label examples as inline demonstrations",
+      "source_reference": "docs/workflow-basics/workflow-structure.md:14"
     },
     {
-      "type": "missing_content",
+      "type": "broken_example_reference",
       "severity": "high",
-      "section": "Command Execution",
-      "description": "No explanation of how commands execute sequentially in standard workflows",
-      "feature_reference": "workflow_basics.sequential_execution",
-      "fix_suggestion": "Explain sequential execution model: commands run one after another, each must complete before next starts, variables from earlier commands available to later ones",
-      "source_reference": "src/executor/orchestrator.rs"
+      "section": "Example 1: Simple Test Workflow",
+      "description": "Documentation references non-existent example file 'examples/standard-workflow.yml:1-14'",
+      "current_content": "# Source: examples/standard-workflow.yml:1-14",
+      "fix_suggestion": "Either create the examples directory with actual working examples, or remove the source comments and label examples as inline demonstrations",
+      "source_reference": "docs/workflow-basics/workflow-structure.md:98"
+    },
+    {
+      "type": "broken_example_reference",
+      "severity": "high",
+      "section": "Example 2: Workflow with Environment Variables",
+      "description": "Documentation references non-existent example file 'examples/capture-conditional-flow.yml:4-5'",
+      "current_content": "# Source: examples/capture-conditional-flow.yml:4-5",
+      "fix_suggestion": "Either create the examples directory with actual working examples, or remove the source comments and label examples as inline demonstrations",
+      "source_reference": "docs/workflow-basics/workflow-structure.md:107"
+    },
+    {
+      "type": "broken_example_reference",
+      "severity": "high",
+      "section": "Example 3: Workflow with Variable Capture",
+      "description": "Documentation references non-existent example file 'examples/capture-conditional-flow.yml:26-28'",
+      "current_content": "# Source: examples/capture-conditional-flow.yml:26-28",
+      "fix_suggestion": "Either create the examples directory with actual working examples, or remove the source comments and label examples as inline demonstrations",
+      "source_reference": "docs/workflow-basics/workflow-structure.md:125"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "medium",
+      "section": "Sequential Execution Model",
+      "description": "Documentation references 'src/executor/orchestrator.rs' which doesn't exist - the actual file is 'src/cook/workflow/executor/orchestration.rs'",
+      "current_content": "**Source**: Sequential execution logic in `src/executor/orchestrator.rs`",
+      "should_be": "**Source**: Sequential execution logic in `src/cook/workflow/executor/orchestration.rs`",
+      "fix_suggestion": "Update the source reference to point to the correct file path",
+      "source_reference": "docs/workflow-basics/workflow-structure.md:73"
     },
     {
       "type": "missing_content",
-      "severity": "medium",
-      "section": "Available Fields",
-      "description": "No overview of top-level workflow fields (commands, env, env_files, secrets, profiles, merge)",
-      "feature_reference": "workflow_basics.environment_configuration",
-      "fix_suggestion": "Create a table of top-level fields with brief descriptions and links to detailed pages: commands (required), env (optional), env_files (optional), secrets (optional), profiles (optional), merge (optional)",
-      "source_reference": "docs/workflow-basics/available-fields.md"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Cross-References",
-      "description": "Missing links to related pages in workflow-basics section",
-      "feature_reference": "workflow_basics",
-      "fix_suggestion": "Add 'See Also' section linking to: command-types.md, command-level-options.md, environment-configuration.md, full-workflow-structure.md",
-      "source_reference": "docs/workflow-basics/index.md:29-37"
+      "severity": "low",
+      "section": "Top-Level Fields",
+      "description": "Table shows 'mode' field is not documented, but MapReduce workflows require 'mode: mapreduce' to distinguish workflow types",
+      "fix_suggestion": "Add 'mode' field to the table with description 'Workflow execution mode (standard or mapreduce)' and mark as optional for backward compatibility",
+      "source_reference": "docs/workflow-basics/workflow-structure.md:79-87"
     }
   ],
   "positive_aspects": [
-    "Related documentation exists in other files (index.md, full-workflow-structure.md)",
-    "Clear section organization in workflow-basics/",
-    "Good separation of topics across multiple focused pages"
+    "Clear explanation of two workflow formats (simple array vs. full object)",
+    "Good use of visual diagrams to explain execution flow",
+    "Helpful comparison table for when to use each format",
+    "Source references for WorkflowConfig struct are accurate (src/config/workflow.rs:12-39)",
+    "All internal cross-reference links are valid and correctly formatted",
+    "Sequential execution model is clearly explained with examples",
+    "Format detection explanation helps users understand automatic behavior",
+    "Good progression from simple to complex examples"
   ],
   "improvement_suggestions": [
-    "Create workflow-structure.md as a focused introduction to basic structure",
-    "Position it as the first page after index.md in the section navigation",
-    "Keep it simple and beginner-friendly, linking to other pages for details",
-    "Include a progression from simplest to more complex examples",
-    "Add visual diagram showing workflow execution flow"
+    "Create an actual 'examples/' directory with working YAML files that users can reference and copy",
+    "Add a note about MapReduce workflows having a different execution model (parallel vs sequential)",
+    "Consider adding a troubleshooting section for common YAML syntax errors",
+    "Add information about workflow validation and error messages when format detection fails",
+    "Include a note about when worktrees are created (only when needed for isolation)"
   ],
   "cross_references": [
-    "index",
     "command-types",
+    "command-level-options",
+    "environment-configuration",
     "full-workflow-structure",
-    "available-fields",
-    "environment-configuration"
+    "complete-example"
   ],
+  "link_validation": {
+    "total_links_checked": 5,
+    "broken_links": 0,
+    "valid_links": [
+      "command-types.md",
+      "command-level-options.md",
+      "environment-configuration.md",
+      "full-workflow-structure.md",
+      "complete-example.md"
+    ]
+  },
   "metadata": {
-    "analyzed_at": "2025-11-11T21:23:18Z",
+    "analyzed_at": "2025-11-11T02:57:30Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
-    "topics_covered": ["Basic structure", "Command execution", "Available fields"],
+    "topics_covered": [
+      "Basic structure",
+      "Command execution",
+      "Available fields"
+    ],
     "validation_focus": "Check basic workflow syntax and structure documentation",
-    "analysis_notes": "Page does not exist - this is a documentation gap. Content is partially covered in index.md and full-workflow-structure.md but should have dedicated page for clarity and navigation."
+    "features_referenced": [
+      "workflow_basics.sequential_execution",
+      "workflow_basics.command_types",
+      "workflow_basics.environment_configuration"
+    ]
   }
 }
