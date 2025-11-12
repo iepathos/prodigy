@@ -1,0 +1,89 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "error-handling",
+  "page_title": "Error Handling",
+  "page_file": "docs/workflow-basics/error-handling.md",
+  "feature_mappings": [
+    "error_handling.workflow_level",
+    "error_handling.command_level",
+    "error_handling.advanced_features.circuit_breaker",
+    "error_handling.advanced_features.retry_configuration"
+  ],
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is comprehensive and accurate. Minor inconsistencies in backoff strategy syntax examples need clarification.",
+  "issues": [
+    {
+      "type": "inconsistent_examples",
+      "severity": "low",
+      "section": "Retry Configuration with Backoff",
+      "description": "Backoff strategy examples show conflicting syntax patterns for the same configuration type",
+      "current_content": "Examples show both inline object syntax (backoff: { type: exponential, initial: 1s, multiplier: 2 }) and nested variant syntax (backoff: exponential: { initial: 1s, multiplier: 2.0 })",
+      "should_be": "Consistent syntax pattern throughout. The actual implementation uses enum variants with named fields (Fixed { delay }, Linear { initial, increment }, Exponential { initial, multiplier }, Fibonacci { initial })",
+      "fix_suggestion": "Standardize all backoff examples to use the correct variant syntax: 'backoff: { type: exponential, initial: 1s, multiplier: 2 }' or show that both syntaxes are supported if that's the case",
+      "source_reference": "src/cook/workflow/error_policy.rs:108-120",
+      "evidence": "BackoffStrategy enum defines: Fixed { delay }, Linear { initial, increment }, Exponential { initial, multiplier }, Fibonacci { initial }"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Retry Configuration with Backoff",
+      "description": "The 'jitter' field location and structure is unclear in examples",
+      "current_content": "Example shows jitter: true at retry_config level, but structure and exact placement could be clearer",
+      "should_be": "Clarify whether jitter is a field on RetryConfig struct or part of BackoffStrategy variants",
+      "fix_suggestion": "Verify jitter field location in source code and update example to show exact YAML structure",
+      "source_reference": "src/cook/workflow/error_policy.rs:92-99"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Retry Configuration with Backoff",
+      "description": "RetryConfig max_delay field not documented but exists in src/cook/retry_v2.rs",
+      "current_content": "Examples show max_delay for exponential backoff but don't explain it's a top-level RetryConfig field",
+      "should_be": "Document max_delay as an optional field on RetryConfig to cap retry delays",
+      "fix_suggestion": "Add explanation: 'max_delay - Optional maximum delay cap for backoff strategies (humantime format)'",
+      "source_reference": "src/cook/retry_v2.rs:29-31"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent coverage of both workflow-level and command-level error handling",
+    "Clear distinction between MapReduce error policies and command-level handlers",
+    "Comprehensive circuit breaker documentation with state transition diagram",
+    "Well-structured comparison table showing when to use each error handling level",
+    "Good variety of practical examples showing common patterns",
+    "Accurate documentation of all major error_policy fields",
+    "Circuit breaker states and transitions are clearly explained",
+    "Error metrics and pattern detection features are well documented",
+    "DLQ integration is thoroughly covered",
+    "Source code references provide traceability"
+  ],
+  "improvement_suggestions": [
+    "Clarify the exact YAML syntax for BackoffStrategy variants (inline vs nested)",
+    "Add example showing jitter configuration with proper structure",
+    "Document the relationship between retry_v2.rs RetryConfig and error_policy.rs RetryConfig",
+    "Consider adding a troubleshooting section for common retry/circuit breaker issues",
+    "Show example of custom error handler (mentioned as not yet implemented)",
+    "Add cross-reference to observability features for monitoring circuit breaker state"
+  ],
+  "cross_references": [
+    "conditional-execution",
+    "dead-letter-queue-dlq",
+    "mapreduce/index",
+    "command-types"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Workflow-level policies",
+      "Command-level handlers",
+      "Circuit breakers",
+      "Retry strategies"
+    ],
+    "validation_focus": "Check error handling policies, retry configuration, and circuit breakers are documented",
+    "internal_links_validated": true,
+    "broken_links": []
+  }
+}

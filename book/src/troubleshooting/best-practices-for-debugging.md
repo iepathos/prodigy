@@ -79,7 +79,7 @@ Streaming is enabled by default for auditability. Only disable in CI/CD environm
 3. **Enable verbose mode** (`-v`) to see variable interpolation in real-time
 4. **Check variable scope**: Distinguish step-level vs workflow-level variables
 
-**See also**: [Common Issues](index.md#variable-interpolation-issues) for variable troubleshooting patterns.
+**See also**: [Common Issues](index.md#variables-not-interpolating) for variable troubleshooting patterns.
 
 ### Log and State Inspection
 

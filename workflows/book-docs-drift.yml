@@ -92,13 +92,3 @@ error_policy:
   continue_on_failure: true
   max_failures: 2
   error_collection: aggregate
-
-# Custom merge workflow - cleanup and validation before merging
-merge:
-  commands:
-    # Step 3: Fetch latest changes and merge master into worktree
-    - shell: "git fetch origin"
-    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
-
-    # Step 4: Merge worktree back to original branch
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"

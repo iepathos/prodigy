@@ -1,0 +1,96 @@
+{
+  "item_type": "section-page",
+  "section_id": "reference",
+  "section_title": "Reference",
+  "page_id": "troubleshooting",
+  "page_title": "Troubleshooting",
+  "page_file": "docs/reference/troubleshooting.md",
+  "feature_mappings": null,
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page does not exist. Should be created as a comprehensive troubleshooting reference that consolidates common issues from features inventory and existing FAQ.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Entire Page",
+      "description": "Reference troubleshooting page does not exist",
+      "feature_reference": "meta_content.troubleshooting.common_issues",
+      "fix_suggestion": "Create docs/reference/troubleshooting.md with comprehensive troubleshooting guide covering common issues from features inventory",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:607-641"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Common Issues",
+      "description": "Need consolidated list of common user issues across all features",
+      "feature_reference": "meta_content.troubleshooting.common_issues",
+      "fix_suggestion": "Add sections for: MapReduce failures, session/resume issues, variable interpolation, worktree cleanup, merge conflicts, high failure rates",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:608-633"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Debugging Techniques",
+      "description": "Need section on debugging techniques and tools",
+      "feature_reference": "meta_content.troubleshooting.debugging_techniques",
+      "fix_suggestion": "Add section covering: verbosity flags, event logs, Claude JSON logs, checkpoint inspection, DLQ analysis",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:634-640"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Error Messages",
+      "description": "Need guide to interpreting common error messages",
+      "feature_reference": "error_handling",
+      "fix_suggestion": "Add section explaining common error messages: 'session not found', 'command not found: claude', 'no items to process', 'cleanup failed', 'resume already in progress'",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:249-318"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Performance Issues",
+      "description": "Need troubleshooting for performance problems",
+      "feature_reference": "meta_content.best_practices.performance",
+      "fix_suggestion": "Add section covering: slow MapReduce execution, high resource usage, timeout errors, parallelism tuning",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:572-578"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "Should link to specialized troubleshooting pages in other sections",
+      "fix_suggestion": "Add cross-references to: troubleshooting/faq.md, troubleshooting/best-practices-for-debugging.md, and section-specific troubleshooting pages",
+      "source_reference": "docs/troubleshooting/"
+    }
+  ],
+  "positive_aspects": [
+    "Existing FAQ page covers many common questions well",
+    "Good cross-references to detailed specs in CLAUDE.md",
+    "Clear command examples in FAQ"
+  ],
+  "improvement_suggestions": [
+    "Create reference troubleshooting page as central hub for all troubleshooting resources",
+    "Organize by symptom/error type rather than feature area for easier navigation",
+    "Include quick diagnostic flowcharts or decision trees",
+    "Add 'Quick Fixes' section for most common issues",
+    "Link to existing FAQ and specialized troubleshooting pages",
+    "Include section on when to check logs vs DLQ vs events",
+    "Add troubleshooting for concurrent resume protection (Spec 140)",
+    "Cover JSON log location tracking (Spec 121) for MapReduce debugging",
+    "Document cleanup failure handling (Spec 136) troubleshooting steps"
+  ],
+  "cross_references": [
+    "troubleshooting/faq.md",
+    "troubleshooting/best-practices-for-debugging.md",
+    "mapreduce/checkpoint-and-resume.md",
+    "environment/index.md",
+    "configuration/observability.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:40:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["Common issues", "Debug tips", "FAQ"],
+    "validation_focus": "Check troubleshooting covers common user issues"
+  }
+}

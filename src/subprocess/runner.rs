@@ -253,9 +253,7 @@ impl TokioProcessRunner {
         let critical_vars = ["PATH"];
 
         // Other important but not critical variables
-        let optional_vars = [
-            "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TERM",
-        ];
+        let optional_vars = ["HOME", "USER", "SHELL", "TMPDIR", "TERM"];
 
         let mut preserved = Vec::new();
         let mut optional_failed = Vec::new();
@@ -315,8 +313,11 @@ impl TokioProcessRunner {
             }
         }
 
+        // Handle locale variables with intelligent fallbacks
+        Self::preserve_locale_env(cmd, &mut preserved);
+
         if !optional_failed.is_empty() {
-            tracing::warn!(
+            tracing::debug!(
                 "Optional env vars not available for '{}': {}",
                 program,
                 optional_failed.join(", ")
@@ -331,6 +332,39 @@ impl TokioProcessRunner {
         );
 
         Ok(())
+    }
+
+    /// Preserve locale environment variables with intelligent fallbacks
+    fn preserve_locale_env(cmd: &mut tokio::process::Command, preserved: &mut Vec<String>) {
+        // Try to get locale in order of preference: LC_ALL > LC_CTYPE > LANG > default
+        let locale = std::env::var("LC_ALL")
+            .or_else(|_| std::env::var("LC_CTYPE"))
+            .or_else(|_| std::env::var("LANG"))
+            .unwrap_or_else(|_| "en_US.UTF-8".to_string());
+
+        // Set LANG if not already set (provides baseline locale)
+        if std::env::var("LANG").is_ok() {
+            if let Ok(value) = std::env::var("LANG") {
+                cmd.env("LANG", value);
+                preserved.push("LANG".to_string());
+            }
+        } else {
+            cmd.env("LANG", &locale);
+            preserved.push("LANG (default)".to_string());
+            tracing::trace!("Using default LANG: {}", locale);
+        }
+
+        // Set LC_ALL if present, otherwise let it inherit from LANG
+        if let Ok(value) = std::env::var("LC_ALL") {
+            cmd.env("LC_ALL", value);
+            preserved.push("LC_ALL".to_string());
+        }
+
+        // Set LC_CTYPE if present, otherwise let it inherit from LANG
+        if let Ok(value) = std::env::var("LC_CTYPE") {
+            cmd.env("LC_CTYPE", value);
+            preserved.push("LC_CTYPE".to_string());
+        }
     }
 
     /// Configure stdio pipes for the process

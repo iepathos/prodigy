@@ -1,0 +1,71 @@
+{
+  "item_type": "section-page",
+  "section_id": "reference",
+  "section_title": "Reference",
+  "page_id": "examples",
+  "page_title": "Examples",
+  "page_file": "docs/reference/examples.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation file docs/reference/examples.md does not exist. However, comprehensive examples documentation exists at docs/examples.md. This indicates a mkdocs.yml structure mismatch.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "File Location",
+      "description": "Documentation file docs/reference/examples.md does not exist, but docs/examples.md contains comprehensive examples",
+      "current_content": "File does not exist at specified path",
+      "should_be": "Either move docs/examples.md to docs/reference/examples.md or update mkdocs.yml nav structure to reflect actual location",
+      "fix_suggestion": "Review mkdocs.yml navigation structure. If a 'Reference' section with examples page is intended, move docs/examples.md to docs/reference/examples.md and update mkdocs.yml accordingly. Otherwise, update the flattened-items.json to reflect the actual location (docs/examples.md).",
+      "source_reference": "docs/examples.md exists with 14 comprehensive examples covering all major features"
+    },
+    {
+      "type": "inconsistent_structure",
+      "severity": "high",
+      "section": "MkDocs Structure",
+      "description": "flattened-items.json specifies docs/reference/examples.md but mkdocs.yml likely doesn't have a 'reference' section",
+      "current_content": "No docs/reference/ directory exists in the docs/ structure",
+      "should_be": "Consistent mapping between mkdocs.yml nav structure and flattened-items.json",
+      "fix_suggestion": "Check mkdocs.yml to verify the actual navigation structure. Ensure flattened-items.json accurately reflects the nav hierarchy.",
+      "source_reference": "docs/ directory contains: advanced/, automated-documentation/, composition/, configuration/, environment/, mapreduce/, retry-configuration/, troubleshooting/, variables/, workflow-basics/ - but no reference/"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive examples documentation exists at docs/examples.md with 14 well-structured examples",
+    "Examples cover all major features: standard workflows, MapReduce, error handling, environment management, etc.",
+    "Documentation is well-organized with quick reference table and progressive complexity",
+    "Examples include source references to actual code and implementation details",
+    "Good coverage of advanced features like circuit breakers, retry strategies, and workflow composition"
+  ],
+  "improvement_suggestions": [
+    "Verify intended mkdocs.yml structure: should there be a 'Reference' section?",
+    "If 'Reference' section is intended, create docs/reference/ directory and move relevant files",
+    "Update mkdocs.yml navigation to match the directory structure",
+    "Regenerate flattened-items.json to reflect the corrected structure",
+    "Consider if examples belong in a 'Reference' section or as a top-level page"
+  ],
+  "cross_references": [
+    "../workflow-basics/error-handling.md",
+    "../mapreduce/backoff-strategies.md",
+    "../workflow-basics/environment-variables.md",
+    "../mapreduce/checkpoint-resume.md",
+    "../mapreduce/dead-letter-queue.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Practical workflows",
+      "Use cases",
+      "Best practices"
+    ],
+    "validation_focus": "Check examples are valid and work with current syntax",
+    "actual_file_location": "docs/examples.md",
+    "specified_file_location": "docs/reference/examples.md",
+    "file_exists_at_specified_location": false,
+    "file_exists_at_alternate_location": true,
+    "alternate_location": "docs/examples.md",
+    "directory_structure_issue": true,
+    "mkdocs_structure_verification_needed": true
+  }
+}

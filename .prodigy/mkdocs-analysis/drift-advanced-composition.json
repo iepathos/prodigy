@@ -1,0 +1,90 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "composition",
+  "page_title": "Workflow Composition",
+  "page_file": "docs/advanced/composition.md",
+  "feature_mappings": [
+    "workflow_composition.imports",
+    "workflow_composition.inheritance",
+    "workflow_composition.templates",
+    "workflow_composition.parameters",
+    "workflow_composition.sub_workflows"
+  ],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation accurately covers all composition features with clear examples. Good implementation status warnings. All cross-references are valid. Only minor enhancement opportunities remain.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Imports",
+      "description": "Import caching behavior is not documented",
+      "feature_reference": "workflow_composition.imports",
+      "fix_suggestion": "Add note that imported workflows are cached in memory to avoid reloading the same file multiple times during composition.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:661-698"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Inheritance",
+      "description": "Base workflow path resolution logic not documented",
+      "feature_reference": "workflow_composition.inheritance",
+      "fix_suggestion": "Document the search order for base workflows: 1) bases/{name}.yml, 2) templates/{name}.yml, 3) workflows/{name}.yml, 4) {name}.yml",
+      "source_reference": "src/cook/workflow/composition/composer.rs:625-642"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Parameters",
+      "description": "Missing documentation about parameter substitution in environment variables and merge workflows",
+      "feature_reference": "workflow_composition.parameters",
+      "fix_suggestion": "Add examples showing that parameters can be used in env blocks and merge workflows, not just in commands.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:438-453"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all composition features",
+    "Clear examples for each feature (imports, inheritance, templates, parameters, sub-workflows)",
+    "Good progression from simple to complex use cases",
+    "Well-structured with clear section organization",
+    "Parameter types and validation are accurately documented",
+    "Examples show realistic use cases (CI pipelines, deployment workflows)",
+    "Template detection mechanism properly documented with source references",
+    "Template storage locations clearly explained with automatic directory creation note",
+    "Sub-workflow implementation status warning is accurate and helpful",
+    "All internal cross-reference links are valid and correct"
+  ],
+  "improvement_suggestions": [
+    "Add examples of selective imports using the selective field",
+    "Show how to use workflow aliases from imports in workflow: commands",
+    "Document import caching behavior for performance understanding",
+    "Add base workflow path resolution search order documentation",
+    "Include examples of parameter usage in env blocks and merge workflows",
+    "Add troubleshooting section for common composition errors (circular dependencies, template not found, parameter validation failures)",
+    "Document the dependency resolution and circular dependency detection mechanism"
+  ],
+  "cross_references": [
+    "workflow-basics/workflow-structure.md",
+    "workflow-basics/variables.md",
+    "composition/template-system.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-12T02:57:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Imports",
+      "Inheritance",
+      "Templates",
+      "Parameters",
+      "Sub-workflows"
+    ],
+    "validation_focus": "Check workflow composition features including imports, extends, templates, and sub-workflows are documented",
+    "link_validation": {
+      "total_internal_links": 3,
+      "broken_links": 0,
+      "all_cross_references_valid": true
+    }
+  }
+}

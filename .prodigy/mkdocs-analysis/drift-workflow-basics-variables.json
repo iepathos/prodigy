@@ -1,0 +1,158 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "variables",
+  "page_title": "Variables and Interpolation",
+  "page_file": "docs/workflow-basics/variables.md",
+  "feature_mappings": [
+    "variable_system.standard_variables",
+    "variable_system.mapreduce_variables",
+    "variable_system.capture_variables",
+    "variable_system.interpolation"
+  ],
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page provides good coverage of basic variable system but is missing critical documentation for advanced features including computed variables, aggregate functions, variable scoping, and important syntax limitations",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Interpolation Syntax",
+      "description": "Documentation does not explain critical limitation: unbraced $VAR syntax cannot use dots for nested access",
+      "current_content": "Both syntaxes work\n- shell: \"echo $VARIABLE\"\n- shell: \"echo ${VARIABLE}\"",
+      "should_be": "Unbraced $VAR syntax only works for simple identifiers (A-Z, a-z, 0-9, _). For nested field access like map.total, you MUST use braced syntax. The syntax $map.total will fail.",
+      "fix_suggestion": "Add warning box explaining $VAR limitations and when braced syntax is required. Include example showing $map.total fails but braced version works.",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/interpolation.rs:33-36"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Default Values",
+      "description": "Documentation shows incorrect default value syntax. Implementation uses :- not |default:",
+      "current_content": "- shell: \"echo ${PORT|default:8080}\"\n- claude: \"/deploy ${environment|default:dev}\"",
+      "should_be": "- shell: \"echo ${PORT:-8080}\"\n- claude: \"/deploy ${environment:-dev}\"",
+      "fix_suggestion": "Update all default value examples to use syntax with :- separator as implemented in interpolation.rs:274-288",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/interpolation.rs:274-288"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Variable Categories",
+      "description": "Missing documentation for implemented standard variables: step.name, step.index, last.output, last.exit_code",
+      "fix_suggestion": "Add section documenting step-level variables available in workflows for tracking execution progress and accessing previous command results",
+      "feature_reference": "variable_system.standard_variables",
+      "source_reference": "src/cook/workflow/variables.rs:10-42"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Advanced Features",
+      "description": "Computed variables feature is completely missing from documentation but fully implemented",
+      "fix_suggestion": "Add section documenting computed variable types: env.VAR for environment variables, file:/path for file content, cmd:command for command output, json:path:from:source for JSON extraction, date:%Y-%m-%d for date formatting, uuid for UUID generation",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/variables.rs:1-1378"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Features",
+      "description": "Aggregate functions not documented but extensively implemented",
+      "fix_suggestion": "Add section documenting aggregate functions available in enhanced variable system: Count (with optional filter), Sum, Average, Min, Max, Median, StdDev, Variance, Collect, Unique, Concat, Merge, Flatten, Sort (ascending/descending), GroupBy. Note this is part of the enhanced variable system for advanced workflows.",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/variables.rs:44-97"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Variable Scopes",
+      "description": "Variable scoping system (Local/Phase/Global) not documented",
+      "fix_suggestion": "Add section explaining variable precedence: 1) Local scope (step-level, highest precedence), 2) Phase scope (phase-level, middle precedence), 3) Global scope (workflow-level, lowest precedence). Variables in higher scopes override those in lower scopes.",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/variables.rs:382-407"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Array Access",
+      "description": "Documentation only shows bracket notation but code also supports dot notation for numeric indices",
+      "current_content": "# Access array elements using bracket notation\n- shell: \"echo ${items[0]}\"      # First element\n- shell: \"echo ${items[1]}\"      # Second element\n- shell: \"echo ${items[-1]}\"     # Last element (if supported)",
+      "should_be": "Array indexing supports two notations: Bracket syntax (items[0]) preferred for clarity, and dot with number (items.0) also supported. Both resolve to the same element. Negative indices like [-1] are NOT supported.",
+      "fix_suggestion": "Update array access section to document both syntaxes and clarify negative indexing is not supported",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/interpolation.rs:420-522"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Implementation Details",
+      "description": "Caching behavior for computed variables not documented",
+      "fix_suggestion": "Add note explaining that expensive operations (file:, cmd:) are cached with LRU cache (100 entry limit), but uuid always generates new values",
+      "feature_reference": "variable_system.interpolation",
+      "source_reference": "src/cook/execution/variables.rs:415-421, 662-669"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Aliases",
+      "description": "Missing documentation for item-related backward compatibility aliases",
+      "fix_suggestion": "Add to Variable Aliases section: $ARG or $ARGUMENT maps to item.value, $FILE or $FILE_PATH maps to item.path. These aliases exist for backward compatibility with older workflow formats.",
+      "feature_reference": "variable_system.standard_variables",
+      "source_reference": "src/cook/workflow/variables.rs:10-42"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "MapReduce Variables",
+      "description": "Documentation doesn't clarify that map aggregate variables are strings, not numbers",
+      "current_content": "- ${map.successful} - Count of successfully processed items\n- ${map.failed} - Count of failed items\n- ${map.total} - Total item count",
+      "should_be": "These variables contain string representations of counts, not numeric values. Convert to numbers if needed for arithmetic.",
+      "fix_suggestion": "Add note about string representation and how to use in numeric contexts",
+      "feature_reference": "variable_system.mapreduce_variables",
+      "source_reference": "src/cook/execution/mapreduce/utils.rs:114-116"
+    }
+  ],
+  "positive_aspects": [
+    "Clear organization by variable category (standard, MapReduce, merge)",
+    "Good examples of capture formats with practical use cases",
+    "Helpful code annotations showing source file references",
+    "Comprehensive coverage of basic interpolation syntax",
+    "Well-structured examples for nested field access",
+    "Good use of MkDocs admonitions for important notes",
+    "Accurate cross-references to related documentation pages"
+  ],
+  "improvement_suggestions": [
+    "Add troubleshooting section for common variable interpolation errors",
+    "Include performance considerations for computed variables and caching",
+    "Add examples showing when to use computed variables vs captured outputs",
+    "Document recursion depth limits for variable interpolation (10 levels)",
+    "Add migration guide for legacy variable syntax to modern syntax",
+    "Include examples of using aggregate functions in real workflows",
+    "Add table summarizing all variable categories and their availability by workflow type"
+  ],
+  "cross_references": [
+    "command-types",
+    "environment",
+    "mapreduce/index",
+    "conditional-execution"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "status": "all_valid"
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T10:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Variable interpolation",
+      "Standard variables",
+      "MapReduce variables",
+      "Capture variables",
+      "Output formats"
+    ],
+    "validation_focus": "Check variable syntax, interpolation engine, and capture formats are documented"
+  }
+}

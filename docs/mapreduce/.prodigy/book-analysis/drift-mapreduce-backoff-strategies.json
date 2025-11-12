@@ -1,0 +1,95 @@
+{
+  "item_type": "subsection",
+  "chapter_id": "mapreduce",
+  "subsection_id": "backoff-strategies",
+  "subsection_title": "Backoff Strategies",
+  "subsection_file": "book/src/mapreduce/backoff-strategies.md",
+  "feature_mappings": [
+    "retry.backoff",
+    "mapreduce.retry"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Excellent comprehensive documentation with only broken links preventing it from being perfect. Content is accurate and well-structured with clear examples.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "See Also",
+      "description": "Two internal links reference non-existent subsections",
+      "broken_links": [
+        {
+          "link_text": "Basic Retry Configuration",
+          "link_target": "./basic-retry-configuration.md",
+          "expected_file": "book/src/mapreduce/basic-retry-configuration.md",
+          "current_file": "book/src/mapreduce/backoff-strategies.md",
+          "reason": "File does not exist"
+        },
+        {
+          "link_text": "Timeout Configuration",
+          "link_target": "./timeout-configuration.md",
+          "expected_file": "book/src/mapreduce/timeout-configuration.md",
+          "current_file": "book/src/mapreduce/backoff-strategies.md",
+          "reason": "File does not exist"
+        }
+      ],
+      "fix_suggestion": "Either create the missing subsections (basic-retry-configuration.md and timeout-configuration.md) or remove these links from the See Also section. Alternative: Link to existing related content in the MapReduce index or combine retry configuration into this subsection.",
+      "validation_required": true
+    },
+    {
+      "type": "potential_inconsistency",
+      "severity": "low",
+      "section": "RetryConfig Fields",
+      "description": "Documentation shows 'attempts' field but doesn't clarify relationship with 'max_attempts' terminology used elsewhere",
+      "current_content": "retry_config:\n  attempts: 3              # Maximum retry attempts (default: 3)",
+      "should_be": "Consistent terminology throughout - either 'attempts' (as in struct) or 'max_attempts' (as in descriptions)",
+      "fix_suggestion": "Clarify that the field name is 'attempts' but it represents 'maximum retry attempts'. Update inline comments to use 'attempts' consistently with struct field name.",
+      "source_reference": "src/cook/retry_v2.rs:16-52",
+      "validation_required": false
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all backoff strategies (Fixed, Linear, Exponential, Fibonacci, Custom)",
+    "Excellent dual implementation documentation (retry_v2.rs vs error_policy.rs)",
+    "Clear code references with line numbers for verification",
+    "Detailed examples for each strategy with behavior explanations",
+    "Helpful best practices table matching scenarios to strategies",
+    "Good troubleshooting section with common issues",
+    "MapReduce integration examples are clear and complete",
+    "Timeout interaction warning is valuable practical advice"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a visual diagram showing backoff progression for each strategy",
+    "Add example of retry_budget usage with calculations",
+    "Include example showing jitter effect with before/after delays",
+    "Cross-reference to error_collection_strategies.md could be more prominent",
+    "Consider adding performance implications of each strategy (memory, CPU)"
+  ],
+  "cross_references": [
+    "dead-letter-queue-dlq",
+    "checkpoint-and-resume",
+    "error-collection-strategies"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-01-11T00:00:00Z",
+    "feature_inventory": ".prodigy/book-analysis/features.json",
+    "topics_covered": [
+      "retry",
+      "backoff",
+      "exponential",
+      "fibonacci",
+      "linear",
+      "fixed",
+      "custom",
+      "jitter",
+      "retry_config",
+      "mapreduce_error_handling"
+    ],
+    "validation_focus": "Check retry backoff strategies documented",
+    "code_references_verified": [
+      "src/cook/retry_v2.rs:73-90",
+      "src/cook/workflow/error_policy.rs:108-120",
+      "src/cook/retry_v2.rs:16-52"
+    ]
+  }
+}

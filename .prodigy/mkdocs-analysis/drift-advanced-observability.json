@@ -1,0 +1,113 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "observability",
+  "page_title": "Observability and Logging",
+  "page_file": "docs/advanced/observability.md",
+  "feature_mappings": [
+    "observability.event_tracking",
+    "observability.claude_observability",
+    "observability.verbosity_control"
+  ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent documentation with comprehensive coverage of all mapped features. Content is accurate, well-organized, and includes practical examples. No significant drift detected.",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive event tracking documentation with all event types accurately documented (AgentStarted, AgentCompleted, AgentFailed, WorkItemProcessed, CheckpointSaved, ClaudeMessage)",
+    "ClaudeMessage event type properly documented at lines 81-91 with correct JSON structure including agent_id, content, message_type, and json_log_location fields",
+    "Claude observability section thoroughly covers json_log_location tracking per Spec 121",
+    "Verbosity control levels clearly explained with practical usage examples",
+    "Excellent correlation ID documentation with code references (src/storage/types.rs:75) and practical query examples at lines 291-322",
+    "Practical debugging examples for MapReduce failures",
+    "Complete log analysis examples with jq commands",
+    "Accurate cross-references to related pages with all links verified (event-tracking.md, dead-letter-queue-dlq.md, sessions.md)",
+    "Performance metrics section covers token usage and timing",
+    "Log management section with cleanup commands and 'prodigy logs' command documented",
+    "Event organization structure matches global storage architecture",
+    "Event query examples show real-world usage patterns including correlation ID filtering"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a table of contents at the top for easier navigation of long page",
+    "Could add a 'Quick Start' section for common debugging scenarios",
+    "Consider adding diagrams showing event flow through the system",
+    "Could include examples of setting up event monitoring dashboards",
+    "Add section on interpreting common error patterns in logs",
+    "Consider adding troubleshooting guide for when logs are missing or corrupted",
+    "Could add comparison table of all event types with their purposes for quick reference"
+  ],
+  "cross_references": [
+    "../mapreduce/event-tracking.md",
+    "../mapreduce/dead-letter-queue-dlq.md",
+    "sessions.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 3,
+    "broken_links": [],
+    "all_links_valid": true,
+    "links_checked": [
+      {
+        "link_text": "Event Tracking (MapReduce)",
+        "target": "../mapreduce/event-tracking.md",
+        "status": "valid",
+        "resolved_path": "docs/mapreduce/event-tracking.md"
+      },
+      {
+        "link_text": "Dead Letter Queue",
+        "target": "../mapreduce/dead-letter-queue-dlq.md",
+        "status": "valid",
+        "resolved_path": "docs/mapreduce/dead-letter-queue-dlq.md"
+      },
+      {
+        "link_text": "Session Management",
+        "target": "sessions.md",
+        "status": "valid",
+        "resolved_path": "docs/advanced/sessions.md"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Event tracking",
+      "Claude observability",
+      "Verbosity control",
+      "Log analysis",
+      "Performance metrics",
+      "Correlation IDs",
+      "MapReduce debugging",
+      "Log management"
+    ],
+    "validation_focus": "Check event logging, Claude log tracking, and verbosity settings are documented",
+    "internal_links_validated": true,
+    "event_types_documented": [
+      "AgentStarted",
+      "AgentCompleted",
+      "AgentFailed",
+      "WorkItemProcessed",
+      "CheckpointSaved",
+      "ClaudeMessage"
+    ],
+    "code_references_verified": [
+      "src/cook/execution/events/event_types.rs:164-169",
+      "src/storage/types.rs:75",
+      "src/cook/execution/events/filter.rs:63"
+    ],
+    "features_verified": {
+      "event_tracking": {
+        "status": "complete",
+        "coverage": "All event types documented with JSON examples and practical usage"
+      },
+      "claude_observability": {
+        "status": "complete",
+        "coverage": "JSON log location tracking, log contents, accessing logs, and analysis tools fully documented"
+      },
+      "verbosity_control": {
+        "status": "complete",
+        "coverage": "All four verbosity levels documented with usage examples and environment override"
+      }
+    }
+  }
+}

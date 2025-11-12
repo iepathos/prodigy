@@ -284,7 +284,27 @@ Example masked output:
 $ echo 'API key is ***'
 ```
 
-**Source**: Example workflow from workflows/mapreduce-env-example.yml:7-40, profile structure from tests/environment_workflow_test.rs:68-88
+**Alternative Secrets Syntax (Legacy)**:
+
+Both modern and legacy secret syntaxes are supported:
+
+```yaml
+# Modern approach (recommended)
+env:
+  API_KEY:
+    secret: true
+    value: "${SECRET_KEY}"
+
+# Legacy approach (still supported)
+secrets:
+  API_KEY:
+    provider: env
+    key: "SECRET_KEY"
+```
+
+The modern `env`-based approach is recommended for consistency, but legacy workflows using the top-level `secrets:` field continue to work.
+
+**Source**: Environment configuration from src/cook/environment/config.rs:12-36, secret support from src/cook/environment/config.rs:84-96, example workflow from workflows/mapreduce-env-example.yml:7-25, profile structure from tests/environment_workflow_test.rs:68-88
 
 ---
 

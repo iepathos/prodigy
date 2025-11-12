@@ -1,0 +1,169 @@
+# Material MkDocs Configuration Example for Prodigy
+site_name: Prodigy Documentation
+site_description: AI-powered workflow orchestration for development teams
+site_author: Glen Baker
+site_url: https://prodigy.dev  # Update with your actual URL
+
+# Repository
+repo_name: iepathos/prodigy
+repo_url: https://github.com/iepathos/prodigy
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 Glen Baker
+
+# Theme Configuration
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  features:
+    - navigation.tabs          # Top-level navigation tabs
+    - navigation.sections      # Section navigation
+    - navigation.expand        # Expand navigation by default
+    - navigation.top           # Back to top button
+    - navigation.tracking      # Track navigation in URL
+    - navigation.indexes       # Allow index pages for sections
+    - search.suggest           # Search suggestions
+    - search.highlight         # Highlight search results
+    - search.share            # Share search results
+    - content.code.copy       # Copy button for code blocks
+    - content.code.annotate   # Annotations in code blocks
+    - content.tabs.link       # Link content tabs
+
+  icon:
+    repo: fontawesome/brands/github
+
+# Plugins
+plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - tags:
+      tags_file: reference/tags.md
+
+# Extensions
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+  # PyMdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Navigation Structure
+# This will be auto-managed by /prodigy-detect-mkdocs-gaps
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - First Workflow: getting-started/first-workflow.md
+
+  - Workflow Basics:
+      - workflow-basics/index.md
+      - Workflow Structure: workflow-basics/workflow-structure.md
+      - Command Types: workflow-basics/command-types.md
+      - Variables: workflow-basics/variables.md
+      - Environment Configuration: workflow-basics/environment.md
+
+  - MapReduce Workflows:
+      - mapreduce/index.md
+      - Overview: mapreduce/overview.md
+      - Setup Phase: mapreduce/setup-phase.md
+      - Map Phase: mapreduce/map-phase.md
+      - Reduce Phase: mapreduce/reduce-phase.md
+      - Checkpoint & Resume: mapreduce/checkpoint-resume.md
+      - Dead Letter Queue: mapreduce/dlq.md
+      - Event Tracking: mapreduce/event-tracking.md
+
+  - Advanced Features:
+      - advanced/index.md
+      - Goal-Seeking Operations: advanced/goal-seeking.md
+      - Implementation Validation: advanced/validation.md
+      - Parallel Iteration: advanced/foreach.md
+      - Timeout Configuration: advanced/timeouts.md
+
+  - Configuration:
+      - configuration/index.md
+      - Global Configuration: configuration/global-config.md
+      - Project Configuration: configuration/project-config.md
+      - Storage Configuration: configuration/storage.md
+      - Environment Variables: configuration/environment-variables.md
+
+  - Error Handling:
+      - error-handling/index.md
+      - Error Policies: error-handling/policies.md
+      - Retry Configuration: error-handling/retry.md
+      - Circuit Breaker: error-handling/circuit-breaker.md
+      - Backoff Strategies: error-handling/backoff.md
+
+  - Reference:
+      - Examples: reference/examples.md
+      - Troubleshooting: reference/troubleshooting.md
+      - FAQ: reference/faq.md
+      - API Reference: reference/api.md
+
+# Extra
+extra:
+  version:
+    provider: mike  # For versioned documentation
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/iepathos/prodigy
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/yourusername  # Update with your Twitter
+
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX  # Update with your Google Analytics ID

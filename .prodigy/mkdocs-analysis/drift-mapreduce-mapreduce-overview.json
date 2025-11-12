@@ -1,0 +1,88 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "mapreduce-overview",
+  "page_title": "Overview",
+  "page_file": "docs/mapreduce/overview.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent overview page with comprehensive coverage of MapReduce concepts. Content is accurate, well-structured, and includes good examples.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Parallel Execution and Isolation",
+      "description": "Missing mention of cleanup failure handling and orphaned worktree registry",
+      "feature_reference": "mapreduce_workflows.core_capabilities.parallel_execution.resource_cleanup",
+      "fix_suggestion": "Add brief mention that failed cleanup is tracked and can be retried with 'prodigy worktree clean-orphaned <job_id>'",
+      "source_reference": "Spec 136 - Cleanup Failure Handling"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Checkpoint and Resume",
+      "description": "Missing mention of concurrent resume protection",
+      "feature_reference": "session_management.resume.concurrent_resume_protection",
+      "fix_suggestion": "Add note that resume operations are protected from concurrent execution with automatic lock management",
+      "source_reference": "Spec 140 - Concurrent Resume Protection"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Handling and Recovery",
+      "description": "Missing mention of Claude JSON log location tracking in DLQ items",
+      "feature_reference": "observability.claude_observability.dlq_linkage",
+      "fix_suggestion": "Note that DLQ items include json_log_location for debugging failed agents",
+      "source_reference": "Spec 121 - Claude Command Observability"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of the three phases (setup, map, reduce) with code examples",
+    "Excellent 'When to Use MapReduce' guidance with specific criteria",
+    "Performance sweet spot recommendation (10-1000 items, 10s-5min each)",
+    "Comprehensive work distribution features documented (filtering, sorting, pagination, deduplication)",
+    "Great visual diagram showing worktree isolation architecture",
+    "Strong example with copyright header updates demonstrating real-world usage",
+    "Good cross-references to related pages at the end",
+    "Helpful tip about testing with small subsets first",
+    "All internal links are valid and point to existing documentation files"
+  ],
+  "improvement_suggestions": [
+    "Add a brief callout about cleanup failure handling and orphaned worktree recovery",
+    "Mention concurrent resume protection in the checkpoint section",
+    "Include json_log_location in the DLQ explanation for debugging context",
+    "Consider adding a troubleshooting subsection for common MapReduce issues"
+  ],
+  "cross_references": [
+    "work-distribution",
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq",
+    "event-tracking",
+    "environment-variables-in-configuration",
+    "global-storage-architecture",
+    "index"
+  ],
+  "link_validation": {
+    "total_internal_links": 7,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "MapReduce mode",
+      "Setup phase",
+      "Map phase",
+      "Reduce phase",
+      "Work distribution",
+      "Parallel execution",
+      "Agent isolation",
+      "Error handling",
+      "DLQ",
+      "Checkpoints"
+    ],
+    "validation_focus": "Check MapReduce overview and concepts"
+  }
+}

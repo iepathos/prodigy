@@ -1,353 +1,407 @@
 # MapReduce Worktree Architecture
 
-This document explains how worktrees and git branches work in Prodigy's MapReduce workflow, including the merge flow that propagates changes from agent worktrees → MapReduce worktree → parent worktree → master branch.
+MapReduce workflows in Prodigy use an isolated git worktree architecture that ensures the main repository remains untouched during workflow execution. This chapter explains the worktree hierarchy, branch naming conventions, merge flows, and debugging strategies.
 
 ## Overview
 
-MapReduce workflows use a **nested worktree hierarchy** to enable massive parallel processing while maintaining git isolation. Each level in the hierarchy has its own worktree and git branch, and changes flow upward through a series of merges.
+When you run a MapReduce workflow, Prodigy creates a hierarchical worktree structure:
+
+```
+Main Repository (untouched during execution)
+    ↓
+Parent Worktree (session-mapreduce-{id})
+    ├── Setup Phase → Executes here
+    ├── Reduce Phase → Executes here
+    └── Map Phase → Each agent in child worktree
+        ├── Child Worktree (mapreduce-agent-{id})
+        ├── Child Worktree (mapreduce-agent-{id})
+        └── Child Worktree (mapreduce-agent-{id})
+```
+
+This architecture provides complete isolation, allowing parallel agents to work independently while preserving a clean main repository.
 
 ## Worktree Hierarchy
 
-```
-main repository (master/main branch)
-    ↓
-parent worktree (session-xxx)
-  Branch: prodigy-session-xxx
-  Location: ~/.prodigy/worktrees/{project}/session-xxx
-    ↓
-mapreduce worktree (session-mapreduce-xxx)
-  Branch: prodigy-session-mapreduce-xxx  ← Setup and reduce phases execute here
-  Location: ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-    ↓
-agent worktrees (one per work item)
-  Branch: agent-{job_id}_agent_{index}-item_{index}
-  Location: ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx/mapreduce-agent-{job_id}_agent_{index}
-```
+### Parent Worktree
 
-## Branch Naming Convention
+Created at the start of MapReduce workflow execution:
 
-**Critical for merge success:** Branch names follow consistent patterns.
+**Location**: `~/.prodigy/worktrees/{project}/session-mapreduce-{timestamp}`
 
-| Worktree Type | Branch Pattern | Example |
-|---------------|---------------|---------|
-| Parent Session | `prodigy-session-{session_id}` | `prodigy-session-ea460deb-9946-4583-8a3b-ab804850c25a` |
-| MapReduce | `prodigy-session-mapreduce-{timestamp}` | `prodigy-session-mapreduce-20251012_223630` |
-| Agent | `agent-{job_id}_agent_{index}-item_{index}` | `agent-mapreduce-20251012_224808_agent_0-item_0` |
+**Purpose**:
+- Isolates all workflow execution from main repository
+- Hosts setup phase execution
+- Hosts reduce phase execution
+- Serves as merge target for agent results
 
-**Important:** The `prodigy-` prefix is essential. The MapReduce-to-parent merge bug occurred because the code was creating a new branch with a `merge-` prefix instead of using the existing `prodigy-` branch.
+**Branch**: Follows `prodigy-{session-id}` pattern. The session ID includes a timestamp (e.g., `session-mapreduce-20250112_143052`), so the full branch name becomes `prodigy-session-mapreduce-20250112_143052` (source: src/worktree/builder.rs:176-178)
+
+**Worktree Allocation Strategies**:
+
+All worktrees in Prodigy have names, paths, and git branches - the distinction is in how they're allocated:
+
+- **Directly-Created Worktrees**: MapReduce coordinators create session worktrees with explicit, predictable names (e.g., `session-mapreduce-20250112_143052`). These have deterministic paths and are easy to locate.
+
+- **Pool-Allocated Worktrees**: When agents request worktrees via `WorktreeRequest::Anonymous` (source: src/cook/execution/mapreduce/resources/worktree.rs:42), they receive pre-allocated worktrees from a shared pool. These worktrees have pool-assigned names rather than request-specific names. The pool allocation strategy enables efficient resource reuse across multiple agents.
+
+**Important**: Both allocation strategies produce worktrees with full identity (name, path, branch). The difference is in naming predictability and resource management approach.
+
+### Child Worktrees
+
+Created for each map agent:
+
+**Location**: `~/.prodigy/worktrees/{project}/mapreduce-agent-{agent_id}`
+
+**Purpose**:
+- Complete isolation per agent
+- Independent failure handling
+- Parallel execution safety
+
+**Branch**: Follows `prodigy-{worktree-name}` pattern (branched from parent worktree)
+
+**Resource Management**: Agent worktrees can be acquired through two strategies:
+
+1. **Worktree Pool** (preferred): Agents first attempt to acquire pre-allocated worktrees from a `WorktreePool`. This reduces creation overhead and enables efficient resource reuse.
+
+2. **Direct Creation** (fallback): If the pool is exhausted or unavailable, agents fall back to creating dedicated worktrees via `WorktreeManager`.
+
+The `acquire_session` method implements this pool-first strategy, ensuring optimal resource utilization while maintaining isolation guarantees.
+
+**Note**: The `agent_id` in the location path encodes the work item information. Agent worktrees are created dynamically as map agents execute.
+
+## Branch Naming Conventions
+
+Prodigy uses consistent branch naming to track worktree relationships:
+
+### Parent Worktree Branch
+
+Format: `prodigy-{session-id}`
+
+The branch name follows the universal worktree pattern where all worktrees use `prodigy-{name}`. For MapReduce workflows, the session ID itself includes the timestamp, so the full branch name looks like:
+
+Example: `prodigy-session-mapreduce-20250112_143052`
+
+This is `prodigy-` + the session ID `session-mapreduce-20250112_143052`
+
+### Agent Worktree Branch
+
+Format: `prodigy-{worktree-name}`
+
+All worktrees in Prodigy follow the universal `prodigy-{name}` branch naming pattern (source: src/worktree/builder.rs:178). The worktree name itself varies based on the allocation strategy:
+
+**Pool-Allocated Worktrees**: When agents acquire worktrees from the pre-allocated pool, the worktree name is generated by the pool and may not follow a predictable pattern. These are still tracked by the consistent `prodigy-{name}` branch format.
+
+**Directly-Created Worktrees**: When agents create dedicated worktrees (fallback when pool is exhausted), the name typically encodes job and agent information.
+
+Example: `prodigy-mapreduce-agent-mapreduce-20251109_193734_agent_22`
+
+This is `prodigy-` + the worktree name `mapreduce-agent-mapreduce-20251109_193734_agent_22`
+
+**Directly-Created Worktree Name Components**:
+- `mapreduce-agent-`: Indicates this is a MapReduce agent worktree
+- `{job_id}`: The MapReduce job identifier (includes timestamp)
+- `_agent_{n}`: Sequential agent number within the job
+
+**Note**: The branch naming is always consistent (`prodigy-{name}`), but worktree naming varies based on allocation strategy.
 
 ## Merge Flow
 
-Changes propagate upward through three merge operations:
+MapReduce workflows involve multiple merge operations to aggregate results:
 
-### 1. Agent → MapReduce Merge
+### 1. Agent Merge (Child → Parent)
 
-**When:** After each agent completes successfully
-**What:** Agent's branch merges to MapReduce worktree
-**How:** Serialized through merge queue to prevent conflicts
-**Location:** `src/cook/execution/mapreduce/coordination/executor.rs:1086-1145`
+When an agent completes successfully:
 
-```rust
-// Submit merge to queue (serialized processing)
-merge_queue.submit_merge(
-    agent_id.to_string(),
-    config.branch_name.clone(),  // agent-{job_id}_agent_{index}-item_{index}
-    item_id.to_string(),
-    env.clone(),
-).await
+```
+Child Worktree (agent branch)
+    ↓ merge
+Parent Worktree (session branch)
 ```
 
-**Result:** MapReduce worktree accumulates all agent changes on its branch (`prodigy-session-mapreduce-xxx`)
+**Process**:
+1. Agent completes all commands successfully
+2. Agent commits changes to its branch
+3. Merge coordinator adds agent to merge queue
+4. Sequential merge into parent worktree branch
+5. Child worktree cleanup
 
-### 2. MapReduce → Parent Worktree Merge
+### 2. MapReduce to Parent Merge
 
-**When:** After reduce phase completes
-**What:** MapReduce worktree branch merges to parent session worktree
-**How:** Claude-assisted merge using `/prodigy-merge-worktree` command
-**Location:** `src/cook/execution/mapreduce/coordination/executor.rs:199-365`
+After all map agents complete and reduce phase finishes:
 
-```rust
-// THE CRITICAL FIX: Use existing branch, don't create new one
-let mapreduce_branch = format!("prodigy-{}", worktree_name);
-// mapreduce_branch = "prodigy-session-mapreduce-20251012_223630"
-
-// Verify branch exists before attempting merge
-let branch_exists = subprocess
-    .runner()
-    .run(ProcessCommandBuilder::new("git")
-        .args(["rev-parse", "--verify", &mapreduce_branch])
-        .current_dir(&env.working_dir)
-        .build())
-    .await;
-
-// Execute Claude merge in parent worktree
-claude_executor.execute_claude_command(
-    &format!("/prodigy-merge-worktree {}", mapreduce_branch),
-    &parent_worktree,
-    env_vars,
-).await
+```
+Parent Worktree (session branch)
+    ↓ merge
+Main Repository (original branch)
 ```
 
-**Result:** Parent worktree contains all MapReduce changes
+**Process**:
+1. All agents merged into parent worktree
+2. Reduce phase executes in parent worktree
+3. User confirms merge to main repository
+4. Sequential merge with conflict detection
+5. Parent worktree cleanup
 
-### 3. Parent Worktree → Master Merge
+### Merge Strategies
 
-**When:** After workflow completes and user confirms
-**What:** Parent worktree branch merges to master/main
-**How:** Standard worktree merge (also Claude-assisted if custom merge workflow configured)
-**Location:** `src/worktree/manager.rs`
+**Fast-Forward When Possible**: If no divergence, use fast-forward merge
 
-**Result:** All changes propagate to main repository
+**Three-Way Merge**: When branches have diverged, perform three-way merge
 
-## The Bug That Was Fixed
+**Conflict Handling**: Stop and report conflicts for manual resolution
 
-### What Was Wrong
+## Agent Merge Details
 
-In `executor.rs`, the MapReduce-to-parent merge was creating a **new branch** instead of using the **existing branch**:
+### Merge Queue
 
-```rust
-// BUG: Created new branch that didn't exist in parent
-let mapreduce_branch = format!("merge-{}", worktree_name);
-// Result: "merge-session-mapreduce-20251012_223630"
+Agents are added to a merge queue as they complete:
 
-// Created this new branch in MapReduce worktree
-Command::new("git")
-    .args(["checkout", "-b", &mapreduce_branch])
-    .await;
+**Queue Architecture**: Merge queue is managed in-memory by a background worker task using a tokio unbounded mpsc channel (`mpsc::unbounded_channel::<MergeRequest>()`). Merge requests are processed sequentially via this channel, eliminating MERGE_HEAD race conditions. Queue state is not persisted - merge operations are atomic (source: src/cook/execution/mapreduce/merge_queue.rs:70).
 
-// Tried to merge branch that doesn't exist in parent!
-claude_executor.execute_claude_command(
-    &format!("/prodigy-merge-worktree {}", mapreduce_branch),
-    &parent_worktree,
-    env_vars,
-).await
+**Resume and Recovery**: The merge queue state is reconstructed on resume from checkpoint data (source: src/cook/execution/mapreduce/merge_queue.rs:153). When a MapReduce workflow is interrupted and resumed, the queue is rebuilt based on:
+- Completed agents: Already merged, skip re-merging
+- Failed agents: Tracked in DLQ, can be retried separately
+- In-progress agents: Moved back to pending status, will be re-executed
+- Pending agents: Continue processing from where left off
+
+Any in-progress merges at the time of interruption are retried from the agent worktree state. This ensures no agent results are lost during resume.
+
+**Queue Processing**: Queue processes `MergeRequest` objects containing:
+- `agent_id`: Unique agent identifier
+- `branch_name`: Agent's git branch to merge
+- `item_id`: Work item identifier for correlation
+- `env`: Execution environment context (variables, secrets)
+
+Merge requests are processed FIFO with automatic conflict detection.
+
+### Sequential Merge Processing
+
+Merges are processed sequentially to prevent conflicts:
+
+1. Lock merge queue
+2. Take next agent from pending queue
+3. Perform merge into parent worktree
+4. Update queue (move to merged or failed)
+5. Release lock
+
+### Automatic Conflict Resolution
+
+If a standard git merge fails with conflicts, the merge queue automatically invokes Claude using the `/prodigy-merge-worktree` command to resolve conflicts intelligently:
+
+**Conflict Resolution Flow**:
+1. Standard git merge attempted
+2. If conflicts detected, invoke Claude with `/prodigy-merge-worktree {branch_name}`
+3. Claude is executed with `PRODIGY_AUTOMATION=true` environment variable (source: src/cook/execution/mapreduce/merge_queue.rs:98-99)
+4. Claude analyzes conflicts and attempts resolution
+5. If Claude succeeds, merge completes automatically
+6. If Claude fails, agent is marked as failed and added to DLQ
+
+**PRODIGY_AUTOMATION Environment Variable**: When set to `true`, this signals to Claude Code that it's operating in automated workflow mode and should use appropriate merge strategies without requiring user interaction. Claude will attempt to resolve conflicts autonomously using standard git merge strategies and code analysis.
+
+**Benefits**:
+- Reduces manual merge conflict resolution overhead
+- Handles common conflict patterns automatically
+- Preserves full context for debugging via Claude logs
+- Falls back gracefully to DLQ for complex conflicts
+- Automated execution mode ensures non-interactive conflict resolution
+
+This automatic conflict resolution is especially useful when multiple agents modify overlapping code areas.
+
+## Parent to Master Merge
+
+### Merge Confirmation
+
+After reduce phase completes, Prodigy prompts for merge confirmation:
+
+```
+✓ MapReduce workflow completed successfully
+
+Merge session-mapreduce-20250112_143052 to master? [y/N]
 ```
 
-### Why It Failed
+### Custom Merge Workflows
 
-1. MapReduce worktree has branch: `prodigy-session-mapreduce-20251012_223630` (with all agent merges)
-2. Code created new branch: `merge-session-mapreduce-20251012_223630` (empty, no changes)
-3. Passed new branch name to Claude in parent worktree context
-4. Claude's `/prodigy-merge-worktree` tried to merge `merge-session-mapreduce-20251012_223630`
-5. Branch didn't exist in parent worktree's repository
-6. Merge commit ended up on orphaned branch instead of parent worktree
-7. Changes never propagated to master
+Configure custom merge validation:
 
-### The Fix
-
-```rust
-// FIX: Use the existing branch that contains all agent merges
-let mapreduce_branch = format!("prodigy-{}", worktree_name);
-// Result: "prodigy-session-mapreduce-20251012_223630" ✓
-
-// Verify it exists
-let branch_exists = subprocess
-    .runner()
-    .run(ProcessCommandBuilder::new("git")
-        .args(["rev-parse", "--verify", &mapreduce_branch])
-        .current_dir(&env.working_dir)
-        .build())
-    .await;
-
-if branch_exists.is_err() {
-    return Err(MapReduceError::ProcessingError(format!(
-        "MapReduce branch '{}' does not exist. Cannot merge to parent.",
-        mapreduce_branch
-    )));
-}
-
-// Pass existing branch to Claude (it exists in parent's repo)
-claude_executor.execute_claude_command(
-    &format!("/prodigy-merge-worktree {}", mapreduce_branch),
-    &parent_worktree,
-    env_vars,
-).await
+```yaml
+merge:
+  - shell: "git fetch origin"
+  - shell: "cargo test"
+  - shell: "cargo clippy"
+  - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
 
-## Execution Flow with Git Operations
+**Important**: Always pass both `${merge.source_branch}` and `${merge.target_branch}` to the `/prodigy-merge-worktree` command (source: .claude/commands/prodigy-merge-worktree.md). This ensures the merge targets the branch you were on when you started the workflow, not a hardcoded main/master branch.
 
-### Phase 1: Setup (in MapReduce Worktree)
+### Merge Variables
 
-```bash
-# Prodigy creates parent worktree
-cd main-repo
-git worktree add -b prodigy-session-xxx ~/.prodigy/worktrees/{project}/session-xxx
+Available during merge workflows:
 
-# Prodigy creates MapReduce worktree
-cd ~/.prodigy/worktrees/{project}/session-xxx
-git worktree add -b prodigy-session-mapreduce-xxx ./session-mapreduce-xxx
+- `${merge.worktree}` - Worktree name
+- `${merge.source_branch}` - Session branch name
+- `${merge.target_branch}` - Main repository branch (usually master/main)
+- `${merge.session_id}` - Session ID for correlation
 
-# Setup phase executes in MapReduce worktree
-cd ./session-mapreduce-xxx
-# Setup commands run here, commits to prodigy-session-mapreduce-xxx
-```
+## Debugging MapReduce Worktrees
 
-### Phase 2: Map (in Agent Worktrees)
-
-```bash
-# For each work item, create agent worktree
-cd ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-git worktree add -b agent-{job}_agent_{i}-item_{i} ./mapreduce-agent-{job}_agent_{i}
-
-# Agent executes commands in its worktree
-cd ./mapreduce-agent-{job}_agent_{i}
-# Agent commands run here, commits to agent branch
-
-# Agent merges to MapReduce worktree (serialized via merge queue)
-cd ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-git merge --no-ff agent-{job}_agent_{i}-item_{i}
-# Changes now on prodigy-session-mapreduce-xxx branch
-```
-
-### Phase 3: Reduce (in MapReduce Worktree)
-
-```bash
-# Reduce phase executes in MapReduce worktree
-cd ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-# Reduce commands run here, commits to prodigy-session-mapreduce-xxx
-```
-
-### Phase 4: MapReduce → Parent Merge
-
-```bash
-# Merge MapReduce worktree to parent using Claude
-cd ~/.prodigy/worktrees/{project}/session-xxx
-claude /prodigy-merge-worktree prodigy-session-mapreduce-xxx
-
-# Claude performs intelligent merge:
-# - Switches to default branch (main/master) in parent worktree
-# - Runs: git merge --no-ff prodigy-session-mapreduce-xxx
-# - Resolves any conflicts intelligently
-# - Creates merge commit
-# - Changes now on prodigy-session-xxx branch in parent worktree
-```
-
-### Phase 5: Parent → Master Merge
-
-```bash
-# User confirms merge
-cd main-repo
-git merge --no-ff prodigy-session-xxx
-# All changes now on master
-```
-
-## Verification Commands
-
-### Check Current Branch and Structure
+### Inspecting Worktree State
 
 ```bash
 # List all worktrees
 git worktree list
 
-# Check current branch in MapReduce worktree
-cd ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-git branch --show-current
-# Should show: prodigy-session-mapreduce-xxx
+# View worktree details
+cd ~/.prodigy/worktrees/{project}/session-mapreduce-*
+git status
+git log
 
-# Check what's merged into MapReduce branch
-git log --oneline --graph --all | head -30
-# Should show agent merges
-
-# Verify branch exists in parent worktree's repo
-cd ~/.prodigy/worktrees/{project}/session-xxx
-git branch -a | grep prodigy-session-mapreduce
-# Should show: prodigy-session-mapreduce-xxx
+# View agent worktree
+cd ~/.prodigy/worktrees/{project}/agent-*
+git log --oneline
 ```
 
-### After MapReduce-to-Parent Merge
+### Finding Agent Worktree Paths
+
+Agent worktrees may be **directly-created** (with predictable names) or **pool-allocated** (with pool-assigned names). To correlate agent IDs to worktree paths:
+
+**Directly-Created Worktrees** (deterministic paths):
+```bash
+# Pattern: ~/.prodigy/worktrees/{project}/mapreduce-agent-{job_id}_agent_{n}
+cd ~/.prodigy/worktrees/{project}/mapreduce-agent-*
+```
+
+**Pool-Allocated Worktrees** (pool-assigned paths):
+```bash
+# List all worktrees and correlate by branch name
+git worktree list
+
+# Look for branches matching agent pattern
+git branch -a | grep prodigy-mapreduce-agent
+```
+
+**Note**: Both allocation strategies produce fully-identified worktrees with names, paths, and branches. Pool allocation assigns names from the pool's naming scheme, while direct creation uses request-specific naming patterns. Use `WorktreeInfo` tracking (described below) to correlate agent IDs to actual worktree locations.
+
+**WorktreeInfo Tracking**: Prodigy captures worktree metadata in `WorktreeInfo` structs containing:
+- `name`: Worktree identifier
+- `path`: Full filesystem path
+- `branch`: Git branch name
+
+This information is logged in MapReduce events and can be inspected via `prodigy events {job_id}` to correlate agent IDs to worktree paths.
+
+### Common Debugging Scenarios
+
+**Agent Failed to Merge:**
+
+1. Check DLQ for failure details: `prodigy dlq show {job_id}`
+2. Inspect failed agent worktree: `cd ~/.prodigy/worktrees/{project}/mapreduce-agent-*`
+3. Review agent changes: `git diff master`
+4. Check for conflicts: `git status`
+5. Review Claude merge logs if conflict resolution was attempted
+
+**Parent Worktree Not Merging:**
+
+1. Check parent worktree: `cd ~/.prodigy/worktrees/{project}/session-mapreduce-*`
+2. Verify all agents merged: `git log --oneline`
+3. Check for uncommitted changes: `git status`
+4. Review merge history: `git log --graph --oneline --all`
+
+### Merge Conflict Resolution
+
+If merge conflicts occur:
 
 ```bash
-# Check merge succeeded
-cd ~/.prodigy/worktrees/{project}/session-xxx
-git log --oneline | head -5
-# Should show: "Merge worktree 'prodigy-session-mapreduce-xxx' into master"
+# Navigate to parent worktree
+cd ~/.prodigy/worktrees/{project}/session-mapreduce-*
 
-# Verify files from agents are present
-ls -la book/src/
-# Should include all files created/modified by agents
+# View conflicts
+git status
+
+# Resolve manually
+vim <conflicted-file>
+
+# Complete merge
+git add <conflicted-file>
+git commit
 ```
 
-## Common Issues and Debugging
+## Verification Commands
 
-### Issue: "Branch does not exist" during MapReduce merge
+### Verify Main Repository is Clean
 
-**Cause:** Wrong branch name passed to Claude (the original bug)
-
-**Check:**
 ```bash
-cd ~/.prodigy/worktrees/session-xxx/session-mapreduce-xxx
-git branch
-# Look for branch starting with "prodigy-"
+# Main repository should have no changes from MapReduce execution
+git status
+# Expected: nothing to commit, working tree clean
 ```
 
-**Fix:** Ensure code uses `prodigy-{worktree_name}` pattern, not `merge-{worktree_name}`
+### Verify Worktree Isolation
 
-### Issue: Changes not in parent worktree after merge
-
-**Cause:** Merge went to wrong branch or orphaned branch
-
-**Check:**
 ```bash
-cd ~/.prodigy/worktrees/{project}/session-xxx
-git log --oneline --all | grep "Merge worktree"
-# Should see merge commit on current branch
+# Check that parent worktree has changes
+cd ~/.prodigy/worktrees/{project}/session-mapreduce-*
+git status
+git log --oneline
+
+# Main repository should still be clean
+cd /path/to/main/repo
+git status
 ```
 
-**Debug:**
+### Verify Agent Merges
+
 ```bash
-# Check if merge is on orphaned branch
-git branch -a | grep merge-
-# If you see "merge-session-mapreduce-xxx", that's the bug
+# Check for merge events
+prodigy events {job_id}
+
+# Verify merged agents in parent worktree
+cd ~/.prodigy/worktrees/{project}/session-mapreduce-*
+git log --oneline | grep "Merge"
 ```
 
-### Issue: Parent worktree not merging to master
+## Best Practices
 
-**Cause:** MapReduce-to-parent merge didn't actually update parent worktree
+### Worktree Management
 
-**Check:**
-```bash
-# Compare commits
-git log master..prodigy-session-xxx
-# Should show commits from MapReduce workflow
-# If empty, MapReduce merge didn't work
-```
+- **Cleanup**: Remove old worktrees after successful merge: `prodigy worktree clean`
+- **Monitoring**: Check worktree disk usage periodically
+- **Inspection**: Review worktrees before deleting to verify results
 
-## Testing
+### Merge Workflows
 
-See `tests/mapreduce_to_parent_merge_test.rs` for integration tests covering:
+- **Test Before Merge**: Run tests in merge workflow to catch issues
+- **Sync Upstream**: Fetch and merge origin/main before merging to main
+- **Conflict Prevention**: Keep MapReduce jobs focused to minimize conflicts
 
-- Branch name pattern verification
-- Branch existence check before merge
-- Full MapReduce-to-parent merge flow
-- Regression test for the bug
+### Debugging
 
-Run tests:
-```bash
-# Quick branch pattern test
-cargo test test_mapreduce_branch_name_pattern
+- **Preserve Worktrees**: Don't delete worktrees until debugging is complete
+- **Event Logs**: Review event logs for merge failures: `prodigy events {job_id}`
+- **DLQ Review**: Check failed items that might indicate merge issues
 
-# Branch existence verification
-cargo test test_mapreduce_branch_existence_check
+## Troubleshooting
 
-# Full integration test (requires Claude CLI)
-cargo test test_mapreduce_merges_to_parent_worktree --ignored
-```
+### Worktree Creation Fails
 
-## References
+**Issue**: Cannot create parent or child worktree
+**Solution**: Check disk space, verify git repository is valid, ensure no existing worktree with same name
 
-- **Implementation:** `src/cook/execution/mapreduce/coordination/executor.rs:199-365`
-- **Tests:** `tests/mapreduce_to_parent_merge_test.rs`
-- **Merge Queue:** `src/cook/execution/mapreduce/merge_queue.rs`
-- **Worktree Manager:** `src/worktree/manager.rs`
-- **Bug Fix Commit:** [Reference the commit that fixed the branch name bug]
+### Agent Merge Fails
 
-## Summary
+**Issue**: Agent results fail to merge into parent
+**Solution**: Check merge queue, inspect agent worktree for conflicts, review agent changes
 
-The MapReduce worktree architecture enables massive parallel processing through:
+### Parent Merge Conflicts
 
-1. **Isolation:** Each agent has its own worktree (no conflicts)
-2. **Accumulation:** Changes merge upward through the hierarchy
-3. **Correct branch names:** Using existing `prodigy-` branches instead of creating new ones
-4. **Claude-assisted merging:** Intelligent conflict resolution for complex merges
+**Issue**: Merging parent worktree to main causes conflicts
+**Solution**: Resolve conflicts manually, consider rebasing parent worktree on latest main
 
-The critical insight is that the MapReduce worktree's branch **already exists** and contains all the agent work. The merge step must pass this **existing branch name** to Claude, not create a new branch.
+### Orphaned Worktrees
+
+**Issue**: Worktrees remain after workflow completion
+**Solution**: Use `prodigy worktree clean` to remove old worktrees, or manually remove with `git worktree remove`
+
+## See Also
+
+- [MapReduce Workflows](mapreduce/index.md) - MapReduce workflow basics
+- [Error Handling](workflow-basics/error-handling.md) - Handling merge failures
+- [Troubleshooting](troubleshooting/index.md) - General troubleshooting guide

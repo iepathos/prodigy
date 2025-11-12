@@ -1,0 +1,94 @@
+{
+  "item_type": "section-page",
+  "section_id": "configuration",
+  "section_title": "Configuration",
+  "page_id": "global-config",
+  "page_title": "Global Configuration",
+  "page_file": "docs/configuration/global-config.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is comprehensive and accurate. The page correctly documents the GlobalConfig structure, precedence rules, environment variables, and file locations. Only minor issues found related to outdated comments and variable type references.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Configuration Structure",
+      "description": "Documentation uses outdated doc comment 'Global configuration settings for MMM' when actual comment says 'Global configuration settings for Prodigy'",
+      "current_content": "Global configuration settings for MMM",
+      "should_be": "Global configuration settings for Prodigy (or just remove MMM reference)",
+      "fix_suggestion": "Update or remove the MMM reference in the rust code block comment",
+      "source_reference": "src/config/mod.rs:45"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Configuration Loading",
+      "description": "Documentation references TOML format in comment 'Stored in the user's home directory under ~/.prodigy/config.toml' but actual comment says 'directory under ~/.prodigy/config.yml' (YAML format)",
+      "current_content": "~/.prodigy/config.toml",
+      "should_be": "~/.prodigy/config.yml",
+      "fix_suggestion": "Update file extension references from .toml to .yml throughout",
+      "source_reference": "src/config/mod.rs:49"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Project Configuration Override",
+      "description": "ProjectConfig.variables field documented as toml::Table but actual type is toml::Table, though YAML is the supported format",
+      "current_content": "variables: Option<toml::Table>",
+      "should_be": "Note that this is internal representation - users write YAML but it's parsed to TOML table internally",
+      "fix_suggestion": "Add clarifying note that while internal representation uses toml::Table, users write configuration in YAML format",
+      "source_reference": "src/config/mod.rs:73"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Configuration Format",
+      "description": "Documentation mentions TOML deprecation but struct still references toml::Table for variables field, which might confuse users",
+      "fix_suggestion": "Add clarifying note explaining that TOML types are used internally for historical reasons but all configuration must be written in YAML",
+      "source_reference": "src/config/mod.rs:73"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent coverage of GlobalConfig struct with complete field documentation",
+    "Clear and accurate precedence hierarchy explanation (Environment Variables > Project Config > Global Config > Defaults)",
+    "Comprehensive environment variable documentation with correct variable names and examples",
+    "Accurate platform-specific path documentation for Linux, macOS, and Windows",
+    "Good examples showing practical usage patterns",
+    "Correct default values documented for all fields",
+    "Plugin configuration structure accurately documented",
+    "Configuration loading hierarchy correctly explained",
+    "Security best practices included for API key management",
+    "All internal documentation links are valid"
+  ],
+  "improvement_suggestions": [
+    "Add note about YAML-only support while acknowledging internal TOML type usage for backward compatibility",
+    "Consider adding troubleshooting section for common configuration issues (invalid YAML syntax, missing API key, etc.)",
+    "Add example of verifying which configuration values are active (e.g., prodigy config show or similar command if exists)",
+    "Include guidance on when to use global vs project vs environment variable configuration"
+  ],
+  "cross_references": [
+    "project-configuration-structure",
+    "workflow-configuration",
+    "environment-variables",
+    "installation"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:31:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Config file locations",
+      "Precedence rules",
+      "Claude settings",
+      "GlobalConfig structure",
+      "Environment variables",
+      "Plugin configuration"
+    ],
+    "validation_focus": "Check configuration structure matches Settings struct",
+    "link_validation": {
+      "total_internal_links": 4,
+      "broken_links": 0,
+      "all_valid": true
+    }
+  }
+}

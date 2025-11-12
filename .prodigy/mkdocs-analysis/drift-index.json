@@ -1,0 +1,82 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "Home",
+  "page_file": "docs/index.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Home page provides good introduction with clear navigation. Content is accurate and well-organized. Minor improvement needed for Quick Start example completeness.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Quick Start",
+      "description": "Quick Start example shows simplified syntax without context about when to use it vs full workflow structure",
+      "current_content": "# Simplified syntax - commands as top-level array\n# For full workflow structure, see workflows/complex-build-pipeline.yml\n- shell: \"cargo build\"",
+      "should_be": "Should clarify that this simplified syntax is for simple workflows and reference the full syntax documentation",
+      "fix_suggestion": "Add a brief explanation that this is the simplified array syntax for simple workflows, and link to workflow-basics for full workflow structure with name, mode, and other fields.",
+      "source_reference": "workflow-basics/index.md should contain full syntax documentation"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Key Concepts mentions 'Validation' but doesn't explain what types of validation are available",
+      "fix_suggestion": "Expand the 'Validation' bullet to mention: workflow validation (structure/syntax), implementation completeness checking with the validate command, and runtime validation",
+      "source_reference": "commands.md:validate command"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Variables description is dense and could be clearer for newcomers",
+      "current_content": "Variables: Dynamic values captured (json, lines, number) and interpolated using `${VAR}` or `$VAR` syntax with defaults, aliases, and nested field access",
+      "should_be": "Split into simpler concepts: variable capture from commands, interpolation syntax, and reference full documentation",
+      "fix_suggestion": "Simplify to: 'Variables: Capture output from commands and use throughout workflow with ${VAR} syntax. Supports nested fields, defaults, and environment variables.' Link to detailed variable documentation.",
+      "source_reference": "Features inventory: variable_system"
+    }
+  ],
+  "positive_aspects": [
+    "Clear, compelling introduction explaining what Prodigy is and what it does",
+    "Well-organized navigation sections (Getting Started, Advanced Features, Operations)",
+    "Good use of MkDocs admonitions (tip callout for Production-Ready Features)",
+    "Accurate description of key capabilities (parallel processing, checkpoints, DLQ, git integration)",
+    "All internal links are valid and properly formatted",
+    "Mentions automated documentation as a key feature with proper cross-references",
+    "Quick Start example is functional and realistic (cargo build, test, clippy with AI-assisted fixing)",
+    "Balanced coverage of basic and advanced features without overwhelming newcomers"
+  ],
+  "improvement_suggestions": [
+    "Add a visual diagram showing the workflow execution lifecycle (would help visual learners)",
+    "Consider adding a 'Who Should Use Prodigy' section to clarify target audience",
+    "Add estimated time commitments for the different learning paths (e.g., 'Quick Start: 5 minutes', 'Tutorial: 30 minutes')",
+    "Include a brief 'Prerequisites' section mentioning Claude Code CLI, git, and YAML knowledge",
+    "Consider adding a concrete example of a use case scenario (e.g., 'Automate code review for 100 PRs')"
+  ],
+  "cross_references": [
+    "workflow-basics/index.md",
+    "commands.md",
+    "examples.md",
+    "mapreduce/index.md",
+    "environment/index.md",
+    "workflow-basics/error-handling.md",
+    "troubleshooting/index.md",
+    "automated-documentation/index.md",
+    "automated-documentation/quick-start.md",
+    "automated-documentation/tutorial.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Introduction",
+      "Getting started",
+      "Quick start",
+      "Key concepts",
+      "Navigation"
+    ],
+    "validation_focus": "Check that home page provides clear introduction and navigation",
+    "internal_links_checked": 10,
+    "broken_links_found": 0
+  }
+}

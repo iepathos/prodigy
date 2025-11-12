@@ -1,0 +1,57 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "work-distribution",
+  "page_title": "Work Distribution",
+  "page_file": "docs/mapreduce/work-distribution.md",
+  "feature_mappings": [
+    "mapreduce_workflows.core_capabilities.work_distribution"
+  ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent - comprehensive coverage of all work distribution features with clear examples, proper source code references, and well-structured progression from basics to advanced topics",
+  "issues": [],
+  "positive_aspects": [
+    "Complete coverage of all work distribution features: JSON/command input, JSONPath extraction, filtering, sorting, deduplication, and pagination",
+    "Excellent progression from overview to detailed examples",
+    "Comprehensive filter syntax documentation with all operators (comparison, logical, IN, functions)",
+    "Clear explanation of processing pipeline order with visual example",
+    "Accurate source code references throughout (e.g., src/cook/execution/data_pipeline/mod.rs line numbers)",
+    "Well-organized troubleshooting section with common issues and debugging tips",
+    "Good use of admonitions (tip, warning, note) for important context",
+    "Multiple complete, realistic examples showing feature combinations",
+    "Clear null handling documentation for both sorting and filtering",
+    "Proper cross-references to related pages (all links validated)"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a diagram showing the data pipeline flow visually",
+    "Could add a reference table summarizing all filter functions for quick lookup",
+    "Might benefit from a comparison table of sorting options (ASC/DESC, NULLS FIRST/LAST)",
+    "Could include performance considerations section (e.g., filter early, sort last)"
+  ],
+  "cross_references": [
+    "index",
+    "setup-phase-advanced",
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "JSONPath extraction",
+      "Filtering and sorting",
+      "Pagination",
+      "Deduplication",
+      "Input sources",
+      "Processing pipeline order"
+    ],
+    "validation_focus": "Check work item management, JSONPath usage, filtering, and sorting are documented"
+  }
+}

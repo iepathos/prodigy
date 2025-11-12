@@ -1,0 +1,188 @@
+{
+  "chapters": [
+    {
+      "id": "index",
+      "title": "Home",
+      "file": "mkdocs/index.md",
+      "type": "single-file",
+      "topics": [
+        "Introduction",
+        "Overview",
+        "Getting Started"
+      ],
+      "validation": "Check introduction and overview match current features"
+    },
+    {
+      "id": "installation",
+      "title": "Installation",
+      "file": "mkdocs/installation.md",
+      "type": "single-file",
+      "topics": [
+        "Installation",
+        "Prerequisites",
+        "Cargo Installation",
+        "Building from Source"
+      ],
+      "validation": "Check installation documentation matches implementation"
+    },
+    {
+      "id": "workflow-basics",
+      "title": "Workflow Basics",
+      "type": "multi-subsection",
+      "topics": [
+        "Standard workflows",
+        "Basic structure",
+        "Command execution"
+      ],
+      "validation": "Check basic workflow syntax and structure documentation",
+      "index_file": "mkdocs/workflow-basics/index.md",
+      "subsections": []
+    },
+    {
+      "id": "mapreduce",
+      "title": "MapReduce Workflows",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/mapreduce/index.md",
+      "subsections": [],
+      "topics": [
+        "MapReduce mode",
+        "Setup phase",
+        "Map phase",
+        "Reduce phase",
+        "Parallel execution"
+      ],
+      "validation": "Check MapReduce configuration matches MapReduceWorkflowConfig struct"
+    },
+    {
+      "id": "commands",
+      "title": "Command Types",
+      "type": "single-file",
+      "file": "mkdocs/commands.md",
+      "topics": [
+        "Shell commands",
+        "Claude commands",
+        "Goal-seeking",
+        "Foreach",
+        "Validation"
+      ],
+      "validation": "Check all command types and their fields are documented"
+    },
+    {
+      "id": "variables",
+      "title": "Variables and Interpolation",
+      "topics": [
+        "Standard variables",
+        "Output variables",
+        "MapReduce variables",
+        "Custom capture"
+      ],
+      "validation": "Check all variable types and interpolation syntax",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/variables/index.md",
+      "subsections": []
+    },
+    {
+      "id": "environment",
+      "title": "Environment Configuration",
+      "topics": [
+        "Global environment",
+        "Secrets management",
+        "Profiles",
+        "Step-level environment"
+      ],
+      "validation": "Check environment configuration options and syntax",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/environment/index.md",
+      "subsections": []
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced Features",
+      "topics": [
+        "Conditional execution",
+        "Output capture formats",
+        "Nested conditionals",
+        "Timeouts"
+      ],
+      "validation": "Check advanced features match implementation",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/advanced/index.md",
+      "subsections": []
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "file": "mkdocs/error-handling.md",
+      "topics": [
+        "Workflow-level errors",
+        "Command-level errors",
+        "DLQ",
+        "Circuit breaker",
+        "Retry config"
+      ],
+      "validation": "Check error handling policies and configurations",
+      "type": "single-file"
+    },
+    {
+      "id": "retry-configuration",
+      "title": "Retry Configuration",
+      "topics": [
+        "Retry defaults",
+        "Backoff strategies",
+        "Exponential backoff",
+        "Fibonacci backoff",
+        "Retry budget",
+        "Conditional retry",
+        "Jitter"
+      ],
+      "validation": "Check retry configuration options match RetryConfig struct",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/retry-configuration/index.md",
+      "subsections": []
+    },
+    {
+      "id": "composition",
+      "title": "Workflow Composition",
+      "topics": [
+        "Workflow imports",
+        "Template definitions",
+        "Template parameters",
+        "Workflow extension",
+        "Template usage"
+      ],
+      "validation": "Check composition features match implementation",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/composition/index.md",
+      "subsections": []
+    },
+    {
+      "id": "configuration",
+      "title": "Configuration",
+      "topics": [
+        "Config file locations",
+        "Precedence rules",
+        "Claude settings",
+        "Worktree settings",
+        "Storage settings",
+        "Retry defaults"
+      ],
+      "validation": "Check configuration structure matches Settings struct",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/configuration/index.md",
+      "subsections": []
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "topics": [
+        "Common issues",
+        "Debug tips",
+        "FAQ"
+      ],
+      "validation": "Check troubleshooting covers common user issues",
+      "type": "multi-subsection",
+      "index_file": "mkdocs/troubleshooting/index.md",
+      "subsections": []
+    }
+  ]
+}

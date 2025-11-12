@@ -1,0 +1,69 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "git-integration",
+  "page_title": "Git Integration",
+  "page_file": "docs/advanced/git-integration.md",
+  "feature_mappings": [
+    "git_integration.worktree_management",
+    "git_integration.commit_tracking",
+    "git_integration.merge_workflows",
+    "git_integration.branch_tracking"
+  ],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent coverage of all git integration features with accurate, comprehensive documentation. All four mapped features are well-documented with clear explanations, examples, and cross-references.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Commit Tracking - Tracking Metrics",
+      "description": "Documentation mentions commit metric variables but these may not be fully implemented",
+      "current_content": "${git.commits}, ${git.last_commit}, ${git.changed_files}",
+      "fix_suggestion": "Verify these variables are actually available in the variable system. If not implemented, remove this section or mark as planned feature.",
+      "source_reference": "src/variable_system/"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all four mapped features (worktree_management, commit_tracking, merge_workflows, branch_tracking)",
+    "Excellent explanation of worktree isolation with clear benefits and lifecycle",
+    "Detailed commit_required field documentation with source code references (src/cook/workflow/executor.rs:819-824)",
+    "Clear branch tracking logic explaining feature branch support and fallback behavior",
+    "Well-structured merge workflow examples with validation and conflict resolution",
+    "MapReduce worktree isolation clearly documented with visual diagram",
+    "Orphaned worktree recovery feature fully documented with commands and troubleshooting",
+    "Admonition (tip) used appropriately for merge debugging guidance",
+    "All internal links validated and working correctly",
+    "Good use of code blocks with yaml syntax highlighting",
+    "Examples span both standard workflows and MapReduce scenarios",
+    "Cross-references to related pages (sessions, mapreduce) are appropriate and valid"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a visual diagram for the worktree lifecycle (similar to MapReduce isolation diagram)",
+    "Could add troubleshooting section for commit_required validation failures",
+    "Consider adding example of using commit metrics in workflow logic (if variables are implemented)",
+    "Could add a 'Common Pitfalls' section for git integration issues",
+    "Consider adding information about git hooks and how they interact with worktrees"
+  ],
+  "cross_references": [
+    "sessions",
+    "mapreduce/index",
+    "storage"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Worktree management",
+      "Commit tracking",
+      "Merge workflows",
+      "Branch tracking",
+      "Orphaned worktree recovery",
+      "MapReduce worktree isolation"
+    ],
+    "validation_focus": "Check worktree isolation, commit tracking, and merge workflow features are documented",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}

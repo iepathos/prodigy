@@ -1,0 +1,62 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "environment",
+  "page_title": "Environment Variables",
+  "page_file": "docs/workflow-basics/environment.md",
+  "feature_mappings": [
+    "environment_management.global_env",
+    "environment_management.secrets",
+    "environment_management.profiles",
+    "environment_management.env_files"
+  ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent - Documentation is comprehensive, accurate, and well-aligned with implementation",
+  "issues": [],
+  "positive_aspects": [
+    "Complete coverage of all four mapped features (global_env, secrets, profiles, env_files)",
+    "Accurate documentation of variable types (static, dynamic, conditional)",
+    "Correct secrets syntax with both inline and block formats",
+    "Profile configuration accurately documented with activation via --profile flag",
+    "Environment file support properly explained with precedence rules",
+    "Excellent examples with references to actual workflow files",
+    "Comprehensive variable interpolation syntax ($VAR and ${VAR})",
+    "Automatic masking behavior correctly documented",
+    "Per-step environment configuration (temporary, clear_env) accurately covered",
+    "Usage examples across all workflow phases (setup, map, reduce, merge)",
+    "Clear troubleshooting section addressing common issues",
+    "Best practices section provides actionable guidance",
+    "All internal cross-references are valid and correct",
+    "Code examples match actual implementation in workflows/environment-example.yml and workflows/mapreduce-env-example.yml"
+  ],
+  "improvement_suggestions": [
+    "Could add a note about env_files supporting multiple file formats beyond standard .env",
+    "Could mention the order of precedence more explicitly in the opening overview section",
+    "Could include an example of SecretProvider variants (Vault, AWS, File) for advanced users",
+    "Could add a note about environment variable inheritance in MapReduce agent worktrees"
+  ],
+  "cross_references": [
+    "workflow-structure",
+    "variables/index",
+    "commands"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:04:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Global environment variables",
+      "Secrets management",
+      "Profile support",
+      "Environment files",
+      "Variable interpolation",
+      "Per-step environment",
+      "Variable precedence"
+    ],
+    "validation_focus": "Check environment variable configuration, secrets masking, and profile usage are documented",
+    "implementation_verified": true,
+    "examples_verified": true,
+    "links_validated": true
+  }
+}

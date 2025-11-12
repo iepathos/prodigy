@@ -1,0 +1,97 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "conditional-execution",
+  "page_title": "Conditional Execution",
+  "page_file": "docs/workflow-basics/conditional-execution.md",
+  "feature_mappings": [
+    "conditional_execution.when_clauses",
+    "conditional_execution.on_failure",
+    "conditional_execution.on_success"
+  ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent documentation with comprehensive coverage of all conditional execution features. The page provides clear explanations, accurate code examples with source references, and practical use cases. All internal links are valid and examples match the current implementation.",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive coverage of when clauses with clear syntax and examples",
+    "Detailed explanation of on_failure handlers including all variants (simple, advanced, detailed)",
+    "Good coverage of on_success handlers with practical use cases",
+    "Excellent use of source code references (e.g., src/config/command.rs:388)",
+    "Clear explanation of execution order and how features combine",
+    "Practical debugging section for conditional expressions",
+    "Well-structured with progressive complexity (simple to advanced)",
+    "Includes best practices with proper admonitions",
+    "All internal cross-references are valid (variables.md, error-handling.md, workflow-structure.md)",
+    "Examples match actual test cases in conditional_tests.rs",
+    "Documents deprecated test: syntax with migration guidance",
+    "Covers undefined variable behavior correctly",
+    "Includes real-world examples from actual workflow files",
+    "Documents all handler strategies (recovery, fallback, cleanup, custom)",
+    "Covers advanced configurations including fail_workflow, retry_original, and max_retries"
+  ],
+  "improvement_suggestions": [
+    "Could add a note about how when clauses interact with foreach and goal_seek commands",
+    "Could mention that on_failure handlers can themselves have on_success handlers (nested handling)",
+    "Could add an example showing when clause with environment variables from profiles",
+    "Could note that when clauses are evaluated before any command execution (not just shell)",
+    "Could add a troubleshooting section for common expression evaluation pitfalls"
+  ],
+  "cross_references": [
+    "variables",
+    "error-handling",
+    "workflow-structure"
+  ],
+  "link_validation": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "valid_links": [
+      "variables.md",
+      "error-handling.md",
+      "workflow-structure.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "When clauses",
+      "On failure handlers",
+      "On success handlers",
+      "Conditional logic",
+      "Expression evaluation",
+      "Handler strategies",
+      "Error recovery",
+      "Nested handlers"
+    ],
+    "validation_focus": "Check conditional execution syntax and use cases are documented",
+    "code_references_verified": [
+      "src/config/command.rs:375-376",
+      "src/config/command.rs:388",
+      "src/config/command.rs:446-463",
+      "src/cook/workflow/conditional_tests.rs:56",
+      "src/cook/workflow/conditional_tests.rs:72-86",
+      "src/cook/workflow/conditional_tests.rs:94-98",
+      "src/cook/workflow/conditional_tests.rs:108-109",
+      "src/cook/workflow/conditional_tests.rs:111-121",
+      "src/cook/workflow/conditional_tests.rs:128-137",
+      "src/cook/workflow/on_failure.rs:10-22",
+      "src/cook/workflow/on_failure.rs:25-49",
+      "src/cook/workflow/on_failure.rs:72",
+      "src/cook/workflow/on_failure.rs:85-105"
+    ],
+    "examples_validated": [
+      "Simple when clause with variable comparison",
+      "Complex when clause with logical operators",
+      "Step result access in when clauses",
+      "Simple on_failure with boolean flag",
+      "Single command on_failure handler",
+      "Multiple command on_failure handlers",
+      "Advanced on_failure with retry configuration",
+      "Detailed failure handler with strategies",
+      "On_success chaining",
+      "Combined conditional features"
+    ]
+  }
+}

@@ -27,22 +27,23 @@ map:
 
   # Template for each parallel agent
   agent_template:
-    commands:
-      - shell: echo "Processing item ${item.id}: ${item.task} for ${item.file}"
-      - shell: |
-          # Simulate processing
-          sleep 1
-          echo "Completed ${item.task} on ${item.file}"
+    - shell: echo "Processing item ${item.id}: ${item.task} for ${item.file}"
+    - shell: |
+        # Simulate processing
+        sleep 1
+        echo "Completed ${item.task} on ${item.file}"
 
   # Run up to 3 agents in parallel
   max_parallel: 3
 
-  # Timeout per agent
-  timeout_per_agent: 60
+  # Timeout configuration (optional)
+  # Note: agent_timeout_secs can also be configured via timeout_config block
+  # See docs/examples.md Example 8 for full timeout_config syntax
+  timeout_config:
+    agent_timeout_secs: 60  # Maximum time per agent (seconds)
 
 # Reduce phase - aggregate results
 reduce:
-  commands:
-    - shell: echo "Processed ${map.total} items"
-    - shell: echo "Successful: ${map.successful}, Failed: ${map.failed}"
-    - shell: rm -f work-items.json
+  - shell: echo "Processed ${map.total} items"
+  - shell: echo "Successful: ${map.successful}, Failed: ${map.failed}"
+  - shell: rm -f work-items.json

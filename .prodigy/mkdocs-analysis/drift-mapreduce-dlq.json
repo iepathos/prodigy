@@ -1,0 +1,87 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "dlq",
+  "page_title": "Dead Letter Queue",
+  "page_file": "docs/mapreduce/dead-letter-queue-dlq.md",
+  "feature_mappings": ["mapreduce.dlq", "error_handling.dlq"],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is comprehensive with detailed implementation references, but contains one incorrect command flag (--dry-run) that doesn't exist in the implementation. Storage path structure has minor inconsistency. Overall quality is high with excellent coverage of DLQ features.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Retry Command",
+      "description": "Documentation mentions --dry-run flag for retry command, but this flag does not exist in the implementation",
+      "current_content": "References to --dry-run mode in lines 228, 266, and feature.json mentions 'dry-run mode for retry operations' and 'Dry-run inspection'",
+      "should_be": "Remove references to --dry-run flag as it's not implemented in ReprocessOptions struct (src/cook/execution/dlq_reprocessor.rs:25-40) or CLI args (src/cli/args.rs:640-659)",
+      "fix_suggestion": "Remove the dry-run references from the Retry Command section. The retry command supports: --parallel, --max-retries, --filter, and --force flags only.",
+      "source_reference": "src/cook/execution/dlq_reprocessor.rs:25-40, src/cli/args.rs:640-659"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Storage Structure",
+      "description": "Storage path shown with redundant 'mapreduce/dlq/{job_id}' subdirectory appears confusing",
+      "current_content": "~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/",
+      "should_be": "Clarify that the 'mapreduce/dlq/{job_id}' subdirectory is for backward compatibility (as noted in line 34), but the path structure could be simplified in documentation",
+      "fix_suggestion": "Add a note explaining the redundant path structure is maintained for backward compatibility with earlier implementations.",
+      "source_reference": "src/cook/execution/dlq.rs:529"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Retry Command",
+      "description": "Stub warning is clear, but could benefit from linking to issue tracker or roadmap",
+      "current_content": "⚠️ STUB: This command is not yet implemented. Description below shows planned interface.",
+      "should_be": "Include link to GitHub issue or milestone tracking DLQ command implementation",
+      "fix_suggestion": "If there's a tracking issue for DLQ CLI implementation, link it from the stub warning for users who want to follow progress.",
+      "source_reference": "src/cli/commands/dlq.rs:1-74"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of DLQ structure with exact source code references",
+    "Detailed field-by-field documentation of DeadLetteredItem and FailureDetail",
+    "Excellent integration examples showing how DLQ works with MapReduce workflows",
+    "Clear explanation of storage architecture with concrete file paths",
+    "Good cross-references to related documentation pages",
+    "Debugging workflow section provides practical, actionable guidance",
+    "All internal markdown links are valid and working",
+    "Error Types section matches implementation exactly (ErrorType enum)",
+    "JSON log location tracking is well documented with examples",
+    "Best practices section provides clear guidance on when to retry vs manual fix"
+  ],
+  "improvement_suggestions": [
+    "Remove or clearly mark the --dry-run flag as not yet implemented",
+    "Consider adding a 'Roadmap' section showing planned vs implemented DLQ commands",
+    "Add example output for the 'list', 'inspect', and 'analyze' commands when they're implemented",
+    "Include troubleshooting section for common DLQ-related issues",
+    "Add performance guidance for very large DLQs (10,000+ items)"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "event-tracking",
+    "error-handling",
+    "mapreduce-worktree-architecture",
+    "best-practices-for-debugging",
+    "retry-metrics-and-observability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T22:23:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Dead Letter Queue structure",
+      "Failed item management",
+      "DLQ CLI commands",
+      "Retry mechanisms",
+      "Storage architecture",
+      "Debugging workflows",
+      "Integration with MapReduce"
+    ],
+    "validation_focus": "DLQ structure and retry commands",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}

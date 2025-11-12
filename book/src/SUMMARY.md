@@ -1,6 +1,6 @@
 # Summary
 
-[Introduction](intro.md)
+[Introduction](index.md)
 [Installation](installation.md)
 
 # User Guide
@@ -91,6 +91,7 @@
   - [Quick Start](automated-documentation/quick-start.md)
   - [Tutorial (30 Minutes)](automated-documentation/tutorial.md)
   - [Understanding the Workflow](automated-documentation/understanding-the-workflow.md)
+  - [MkDocs Workflow](automated-documentation/mkdocs-workflow.md)
   - [Automatic Gap Detection](automated-documentation/automatic-gap-detection.md)
   - [GitHub Actions Integration](automated-documentation/github-actions-integration.md)
   - [Troubleshooting](automated-documentation/troubleshooting.md)

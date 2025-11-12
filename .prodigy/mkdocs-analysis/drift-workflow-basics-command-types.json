@@ -1,0 +1,101 @@
+{
+  "item_type": "section-page",
+  "section_id": "workflow-basics",
+  "section_title": "Workflow Basics",
+  "page_id": "command-types",
+  "page_title": "Command Types",
+  "page_file": "docs/workflow-basics/command-types.md",
+  "feature_mappings": [],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is comprehensive and well-structured but missing documentation for the analyze command type which exists in the codebase and is actively used in workflows",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Command Types",
+      "description": "Missing documentation for analyze command type which exists in source code and is used in multiple workflows",
+      "feature_reference": "command_types.analyze",
+      "fix_suggestion": "Add documentation section for analyze command type with syntax, fields (max_cache_age, force_refresh, save, format), and examples from workflows/tech-debt.yml and workflows/analysis-workflow.yml. Show caching behavior and when to use force_refresh.",
+      "source_reference": "src/config/command.rs:332",
+      "evidence": "Command type defined at line 332 with signature 'pub analyze: Option<HashMap<String, serde_json::Value>>' and used in workflows/tech-debt.yml:3, workflows/coverage.yml:21, and workflows/analysis-workflow.yml:19,29,38"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Quick Reference",
+      "description": "Quick reference table missing the analyze command type",
+      "fix_suggestion": "Add row to quick reference table for analyze command with description: 'Codebase analysis with caching' and key features: 'Cache control, force refresh, format options'",
+      "source_reference": "src/config/command.rs:332"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent structure with quick reference table for easy navigation (lines 5-14)",
+    "Clear distinction between command types with exclusivity rules well documented (lines 409-432)",
+    "Rich examples from actual workflows with source file references throughout",
+    "Good use of MkDocs Material admonitions (tip, warning, info boxes) for important notes",
+    "Comprehensive coverage of deprecated test command with migration guidance (lines 434-456)",
+    "Source code line references for each command type providing traceability",
+    "Clear explanation of command exclusivity with valid/invalid examples",
+    "Common use cases provided for each command type in admonition blocks",
+    "Cross-references to related documentation pages at end (lines 458-466)",
+    "Well-documented common fields section covering parameters across all command types (lines 393-408)",
+    "Validation output format clearly specified with JSON examples (lines 348-358)",
+    "Goal seek result types documented (Complete, Incomplete, Failed) at lines 166-169",
+    "Foreach variable access documented with ${item} syntax at lines 240-241",
+    "Write file format types documented with clear descriptions at lines 282-286"
+  ],
+  "improvement_suggestions": [
+    "Add analyze command documentation with examples showing max_cache_age, force_refresh, save, and format options",
+    "Consider adding a diagram showing the relationship between command types and when to use each",
+    "Add troubleshooting section for common command type mistakes (e.g., trying to combine multiple command types)",
+    "Include performance considerations for different command types (e.g., foreach parallelism vs MapReduce)",
+    "Add examples showing how analyze command integrates with Claude commands for AI-assisted analysis"
+  ],
+  "cross_references": [
+    "available-fields",
+    "error-handling",
+    "goal-seeking-operations",
+    "parallel-iteration-with-foreach",
+    "implementation-validation",
+    "variables"
+  ],
+  "links_validated": true,
+  "broken_links": [],
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:35:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "shell",
+      "claude",
+      "goal_seek",
+      "foreach",
+      "write_file",
+      "validate",
+      "test (deprecated)"
+    ],
+    "validation_focus": "Check all command types are documented",
+    "command_types_in_source": [
+      "claude",
+      "shell",
+      "analyze",
+      "test",
+      "goal_seek",
+      "foreach",
+      "write_file",
+      "validate"
+    ],
+    "command_types_documented": [
+      "claude",
+      "shell",
+      "goal_seek",
+      "foreach",
+      "write_file",
+      "validate",
+      "test"
+    ],
+    "command_types_missing": [
+      "analyze"
+    ]
+  }
+}

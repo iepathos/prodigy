@@ -1,0 +1,58 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "storage",
+  "page_title": "Storage Architecture",
+  "page_file": "docs/advanced/storage.md",
+  "feature_mappings": [
+    "storage_architecture.structure",
+    "storage_architecture.benefits"
+  ],
+  "drift_detected": false,
+  "severity": "none",
+  "quality_assessment": "Excellent - Page comprehensively documents storage structure and benefits with accurate examples and valid cross-references",
+  "issues": [],
+  "positive_aspects": [
+    "Complete documentation of all storage directories from feature definition",
+    "Clear visual structure diagram with proper hierarchy",
+    "All four storage benefits documented with detailed explanations",
+    "Practical examples for accessing job data, finding sessions, and analyzing storage",
+    "Storage maintenance commands provided (cleanup, usage monitoring)",
+    "Migration guidance from legacy local storage",
+    "All internal cross-references validated as working",
+    "Good use of JSON examples for checkpoint and session formats",
+    "Troubleshooting guidance with actual shell commands"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a note about the auto-generated nature of certain storage paths (e.g., timestamp suffixes)",
+    "Could include a diagram showing how multiple worktrees interact with shared storage",
+    "May benefit from performance characteristics section (e.g., JSONL streaming vs batch reads)"
+  ],
+  "cross_references": {
+    "validated": [
+      "Event Tracking (../mapreduce/event-tracking.md)",
+      "Session Management (sessions.md)",
+      "Dead Letter Queue (../mapreduce/dead-letter-queue-dlq.md)",
+      "Git Integration (git-integration.md)"
+    ],
+    "suggested": []
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T21:23:18Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Global storage structure",
+      "Cross-repository organization",
+      "Event storage",
+      "State persistence",
+      "Session tracking",
+      "DLQ storage",
+      "Worktree lifecycle",
+      "Storage benefits",
+      "Maintenance commands"
+    ],
+    "validation_focus": "Check storage directories, organization structure, and benefits are documented",
+    "page_scope_notes": "Page correctly focuses on storage_architecture.structure and storage_architecture.benefits. Does not document resume_locks (outside scope), does not document template registry (future feature)."
+  }
+}

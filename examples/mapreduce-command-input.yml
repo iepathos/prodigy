@@ -15,19 +15,20 @@ map:
 
   # Template for each parallel agent
   agent_template:
-    commands:
-      - shell: echo "Analyzing ${item}"
-      - shell: |
-          wc -l "${item}" | awk '{print "Lines in " $2 ": " $1}'
+    - shell: echo "Analyzing ${item}"
+    - shell: |
+        wc -l "${item}" | awk '{print "Lines in " $2 ": " $1}'
 
   # Run up to 5 agents in parallel
   max_parallel: 5
 
-  # Timeout per agent (seconds)
-  timeout_per_agent: 30
+  # Timeout configuration (optional)
+  # Note: agent_timeout_secs can also be configured via timeout_config block
+  # See docs/examples.md Example 8 for full timeout_config syntax
+  timeout_config:
+    agent_timeout_secs: 30  # Maximum time per agent (seconds)
 
 # Reduce phase - runs once after all map agents complete
 reduce:
-  commands:
-    - shell: echo "Analysis complete. Results available in map.results"
-    - shell: echo "Total items processed"
+  - shell: echo "Analysis complete. Results available in map.results"
+  - shell: echo "Total items processed"
