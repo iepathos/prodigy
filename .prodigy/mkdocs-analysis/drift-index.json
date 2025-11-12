@@ -5,93 +5,68 @@
   "page_file": "docs/index.md",
   "drift_detected": true,
   "severity": "low",
-  "quality_assessment": "Page provides a clear introduction and navigation. Main features are well covered in the 'What is Prodigy?' section. Only minor improvements needed for clarity and completeness.",
+  "quality_assessment": "Home page provides good introduction with clear navigation. Content is accurate and well-organized. Minor improvement needed for Quick Start example completeness.",
   "issues": [
     {
       "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Key Concepts - Variables",
-      "description": "Variables explanation could be clearer about interpolation syntax options",
-      "current_content": "Variables: Dynamic values captured (json, lines, number) and interpolated with defaults, aliases, and nested field access",
-      "should_be": "Should briefly mention both ${VAR} and $VAR syntax support",
-      "fix_suggestion": "Expand slightly: 'Variables: Dynamic values captured (json, lines, number) and interpolated using ${VAR} or $VAR syntax with defaults, aliases, and nested field access'",
-      "source_reference": "variable_system.interpolation in features.json"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "What is Prodigy?",
-      "description": "Workflow composition features (imports, templates, inheritance) not mentioned",
-      "fix_suggestion": "Consider adding a bullet point: 'Compose complex workflows - Import, extend, and template reusable workflow components'",
-      "source_reference": "workflow_composition in features.json"
+      "severity": "medium",
+      "section": "Quick Start",
+      "description": "Quick Start example shows simplified syntax without context about when to use it vs full workflow structure",
+      "current_content": "# Simplified syntax - commands as top-level array\n# For full workflow structure, see workflows/complex-build-pipeline.yml\n- shell: \"cargo build\"",
+      "should_be": "Should clarify that this simplified syntax is for simple workflows and reference the full syntax documentation",
+      "fix_suggestion": "Add a brief explanation that this is the simplified array syntax for simple workflows, and link to workflow-basics for full workflow structure with name, mode, and other fields.",
+      "source_reference": "workflow-basics/index.md should contain full syntax documentation"
     },
     {
       "type": "missing_content",
       "severity": "low",
       "section": "Key Concepts",
-      "description": "Observability and event tracking not listed as a key concept",
-      "fix_suggestion": "Add: 'Observability: Event tracking, Claude execution logs, and comprehensive debugging tools'",
-      "source_reference": "observability in features.json"
+      "description": "Key Concepts mentions 'Validation' but doesn't explain what types of validation are available",
+      "fix_suggestion": "Expand the 'Validation' bullet to mention: workflow validation (structure/syntax), implementation completeness checking with the validate command, and runtime validation",
+      "source_reference": "commands.md:validate command"
     },
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Quick Start Example",
-      "description": "Example uses simplified array syntax without explaining the structure",
-      "current_content": "Shows commands as a top-level array without workflow name",
-      "should_be": "Should include 'name:' field to match full workflow structure or add a comment explaining the simplified syntax",
-      "fix_suggestion": "Add comment above the example: '# Simplified syntax - commands as top-level array' or restructure to show: 'name: build-and-test\ncommands:'",
-      "source_reference": "workflow_basics in features.json"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Next Steps",
-      "description": "Some important documentation sections not linked from home page",
-      "fix_suggestion": "Consider adding links to: Error Handling (error-handling.md), Environment Variables (environment/index.md), Git Integration (git-integration.md), and Troubleshooting (troubleshooting/index.md) in the Next Steps section",
-      "source_reference": "Navigation completeness"
+      "section": "Key Concepts",
+      "description": "Variables description is dense and could be clearer for newcomers",
+      "current_content": "Variables: Dynamic values captured (json, lines, number) and interpolated using `${VAR}` or `$VAR` syntax with defaults, aliases, and nested field access",
+      "should_be": "Split into simpler concepts: variable capture from commands, interpolation syntax, and reference full documentation",
+      "fix_suggestion": "Simplify to: 'Variables: Capture output from commands and use throughout workflow with ${VAR} syntax. Supports nested fields, defaults, and environment variables.' Link to detailed variable documentation.",
+      "source_reference": "Features inventory: variable_system"
     }
   ],
   "positive_aspects": [
-    "Clear and compelling introduction explaining Prodigy's purpose",
-    "Excellent feature highlights in 'What is Prodigy?' section - covers all major capabilities",
-    "Checkpoint and resume capabilities are mentioned (line 11)",
-    "Dead Letter Queue (DLQ) for failure handling is mentioned (line 12)",
-    "Good use of MkDocs Material tip admonition for production features",
-    "Self-referential documentation example is compelling and demonstrates the tool's capabilities",
-    "Quick Start example is actionable and demonstrates core workflow concepts",
-    "All 8 internal links validated - all point to existing files",
-    "Well-organized progression from introduction to next steps",
-    "Key Concepts section provides good overview of terminology",
-    "Git integration and tracking changes are highlighted (line 14)",
-    "Living documentation feature is prominently featured (line 15)"
+    "Clear, compelling introduction explaining what Prodigy is and what it does",
+    "Well-organized navigation sections (Getting Started, Advanced Features, Operations)",
+    "Good use of MkDocs admonitions (tip callout for Production-Ready Features)",
+    "Accurate description of key capabilities (parallel processing, checkpoints, DLQ, git integration)",
+    "All internal links are valid and properly formatted",
+    "Mentions automated documentation as a key feature with proper cross-references",
+    "Quick Start example is functional and realistic (cargo build, test, clippy with AI-assisted fixing)",
+    "Balanced coverage of basic and advanced features without overwhelming newcomers"
   ],
   "improvement_suggestions": [
-    "Clarify variable interpolation syntax in Key Concepts",
-    "Consider mentioning workflow composition as a feature",
-    "Add observability as a key concept",
-    "Add a brief comment to Quick Start explaining the simplified syntax",
-    "Expand Next Steps to include error handling, environment, git, and troubleshooting links",
-    "Consider adding a 'Who is this for?' section to help users assess fit",
-    "Consider adding a visual diagram showing Prodigy's workflow architecture",
-    "Make installation more prominent (possibly link before Quick Start)",
-    "Consider adding a brief comparison or positioning statement"
+    "Add a visual diagram showing the workflow execution lifecycle (would help visual learners)",
+    "Consider adding a 'Who Should Use Prodigy' section to clarify target audience",
+    "Add estimated time commitments for the different learning paths (e.g., 'Quick Start: 5 minutes', 'Tutorial: 30 minutes')",
+    "Include a brief 'Prerequisites' section mentioning Claude Code CLI, git, and YAML knowledge",
+    "Consider adding a concrete example of a use case scenario (e.g., 'Automate code review for 100 PRs')"
   ],
   "cross_references": [
-    "automated-documentation/index",
-    "automated-documentation/quick-start",
-    "automated-documentation/tutorial",
-    "workflow-basics/index",
-    "mapreduce/index",
-    "commands",
-    "examples",
-    "error-handling",
-    "environment/index",
-    "git-integration",
-    "troubleshooting/index"
+    "workflow-basics/index.md",
+    "commands.md",
+    "examples.md",
+    "mapreduce/index.md",
+    "environment/index.md",
+    "workflow-basics/error-handling.md",
+    "troubleshooting/index.md",
+    "automated-documentation/index.md",
+    "automated-documentation/quick-start.md",
+    "automated-documentation/tutorial.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-11T21:23:30Z",
+    "analyzed_at": "2025-11-11T00:00:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
       "Introduction",
@@ -101,19 +76,7 @@
       "Navigation"
     ],
     "validation_focus": "Check that home page provides clear introduction and navigation",
-    "link_validation": {
-      "total_internal_links": 8,
-      "broken_links": 0,
-      "valid_links": 8,
-      "validated_links": [
-        "automated-documentation/index.md",
-        "automated-documentation/quick-start.md",
-        "automated-documentation/tutorial.md",
-        "workflow-basics/index.md",
-        "mapreduce/index.md",
-        "commands.md",
-        "examples.md"
-      ]
-    }
+    "internal_links_checked": 10,
+    "broken_links_found": 0
   }
 }
