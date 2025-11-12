@@ -12,59 +12,36 @@
     "workflow_composition.parameters",
     "workflow_composition.sub_workflows"
   ],
-  "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Documentation is comprehensive but contains incorrect CLI command syntax and a broken cross-reference link",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation accurately covers all composition features with clear examples. Good implementation status warnings. All cross-references are valid. Only minor enhancement opportunities remain.",
   "issues": [
     {
-      "type": "incorrect_examples",
-      "severity": "high",
-      "section": "Template Registry",
-      "description": "CLI command syntax does not match actual implementation",
-      "current_content": "prodigy template add rust-ci ./templates/rust-ci.yml\nprodigy template list\nprodigy run --template rust-ci --param target=x86_64",
-      "should_be": "prodigy template register ./templates/rust-ci.yml --name rust-ci\nprodigy template list",
-      "fix_suggestion": "Update CLI examples to use 'register' subcommand instead of 'add', and remove the incorrect 'prodigy run --template' usage as that syntax is not implemented in the CLI",
-      "source_reference": "src/cli/args.rs:831-851 (TemplateCommand enum), src/cli/router.rs:210-233 (template command routing)"
-    },
-    {
-      "type": "broken_links",
-      "severity": "medium",
-      "section": "Cross-References",
-      "description": "Found 1 broken internal link",
-      "broken_links": [
-        {
-          "link_text": "Templates Guide",
-          "target_path": "../guides/workflow-templates.md",
-          "expected_location": "docs/guides/workflow-templates.md",
-          "error": "File does not exist",
-          "suggested_fix": "Update link to point to docs/composition/template-system.md which appears to be the actual templates documentation"
-        }
-      ],
-      "fix_suggestion": "Change the link from '../guides/workflow-templates.md' to '../composition/template-system.md' in the See Also section"
-    },
-    {
-      "type": "incomplete_explanation",
+      "type": "missing_content",
       "severity": "low",
-      "section": "Templates",
-      "description": "Template execution mechanism not fully explained",
-      "fix_suggestion": "Add explanation that template-based workflows are automatically detected during workflow parsing via is_composable_workflow() function and composed before execution",
-      "source_reference": "src/cook/workflow/composer_integration.rs:44-50 (detection), src/cook/workflow/composer_integration.rs:52-90 (composition flow)"
+      "section": "Imports",
+      "description": "Import caching behavior is not documented",
+      "feature_reference": "workflow_composition.imports",
+      "fix_suggestion": "Add note that imported workflows are cached in memory to avoid reloading the same file multiple times during composition.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:661-698"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Template Storage",
-      "description": "Missing information about template storage priority order",
-      "fix_suggestion": "Document that templates are searched in priority order: 1) ~/.prodigy/templates/ (global), 2) .prodigy/templates/ (project-local), 3) templates/ (legacy project-local)",
-      "source_reference": "src/cook/workflow/composer_integration.rs:93-136 (create_template_registry function)"
+      "section": "Inheritance",
+      "description": "Base workflow path resolution logic not documented",
+      "feature_reference": "workflow_composition.inheritance",
+      "fix_suggestion": "Document the search order for base workflows: 1) bases/{name}.yml, 2) templates/{name}.yml, 3) workflows/{name}.yml, 4) {name}.yml",
+      "source_reference": "src/cook/workflow/composition/composer.rs:625-642"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Sub-Workflows",
-      "description": "Sub-workflow implementation details are incomplete in code",
-      "fix_suggestion": "Add note that sub-workflow execution is partially implemented - the data structures exist but execution integration is still in progress",
-      "source_reference": "src/cook/workflow/composition/sub_workflow.rs (SubWorkflow struct exists but executor is minimal)"
+      "section": "Parameters",
+      "description": "Missing documentation about parameter substitution in environment variables and merge workflows",
+      "feature_reference": "workflow_composition.parameters",
+      "fix_suggestion": "Add examples showing that parameters can be used in env blocks and merge workflows, not just in commands.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:438-453"
     }
   ],
   "positive_aspects": [
@@ -73,14 +50,20 @@
     "Good progression from simple to complex use cases",
     "Well-structured with clear section organization",
     "Parameter types and validation are accurately documented",
-    "Examples show realistic use cases (CI pipelines, deployment workflows)"
+    "Examples show realistic use cases (CI pipelines, deployment workflows)",
+    "Template detection mechanism properly documented with source references",
+    "Template storage locations clearly explained with automatic directory creation note",
+    "Sub-workflow implementation status warning is accurate and helpful",
+    "All internal cross-reference links are valid and correct"
   ],
   "improvement_suggestions": [
-    "Add a 'Current Status' or 'Implementation Status' section noting which features are production-ready vs. experimental",
-    "Include troubleshooting section for common composition issues",
-    "Add note about template registry initialization (auto-creates directories if they don't exist)",
-    "Clarify that CLI parameter passing to templates is planned but not yet implemented (Phase 2)",
-    "Add cross-reference to error handling documentation for composition-specific errors"
+    "Add examples of selective imports using the selective field",
+    "Show how to use workflow aliases from imports in workflow: commands",
+    "Document import caching behavior for performance understanding",
+    "Add base workflow path resolution search order documentation",
+    "Include examples of parameter usage in env blocks and merge workflows",
+    "Add troubleshooting section for common composition errors (circular dependencies, template not found, parameter validation failures)",
+    "Document the dependency resolution and circular dependency detection mechanism"
   ],
   "cross_references": [
     "workflow-basics/workflow-structure.md",
@@ -88,7 +71,7 @@
     "composition/template-system.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-11T21:30:00Z",
+    "analyzed_at": "2025-11-12T02:57:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
       "Imports",
@@ -97,6 +80,11 @@
       "Parameters",
       "Sub-workflows"
     ],
-    "validation_focus": "Check workflow composition features including imports, extends, templates, and sub-workflows are documented"
+    "validation_focus": "Check workflow composition features including imports, extends, templates, and sub-workflows are documented",
+    "link_validation": {
+      "total_internal_links": 3,
+      "broken_links": 0,
+      "all_cross_references_valid": true
+    }
   }
 }
