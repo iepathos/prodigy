@@ -1,0 +1,108 @@
+{
+  "item_type": "section-page",
+  "section_id": "mapreduce",
+  "section_title": "MapReduce Workflows",
+  "page_id": "dlq",
+  "page_title": "Dead Letter Queue",
+  "page_file": "docs/mapreduce/dead-letter-queue-dlq.md",
+  "feature_mappings": ["mapreduce.dlq", "error_handling.dlq"],
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation describes a feature that has been completely removed from the codebase. This is critical drift - users following this documentation will encounter non-existent functionality.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "critical",
+      "section": "Entire Page",
+      "description": "The Dead Letter Queue (DLQ) feature has been completely removed from the codebase. No DLQ implementation exists.",
+      "current_content": "Comprehensive documentation of DLQ structure, commands, storage, and integration",
+      "should_be": "Either: (1) Remove this page entirely, or (2) Add deprecation notice explaining DLQ was removed and document alternative error handling approaches",
+      "fix_suggestion": "The DLQ feature appears to have been removed as part of spec 101 cleanup. Verify if this is intentional, then either remove the documentation or add a clear deprecation notice. Check features.json - it still lists 'dead_letter_queue' under error_handling.advanced_features, which also needs updating.",
+      "source_reference": "No DLQ-related code found in src/, no DeadLetteredItem, FailureDetail, or ErrorType structs exist"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "DLQ Item Structure",
+      "description": "Documentation references struct definitions that don't exist in the codebase",
+      "current_content": "References to DeadLetteredItem (src/cook/execution/dlq.rs:32-43), FailureDetail (src/cook/execution/dlq.rs:46-59), ErrorType (src/cook/execution/dlq.rs:62-71), WorktreeArtifacts (src/cook/execution/dlq.rs:74-80)",
+      "should_be": "Remove references to non-existent code or update to current error handling structures if replacement exists",
+      "fix_suggestion": "Remove all source code references to dlq.rs as this file no longer exists. If there's a replacement error handling mechanism, document that instead.",
+      "source_reference": "src/cook/execution/dlq.rs does not exist, no DLQ-related modules found"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "critical",
+      "section": "DLQ Commands",
+      "description": "All documented CLI commands do not exist in the current codebase",
+      "current_content": "Documents prodigy dlq list, inspect, analyze, export, stats, clear, purge, retry commands with references to src/cli/commands/dlq.rs and src/cli/args.rs",
+      "should_be": "Remove command documentation or replace with actual error handling commands if they exist",
+      "fix_suggestion": "No DlqCommands enum or dlq subcommands exist in src/cli/args.rs. The documentation's note about stub implementations (line 162) is outdated - commands have been completely removed, not just stubbed.",
+      "source_reference": "No DLQ commands found in src/cli/args.rs or src/cli/commands/"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Storage Structure",
+      "description": "Documents DLQ storage paths that are no longer created or used",
+      "current_content": "~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/ with items/ and index.json",
+      "should_be": "Remove DLQ storage documentation if feature is removed",
+      "fix_suggestion": "GlobalStorage.get_dlq_dir() may still exist (referenced in line 47), but there's no evidence it's used. Verify if DLQ storage directories are still created or if this is dead code.",
+      "source_reference": "src/storage/global.rs:46-53 shows get_dlq_dir() exists, but no callers found"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Integration with MapReduce",
+      "description": "Documents on_item_failure policy with 'dlq' option that may not exist",
+      "current_content": "on_item_failure: dlq as default policy for MapReduce workflows",
+      "should_be": "Document actual error handling policies available in current implementation",
+      "fix_suggestion": "Verify what error handling policies actually exist for MapReduce work items. Check src/config/mapreduce.rs for MapConfig schema and valid on_item_failure options.",
+      "source_reference": "Need to verify current MapReduce error handling implementation"
+    },
+    {
+      "type": "inconsistency",
+      "severity": "medium",
+      "section": "Feature Inventory",
+      "description": "features.json still lists DLQ as an implemented feature",
+      "current_content": "error_handling.advanced_features.dead_letter_queue with description and features list",
+      "should_be": "Remove DLQ from features.json or mark as deprecated/removed",
+      "fix_suggestion": "Update .prodigy/mkdocs-analysis/features.json to remove or deprecate the dead_letter_queue feature since it no longer exists in the codebase.",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:306-316"
+    }
+  ],
+  "positive_aspects": [
+    "Well-structured documentation with clear sections and examples (if feature existed)",
+    "Comprehensive coverage of data structures and storage architecture (for non-existent feature)",
+    "Good cross-references to related documentation",
+    "Clear debugging workflow examples (for removed feature)"
+  ],
+  "improvement_suggestions": [
+    "CRITICAL: Remove this page entirely OR add a prominent deprecation notice at the top explaining DLQ was removed",
+    "Update features.json to remove dead_letter_queue feature",
+    "If DLQ was replaced with a different error handling mechanism, create new documentation for that",
+    "Update cross-references in other pages (checkpoint-and-resume.md, event-tracking.md, etc.) that link to this page",
+    "Consider adding a migration guide explaining what replaced DLQ functionality (if anything)"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "event-tracking",
+    "error-handling",
+    "best-practices-for-debugging",
+    "retry-metrics-and-observability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Dead Letter Queue (REMOVED FEATURE)",
+      "Failed items (no longer using DLQ)",
+      "Retry (DLQ retry commands removed)",
+      "DLQ management (commands removed)"
+    ],
+    "validation_focus": "DLQ structure and retry commands - FEATURE COMPLETELY REMOVED",
+    "internal_links_validated": true,
+    "broken_links_found": 0,
+    "critical_finding": "Entire feature documented on this page has been removed from the codebase. This is documentation for non-existent functionality."
+  }
+}
