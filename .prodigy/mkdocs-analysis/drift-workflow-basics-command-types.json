@@ -7,127 +7,95 @@
   "page_file": "docs/workflow-basics/command-types.md",
   "feature_mappings": [],
   "drift_detected": true,
-  "severity": "critical",
-  "quality_assessment": "Page does not exist - critical documentation gap for core feature",
+  "severity": "medium",
+  "quality_assessment": "Page is comprehensive and well-structured but missing documentation for the analyze command type which exists in the codebase and is actively used in workflows",
   "issues": [
     {
       "type": "missing_content",
-      "severity": "critical",
-      "section": "Entire Page",
-      "description": "Documentation page does not exist - this is a critical gap as command types are fundamental to Prodigy workflows",
-      "feature_reference": "command_types",
-      "fix_suggestion": "Create comprehensive documentation covering all six command types: claude, shell, goal_seek, foreach, write_file, and validate",
-      "source_reference": "src/config/command.rs:WorkflowStepCommand (lines 319-401)"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Claude Commands",
-      "description": "No documentation for 'claude:' command syntax and capabilities",
-      "feature_reference": "command_types.claude",
-      "fix_suggestion": "Document claude command syntax, variable interpolation, slash command execution, JSON streaming control, and commit tracking. Include examples of basic usage and variable interpolation.",
-      "source_reference": "src/config/command.rs:324, features.json:95-102"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Shell Commands",
-      "description": "No documentation for 'shell:' command syntax and capabilities",
-      "feature_reference": "command_types.shell",
-      "fix_suggestion": "Document shell command execution, output capture formats (string, json, lines, number, boolean), stream selection (stdout, stderr, both), conditional execution (on_failure, on_success), and timeout configuration. Include examples showing output capture and conditional execution.",
-      "source_reference": "src/config/command.rs:328, features.json:104-112"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Goal-Seeking Commands",
-      "description": "No documentation for 'goal_seek:' command syntax and capabilities",
-      "feature_reference": "command_types.goal_seek",
-      "fix_suggestion": "Document goal-seeking workflow for iterative refinement, score-based validation, maximum attempt limits, success threshold configuration, timeout support, and convergence detection. Include real-world examples from workflows/goal-seeking-examples.yml showing test coverage improvement, performance optimization, and code quality improvement use cases.",
-      "source_reference": "src/config/command.rs:340, features.json:114-122, workflows/goal-seeking-examples.yml"
-    },
-    {
-      "type": "missing_content",
       "severity": "medium",
-      "section": "Foreach Commands",
-      "description": "No documentation for 'foreach:' command syntax and parallel iteration capabilities",
-      "feature_reference": "command_types.foreach",
-      "fix_suggestion": "Document foreach loop syntax for simple parallel iteration, static list iteration, command output as input, parallel execution configuration (boolean or count), item limit, and error handling. Include examples showing both list-based and command-based input sources with parallel configuration.",
-      "source_reference": "src/config/command.rs:344, features.json:124-131, src/cook/execution/foreach_tests.rs"
+      "section": "Command Types",
+      "description": "Missing documentation for analyze command type which exists in source code and is used in multiple workflows",
+      "feature_reference": "command_types.analyze",
+      "fix_suggestion": "Add documentation section for analyze command type with syntax, fields (max_cache_age, force_refresh, save, format), and examples from workflows/tech-debt.yml and workflows/analysis-workflow.yml. Show caching behavior and when to use force_refresh.",
+      "source_reference": "src/config/command.rs:332",
+      "evidence": "Command type defined at line 332 with signature 'pub analyze: Option<HashMap<String, serde_json::Value>>' and used in workflows/tech-debt.yml:3, workflows/coverage.yml:21, and workflows/analysis-workflow.yml:19,29,38"
     },
     {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Write File Commands",
-      "description": "No documentation for 'write_file:' command syntax and file writing capabilities",
-      "feature_reference": "command_types.write_file",
-      "fix_suggestion": "Document write_file command for creating files with variable interpolation, format support (text, JSON, YAML), directory creation, and file permissions control. Include example showing JSON format writing from workflows/debtmap-reduce.yml.",
-      "source_reference": "src/config/command.rs:348, features.json:140-148, workflows/debtmap-reduce.yml:105-108"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Validate Commands",
-      "description": "No documentation for 'validate:' command for implementation completeness validation",
-      "feature_reference": "command_types.validate",
-      "fix_suggestion": "Document validate command syntax for automated validation execution and success criteria checking. Explain how it differs from goal_seek validation.",
-      "source_reference": "src/config/command.rs:380, features.json:133-139"
-    },
-    {
-      "type": "missing_content",
-      "severity": "high",
-      "section": "Common Parameters",
-      "description": "No documentation for common command parameters that work across all command types",
-      "feature_reference": "command_types",
-      "fix_suggestion": "Document shared command parameters: id (for referencing outputs), commit_required (default false), timeout, when (conditional execution), capture_output, capture_format, capture_streams, output_file, on_failure, on_success. Show how these parameters apply to different command types.",
-      "source_reference": "src/config/command.rs:351-401"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Deprecated Commands",
-      "description": "No documentation noting deprecated 'test:' command syntax",
-      "feature_reference": "command_types",
-      "fix_suggestion": "Add deprecation notice explaining that 'test:' command is deprecated in favor of 'shell:' with 'on_failure:' handler. Show migration example from old to new syntax.",
-      "source_reference": "src/config/command.rs:335, 446-463"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Command Combinations",
-      "description": "No examples showing how different command types work together in workflows",
-      "feature_reference": "command_types",
-      "fix_suggestion": "Include comprehensive workflow examples showing: 1) Shell command with Claude on_failure handler (coverage-simplified.yml:15-19), 2) Nested on_success handlers (complex-build-pipeline.yml:8-13), 3) Goal-seeking with validation (goal-seeking-examples.yml), 4) Sequential command flow with output capture and variable interpolation",
-      "source_reference": "workflows/coverage-simplified.yml, workflows/complex-build-pipeline.yml, workflows/goal-seeking-examples.yml"
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Quick Reference",
+      "description": "Quick reference table missing the analyze command type",
+      "fix_suggestion": "Add row to quick reference table for analyze command with description: 'Codebase analysis with caching' and key features: 'Cache control, force refresh, format options'",
+      "source_reference": "src/config/command.rs:332"
     }
   ],
-  "positive_aspects": [],
+  "positive_aspects": [
+    "Excellent structure with quick reference table for easy navigation (lines 5-14)",
+    "Clear distinction between command types with exclusivity rules well documented (lines 409-432)",
+    "Rich examples from actual workflows with source file references throughout",
+    "Good use of MkDocs Material admonitions (tip, warning, info boxes) for important notes",
+    "Comprehensive coverage of deprecated test command with migration guidance (lines 434-456)",
+    "Source code line references for each command type providing traceability",
+    "Clear explanation of command exclusivity with valid/invalid examples",
+    "Common use cases provided for each command type in admonition blocks",
+    "Cross-references to related documentation pages at end (lines 458-466)",
+    "Well-documented common fields section covering parameters across all command types (lines 393-408)",
+    "Validation output format clearly specified with JSON examples (lines 348-358)",
+    "Goal seek result types documented (Complete, Incomplete, Failed) at lines 166-169",
+    "Foreach variable access documented with ${item} syntax at lines 240-241",
+    "Write file format types documented with clear descriptions at lines 282-286"
+  ],
   "improvement_suggestions": [
-    "Start with a command types overview table showing syntax and use cases for quick reference",
-    "Organize by command type with clear sections and sub-sections",
-    "Include practical examples from real workflows (coverage, goal-seeking, build pipelines)",
-    "Add a comparison section explaining when to use each command type",
-    "Include troubleshooting tips for common command issues",
-    "Cross-reference to related pages: variables.md for variable interpolation, error-handling.md for on_failure/on_success, conditional-execution.md for when clauses",
-    "Use MkDocs Material admonitions for tips, warnings about deprecated syntax, and best practices",
-    "Include syntax highlighting for YAML examples",
-    "Add code annotations for complex examples explaining each parameter"
+    "Add analyze command documentation with examples showing max_cache_age, force_refresh, save, and format options",
+    "Consider adding a diagram showing the relationship between command types and when to use each",
+    "Add troubleshooting section for common command type mistakes (e.g., trying to combine multiple command types)",
+    "Include performance considerations for different command types (e.g., foreach parallelism vs MapReduce)",
+    "Add examples showing how analyze command integrates with Claude commands for AI-assisted analysis"
   ],
   "cross_references": [
-    "variables",
+    "available-fields",
     "error-handling",
-    "conditional-execution",
-    "environment"
+    "goal-seeking-operations",
+    "parallel-iteration-with-foreach",
+    "implementation-validation",
+    "variables"
   ],
+  "links_validated": true,
+  "broken_links": [],
   "metadata": {
-    "analyzed_at": "2025-11-11T10:00:00Z",
+    "analyzed_at": "2025-11-11T19:35:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
-      "Shell commands",
-      "Claude commands",
-      "Goal-seeking",
-      "Foreach"
+      "shell",
+      "claude",
+      "goal_seek",
+      "foreach",
+      "write_file",
+      "validate",
+      "test (deprecated)"
     ],
-    "validation_focus": "Check all command types are documented"
+    "validation_focus": "Check all command types are documented",
+    "command_types_in_source": [
+      "claude",
+      "shell",
+      "analyze",
+      "test",
+      "goal_seek",
+      "foreach",
+      "write_file",
+      "validate"
+    ],
+    "command_types_documented": [
+      "claude",
+      "shell",
+      "goal_seek",
+      "foreach",
+      "write_file",
+      "validate",
+      "test"
+    ],
+    "command_types_missing": [
+      "analyze"
+    ]
   }
 }
