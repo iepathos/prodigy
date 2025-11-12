@@ -67,11 +67,15 @@ reduce:
       claude: "/prodigy-fix-mkdocs-build-errors --project $PROJECT_NAME"
       commit_required: true
 
-  # Holistic validation - detect cross-cutting issues map phase can't see
-  - claude: "/prodigy-validate-mkdocs-holistically --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/validation.json --auto-fix true"
+  # Structural validation - detect cross-cutting organizational issues
+  - claude: "/prodigy-validate-mkdocs-structure --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/structure-validation.json --auto-fix true"
     commit_required: true
 
-  # Clean up temporary analysis files (keep validation report for review)
+  # Feature enhancement - improve visual quality with diagrams, admonitions, etc.
+  - claude: "/prodigy-enhance-mkdocs-features --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/feature-enhancements.json --auto-fix true"
+    commit_required: true
+
+  # Clean up temporary analysis files (keep validation reports for review)
   - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
   - shell: "git add -A && git commit -m 'chore: remove temporary mkdocs analysis files for ${PROJECT_NAME}' || true"
 
@@ -81,13 +85,3 @@ error_policy:
   continue_on_failure: true
   max_failures: 2
   error_collection: aggregate
-
-# Custom merge workflow - cleanup and validation before merging
-merge:
-  commands:
-    # Step 3: Fetch latest changes and merge master into worktree
-    - shell: "git fetch origin"
-    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
-
-    # Step 4: Merge worktree back to original branch
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"

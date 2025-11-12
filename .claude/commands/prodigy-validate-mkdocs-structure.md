@@ -1,6 +1,6 @@
-# /prodigy-validate-mkdocs-holistically
+# /prodigy-validate-mkdocs-structure
 
-Perform holistic validation of the entire mkdocs documentation after map phase completes. This validates cross-cutting concerns that individual subsection fixes cannot detect.
+Perform structural validation of the entire mkdocs documentation after map phase completes. This validates cross-cutting concerns that individual subsection fixes cannot detect.
 
 ## Variables
 
@@ -13,7 +13,7 @@ Perform holistic validation of the entire mkdocs documentation after map phase c
 
 ### Phase 1: Understand Context
 
-You are performing **holistic validation** of the entire mkdocs documentation after the map phase has updated individual chapters/subsections. The map phase focuses on individual files and cannot detect:
+You are performing **structural validation** of the entire mkdocs documentation after the map phase has updated individual chapters/subsections. The map phase focuses on individual files and cannot detect:
 
 1. **Redundancy across chapters** - Multiple files with overlapping Best Practices
 2. **Structural inconsistencies** - Some chapters use subsections, others don't
@@ -395,7 +395,7 @@ grep -A 20 "Advanced Features\|Advanced Topics" mkdocs.yml | while IFS= read -r 
 done
 ```
 
-### Phase 6: Generate Holistic Validation Report
+### Phase 6: Generate Structural Validation Report
 
 **Compile All Findings:**
 
@@ -474,7 +474,7 @@ cat > "$OUTPUT" <<EOF
 {validation report JSON}
 EOF
 
-echo "✓ Holistic validation complete"
+echo "✓ Structural validation complete"
 echo "  Issues found: ${TOTAL_ISSUES}"
 echo "  Report written to: $OUTPUT"
 ```
@@ -593,7 +593,7 @@ if [ "$AUTO_FIX" = "true" ]; then
 - Removed $REFERENCE_COUNT Best Practices from technical reference pages
 - Consolidated $STUB_COUNT stub navigation files
 
-Based on holistic validation report: $OUTPUT"
+Based on structural validation report: $OUTPUT"
 
   echo "✓ Auto-fixes committed"
 fi
@@ -603,7 +603,7 @@ fi
 
 **If Auto-Fix Enabled:**
 ```
-✓ Holistic Validation Complete (MkDocs)
+✓ Structural Validation Complete (MkDocs)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Issues Found: 65
 Auto-Fixed: 47
@@ -623,7 +623,7 @@ See detailed report: .prodigy/mkdocs-validation.json
 
 **If Reporting Only:**
 ```
-✓ Holistic Validation Complete (MkDocs)
+✓ Structural Validation Complete (MkDocs)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Issues Found: 65
