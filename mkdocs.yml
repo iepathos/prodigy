@@ -209,6 +209,7 @@ nav:
     - Examples: examples.md
     - Troubleshooting:
       - troubleshooting/index.md
+      - Quick Reference: reference/troubleshooting.md
       - FAQ: troubleshooting/faq.md
       - Common Error Messages: troubleshooting/common-error-messages.md
       - Best Practices for Debugging: troubleshooting/best-practices-for-debugging.md

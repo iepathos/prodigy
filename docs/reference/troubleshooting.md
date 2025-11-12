@@ -298,4 +298,4 @@ For comprehensive debugging strategies, see:
 - [FAQ](../troubleshooting/faq.md) - Frequently asked questions
 - [MapReduce Checkpoint and Resume](../mapreduce/checkpoint-and-resume.md) - Resume functionality details
 - [Environment Variables](../environment/index.md) - Variable configuration
-- [Observability Configuration](../configuration/observability.md) - Logging and monitoring
+- [Observability Configuration](../advanced/observability.md) - Logging and monitoring
