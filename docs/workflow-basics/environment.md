@@ -24,6 +24,35 @@ Variables can be defined in multiple locations. When the same variable is define
 
 This hierarchy allows you to set sensible defaults while providing runtime overrides when needed.
 
+```mermaid
+graph TD
+    Start[Variable Reference: $API_URL] --> Profile{Profile<br/>variable?}
+    Profile -->|Yes| UseProfile[Use profile value]
+    Profile -->|No| WorkflowEnv{Workflow<br/>env block?}
+
+    WorkflowEnv -->|Yes| UseWorkflow[Use workflow value]
+    WorkflowEnv -->|No| EnvFile{Environment<br/>file?}
+
+    EnvFile -->|Yes| UseEnvFile[Use env file value]
+    EnvFile -->|No| ParentEnv{Parent<br/>process env?}
+
+    ParentEnv -->|Yes| UseParent[Use parent value]
+    ParentEnv -->|No| Error[Error: Variable not found]
+
+    UseProfile --> End[Value resolved]
+    UseWorkflow --> End
+    UseEnvFile --> End
+    UseParent --> End
+
+    style Profile fill:#e1f5ff
+    style WorkflowEnv fill:#fff3e0
+    style EnvFile fill:#f3e5f5
+    style ParentEnv fill:#e8f5e9
+    style Error fill:#ffebee
+```
+
+**Figure**: Variable resolution follows precedence from profile → workflow env → env files → parent environment.
+
 ## Defining Environment Variables
 
 Environment variables are defined in the `env` block at the workflow root:
@@ -106,6 +135,9 @@ commands:
 - For clarity in complex expressions: `${map.results}`
 - Inside quoted strings: `"Path: ${OUTPUT_DIR}/file"`
 
+!!! tip "Prefer Bracketed Syntax"
+    Using `${VAR}` instead of `$VAR` prevents ambiguity when variables are adjacent to other characters. For example, `$VARsuffix` may be interpreted as a variable named `VARsuffix`, while `${VAR}suffix` is unambiguous.
+
 ## Secrets Management
 
 Secrets are automatically masked in all output, logs, and error messages to prevent credential leaks.
@@ -121,6 +153,21 @@ env:
 ```
 
 Secrets can reference environment variables from the parent process using `${ENV_VAR}` syntax.
+
+!!! warning "Common Mistake: Forgetting secret: true"
+    The most common mistake is defining sensitive values without marking them as secrets:
+
+    ```yaml
+    # ❌ Wrong - will appear in logs
+    env:
+      API_KEY: "sk-abc123"
+
+    # ✅ Correct - automatically masked
+    env:
+      API_KEY:
+        secret: true
+        value: "sk-abc123"
+    ```
 
 ### Alternative Secrets Syntax
 
@@ -141,28 +188,38 @@ Prodigy supports multiple secret providers for integration with external secret 
 env:
   # Environment variable provider (default)
   API_TOKEN:
-    secret: true
-    value: "${GITHUB_TOKEN}"
+    secret: true              # (1)!
+    value: "${GITHUB_TOKEN}"  # (2)!
 
   # File-based secrets
   DATABASE_PASSWORD:
     secret: true
-    provider: file
-    key: "/run/secrets/db_password"
+    provider: file            # (3)!
+    key: "/run/secrets/db_password"  # (4)!
 
   # HashiCorp Vault integration
   VAULT_TOKEN:
     secret: true
-    provider: vault
-    key: "secret/data/myapp/token"
-    version: "v2"
+    provider: vault           # (5)!
+    key: "secret/data/myapp/token"  # (6)!
+    version: "v2"             # (7)!
 
   # AWS Secrets Manager
   AWS_SECRET:
     secret: true
-    provider: aws
-    key: "myapp/prod/api-key"
+    provider: aws             # (8)!
+    key: "myapp/prod/api-key"  # (9)!
 ```
+
+1. Marks value as secret for automatic masking
+2. References environment variable from parent process
+3. File provider reads secret from filesystem
+4. Path to file containing the secret value
+5. HashiCorp Vault integration for centralized secrets
+6. Vault path to the secret
+7. KV secrets engine version (v1 or v2)
+8. AWS Secrets Manager integration
+9. Secret name/ARN in AWS Secrets Manager
 
 !!! note "Provider Availability"
     Secret provider support depends on configuration. The `env` and `file` providers are always available. Vault and AWS providers require additional setup.
@@ -183,6 +240,27 @@ Secrets are masked in:
 $ curl -H 'Authorization: Bearer ***' https://api.example.com
 ```
 
+```mermaid
+flowchart LR
+    Cmd[Execute Command] --> Output[Generate Output]
+    Output --> Scan{Contains<br/>secret value?}
+
+    Scan -->|Yes| Mask[Replace with ***]
+    Scan -->|No| Pass[Pass through]
+
+    Mask --> Log[Write to log]
+    Pass --> Log
+
+    Log --> Display[Display to user]
+
+    style Cmd fill:#e1f5ff
+    style Scan fill:#fff3e0
+    style Mask fill:#ffebee
+    style Pass fill:#e8f5e9
+```
+
+**Figure**: Secret masking automatically replaces sensitive values with `***` in all output streams.
+
 !!! warning "Secret Security"
     Always mark sensitive values as secrets. Without the `secret: true` flag, values will appear in logs and may be exposed.
 
@@ -195,15 +273,15 @@ Profiles enable environment-specific configurations for development, staging, an
 ```yaml
 # Source: workflows/mapreduce-env-example.yml:28-39
 env:
-  DEBUG_MODE: "false"
-  TIMEOUT_SECONDS: "300"
-  OUTPUT_DIR: "output"
+  DEBUG_MODE: "false"           # (1)!
+  TIMEOUT_SECONDS: "300"        # (2)!
+  OUTPUT_DIR: "output"          # (3)!
 
 profiles:
   development:
-    description: "Development environment with debug enabled"
-    DEBUG_MODE: "true"
-    TIMEOUT_SECONDS: "60"
+    description: "Development environment with debug enabled"  # (4)!
+    DEBUG_MODE: "true"          # (5)!
+    TIMEOUT_SECONDS: "60"       # (6)!
     OUTPUT_DIR: "dev-output"
 
   production:
@@ -212,6 +290,13 @@ profiles:
     TIMEOUT_SECONDS: "300"
     OUTPUT_DIR: "prod-output"
 ```
+
+1. Default values used when no profile is activated
+2. Timeout for operations in seconds
+3. Output directory for workflow results
+4. Optional description shown in help text
+5. Profile values override default env values
+6. Development uses shorter timeout for faster feedback
 
 ### Activating Profiles
 
@@ -227,6 +312,9 @@ prodigy run workflow.yml --profile production
 ```
 
 Profile variables override default `env` values. Variables not defined in the profile inherit default values.
+
+!!! tip "Profile Best Practice"
+    Use profiles to separate environment-specific configuration (development, staging, production) rather than maintaining multiple workflow files. This ensures consistency while allowing environment-specific overrides.
 
 ## Environment Files
 
@@ -261,7 +349,7 @@ ENABLE_CACHING=true
 !!! note "Supported Formats"
     Environment files follow standard `.env` format with `KEY=VALUE` pairs. Lines starting with `#` are treated as comments. No spaces are allowed around the `=` sign.
 
-### Variable Precedence
+### Variable Precedence with Environment Files
 
 When variables are defined in multiple locations, Prodigy uses this precedence (highest to lowest):
 
@@ -271,6 +359,26 @@ When variables are defined in multiple locations, Prodigy uses this precedence (
 4. **Parent process environment** - Lowest priority
 
 This precedence order ensures that explicit workflow configuration takes precedence over external sources, while profiles provide runtime overrides.
+
+!!! example "Precedence Example"
+    Given these definitions:
+
+    ```yaml
+    env_files:
+      - .env.base        # API_URL=http://localhost
+      - .env.production  # API_URL=https://prod.api.com
+
+    env:
+      API_URL: https://staging.api.com
+
+    profiles:
+      prod:
+        API_URL: https://api.example.com
+    ```
+
+    Resolution:
+    - No profile: `https://staging.api.com` (workflow env)
+    - With `--profile prod`: `https://api.example.com` (profile)
 
 ## Usage in Workflow Phases
 
