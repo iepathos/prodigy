@@ -139,9 +139,8 @@ async fn test_demonstrates_the_bug() {
 
 /// Test to verify the fix: when a workflow fails, workflow_state should be set
 ///
-/// This test will pass once the fix is implemented in the workflow executor.
+/// This test should pass now that the fix is implemented in the workflow executor.
 #[tokio::test]
-#[ignore] // Remove this once fix is implemented
 async fn test_failed_workflow_sets_workflow_state() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let working_dir = temp_dir.path().to_path_buf();

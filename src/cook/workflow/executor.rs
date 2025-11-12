@@ -436,7 +436,11 @@ impl WorkflowExecutor {
             current_iteration: iteration.saturating_sub(1), // Convert to 0-based index
             current_step: step_index + 1,                   // Next step to execute
             completed_steps: self.completed_steps.clone(),
-            workflow_path: env.working_dir.join("workflow.yml"),
+            // Use actual workflow path from executor, not hardcoded "workflow.yml"
+            workflow_path: self
+                .workflow_path
+                .clone()
+                .unwrap_or_else(|| env.working_dir.join("workflow.yml")),
             input_args: Vec::new(),
             map_patterns: Vec::new(),
             using_worktree: true, // Always true since worktrees are mandatory (spec 109)
@@ -666,7 +670,10 @@ impl WorkflowExecutor {
                                         current_iteration: 0,
                                         current_step: failed_step_index,
                                         completed_steps: self.completed_steps.clone(),
-                                        workflow_path: env.working_dir.join("workflow.yml"),
+                                        // Use actual workflow path from executor, not hardcoded "workflow.yml"
+                                        workflow_path: self.workflow_path.clone().unwrap_or_else(
+                                            || env.working_dir.join("workflow.yml"),
+                                        ),
                                         input_args: Vec::new(),
                                         map_patterns: Vec::new(),
                                         using_worktree: true,
