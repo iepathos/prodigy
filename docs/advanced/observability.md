@@ -542,10 +542,3 @@ for log in ~/.local/state/claude/logs/session-*.json; do
   jq '.usage' "$log"
 done
 ```
-
-## See Also
-
-- [Event Tracking (MapReduce)](../mapreduce/event-tracking.md) - MapReduce event details
-- [Dead Letter Queue](../mapreduce/dead-letter-queue-dlq.md) - Failure tracking and retry
-- [Session Management](sessions.md) - Session state and checkpoints
-- [Claude Observability](#claude-observability) - JSON log tracking and analysis

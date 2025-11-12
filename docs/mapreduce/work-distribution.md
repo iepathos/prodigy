@@ -615,10 +615,3 @@ setup:
   - shell: |
       jq '$.items[*]' data.json | jq 'length'
 ```
-
-## See Also
-
-- [MapReduce Overview](index.md) - Introduction to MapReduce workflows
-- [Setup Phase (Advanced)](setup-phase-advanced.md) - Generating work items dynamically
-- [Checkpoint and Resume](checkpoint-and-resume.md) - Resuming interrupted workflows
-- [Dead Letter Queue (DLQ)](dead-letter-queue-dlq.md) - Handling failed work items

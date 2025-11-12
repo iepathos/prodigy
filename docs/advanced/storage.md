@@ -532,10 +532,3 @@ find ~/.prodigy/events -name "*.jsonl" -printf '%TY-%Tm-%Td %s %p\n' | \
 # Checkpoint size
 du -sh ~/.prodigy/state/*/mapreduce/jobs/*/
 ```
-
-## See Also
-
-- [Event Tracking](../mapreduce/event-tracking.md) - Event log format and usage
-- [Session Management](sessions.md) - Session storage and lifecycle
-- [Dead Letter Queue](../mapreduce/dead-letter-queue-dlq.md) - DLQ storage and retry
-- [Git Integration](git-integration.md) - Worktree storage and management

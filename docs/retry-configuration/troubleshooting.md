@@ -410,11 +410,3 @@ If retry behavior is still unclear:
 2. **Review tests**: src/cook/retry_v2.rs:463-748 (comprehensive test coverage)
 3. **Enable verbose logging**: Add logging around retry logic to see what's happening
 4. **Test with simple cases**: Start with fixed backoff and 2-3 attempts to isolate issue
-
-### See Also
-
-- [Basic Retry Configuration](./basic-retry-configuration.md) - Configuration fundamentals
-- [Backoff Strategies](./backoff-strategies.md) - Understanding backoff behavior
-- [Conditional Retry with Error Matchers](./conditional-retry-with-error-matchers.md) - Error matching details
-- [Best Practices](./best-practices.md) - Avoiding common pitfalls
-- [Complete Examples](./complete-examples.md) - Working configurations

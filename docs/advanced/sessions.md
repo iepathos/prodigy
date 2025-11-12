@@ -387,10 +387,3 @@ Monitor execution progress:
     Error: Resume already in progress for session-abc123
     Lock held by: PID 12345 on machine.local (acquired 2025-01-11 10:30:00 UTC)
     ```
-
-## See Also
-
-- [Checkpoint and Resume (MapReduce)](../mapreduce/checkpoint-and-resume.md) - MapReduce checkpointing details
-- [Worktree Management](git-integration.md) - Git worktree coordination with sessions
-- [Storage Architecture](storage.md) - Session storage structure
-- [Concurrent Resume Protection](#concurrent-resume-protection) - Lock-based resume safety

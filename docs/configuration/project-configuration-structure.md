@@ -230,11 +230,3 @@ Or use the init command (if available):
 ```bash
 prodigy init
 ```
-
-### See Also
-
-- [Global Configuration Structure](global-configuration-structure.md)
-- [Configuration Precedence Rules](configuration-precedence-rules.md)
-- [Workflow Configuration](workflow-configuration.md)
-- [Environment Variables](environment-variables.md)
-

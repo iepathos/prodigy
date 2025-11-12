@@ -655,10 +655,3 @@ reduce:
   - shell: "mkdocs build --strict"
   - claude: "/prodigy-validate-mkdocs-holistically --project $PROJECT_NAME --docs-dir $DOCS_DIR --auto-fix true"
 ```
-
-## See Also
-
-- [Book Documentation Workflow](./understanding-the-workflow.md) - mdbook equivalent
-- [Automatic Gap Detection](./automatic-gap-detection.md) - How gap detection works
-- [GitHub Actions Integration](./github-actions-integration.md) - CI/CD setup
-- [Real-World Example](./real-world-example-prodigys-own-documentation.md) - Prodigy's own setup

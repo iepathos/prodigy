@@ -239,7 +239,6 @@ commands:
 - [Environment Profiles](environment-profiles.md) - Profile-based configuration for different environments
 - [Per-Command Environment Overrides](per-command-environment-overrides.md) - Step-level environment customization
 - [Environment Precedence](environment-precedence.md) - Understanding variable resolution order
-- [Best Practices](best-practices.md) - Recommended patterns and approaches
 - [Common Patterns](common-patterns.md) - Real-world usage examples
 
 ### Related Chapters

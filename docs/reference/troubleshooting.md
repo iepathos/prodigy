@@ -288,9 +288,7 @@ Common error patterns:
     7. **Monitor resources**: Watch CPU, memory, disk during execution
     8. **Use specialized tools**: `prodigy events`, `prodigy logs`, `prodigy dlq`
 
-For comprehensive debugging strategies, see:
-
-- [Best Practices for Debugging](../troubleshooting/best-practices-for-debugging.md)
+For comprehensive debugging strategies, see the [Troubleshooting Guide](../troubleshooting/index.md).
 
 ## Related Topics
 

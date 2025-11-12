@@ -128,7 +128,6 @@ nav:
       - Available Variables: variables/available-variables.md
       - Custom Variable Capture: variables/custom-variable-capture.md
       - Troubleshooting Variable Interpolation: variables/troubleshooting-variable-interpolation.md
-      - See Also: variables/see-also.md
     - Environment Configuration:
       - environment/index.md
       - MapReduce Environment Variables: environment/mapreduce-environment-variables.md
@@ -137,7 +136,6 @@ nav:
       - Environment Profiles: environment/environment-profiles.md
       - Per-Command Environment Overrides: environment/per-command-environment-overrides.md
       - Environment Precedence: environment/environment-precedence.md
-      - Best Practices: environment/best-practices.md
       - Common Patterns: environment/common-patterns.md
     - Configuration:
       - configuration/index.md
@@ -150,10 +148,7 @@ nav:
       - Environment Variables: configuration/environment-variables.md
       - Complete Configuration Examples: configuration/complete-configuration-examples.md
       - Default Values Reference: configuration/default-values-reference.md
-      - Best Practices: configuration/best-practices.md
       - Troubleshooting: configuration/troubleshooting.md
-      - 'Migration Guide: TOML to YAML': configuration/migration-guide-toml-to-yaml.md
-      - Related Documentation: configuration/related-documentation.md
 
   - Advanced:
     - Advanced Features:
@@ -191,7 +186,6 @@ nav:
       - Complete Examples: retry-configuration/complete-examples.md
       - Workflow-Level vs Command-Level Retry: retry-configuration/workflow-level-vs-command-level-retry.md
       - Retry Metrics and Observability: retry-configuration/retry-metrics-and-observability.md
-      - Best Practices: retry-configuration/best-practices.md
       - Troubleshooting: retry-configuration/troubleshooting.md
       - Implementation References: retry-configuration/implementation-references.md
     - Error Handling: workflow-basics/error-handling.md
@@ -216,5 +210,4 @@ nav:
       - Quick Reference: reference/troubleshooting.md
       - FAQ: troubleshooting/faq.md
       - Common Error Messages: troubleshooting/common-error-messages.md
-      - Best Practices for Debugging: troubleshooting/best-practices-for-debugging.md
 

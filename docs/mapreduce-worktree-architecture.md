@@ -399,9 +399,3 @@ git log --oneline | grep "Merge"
 
 **Issue**: Worktrees remain after workflow completion
 **Solution**: Use `prodigy worktree clean` to remove old worktrees, or manually remove with `git worktree remove`
-
-## See Also
-
-- [MapReduce Workflows](mapreduce/index.md) - MapReduce workflow basics
-- [Error Handling](workflow-basics/error-handling.md) - Handling merge failures
-- [Troubleshooting](troubleshooting/index.md) - General troubleshooting guide

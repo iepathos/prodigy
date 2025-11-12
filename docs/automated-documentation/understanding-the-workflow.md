@@ -339,12 +339,3 @@ The workflow uses variable interpolation to pass data between phases:
 - Serial merge queue prevents conflicts
 
 **Scalability**: Successfully processes large documentation sets (tested with 50+ chapters).
-
-## See Also
-
-- [Tutorial](tutorial.md) - Complete 30-minute walkthrough
-- [Installation](../installation.md) - Set up Prodigy and prerequisites
-- [Automatic Gap Detection](automatic-gap-detection.md) - How the workflow finds missing documentation
-- [Advanced Configuration](advanced-configuration.md) - Customize workflow behavior
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
-- [MapReduce Workflows](../mapreduce/index.md) - General MapReduce workflows (not documentation-specific)

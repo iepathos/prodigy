@@ -474,11 +474,3 @@ env | grep PRODIGY_
 # Check effective configuration (merges all sources)
 prodigy config show
 ```
-
-### See Also
-
-- [Configuration Precedence Rules](configuration-precedence-rules.md)
-- [Global Configuration Structure](global-configuration-structure.md)
-- [Project Configuration Structure](project-configuration-structure.md)
-- [Storage Configuration](storage-configuration.md)
-

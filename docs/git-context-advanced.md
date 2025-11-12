@@ -551,9 +551,3 @@ The `GitChangeTracker::format_file_list()` method (src/cook/workflow/git_context
 To enable these features, the interpolation engine would need to support custom resolvers that call `git_tracker.resolve_variable()` instead of using pre-formatted string values. This would allow runtime formatting and filtering based on variable modifier syntax.
 
 **Until then**, use shell post-processing as documented in [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting).
-
-## See Also
-
-- [Variables and Interpolation](variables/index.md) - Basic variable usage and interpolation syntax
-- [Workflow Basics](workflow-basics/index.md) - Git integration fundamentals and workflow structure
-- [MapReduce Workflows](mapreduce/index.md) - Using git context in parallel jobs

@@ -371,4 +371,3 @@ The struct derives `Clone`, making it easy to share metadata across components w
 
 - [Template System](template-system.md) - Template caching and loading
 - [Workflow Extension](workflow-extension-inheritance.md) - Inheritance tracking
-- Best Practices (see composition/best-practices.md) - Using metadata for debugging

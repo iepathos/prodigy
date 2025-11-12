@@ -137,11 +137,3 @@ When multiple workflow sources exist, Prodigy uses this precedence:
 1. Explicit path via `prodigy run workflow.yml` (highest)
 2. `.prodigy/workflow.yml` in project directory
 3. Default workflow configuration (lowest)
-
-### See Also
-
-- [Workflow Basics](../workflow-basics/index.md) - Complete workflow syntax and features
-- [MapReduce Workflows](../mapreduce/index.md) - Parallel execution patterns
-- [Project Configuration Structure](project-configuration-structure.md) - Project variables for workflows
-- [Environment Variables](environment-variables.md) - Using environment variables in workflows
-

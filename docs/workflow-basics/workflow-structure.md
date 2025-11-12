@@ -201,11 +201,3 @@ Prodigy automatically detects which format you're using:
 ```
 
 You don't need to specify the format - just write YAML and Prodigy handles it.
-
-## See Also
-
-- [Command Types](command-types.md) - Learn about `shell`, `claude`, `goal_seek`, and `foreach` commands
-- [Command-Level Options](command-level-options.md) - Options like `capture`, `when`, `allow_failure`
-- [Environment Configuration](environment-configuration.md) - Using environment variables and secrets
-- [Full Workflow Structure](full-workflow-structure.md) - Complete details on the full format with merge workflows
-- [Complete Example](complete-example.md) - A comprehensive workflow showcasing all features

@@ -183,7 +183,6 @@ See [Per-Command Environment Overrides](per-command-environment-overrides.md) fo
 **See Also**:
 - [Environment Precedence](environment-precedence.md) - Understanding variable resolution order
 - [Environment Files](environment-files.md) - Loading variables from external files
-- [Best Practices](best-practices.md) - Recommended patterns for environment configuration
 
 ---
 

@@ -404,10 +404,3 @@ merge:
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
   timeout: 900
 ```
-
-## See Also
-
-- [Worktree Management](#worktree-management) - Isolation and lifecycle management
-- [Branch Tracking](#branch-tracking) - Original branch detection
-- [Session Management](sessions.md) - Session lifecycle and worktree coordination
-- [MapReduce Workflows](../mapreduce/index.md) - Parallel execution with worktrees

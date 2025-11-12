@@ -161,7 +161,4 @@ See also:
 - [Environment Variables](environment-variables.md)
 - [Complete Configuration Examples](complete-configuration-examples.md)
 - [Default Values Reference](default-values-reference.md)
-- [Best Practices](best-practices.md)
 - [Troubleshooting](troubleshooting.md)
-- [Migration Guide: TOML to YAML](migration-guide-toml-to-yaml.md)
-- [Related Documentation](related-documentation.md)

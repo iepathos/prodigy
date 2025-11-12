@@ -550,9 +550,3 @@ sub_workflows:
   parameters:
     environment: "staging"
 ```
-
-## See Also
-
-- [Workflow Structure](../workflow-basics/workflow-structure.md) - Basic workflow syntax
-- [Variables](../workflow-basics/variables.md) - Variable system for parameters
-- [Template System](../composition/template-system.md) - Creating and using templates

@@ -353,11 +353,3 @@ The validation system ensures:
 **Issue: Orphaned worktrees consuming disk space**
 - Solution: Run `prodigy worktree clean-orphaned <job_id>` regularly
 - Check: Monitor `~/.prodigy/worktrees/` directory size
-
-### See Also
-
-- [Understanding the Workflow](understanding-the-workflow.md) - Overview of documentation workflow phases
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
-- [Quick Start](quick-start.md) - Getting started with automated documentation
-- [Environment Variables](../configuration/environment-variables.md) - Detailed environment variable reference
-- [Configuration Precedence Rules](../configuration/configuration-precedence-rules.md) - How configuration values are resolved

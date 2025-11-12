@@ -129,9 +129,3 @@ merge:
     - shell: "echo Merge completed"
   timeout: 600
 ```
-
-## See Also
-
-- [Merge Workflows](merge-workflows.md) - Detailed merge workflow documentation
-- [Environment Configuration](environment-configuration.md) - Environment variables and secrets
-- [Command Types](command-types.md) - Available command types in workflows

@@ -340,11 +340,3 @@ Total delay could be: 10s + 10s + 20s + 30s + 50s = 120s of retries, leaving 180
 **Humantime format errors**:
 Valid formats: `1s`, `500ms`, `2m`, `1h30m`, `100ms`
 Invalid formats: `1 second`, `500`, `2 minutes`
-
-### See Also
-
-- [Basic Retry Configuration](../retry-configuration/basic-retry-configuration.md) - Full RetryConfig documentation
-- [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md) - What happens when retries are exhausted
-- [Checkpoint and Resume](./checkpoint-and-resume.md) - How retry state is preserved for resume
-- [Timeout Configuration](../advanced/timeout-configuration.md) - Interaction between backoff and timeouts
-- [Error Collection Strategies](./error-collection-strategies.md) - Overall error handling in MapReduce

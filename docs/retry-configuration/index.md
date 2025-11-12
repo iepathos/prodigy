@@ -118,8 +118,6 @@ let executor = RetryExecutor::new(retry_config)
 - **Open**: Circuit tripped, requests fail immediately without retry
 - **HalfOpen**: Testing recovery, limited requests allowed
 
-See [Best Practices](best-practices.md) for guidance on combining retry with circuit breakers for high-reliability systems.
-
 ## Additional Topics
 
 See also:
@@ -133,7 +131,6 @@ See also:
 - [Complete Examples](complete-examples.md)
 - [Workflow-Level vs Command-Level Retry](workflow-level-vs-command-level-retry.md)
 - [Retry Metrics and Observability](retry-metrics-and-observability.md)
-- [Best Practices](best-practices.md)
 - [Troubleshooting](troubleshooting.md)
 - [Implementation References](implementation-references.md)
 
@@ -155,7 +152,6 @@ The following subsections provide detailed information about specific aspects of
 - [Retry Budget](./retry-budget.md) - Limit total retry attempts across your workflow to prevent infinite retry loops
 - [Retry Metrics and Observability](./retry-metrics-and-observability.md) - Monitor retry behavior through events and logging
 - [Workflow-Level vs Command-Level Retry](./workflow-level-vs-command-level-retry.md) - Understand the differences between retry scopes and when to use each
-- [Best Practices](./best-practices.md) - Recommended patterns and anti-patterns for retry configuration
 - [Complete Examples](./complete-examples.md) - Real-world retry configuration examples demonstrating various strategies
 - [Troubleshooting](./troubleshooting.md) - Debug common retry configuration issues
 - [Implementation References](./implementation-references.md) - Links to source code implementing retry logic

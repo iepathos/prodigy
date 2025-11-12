@@ -467,10 +467,3 @@ Verify the condition matches exactly. Common mistakes:
 - Wrong event name (e.g., `if: github.event == 'push'`)
 
 **Source**: Spec 128:505-516
-
-### See Also
-
-- [Quick Start](quick-start.md) - Get started with Prodigy's automated documentation
-- [Understanding the Workflow](understanding-the-workflow.md) - Deep dive into how the book workflow works
-- [Troubleshooting](troubleshooting.md) - General troubleshooting for documentation workflows
-- [Real-World Example](real-world-example-prodigys-own-documentation.md) - See Prodigy's own documentation workflow in action

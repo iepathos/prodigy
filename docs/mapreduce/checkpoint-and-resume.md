@@ -536,10 +536,3 @@ Test coverage (tests/concurrent_resume_test.rs:77-105) validates stale lock dete
     - `prodigy checkpoints clean` - Delete checkpoints for completed workflows
 
     Use these commands to inspect checkpoint state, verify integrity before resume, and clean up old checkpoints to free disk space.
-
-### See Also
-
-- [Dead Letter Queue (DLQ)](./dead-letter-queue-dlq.md) - Managing failed work items during resume operations
-- [Event Tracking](./event-tracking.md) - Understanding events logged during checkpoint creation and resume
-- [Global Storage Architecture](./global-storage-architecture.md) - Storage locations for checkpoints and state files
-

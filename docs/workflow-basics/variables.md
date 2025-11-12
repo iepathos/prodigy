@@ -519,10 +519,3 @@ Provide fallbacks when variables may not be set:
 - shell: "echo Environment: ${ENVIRONMENT:-development}"
 - shell: "echo Timeout: ${TIMEOUT:-300} seconds"
 ```
-
-## See Also
-
-- [Command Types](command-types.md) - Commands that can capture output
-- [Environment Variables](environment.md) - Environment-specific configuration
-- [MapReduce Workflows](../mapreduce/index.md) - Using variables in parallel workflows
-- [Conditional Execution](conditional-execution.md) - Conditional logic with variables

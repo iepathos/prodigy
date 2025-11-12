@@ -206,10 +206,3 @@ config.project = Some(ProjectConfig {
 });
 assert_eq!(config.get_claude_api_key(), Some("project-key"));
 ```
-
-### See Also
-
-- [Global Configuration Structure](global-configuration-structure.md) - Complete field reference
-- [Default Values Reference](default-values-reference.md) - All default values
-- [Complete Configuration Examples](complete-configuration-examples.md) - Real-world configuration patterns
-

@@ -612,9 +612,3 @@ prodigy run workflow.yml --profile production
 1. Verify file path is relative to workflow file location
 2. Check file exists: `ls .env.production`
 3. Verify file syntax (KEY=VALUE format, no spaces around `=`)
-
-## See Also
-
-- [Workflow Structure](workflow-structure.md) - Overall workflow configuration
-- [Variables and Interpolation](../variables/index.md) - Advanced variable interpolation
-- [Command Types](../commands.md) - Using variables in different command types

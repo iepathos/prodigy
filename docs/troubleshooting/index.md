@@ -425,4 +425,3 @@ prodigy logs --latest --tail
 For more specific troubleshooting guidance, see:
 - [FAQ](faq.md) - Frequently asked questions
 - [Common Error Messages](common-error-messages.md) - Specific error messages explained
-- [Best Practices for Debugging](best-practices-for-debugging.md) - Proven debugging strategies

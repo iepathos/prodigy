@@ -176,17 +176,3 @@ Time to reach `max_delay = 30s` with `initial_delay = 1s`:
 | Fibonacci | 9 attempts | 12s (1+1+2+3+5) |
 
 **Key insight**: Exponential reaches max delay fastest, making it most aggressive. Fibonacci is gentler, making it better for gradual recovery scenarios.
-
-## See Also
-
-- [Backoff Strategies](backoff-strategies.md) - Detailed explanation of each strategy
-- [Basic Retry Configuration](basic-retry-configuration.md) - How to configure retry in workflows
-- [Jitter for Distributed Systems](jitter-for-distributed-systems.md) - When and how to use jitter
-- [Complete Examples](complete-examples.md) - Full workflow examples with retry configuration
-- [Best Practices](best-practices.md) - Guidelines for effective retry strategies
-
-**Source References**:
-- BackoffStrategy enum: `src/cook/retry_v2.rs:70-90`
-- Delay calculation: `src/cook/retry_v2.rs:284-305`
-- Jitter application: `src/cook/retry_v2.rs:308-317`
-- Default values: `src/cook/retry_v2.rs:26-31` (initial_delay, max_delay)

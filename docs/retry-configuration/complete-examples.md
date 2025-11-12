@@ -430,11 +430,3 @@ else
   exit 0
 fi
 ```
-
-### See Also
-
-- [Basic Retry Configuration](./basic-retry-configuration.md) - Configuration options
-- [Backoff Strategies](./backoff-strategies.md) - Detailed backoff strategy documentation
-- [Conditional Retry with Error Matchers](./conditional-retry-with-error-matchers.md) - Selective retry
-- [Failure Actions](./failure-actions.md) - Handling final failures
-- [Best Practices](./best-practices.md) - When to use each pattern

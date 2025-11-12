@@ -405,10 +405,3 @@ reduce:
 4. Work item sent to DLQ
 5. Other work items continue processing
 6. After workflow completes → `prodigy dlq retry <job_id>` to retry failed items
-
-### See Also
-
-- [Basic Retry Configuration](./basic-retry-configuration.md) - Command-level retry config
-- [Backoff Strategies](./backoff-strategies.md) - Backoff strategy details
-- [Best Practices](./best-practices.md) - When to use each system
-- [Complete Examples](./complete-examples.md) - Full workflow examples

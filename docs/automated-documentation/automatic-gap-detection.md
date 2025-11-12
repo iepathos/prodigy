@@ -721,9 +721,3 @@ Gap detection has comprehensive test coverage in `tests/documentation_gap_detect
 - Stub file structure validation
 - SUMMARY.md update correctness
 - Gap report JSON schema validation
-
-## See Also
-
-- [./understanding-the-workflow.md](./understanding-the-workflow.md) - How gap detection fits in the overall workflow
-- [MapReduce Workflows](../mapreduce/index.md) - MapReduce phase that consumes flattened-items.json
-- [./index.md](./index.md) - Automated documentation overview

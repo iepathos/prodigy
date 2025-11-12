@@ -212,5 +212,4 @@ The retry system is organized into logical components:
 - For practical examples, see the [Complete Examples](complete-examples.md) subsection
 - For configuration details, see the [Basic Retry Configuration](basic-retry-configuration.md) subsection
 - For backoff strategies, see the [Backoff Strategies](backoff-strategies.md) subsection
-- For best practices, see the [Best Practices](best-practices.md) subsection
 - For troubleshooting, see the [Troubleshooting](troubleshooting.md) subsection

@@ -31,4 +31,3 @@ See also:
 - [Available Variables](available-variables.md)
 - [Custom Variable Capture](custom-variable-capture.md)
 - [Troubleshooting Variable Interpolation](troubleshooting-variable-interpolation.md)
-- [See Also](see-also.md)

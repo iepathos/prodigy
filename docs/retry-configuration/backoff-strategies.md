@@ -245,5 +245,4 @@ See also:
 - [Backoff Strategy Comparison](backoff-strategy-comparison.md) - Visual comparison of strategies
 - [Jitter for Distributed Systems](jitter-for-distributed-systems.md) - How jitter prevents thundering herd
 - [Retry Metrics and Observability](retry-metrics-and-observability.md) - Track retry performance
-- [Best Practices](best-practices.md) - When to use which strategy
 

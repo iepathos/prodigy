@@ -323,10 +323,3 @@ fn test_error_matcher_rate_limit() {
 ```
 
 **Note**: Pattern matcher tests are not yet implemented in the test suite. The above tests cover Network, Timeout, and RateLimit matchers only.
-
-### See Also
-
-- [Basic Retry Configuration](./basic-retry-configuration.md) - Core retry configuration
-- [Failure Actions](./failure-actions.md) - What happens when all retries are exhausted
-- [Best Practices](./best-practices.md) - When to use selective retry
-- [Complete Examples](./complete-examples.md) - Full workflow examples with error matchers

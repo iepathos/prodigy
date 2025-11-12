@@ -121,10 +121,3 @@ retry:
 ```
 Delay sequence (without jitter): 5s, 7s, 9s, 11s, 13s
 Delay sequence (with jitter): ~4s-6s, ~5.6s-8.4s, ~7.2s-10.8s, ~8.8s-13.2s, ~10.4s-15.6s
-
-### See Also
-
-- [Backoff Strategies](backoff-strategies.md) - Overview of different backoff strategies
-- [Basic Retry Configuration](basic-retry-configuration.md) - Core retry configuration options
-- [Best Practices](best-practices.md) - Recommendations for retry configuration in production systems
-

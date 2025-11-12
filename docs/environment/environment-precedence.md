@@ -173,4 +173,3 @@ Common debugging scenarios:
 - [Secrets Management](secrets-management.md) - Secure handling of sensitive values
 - [Environment Profiles](environment-profiles.md) - Profile infrastructure details
 - [Per-Command Overrides](per-command-environment-overrides.md) - Command-level environment control
-- [Best Practices](best-practices.md) - Environment configuration recommendations

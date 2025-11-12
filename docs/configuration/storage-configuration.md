@@ -347,10 +347,3 @@ If you have existing local storage (`.prodigy/` in project directory), migrate t
 
 **Issue**: "Disk space full"
 **Solution**: Clean up old events/DLQ data, increase `max_file_size`, enable compression
-
-### See Also
-
-- [Environment Variables](environment-variables.md)
-- [Default Values Reference](default-values-reference.md)
-- [Troubleshooting](troubleshooting.md)
-

@@ -561,7 +561,6 @@ merge:
 ```
 
 See also:
-- [Best Practices](best-practices.md) for guidelines on environment management
 - [Environment Profiles](environment-profiles.md) for profile configuration details
 - [Secrets Management](secrets-management.md) for secure credential handling
 - [MapReduce Environment Variables](mapreduce-environment-variables.md) for MapReduce-specific usage

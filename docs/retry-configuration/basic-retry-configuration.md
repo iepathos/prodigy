@@ -122,12 +122,3 @@ retry_config:
     - timeout
   on_failure: continue
 ```
-
-### See Also
-
-- [Backoff Strategies](./backoff-strategies.md) - Detailed backoff strategy documentation
-- [Conditional Retry with Error Matchers](./conditional-retry-with-error-matchers.md) - Selective retry with `retry_on`
-- [Failure Actions](./failure-actions.md) - What happens after final failure
-- [Jitter for Distributed Systems](./jitter-for-distributed-systems.md) - Preventing thundering herd
-- [Retry Budget](./retry-budget.md) - Time-based retry limits
-- [Complete Examples](./complete-examples.md) - Full workflow examples

@@ -661,12 +661,3 @@ Each workflow step must specify **exactly one** command type. You cannot combine
 ```
 
 The migration is straightforward: replace `test:` → `command:` with `shell:` and keep all other fields unchanged.
-
-## See Also
-
-- [Available Fields](available-fields.md) - Complete reference of all command fields
-- [Goal Seeking Operations](../advanced/goal-seeking-operations.md) - Advanced goal-seeking patterns
-- [Parallel Iteration with Foreach](../advanced/parallel-iteration-with-foreach.md) - Foreach best practices
-- [Implementation Validation](../advanced/implementation-validation.md) - Validation strategies
-- [Variables](../variables/index.md) - Variable interpolation in commands
-- [Error Handling](error-handling.md) - Error handling strategies

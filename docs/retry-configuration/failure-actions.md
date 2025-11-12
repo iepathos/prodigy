@@ -352,11 +352,3 @@ The `test:` command type is deprecated. Migrate to `shell:` with `on_failure:`:
 ```
 
 **Source**: Deprecation warning in `src/config/command.rs:446-455`
-
-## See Also
-
-- [Basic Retry Configuration](./basic-retry-configuration.md) - Retry configuration basics
-- [Conditional Retry with Error Matchers](./conditional-retry-with-error-matchers.md) - Selective retry by error type
-- [Best Practices](./best-practices.md) - When to use each failure handling mechanism
-- [Complete Examples](./complete-examples.md) - Full workflow examples
-- [Workflow-Level vs Command-Level Retry](./workflow-level-vs-command-level-retry.md) - Comparison of retry systems

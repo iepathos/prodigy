@@ -306,7 +306,6 @@ secrets:
 - [Environment Variables](environment-profiles.md) - General environment variable configuration
 - [Environment Profiles](environment-profiles.md) - Profile-based configuration
 - [Environment Precedence](environment-precedence.md) - How environment values are resolved
-- [Best Practices](best-practices.md) - Environment configuration best practices
 
 ### Implementation References
 
