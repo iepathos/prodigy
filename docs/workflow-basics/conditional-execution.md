@@ -24,6 +24,9 @@ When clauses support:
 - **Parentheses**: For grouping expressions
 - **Step results**: Access previous step outcomes
 
+!!! warning "Expression Evaluation Gotcha"
+    Undefined variables in when clauses evaluate to `false` (not an error). This allows safe checking for optional variables but can cause unexpected skips if you mistype a variable name.
+
 ### Available Variables
 
 **Workflow Variables:**
@@ -121,14 +124,21 @@ On failure handlers specify what to do when a command fails. They provide flexib
 
 For more control over failure handling, use the advanced syntax:
 
+!!! tip "Advanced Error Recovery"
+    The advanced syntax provides fine-grained control over retry behavior and workflow continuation:
+
 ```yaml
 # Source: src/cook/workflow/on_failure.rs:85-105
 - shell: "cargo test"
   on_failure:
     shell: "echo 'Tests failed, trying cleanup...'"
-    fail_workflow: false       # Don't fail workflow after handler
-    retry_original: true       # Retry original command after handler
-    max_retries: 3            # Maximum retry attempts
+    fail_workflow: false       # (1)!
+    retry_original: true       # (2)!
+    max_retries: 3            # (3)!
+
+1. Continue workflow even if the handler can't recover
+2. Automatically retry the original command after handler completes
+3. Maximum number of retry attempts (prevents infinite loops)
 ```
 
 **With Claude recovery:**
@@ -145,71 +155,91 @@ For more control over failure handling, use the advanced syntax:
 
 For complex scenarios, use the detailed handler configuration:
 
+!!! example "Full Handler Configuration"
+    This example shows all available handler configuration options:
+
 ```yaml
 # Source: src/cook/workflow/on_failure.rs:25-49
 - shell: "cargo test"
   on_failure:
-    strategy: recovery        # recovery, fallback, cleanup, or custom
-    timeout: 300              # Handler timeout in seconds
-    handler_failure_fatal: false  # Continue if handler fails
-    fail_workflow: false      # Don't fail workflow after handling
+    strategy: recovery        # (1)!
+    timeout: 300              # (2)!
+    handler_failure_fatal: false  # (3)!
+    fail_workflow: false      # (4)!
     commands:
       - shell: "cargo clean"
         continue_on_error: true
       - claude: "/fix-tests ${shell.output}"
     capture:
       error_details: "${handler.output}"
+
+1. Choose recovery strategy: recovery, fallback, cleanup, or custom
+2. Timeout for handler execution (prevents hanging handlers)
+3. If handler fails, continue to next command instead of failing workflow
+4. After handler completes, continue workflow instead of failing
 ```
 
 ### Handler Strategies
 
-**Recovery** (default):
-Try to fix the problem and continue.
+!!! info "Choosing the Right Strategy"
+    Different strategies communicate intent and help with workflow maintenance:
 
-```yaml
-# Source: src/cook/workflow/on_failure.rs:10-22
-- shell: "cargo build"
-  on_failure:
-    strategy: recovery
-    commands:
-      - claude: "/fix-compilation-errors ${shell.output}"
-```
+    - **recovery**: Attempt to fix the problem and retry
+    - **fallback**: Try an alternative approach
+    - **cleanup**: Clean up resources before failing
+    - **custom**: Execute domain-specific error handling
 
-**Fallback**:
-Use an alternative approach when the primary method fails.
+=== "Recovery"
 
-```yaml
-- shell: "docker build -t myapp ."
-  on_failure:
-    strategy: fallback
-    commands:
-      - shell: "podman build -t myapp ."
-```
+    Try to fix the problem and continue:
 
-**Cleanup**:
-Clean up resources before failing.
+    ```yaml
+    # Source: src/cook/workflow/on_failure.rs:10-22
+    - shell: "cargo build"
+      on_failure:
+        strategy: recovery
+        commands:
+          - claude: "/fix-compilation-errors ${shell.output}"
+    ```
 
-```yaml
-- shell: "run-integration-tests.sh"
-  on_failure:
-    strategy: cleanup
-    fail_workflow: true
-    commands:
-      - shell: "docker-compose down"
-      - shell: "rm -rf test-data/"
-```
+=== "Fallback"
 
-**Custom**:
-Execute custom handler logic.
+    Use an alternative approach when the primary method fails:
 
-```yaml
-- shell: "deploy-to-production.sh"
-  on_failure:
-    strategy: custom
-    commands:
-      - shell: "rollback-deployment.sh"
-      - shell: "notify-team.sh"
-```
+    ```yaml
+    - shell: "docker build -t myapp ."
+      on_failure:
+        strategy: fallback
+        commands:
+          - shell: "podman build -t myapp ."
+    ```
+
+=== "Cleanup"
+
+    Clean up resources before failing:
+
+    ```yaml
+    - shell: "run-integration-tests.sh"
+      on_failure:
+        strategy: cleanup
+        fail_workflow: true
+        commands:
+          - shell: "docker-compose down"
+          - shell: "rm -rf test-data/"
+    ```
+
+=== "Custom"
+
+    Execute custom handler logic:
+
+    ```yaml
+    - shell: "deploy-to-production.sh"
+      on_failure:
+        strategy: custom
+        commands:
+          - shell: "rollback-deployment.sh"
+          - shell: "notify-team.sh"
+    ```
 
 ### Real-World Examples
 
@@ -299,6 +329,48 @@ Success handlers can be chained to create sequential workflows:
 When clauses, on_failure, and on_success can be combined to create sophisticated workflows:
 
 ### Execution Order
+
+```mermaid
+flowchart TD
+    Start[Workflow Step] --> WhenCheck{when clause<br/>present?}
+    WhenCheck -->|No| Execute[Execute Command]
+    WhenCheck -->|Yes| EvalWhen{Evaluate<br/>when clause}
+
+    EvalWhen -->|true| Execute
+    EvalWhen -->|false| Skip[Skip Step]
+
+    Execute --> Result{Command<br/>Result}
+
+    Result -->|Success| SuccessCheck{on_success<br/>defined?}
+    Result -->|Failure| FailCheck{on_failure<br/>defined?}
+
+    SuccessCheck -->|Yes| RunSuccess[Execute on_success]
+    SuccessCheck -->|No| Next[Next Step]
+
+    FailCheck -->|Yes| RunFail[Execute on_failure]
+    FailCheck -->|No| Fail[Fail Workflow]
+
+    RunSuccess --> SuccessResult{Handler<br/>Result}
+    SuccessResult -->|Success| Next
+    SuccessResult -->|Failure| Fail
+
+    RunFail --> FailResult{Handler<br/>Result}
+    FailResult --> FailWorkflow{fail_workflow<br/>setting}
+    FailWorkflow -->|true| Fail
+    FailWorkflow -->|false| Next
+
+    Skip --> Next
+
+    style Execute fill:#e1f5ff
+    style RunSuccess fill:#e8f5e9
+    style RunFail fill:#fff3e0
+    style Fail fill:#ffebee
+    style Next fill:#f3e5f5
+```
+
+**Figure**: Conditional execution flow showing when clause evaluation, command execution, and success/failure handler logic.
+
+The execution order follows these steps:
 
 1. **when clause** evaluated first
 2. If `when` is true (or absent), **command executes**

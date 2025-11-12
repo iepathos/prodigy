@@ -33,6 +33,41 @@ Each phase executes in an isolated git worktree, ensuring your main repository r
 
 ## The Three Phases
 
+```mermaid
+graph TD
+    Start[Workflow Start] --> Setup[Setup Phase<br/>Generate work items]
+    Setup --> Extract[Extract Items<br/>Apply filter, sort]
+    Extract --> Map[Map Phase<br/>Parallel Processing]
+
+    Map --> A1[Agent 1<br/>Item 0]
+    Map --> A2[Agent 2<br/>Item 1]
+    Map --> A3[Agent 3<br/>Item 2]
+    Map --> AN[Agent N<br/>Item N]
+
+    A1 -->|Success| Merge[Merge Results]
+    A2 -->|Success| Merge
+    A3 -->|Success| Merge
+    AN -->|Success| Merge
+
+    A1 -->|Failure| DLQ[Dead Letter Queue]
+    A2 -->|Failure| DLQ
+    A3 -->|Failure| DLQ
+    AN -->|Failure| DLQ
+
+    Merge --> Reduce[Reduce Phase<br/>Aggregate & Report]
+    Reduce --> Complete[Workflow Complete]
+
+    DLQ -.->|Retry| Map
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style DLQ fill:#ffebee
+    style Complete fill:#e8f5e9
+```
+
+**Figure**: MapReduce execution flow showing the three phases, parallel agent processing, and error handling through the Dead Letter Queue.
+
 ### Setup Phase
 
 The optional setup phase prepares your environment and generates work items:
@@ -59,18 +94,26 @@ The map phase distributes work items to parallel agents:
 ```yaml
 # Source: workflows/mapreduce-example.yml:9-27
 map:
-  input: debt_items.json
-  json_path: "$.debt_items[*]"
+  input: debt_items.json                # (1)!
+  json_path: "$.debt_items[*]"          # (2)!
 
-  agent_template:
+  agent_template:                        # (3)!
     - claude: "/fix-issue ${item.description} --file ${item.location.file}"
     - shell: "cargo test"
-      on_failure:
+      on_failure:                        # (4)!
         claude: "/debug-test ${shell.output}"
 
-  max_parallel: 10
-  filter: "severity == 'high' || severity == 'critical'"
-  sort_by: "priority"
+  max_parallel: 10                       # (5)!
+  filter: "severity == 'high' || severity == 'critical'"  # (6)!
+  sort_by: "priority"                    # (7)!
+
+1. JSON file containing work items (generated in setup phase)
+2. JSONPath expression to extract items from the JSON structure
+3. Template commands executed by each agent for its work item
+4. Fallback commands executed if the previous command fails
+5. Maximum number of agents running concurrently (controls parallelism)
+6. Only process items matching this condition (reduces workload)
+7. Process items in this order (e.g., high-priority items first)
 ```
 
 **Key capabilities:**
@@ -178,14 +221,31 @@ When the map phase begins, Prodigy:
 
 Each agent runs in its own git worktree branched from the MapReduce worktree:
 
+```mermaid
+graph TD
+    Main[Original Branch<br/>main/feature-xyz] --> Parent[MapReduce Worktree<br/>session-abc123]
+
+    Parent --> A1[Agent Worktree 1<br/>agent-1-item-1]
+    Parent --> A2[Agent Worktree 2<br/>agent-2-item-2]
+    Parent --> A3[Agent Worktree 3<br/>agent-3-item-3]
+    Parent --> AN[Agent Worktree N<br/>agent-N-item-N]
+
+    A1 -->|Merge Changes| Parent
+    A2 -->|Merge Changes| Parent
+    A3 -->|Merge Changes| Parent
+    AN -->|Merge Changes| Parent
+
+    Parent -.->|User Approval| Main
+
+    style Main fill:#e8f5e9
+    style Parent fill:#e1f5ff
+    style A1 fill:#fff3e0
+    style A2 fill:#fff3e0
+    style A3 fill:#fff3e0
+    style AN fill:#fff3e0
 ```
-original_branch (e.g., main)
-    ↓
-MapReduce worktree (session-xxx)
-    ├→ agent-1 worktree → processes item-1
-    ├→ agent-2 worktree → processes item-2
-    └→ agent-N worktree → processes item-N
-```
+
+**Figure**: Worktree isolation architecture showing how agents branch from the parent MapReduce worktree and merge their changes back independently.
 
 **Benefits of isolation:**
 
@@ -193,6 +253,13 @@ MapReduce worktree (session-xxx)
 - **Independent failures**: One agent failure doesn't affect others
 - **Clean merges**: Each agent's changes merge independently
 - **Resource safety**: No shared mutable state
+
+!!! note "Cleanup Failure Handling"
+    If worktree cleanup fails after agent completion, the agent's work is still preserved. Failed cleanups are tracked in an orphaned worktree registry and can be retried with:
+    ```bash
+    prodigy worktree clean-orphaned <job-id>
+    ```
+    See [Spec 136](https://github.com/yourusername/prodigy/blob/master/specs/136-cleanup-failure-handling.md) for details.
 
 ### Controlling Parallelism
 
@@ -208,6 +275,9 @@ max_parallel: "$MAX_WORKERS"
     Each agent consumes system resources (CPU, memory, disk I/O). Start with conservative `max_parallel` values and increase based on system capacity. A good starting point is 5-10 agents.
 
 ## Example: Bulk Code Updates
+
+!!! example "When to Use This Pattern"
+    This example demonstrates a common MapReduce use case: applying the same transformation to many files independently. Use this pattern for bulk updates like copyright headers, import statements, formatting changes, or license headers where each file can be processed in isolation.
 
 Here's a complete example updating copyright headers across a codebase:
 
@@ -253,7 +323,17 @@ Failed work items are automatically sent to the DLQ with:
 - Original work item data
 - Failure reason and error message
 - Timestamp and retry count
-- Claude JSON log location for debugging
+- Claude JSON log location for debugging (via `json_log_location` field)
+
+!!! tip "Debugging with JSON Logs"
+    Each DLQ item includes a `json_log_location` field pointing to the Claude execution log. Use this to inspect the complete conversation, tool invocations, and error context:
+    ```bash
+    # View the log location
+    prodigy dlq show <job-id> | jq '.items[].failure_history[].json_log_location'
+
+    # Inspect the log file
+    cat ~/.local/state/claude/logs/session-xyz.json | jq
+    ```
 
 **Retry failed items:**
 
@@ -279,6 +359,9 @@ prodigy resume-job <job-id>
 ```
 
 All completed work is preserved. In-progress items restart from the beginning.
+
+!!! note "Concurrent Resume Protection"
+    Resume operations are protected from concurrent execution using automatic lock management. If another process is already resuming the same job, you'll receive an error with details about the lock holder. Stale locks (from crashed processes) are automatically detected and cleaned up. See [Spec 140](https://github.com/yourusername/prodigy/blob/master/specs/140-concurrent-resume-protection.md) for details.
 
 ## Learn More
 

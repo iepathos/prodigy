@@ -4,110 +4,68 @@
   "section_title": "Reference",
   "page_id": "examples",
   "page_title": "Examples",
-  "page_file": "docs/examples.md",
+  "page_file": "docs/reference/examples.md",
   "drift_detected": true,
-  "severity": "medium",
-  "quality_assessment": "Examples are comprehensive and well-structured, but contain deprecated syntax in some actual example files that contradicts documentation guidance",
+  "severity": "critical",
+  "quality_assessment": "Documentation file docs/reference/examples.md does not exist. However, comprehensive examples documentation exists at docs/examples.md. This indicates a mkdocs.yml structure mismatch.",
   "issues": [
     {
-      "type": "outdated_information",
-      "severity": "medium",
-      "section": "Example 4: Parallel Code Review",
-      "description": "Two actual example YAML files in the repository still use deprecated 'timeout_per_agent' syntax",
-      "current_content": "examples/mapreduce-json-input.yml:40 and examples/mapreduce-command-input.yml:26 both use 'timeout_per_agent: 60'",
-      "should_be": "Should use 'agent_timeout_secs' or 'timeout_config' as documented in Example 8",
-      "fix_suggestion": "Update examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml to use current timeout syntax (agent_timeout_secs or timeout_config block)",
-      "source_reference": "src/cli/yaml_validator.rs:108-113 shows timeout_per_agent is deprecated and blocked by validator"
-    },
-    {
-      "type": "inconsistent_examples",
-      "severity": "medium",
-      "section": "Example 8: Complex MapReduce with Error Handling",
-      "description": "Documentation shows 'on_failure' as nested commands under agent_template, but actual workflow files show different usage patterns",
-      "current_content": "Documentation shows:\n```yaml\nagent_template:\n  - shell: \"cargo test\"\n    on_failure:\n      claude: \"/debug-and-fix\"\n```",
-      "should_be": "Verify if on_failure should be a single command or an array of commands. Actual workflows show mixed usage.",
-      "fix_suggestion": "Clarify on_failure syntax - should it be a single command or an array? Update Example 8 to show the canonical pattern that matches src/config/ definitions.",
-      "source_reference": "Multiple workflow files show 'on_failure:' with various syntaxes - needs clarification"
-    },
-    {
       "type": "missing_content",
-      "severity": "low",
-      "section": "Example 14: Custom Merge Workflows",
-      "description": "Merge workflow example doesn't demonstrate timeout failure scenarios or what happens when merge commands fail",
-      "fix_suggestion": "Add a note or sub-example showing what happens when merge validation fails, and how to recover",
-      "source_reference": "src/config/mapreduce.rs:84-94 defines merge timeout, but error scenarios not covered"
+      "severity": "critical",
+      "section": "File Location",
+      "description": "Documentation file docs/reference/examples.md does not exist, but docs/examples.md contains comprehensive examples",
+      "current_content": "File does not exist at specified path",
+      "should_be": "Either move docs/examples.md to docs/reference/examples.md or update mkdocs.yml nav structure to reflect actual location",
+      "fix_suggestion": "Review mkdocs.yml navigation structure. If a 'Reference' section with examples page is intended, move docs/examples.md to docs/reference/examples.md and update mkdocs.yml accordingly. Otherwise, update the flattened-items.json to reflect the actual location (docs/examples.md).",
+      "source_reference": "docs/examples.md exists with 14 comprehensive examples covering all major features"
     },
     {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Example 6: Multi-Step Validation",
-      "description": "Validation example shows 'validate' command structure but doesn't explain the full validation lifecycle or how validation.gaps is populated",
-      "fix_suggestion": "Add explanation of how validation.gaps variable is populated and what format it expects from the validation script/command",
-      "source_reference": "features.json:command_types.validate shows implementation_completeness_validation capabilities"
-    },
-    {
-      "type": "broken_links",
-      "severity": "low",
-      "section": "Cross-References",
-      "description": "All internal documentation links are valid",
-      "broken_links": [],
-      "validation_summary": "Checked 2 internal links: workflow-basics/error-handling.md and mapreduce/backoff-strategies.md - both exist"
+      "type": "inconsistent_structure",
+      "severity": "high",
+      "section": "MkDocs Structure",
+      "description": "flattened-items.json specifies docs/reference/examples.md but mkdocs.yml likely doesn't have a 'reference' section",
+      "current_content": "No docs/reference/ directory exists in the docs/ structure",
+      "should_be": "Consistent mapping between mkdocs.yml nav structure and flattened-items.json",
+      "fix_suggestion": "Check mkdocs.yml to verify the actual navigation structure. Ensure flattened-items.json accurately reflects the nav hierarchy.",
+      "source_reference": "docs/ directory contains: advanced/, automated-documentation/, composition/, configuration/, environment/, mapreduce/, retry-configuration/, troubleshooting/, variables/, workflow-basics/ - but no reference/"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of all major workflow features",
-    "Clear progression from simple to advanced examples",
-    "Excellent quick reference table at the top",
-    "Good use of source references to actual code",
-    "Strong explanations of goal seeking, circuit breakers, and retry strategies",
-    "Well-structured sections with consistent formatting",
-    "Good balance of YAML examples and explanatory text",
-    "Examples demonstrate both standard and MapReduce workflow modes",
-    "Clear documentation of merge workflows with environment variables",
-    "Good coverage of environment variables, secrets, and profiles"
+    "Comprehensive examples documentation exists at docs/examples.md with 14 well-structured examples",
+    "Examples cover all major features: standard workflows, MapReduce, error handling, environment management, etc.",
+    "Documentation is well-organized with quick reference table and progressive complexity",
+    "Examples include source references to actual code and implementation details",
+    "Good coverage of advanced features like circuit breakers, retry strategies, and workflow composition"
   ],
   "improvement_suggestions": [
-    "Fix the deprecated timeout_per_agent usage in examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml",
-    "Clarify on_failure syntax - ensure consistency between documentation and actual workflow examples",
-    "Add troubleshooting section for common example-running issues",
-    "Consider adding a 'Running These Examples' section showing how to execute them",
-    "Add note about which examples are self-contained vs. which require project setup",
-    "Consider adding expected output snippets for each example to show what success looks like",
-    "Add cross-reference from Example 8 to DLQ documentation page for deep dive on failure handling"
+    "Verify intended mkdocs.yml structure: should there be a 'Reference' section?",
+    "If 'Reference' section is intended, create docs/reference/ directory and move relevant files",
+    "Update mkdocs.yml navigation to match the directory structure",
+    "Regenerate flattened-items.json to reflect the corrected structure",
+    "Consider if examples belong in a 'Reference' section or as a top-level page"
   ],
   "cross_references": [
-    "workflow-basics/error-handling",
-    "mapreduce/backoff-strategies",
-    "workflow-basics/environment-variables",
-    "mapreduce/checkpoint-resume",
-    "mapreduce/dead-letter-queue"
+    "../workflow-basics/error-handling.md",
+    "../mapreduce/backoff-strategies.md",
+    "../workflow-basics/environment-variables.md",
+    "../mapreduce/checkpoint-resume.md",
+    "../mapreduce/dead-letter-queue.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-01-11T21:24:00Z",
+    "analyzed_at": "2025-11-11T00:00:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
       "Practical workflows",
       "Use cases",
-      "Best practices",
-      "Standard workflows",
-      "MapReduce workflows",
-      "Error handling",
-      "Environment variables",
-      "Goal seeking",
-      "Circuit breakers",
-      "Retry strategies",
-      "Workflow composition",
-      "Custom merge workflows"
+      "Best practices"
     ],
     "validation_focus": "Check examples are valid and work with current syntax",
-    "examples_count": 14,
-    "deprecated_syntax_found": true,
-    "deprecated_fields": [
-      "timeout_per_agent"
-    ],
-    "affected_files": [
-      "examples/mapreduce-json-input.yml",
-      "examples/mapreduce-command-input.yml"
-    ]
+    "actual_file_location": "docs/examples.md",
+    "specified_file_location": "docs/reference/examples.md",
+    "file_exists_at_specified_location": false,
+    "file_exists_at_alternate_location": true,
+    "alternate_location": "docs/examples.md",
+    "directory_structure_issue": true,
+    "mkdocs_structure_verification_needed": true
   }
 }

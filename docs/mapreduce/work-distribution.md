@@ -15,6 +15,28 @@ The work distribution system processes data through a multi-stage pipeline:
 
 Each stage is optional and can be configured independently to build the exact work distribution strategy you need.
 
+```mermaid
+flowchart LR
+    Input[Input Source<br/>JSON file or command] --> JSONPath[JSONPath Extraction<br/>$.items[*]]
+    JSONPath --> Filter[Filtering<br/>score >= 5]
+    Filter --> Sort[Sorting<br/>priority DESC]
+    Sort --> Dedup[Deduplication<br/>distinct: id]
+    Dedup --> Offset[Offset<br/>skip first N]
+    Offset --> Limit[Limit<br/>take M items]
+    Limit --> Agents[Distribute to<br/>Parallel Agents]
+
+    style Input fill:#e1f5ff
+    style JSONPath fill:#fff3e0
+    style Filter fill:#f3e5f5
+    style Sort fill:#e8f5e9
+    style Dedup fill:#fff3e0
+    style Offset fill:#f3e5f5
+    style Limit fill:#e1f5ff
+    style Agents fill:#ffebee
+```
+
+**Figure**: Work distribution pipeline showing data flow from input source through transformation stages to parallel agents.
+
 ## Input Sources
 
 Work items can be loaded from two types of input sources:
@@ -67,20 +89,22 @@ map:
 
 ### Common JSONPath Patterns
 
-**Extract all array elements:**
-```yaml
-json_path: "$.items[*]"
-```
+!!! example "Common JSONPath Patterns"
 
-**Extract from nested structure:**
-```yaml
-json_path: "$.data.results[*]"
-```
+    **Extract all array elements:**
+    ```yaml
+    json_path: "$.items[*]"
+    ```
 
-**Extract specific field from each element:**
-```yaml
-json_path: "$.items[*].name"
-```
+    **Extract from nested structure:**
+    ```yaml
+    json_path: "$.data.results[*]"
+    ```
+
+    **Extract specific field from each element:**
+    ```yaml
+    json_path: "$.items[*].name"
+    ```
 
 ### How JSONPath Works
 
@@ -118,31 +142,37 @@ Filters support comparison operators, logical operators, and nested field access
 ```yaml
 # Equality
 filter: "status == 'active'"
-filter: "status = 'active'"  # Single = also works
+filter: "status = 'active'"  # (1)!
 
 # Inequality
 filter: "status != 'archived'"
 
 # Numeric comparison
 filter: "priority > 5"
-filter: "priority >= 5"
+filter: "priority >= 5"  # (2)!
 filter: "priority < 10"
 filter: "priority <= 10"
+
+1. Single `=` also works for equality checks
+2. Inclusive comparison - items with priority of 5 will be included
 ```
 
 **Logical operators:**
 ```yaml
 # AND
 filter: "severity == 'high' && priority > 5"
-filter: "severity == 'high' AND priority > 5"  # Word-based also works
+filter: "severity == 'high' AND priority > 5"  # (1)!
 
 # OR
 filter: "severity == 'high' || severity == 'critical'"
-filter: "severity == 'high' OR severity == 'critical'"  # Word-based also works
+filter: "severity == 'high' OR severity == 'critical'"  # (2)!
 
 # NOT
 filter: "!(status == 'archived')"
 filter: "!is_null(optional_field)"
+
+1. Word-based `AND` operator is also supported
+2. Word-based `OR` operator is also supported
 ```
 
 **Nested field access:**
@@ -295,11 +325,12 @@ map:
 
 ### Use Cases
 
-**Testing workflows:**
-```yaml
-map:
-  max_items: 5  # Process only 5 items during development
-```
+!!! tip "Testing Workflows First"
+    Always test MapReduce workflows with a small subset before running on the full dataset:
+    ```yaml
+    map:
+      max_items: 5  # Process only 5 items during development
+    ```
 
 **Batched processing:**
 ```yaml
@@ -383,28 +414,29 @@ Understanding the order of operations is important for building effective work d
 5. **Offset** - Skip first N items
 6. **Limit (max_items)** - Take only first N remaining items
 
+!!! note "Optimization Tip"
+    Place expensive filtering early in the pipeline to reduce the number of items for subsequent operations. Sort only after filtering to minimize sort cost.
+
 ```yaml
 # Source: src/cook/execution/data_pipeline/mod.rs:127-201
 map:
   input: data.json
-  json_path: "$.items[*]"           # 1. Extract
-  filter: "score >= 50"             # 2. Filter
-  sort_by: "score DESC"             # 3. Sort
-  distinct: "category"              # 4. Deduplicate
-  offset: 5                         # 5. Skip first 5
-  max_items: 10                     # 6. Take next 10
+  json_path: "$.items[*]"           # (1)!
+  filter: "score >= 50"             # (2)!
+  sort_by: "score DESC"             # (3)!
+  distinct: "category"              # (4)!
+  offset: 5                         # (5)!
+  max_items: 10                     # (6)!
+
+1. Extract all items from `$.items[*]` array
+2. Keep only items where `score >= 50`
+3. Sort remaining items by score (highest first)
+4. Remove duplicates by category (keeps first of each)
+5. Skip the first 5 items
+6. Take the next 10 items for processing
 ```
 
-This pipeline:
-1. Extracts all items from `$.items[*]`
-2. Keeps only items where `score >= 50`
-3. Sorts remaining items by score (highest first)
-4. Removes duplicates by category (keeps first of each)
-5. Skips the first 5 items
-6. Takes the next 10 items for processing
-
-!!! tip
-    Place expensive filtering early in the pipeline to reduce the number of items for subsequent operations. Sort only after filtering to minimize sort cost.
+This pipeline demonstrates the complete data transformation flow from extraction to final work item distribution.
 
 ## Complete Examples
 
@@ -418,17 +450,24 @@ name: parallel-debt-elimination
 mode: mapreduce
 
 setup:
-  - shell: "debtmap analyze . --output debt_items.json"
+  - shell: "debtmap analyze . --output debt_items.json"  # (1)!
 
 map:
-  input: debt_items.json
-  json_path: "$.debt_items[*]"
-  filter: "severity == 'high' || severity == 'critical'"
-  sort_by: "priority DESC"
-  max_parallel: 10
+  input: debt_items.json  # (2)!
+  json_path: "$.debt_items[*]"  # (3)!
+  filter: "severity == 'high' || severity == 'critical'"  # (4)!
+  sort_by: "priority DESC"  # (5)!
+  max_parallel: 10  # (6)!
 
   agent_template:
     - claude: "/fix-issue ${item.description}"
+
+1. Generate work items in setup phase - ensures reproducible input
+2. Use JSON file output from setup phase
+3. Extract debt items from the array
+4. Process only high and critical severity items
+5. Process highest priority items first
+6. Run up to 10 agents concurrently
 ```
 
 ### Top Scoring Items with Deduplication
@@ -439,11 +478,17 @@ Process the top 3 unique high-scoring items:
 # Source: src/cook/execution/data_pipeline/mod.rs:294-355
 map:
   input: analysis.json
-  json_path: "$.items[*]"
-  filter: "unified_score.final_score >= 5"
-  sort_by: "unified_score.final_score DESC"
-  distinct: "location.file"  # One item per file
-  max_items: 3
+  json_path: "$.items[*]"  # (1)!
+  filter: "unified_score.final_score >= 5"  # (2)!
+  sort_by: "unified_score.final_score DESC"  # (3)!
+  distinct: "location.file"  # (4)!
+  max_items: 3  # (5)!
+
+1. Extract all items from analysis results
+2. Only process items with score >= 5
+3. Sort by score, highest first
+4. Keep only one item per file (deduplication)
+5. Process only the top 3 unique items
 ```
 
 ### Documentation Areas by Priority
@@ -494,22 +539,31 @@ All work distribution fields are configured within the `map` phase configuration
 # Source: src/config/mapreduce.rs:49
 map:
   # Input source
-  input: <path-to-json-file>
+  input: <path-to-json-file>  # (1)!
 
   # Work distribution pipeline
-  json_path: <jsonpath-expression>
-  filter: <filter-expression>
-  sort_by: <sort-specification>
-  distinct: <field-name>
-  offset: <number>
-  max_items: <number>
+  json_path: <jsonpath-expression>  # (2)!
+  filter: <filter-expression>  # (3)!
+  sort_by: <sort-specification>  # (4)!
+  distinct: <field-name>  # (5)!
+  offset: <number>  # (6)!
+  max_items: <number>  # (7)!
 
   # Parallelization
-  max_parallel: <number>
+  max_parallel: <number>  # (8)!
 
   # Agent template
   agent_template:
     - claude: "/process-item ${item}"
+
+1. Path to JSON file containing work items
+2. JSONPath expression to extract items (e.g., `$.items[*]`)
+3. Filter expression to select items (e.g., `score >= 5`)
+4. Sort specification (e.g., `priority DESC`)
+5. Field name for deduplication (e.g., `id`)
+6. Number of items to skip from the start
+7. Maximum number of items to process
+8. Number of concurrent agents to run
 ```
 
 These fields work together to control how work items are selected and distributed to parallel agents.

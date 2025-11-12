@@ -13,6 +13,48 @@ Global storage features:
 
 ## Storage Structure
 
+```mermaid
+graph TD
+    Root["~/.prodigy/"] --> Events["events/"]
+    Root --> DLQ["dlq/"]
+    Root --> State["state/"]
+    Root --> Sessions["sessions/"]
+    Root --> Worktrees["worktrees/"]
+    Root --> Orphaned["orphaned_worktrees/"]
+
+    Events --> ERepo["{repo_name}/"]
+    ERepo --> EJob["{job_id}/"]
+    EJob --> EFiles["events-{timestamp}.jsonl"]
+
+    DLQ --> DRepo["{repo_name}/"]
+    DRepo --> DJob["{job_id}/"]
+    DJob --> DFiles["dlq-items.json"]
+
+    State --> SRepo["{repo_name}/"]
+    SRepo --> MapReduce["mapreduce/jobs/{job_id}/"]
+    SRepo --> Mappings["mappings/"]
+    MapReduce --> Setup["setup-checkpoint.json"]
+    MapReduce --> Map["map-checkpoint-*.json"]
+    MapReduce --> Reduce["reduce-checkpoint-v1-*.json"]
+
+    Sessions --> SessionFiles["{session_id}.json"]
+
+    Worktrees --> WRepo["{repo_name}/"]
+    WRepo --> WSession["session-{session_id}/"]
+
+    Orphaned --> ORepo["{repo_name}/"]
+    ORepo --> OJob["{job_id}.json"]
+
+    style Root fill:#e1f5ff
+    style Events fill:#fff3e0
+    style DLQ fill:#ffebee
+    style State fill:#e8f5e9
+    style Sessions fill:#f3e5f5
+    style Worktrees fill:#e0f2f1
+```
+
+**Figure**: Global storage hierarchy showing repository-organized structure.
+
 ```
 ~/.prodigy/
 ├── events/                     # Event logs
@@ -51,6 +93,9 @@ Event logs are stored as JSONL files for efficient streaming:
 ~/.prodigy/events/{repo_name}/{job_id}/events-{timestamp}.jsonl
 ```
 
+!!! note "Auto-Generated Paths"
+    Event file paths include auto-generated timestamp suffixes (e.g., `events-20250111120000.jsonl`). This enables log rotation and prevents conflicts when multiple processes write events simultaneously.
+
 ### Event Organization
 
 - **By repository**: Events grouped by repo for easy filtering
@@ -69,10 +114,23 @@ Events are persisted immediately:
 ### Cross-Worktree Aggregation
 
 Multiple worktrees working on same job share event logs:
+
+```mermaid
+graph LR
+    WT1[Worktree 1<br/>Agent processing item-1] --> Events["~/.prodigy/events/<br/>prodigy/job-123/"]
+    WT2[Worktree 2<br/>Agent processing item-2] --> Events
+    WT3[Worktree N<br/>Agent processing item-N] --> Events
+
+    Events --> Monitor[Centralized<br/>Monitoring]
+
+    style WT1 fill:#fff3e0
+    style WT2 fill:#fff3e0
+    style WT3 fill:#fff3e0
+    style Events fill:#e8f5e9
+    style Monitor fill:#e1f5ff
 ```
-worktree-1 → ~/.prodigy/events/prodigy/job-123/
-worktree-2 → ~/.prodigy/events/prodigy/job-123/  # Same directory
-```
+
+**Figure**: Cross-worktree event aggregation enabling centralized monitoring.
 
 ## State Storage
 
@@ -90,6 +148,7 @@ Job state and checkpoints are stored globally:
 
 **Setup Phase**:
 ```json
+// Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "setup",
   "completed": true,
@@ -100,27 +159,45 @@ Job state and checkpoints are stored globally:
 
 **Map Phase**:
 ```json
+// Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "map",
-  "completed_items": ["item-1", "item-2"],
-  "in_progress_items": ["item-3"],
-  "pending_items": ["item-4", "item-5"],
-  "agent_results": {...},
+  "completed_items": ["item-1", "item-2"],      // (1)!
+  "in_progress_items": ["item-3"],              // (2)!
+  "pending_items": ["item-4", "item-5"],        // (3)!
+  "agent_results": {...},                       // (4)!
   "timestamp": "2025-01-11T12:05:00Z"
 }
 ```
 
+1. Work items successfully processed by agents
+2. Items currently being processed (moved back to pending on resume)
+3. Items waiting to be processed
+4. Full results from completed agents (commits, outputs, timings)
+
 **Reduce Phase**:
 ```json
+// Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "reduce",
-  "completed_steps": [0, 1],
-  "current_step": 2,
-  "step_results": {...},
-  "map_results": {...},
+  "completed_steps": [0, 1],     // (1)!
+  "current_step": 2,              // (2)!
+  "step_results": {...},          // (3)!
+  "map_results": {...},           // (4)!
   "timestamp": "2025-01-11T12:10:00Z"
 }
 ```
+
+1. Indices of reduce commands that have completed
+2. Index of the currently executing reduce command
+3. Output captured from completed reduce steps
+4. Aggregated results from all map agents (available to reduce commands)
+
+!!! note "Checkpoint File Naming"
+    Checkpoint files include auto-generated timestamp suffixes:
+    - Setup: `setup-checkpoint.json` (no timestamp, only one per job)
+    - Map: `map-checkpoint-{timestamp}.json` (multiple checkpoints during map phase)
+    - Reduce: `reduce-checkpoint-v1-{timestamp}.json` (versioned with timestamp)
 
 ## Session Storage
 
@@ -136,6 +213,7 @@ Sessions are stored in a flat directory:
 ### Session File Format
 
 ```json
+// Source: src/storage/types.rs
 {
   "id": "session-abc123",
   "session_type": "Workflow",
@@ -250,6 +328,77 @@ Bidirectional mapping enables resume with session or job IDs:
 }
 ```
 
+## Performance Characteristics
+
+### JSONL Streaming vs Batch Operations
+
+Prodigy uses JSONL (JSON Lines) format for event storage to enable efficient streaming:
+
+**JSONL Streaming Benefits**:
+- **Incremental writes**: Events append without reading entire file
+- **Memory efficient**: Process one event at a time
+- **Concurrent safe**: Multiple processes can append simultaneously
+- **Resumable**: Stream from any position in the file
+
+**Usage Patterns**:
+
+```bash
+# Streaming read (memory efficient for large logs)
+cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | \
+  while IFS= read -r line; do
+    echo "$line" | jq -c .
+  done
+
+# Batch read (faster for small logs)
+cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | jq -s '.'
+```
+
+**Performance Comparison**:
+| Operation | JSONL Streaming | Batch JSON |
+|-----------|----------------|------------|
+| Memory usage | O(1) per event | O(n) all events |
+| Write speed | Fast (append) | Slow (rewrite) |
+| Read speed | Slower (parse per line) | Faster (parse once) |
+| Concurrent writes | Safe | Requires locking |
+| Resume support | Built-in | Complex |
+
+!!! tip "Choose the Right Pattern"
+    - **Use streaming for**: Large event logs (>10K events), real-time monitoring, concurrent writers
+    - **Use batch for**: Small logs (<1K events), one-time analysis, reporting
+
+!!! example "Streaming Example"
+    ```bash
+    # Memory-efficient processing of large event logs
+    cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | \
+      jq -c 'select(.type == "AgentCompleted")' | \
+      while read event; do
+        echo "$event" | jq -r '.agent_id'
+      done
+    ```
+
+### Storage Access Patterns
+
+**Event Log Access**:
+- Write: Append-only, lock-free
+- Read: Sequential streaming or batch analysis
+- Typical size: 1KB-10KB per event, 100-10000 events per job
+
+**Checkpoint Access**:
+- Write: Atomic file replacement
+- Read: Full file load into memory
+- Typical size: 10KB-1MB per checkpoint
+
+**Session Access**:
+- Write: Atomic update (read-modify-write with lock)
+- Read: Direct file access
+- Typical size: 1KB-10KB per session
+
+!!! warning "Storage Access Considerations"
+    **Event logs** grow linearly with job execution time. For long-running MapReduce jobs (>1000 work items), event logs can reach 10MB+. Use streaming reads to avoid memory exhaustion.
+
+!!! tip "Checkpoint Strategy"
+    Checkpoints use atomic file replacement to prevent corruption from interrupted writes. The system writes to a temp file, then renames it—ensuring checkpoint integrity even during crashes.
+
 ## Storage Benefits
 
 ### Cross-Worktree Data Sharing
@@ -292,17 +441,30 @@ Deduplication across worktrees:
 
 ```bash
 # Clean old events (30+ days)
-find ~/.prodigy/events -name "*.jsonl" -mtime +30 -delete
+find ~/.prodigy/events -name "*.jsonl" -mtime +30 -delete  # (1)!
 
 # Clean completed sessions
-prodigy sessions clean --completed
+prodigy sessions clean --completed  # (2)!
 
 # Clean orphaned worktrees
-prodigy worktree clean-orphaned <job_id>
+prodigy worktree clean-orphaned <job_id>  # (3)!
 
 # Clean DLQ after successful retry
-prodigy dlq clear <job_id>
+prodigy dlq clear <job_id>  # (4)!
 ```
+
+1. Removes event logs older than 30 days to prevent unbounded growth
+2. Removes session files for completed workflows (preserves failed/paused)
+3. Cleans up worktrees that failed to cleanup during agent execution
+4. Removes DLQ items after successful retry (only use after verifying retry succeeded)
+
+!!! warning "Data Loss Prevention"
+    Always verify jobs are complete before cleaning:
+    ```bash
+    # Check if job is truly complete
+    prodigy events show <job_id> | tail -1 | jq '.type'
+    # Should show "JobCompleted" or "JobFailed"
+    ```
 
 ### Storage Usage
 

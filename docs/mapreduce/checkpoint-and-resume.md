@@ -6,6 +6,42 @@ Prodigy provides comprehensive checkpoint and resume capabilities for MapReduce 
 
 Checkpoints are automatically created at strategic points during workflow execution:
 
+```mermaid
+flowchart TD
+    Start[Start MapReduce Workflow] --> Setup[Setup Phase Executes]
+    Setup --> SetupCheck{Setup<br/>Complete?}
+    SetupCheck -->|Success| SaveSetup[Save Setup Checkpoint<br/>setup-checkpoint.json]
+    SetupCheck -->|Failure| Failed[Workflow Failed]
+
+    SaveSetup --> MapStart[Map Phase Begins]
+    MapStart --> ProcessItems[Process Work Items]
+    ProcessItems --> MapCheck{Checkpoint<br/>Trigger?}
+
+    MapCheck -->|100 items OR<br/>5 minutes| SaveMap[Save Map Checkpoint<br/>map-checkpoint-timestamp.json]
+    MapCheck -->|Continue| ProcessItems
+
+    ProcessItems --> MapDone{All Items<br/>Processed?}
+    MapDone -->|No| MapCheck
+    MapDone -->|Yes| ReduceStart[Reduce Phase Begins]
+
+    SaveMap --> ProcessItems
+
+    ReduceStart --> ReduceCmd[Execute Reduce Command]
+    ReduceCmd --> SaveReduce[Save Reduce Checkpoint<br/>reduce-checkpoint-v1-timestamp.json]
+    SaveReduce --> ReduceNext{More<br/>Commands?}
+
+    ReduceNext -->|Yes| ReduceCmd
+    ReduceNext -->|No| Complete[Workflow Complete]
+
+    style SaveSetup fill:#e1f5ff
+    style SaveMap fill:#fff3e0
+    style SaveReduce fill:#f3e5f5
+    style Failed fill:#ffebee
+    style Complete fill:#e8f5e9
+```
+
+**Figure**: Checkpoint creation flow across MapReduce workflow phases.
+
 **Setup Phase Checkpointing**:
 - Checkpoint created after successful setup completion
 - Preserves setup output, generated artifacts, and environment state
@@ -52,13 +88,23 @@ name: my-workflow
 mode: mapreduce
 
 checkpoint:
-  interval_items: 50      # Checkpoint every 50 items (default: 100)
-  interval_duration: 600  # Checkpoint every 10 minutes (default: 300s)
-  max_checkpoints: 15     # Keep 15 recent checkpoints (default: 10)
-  max_age: 1209600        # Keep for 14 days (default: 604,800s / 7 days)
+  interval_items: 50      # (1)!
+  interval_duration: 600  # (2)!
+  max_checkpoints: 15     # (3)!
+  max_age: 1209600        # (4)!
 ```
 
-These intervals balance between checkpoint overhead and recovery granularity. More frequent checkpoints enable finer-grained resume but increase I/O overhead.
+1. **Item-based trigger**: Create checkpoint every 50 processed items (default: 100)
+2. **Time-based trigger**: Create checkpoint every 10 minutes / 600 seconds (default: 300s / 5 minutes)
+3. **Retention count**: Keep 15 most recent checkpoints (default: 10)
+4. **Retention duration**: Keep checkpoints for 14 days / 1,209,600 seconds (default: 604,800s / 7 days)
+
+!!! tip "Checkpoint Strategy"
+    These intervals balance checkpoint overhead against recovery granularity:
+
+    - **More frequent checkpoints** (lower values): Finer-grained resume, but higher I/O overhead
+    - **Less frequent checkpoints** (higher values): Lower overhead, but more work to re-process on resume
+    - **Sweet spot**: Checkpoint every 50-100 items or 5-10 minutes for most workflows
 
 ### Resume Commands
 
@@ -88,7 +134,12 @@ The `SessionJobMapping` structure provides bidirectional mapping between session
 - **Created**: Automatically when MapReduce workflow starts
 - **Purpose**: Enables resume with either session ID or job ID
 
-This mapping allows you to resume a workflow using whichever identifier is more convenient or available in your context.
+!!! note "Flexible Resume IDs"
+    This bidirectional mapping allows you to resume a workflow using whichever identifier is more convenient:
+
+    - Use **session ID** if you have the session information
+    - Use **job ID** if you're tracking MapReduce job execution
+    - The unified `prodigy resume` command auto-detects which ID type you provided
 
 ### State Preservation
 
@@ -119,6 +170,21 @@ Based on checkpoint state and phase, different resume strategies apply:
 - **Map Phase**: Continue from last checkpoint, re-process in-progress items
 - **Reduce Phase**: Continue from last completed step
 - **Validate and Continue**: Verify checkpoint integrity before resuming
+
+!!! warning "Setup Phase Idempotency"
+    Setup phase commands are **re-executed from the beginning** on resume. Design setup commands to be idempotent (safe to run multiple times):
+
+    ✅ **Good practices**:
+
+    - Use `mkdir -p` instead of `mkdir` (won't fail if directory exists)
+    - Check for file existence before downloading
+    - Use atomic file operations (write to temp, then move)
+
+    ❌ **Avoid**:
+
+    - Commands that fail if run twice (e.g., `mkdir` without `-p`)
+    - Appending to files without checking for duplicates
+    - Side effects that can't be safely repeated
 
 ### Storage Structure
 
@@ -225,6 +291,51 @@ These structures enable Prodigy to reconstruct exact execution state during resu
 
 Prodigy prevents multiple resume processes from running on the same session/job simultaneously using an RAII-based locking mechanism:
 
+```mermaid
+stateDiagram-v2
+    [*] --> Unlocked: No active resume
+    Unlocked --> Acquiring: Resume command starts
+
+    Acquiring --> Locked: Lock acquired successfully
+    Acquiring --> Blocked: Lock held by another process
+
+    Blocked --> StaleCheck: Check if process is running
+    StaleCheck --> Unlocked: Process dead, clean stale lock
+    StaleCheck --> Blocked: Process alive, wait or error
+
+    Locked --> Processing: Resume executing
+    Processing --> Locked: Checkpoint updates
+
+    Processing --> Releasing: Resume completes/fails
+    Releasing --> Unlocked: Lock released (RAII)
+
+    note right of Locked
+        Lock file contains:
+        - PID
+        - Hostname
+        - Timestamp
+        - Job ID
+    end note
+
+    note right of StaleCheck
+        Platform-specific check:
+        - Unix: kill -0 PID
+        - Windows: tasklist
+    end note
+
+    note right of Releasing
+        RAII ensures release
+        even on panic/error
+    end note
+
+    style Locked fill:#fff3e0
+    style Blocked fill:#ffebee
+    style Unlocked fill:#e8f5e9
+    style StaleCheck fill:#e1f5ff
+```
+
+**Figure**: Resume lock lifecycle showing acquisition, stale detection, and automatic cleanup.
+
 **Lock Behavior**:
 - Resume automatically acquires exclusive lock before starting
 - Lock creation is atomic - fails if another process holds the lock
@@ -272,20 +383,49 @@ Please wait for the other process to complete, or use --force to override.
 
 Here's a typical workflow for resuming an interrupted MapReduce job:
 
-1. **Workflow interrupted** during reduce phase (e.g., laptop closed, terminal killed)
-2. **Find job ID** with `prodigy sessions list` or `prodigy resume-job list`
-3. **Resume execution** using `prodigy resume <session-or-job-id>`
-4. **Prodigy loads checkpoint** from `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
-5. **Reconstructs execution state** with all variables, work items, and progress
-6. **Continues from last completed step** in reduce phase (or re-processes in-progress map items)
+!!! example "Typical Resume Scenario"
+    **Scenario**: Your laptop battery died during a MapReduce workflow's reduce phase.
+
+    **Recovery steps**:
+
+    1. **Workflow interrupted** during reduce phase (laptop battery died, terminal killed)
+    2. **Find job ID** with `prodigy sessions list` or `prodigy resume-job list`:
+       ```bash
+       $ prodigy sessions list
+       session-mapreduce-1234567890  |  analyze-codebase  |  Paused  |  2025-01-11 12:00
+       ```
+    3. **Resume execution** using either ID:
+       ```bash
+       prodigy resume session-mapreduce-1234567890
+       # or
+       prodigy resume mapreduce-1234567890
+       ```
+    4. **Prodigy loads checkpoint** from `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
+    5. **Reconstructs execution state** with all variables, work items, and progress
+    6. **Continues from last completed step** in reduce phase (skips already-completed reduce commands)
 
 ### Best Practices
 
 **Designing Resumable Workflows**:
-- Make setup commands idempotent (safe to run multiple times)
+
+!!! tip "Idempotent Setup Commands"
+    Make setup commands idempotent (safe to run multiple times):
+
+    - Use `|| true` for commands that may fail on re-run
+    - Check for existing files/directories before creating
+    - Use atomic operations (write to temp file, then rename)
+    - Avoid appending to files without deduplication
+
+!!! tip "Testing Resume Behavior"
+    Validate your workflow handles interruptions correctly:
+
+    1. Start workflow with small `max_items` for testing
+    2. Interrupt with `Ctrl+C` during different phases (setup, map, reduce)
+    3. Verify resume continues from correct checkpoint
+    4. Check that work items aren't duplicated or skipped
+
 - Avoid side effects that can't be safely repeated
-- Use descriptive work item IDs for easier debugging
-- Test resume behavior by intentionally interrupting workflows
+- Use descriptive work item IDs for easier debugging (helps identify what was processing during failure)
 
 **Troubleshooting Resume Issues**:
 - Check checkpoint files exist: `ls ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
@@ -388,10 +528,14 @@ Test coverage (tests/concurrent_resume_test.rs:77-105) validates stale lock dete
 4. Report issue with lock file contents and platform details
 
 **Available checkpoint commands** (src/cli/args.rs:363-413):
-- `prodigy checkpoints list` - List all available checkpoints
-- `prodigy checkpoints show <job_id>` - Show detailed checkpoint information
-- `prodigy checkpoints validate <checkpoint_id>` - Verify checkpoint integrity
-- `prodigy checkpoints clean` - Delete checkpoints for completed workflows
+
+!!! note "Checkpoint Management Commands"
+    - `prodigy checkpoints list` - List all available checkpoints
+    - `prodigy checkpoints show <job_id>` - Show detailed checkpoint information
+    - `prodigy checkpoints validate <checkpoint_id>` - Verify checkpoint integrity
+    - `prodigy checkpoints clean` - Delete checkpoints for completed workflows
+
+    Use these commands to inspect checkpoint state, verify integrity before resume, and clean up old checkpoints to free disk space.
 
 ### See Also
 

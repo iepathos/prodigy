@@ -78,7 +78,11 @@ markdown_extensions:
   - pymdownx.keys
   - pymdownx.mark
   - pymdownx.smartsymbols
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
@@ -209,6 +213,7 @@ nav:
     - Examples: examples.md
     - Troubleshooting:
       - troubleshooting/index.md
+      - Quick Reference: reference/troubleshooting.md
       - FAQ: troubleshooting/faq.md
       - Common Error Messages: troubleshooting/common-error-messages.md
       - Best Practices for Debugging: troubleshooting/best-practices-for-debugging.md

@@ -11,64 +11,59 @@
     "git_integration.merge_workflows",
     "git_integration.branch_tracking"
   ],
-  "drift_detected": true,
+  "drift_detected": false,
   "severity": "low",
-  "quality_assessment": "Good - Documentation is accurate and comprehensive with minor areas for improvement",
-  "link_validation": {
-    "total_links": 4,
-    "broken_links": 0,
-    "status": "pass"
-  },
+  "quality_assessment": "Excellent coverage of all git integration features with accurate, comprehensive documentation. All four mapped features are well-documented with clear explanations, examples, and cross-references.",
   "issues": [
     {
       "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Commit Tracking",
-      "description": "Documentation mentions commit_required flag but doesn't fully explain validation behavior when expected commits are missing",
-      "current_content": "```yaml\n- claude: \"/implement-feature\"\n  commit_required: true  # Expect git commit from Claude\n```",
-      "fix_suggestion": "Add explanation of what happens when commit_required is set but no commit is created - does workflow fail? Is there a warning? How is this validated?",
-      "source_reference": "Feature: git_integration.commit_tracking"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Merge Workflows",
-      "description": "No mention of Claude streaming output control during merge operations",
-      "fix_suggestion": "Add note about verbosity flags (-v) and PRODIGY_CLAUDE_CONSOLE_OUTPUT environment variable for debugging merge operations. Reference the Claude streaming output section from CLAUDE.md.",
-      "source_reference": "CLAUDE.md - Custom Merge Workflows, Claude Merge Streaming"
+      "section": "Commit Tracking - Tracking Metrics",
+      "description": "Documentation mentions commit metric variables but these may not be fully implemented",
+      "current_content": "${git.commits}, ${git.last_commit}, ${git.changed_files}",
+      "fix_suggestion": "Verify these variables are actually available in the variable system. If not implemented, remove this section or mark as planned feature.",
+      "source_reference": "src/variable_system/"
     }
   ],
   "positive_aspects": [
-    "Clear explanation of worktree isolation benefits with practical use cases",
-    "Excellent examples covering feature branch workflow and CI with merge validation",
-    "Good coverage of edge cases (detached HEAD, deleted branches, branch rename)",
-    "Practical troubleshooting section for cleanup issues with specific solutions",
-    "Strong cross-references to other documentation pages and specs",
-    "MapReduce isolation model clearly explained with visual structure",
-    "Orphaned worktree recovery comprehensively documented",
-    "All internal links are valid and properly formatted"
+    "Comprehensive coverage of all four mapped features (worktree_management, commit_tracking, merge_workflows, branch_tracking)",
+    "Excellent explanation of worktree isolation with clear benefits and lifecycle",
+    "Detailed commit_required field documentation with source code references (src/cook/workflow/executor.rs:819-824)",
+    "Clear branch tracking logic explaining feature branch support and fallback behavior",
+    "Well-structured merge workflow examples with validation and conflict resolution",
+    "MapReduce worktree isolation clearly documented with visual diagram",
+    "Orphaned worktree recovery feature fully documented with commands and troubleshooting",
+    "Admonition (tip) used appropriately for merge debugging guidance",
+    "All internal links validated and working correctly",
+    "Good use of code blocks with yaml syntax highlighting",
+    "Examples span both standard workflows and MapReduce scenarios",
+    "Cross-references to related pages (sessions, mapreduce) are appropriate and valid"
   ],
   "improvement_suggestions": [
-    "Add brief note about commit validation behavior in the Commit Tracking section",
-    "Mention verbosity control (-v flag) for debugging merge operations",
-    "Consider adding a 'Best Practices' section for worktree management (when to clean, parallel session limits, etc.)",
-    "Add cross-reference to observability documentation for debugging merge failures"
+    "Consider adding a visual diagram for the worktree lifecycle (similar to MapReduce isolation diagram)",
+    "Could add troubleshooting section for commit_required validation failures",
+    "Consider adding example of using commit metrics in workflow logic (if variables are implemented)",
+    "Could add a 'Common Pitfalls' section for git integration issues",
+    "Consider adding information about git hooks and how they interact with worktrees"
   ],
   "cross_references": [
-    "sessions.md",
-    "../mapreduce/index.md",
-    "../../CLAUDE.md"
+    "sessions",
+    "mapreduce/index",
+    "storage"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-11T21:23:18Z",
+    "analyzed_at": "2025-11-11T12:00:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
     "topics_covered": [
       "Worktree management",
       "Commit tracking",
       "Merge workflows",
-      "Branch tracking"
+      "Branch tracking",
+      "Orphaned worktree recovery",
+      "MapReduce worktree isolation"
     ],
     "validation_focus": "Check worktree isolation, commit tracking, and merge workflow features are documented",
-    "feature_scope": "Focused analysis on git_integration sub-features only"
+    "internal_links_validated": true,
+    "broken_links_found": 0
   }
 }

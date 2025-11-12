@@ -4,138 +4,93 @@
   "section_title": "Reference",
   "page_id": "troubleshooting",
   "page_title": "Troubleshooting",
-  "page_files": [
-    "docs/troubleshooting/index.md",
-    "docs/troubleshooting/common-error-messages.md",
-    "docs/troubleshooting/faq.md",
-    "docs/troubleshooting/best-practices-for-debugging.md"
-  ],
+  "page_file": "docs/reference/troubleshooting.md",
+  "feature_mappings": null,
   "drift_detected": true,
-  "severity": "low",
-  "quality_assessment": "Excellent troubleshooting documentation with comprehensive coverage of common issues. Well-structured with practical solutions and detailed debugging techniques. Minor gaps in newer features and some outdated command references.",
+  "severity": "high",
+  "quality_assessment": "Page does not exist. Should be created as a comprehensive troubleshooting reference that consolidates common issues from features inventory and existing FAQ.",
   "issues": [
     {
       "type": "missing_content",
-      "severity": "low",
-      "section": "Common Issues - Template/Composition Errors",
-      "description": "Missing troubleshooting guidance for workflow composition features (templates, inheritance, circular dependencies)",
-      "feature_reference": "workflow_composition",
-      "fix_suggestion": "The common-error-messages.md includes template errors ('Template not found', 'Circular dependency detected') but index.md doesn't have a dedicated common issue section for composition problems. Consider adding a section in index.md for composition-related troubleshooting.",
-      "source_reference": "features.json:workflow_composition"
+      "severity": "high",
+      "section": "Entire Page",
+      "description": "Reference troubleshooting page does not exist",
+      "feature_reference": "meta_content.troubleshooting.common_issues",
+      "fix_suggestion": "Create docs/reference/troubleshooting.md with comprehensive troubleshooting guide covering common issues from features inventory",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:607-641"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Common Issues",
+      "description": "Need consolidated list of common user issues across all features",
+      "feature_reference": "meta_content.troubleshooting.common_issues",
+      "fix_suggestion": "Add sections for: MapReduce failures, session/resume issues, variable interpolation, worktree cleanup, merge conflicts, high failure rates",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:608-633"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Debugging Techniques",
+      "description": "Need section on debugging techniques and tools",
+      "feature_reference": "meta_content.troubleshooting.debugging_techniques",
+      "fix_suggestion": "Add section covering: verbosity flags, event logs, Claude JSON logs, checkpoint inspection, DLQ analysis",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:634-640"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Error Messages",
+      "description": "Need guide to interpreting common error messages",
+      "feature_reference": "error_handling",
+      "fix_suggestion": "Add section explaining common error messages: 'session not found', 'command not found: claude', 'no items to process', 'cleanup failed', 'resume already in progress'",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:249-318"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Performance Issues",
+      "description": "Need troubleshooting for performance problems",
+      "feature_reference": "meta_content.best_practices.performance",
+      "fix_suggestion": "Add section covering: slow MapReduce execution, high resource usage, timeout errors, parallelism tuning",
+      "source_reference": ".prodigy/mkdocs-analysis/features.json:572-578"
     },
     {
       "type": "missing_content",
       "severity": "low",
-      "section": "Common Issues - Goal Seek Failures",
-      "description": "Goal seek command type is not covered in troubleshooting documentation",
-      "feature_reference": "command_types.goal_seek",
-      "fix_suggestion": "Add troubleshooting section for goal_seek issues: score calculation problems, convergence failures, threshold configuration, and iteration limits.",
-      "source_reference": "features.json:command_types.goal_seek"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Common Issues - Validate Command",
-      "description": "Validate command type troubleshooting is not covered",
-      "feature_reference": "command_types.validate",
-      "fix_suggestion": "Add troubleshooting for validate command issues: schema validation failures, completeness threshold problems, gap-filling errors.",
-      "source_reference": "features.json:command_types.validate"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Debug Tips - Circuit Breaker Issues",
-      "description": "No troubleshooting guidance for circuit breaker failures",
-      "feature_reference": "error_handling.advanced_features.circuit_breaker",
-      "fix_suggestion": "Add debug tips for circuit breaker states: identifying open circuits, adjusting thresholds, monitoring half-open requests.",
-      "source_reference": "features.json:error_handling.advanced_features.circuit_breaker"
-    },
-    {
-      "type": "outdated_information",
-      "severity": "low",
-      "section": "FAQ - Event Logs Command",
-      "description": "FAQ mentions 'prodigy events ls --job-id' which may not match actual CLI",
-      "current_content": "prodigy events ls --job-id <job_id>",
-      "should_be": "Need to verify actual CLI command syntax from src/cli/commands/events.rs",
-      "fix_suggestion": "Verify the exact CLI syntax for events commands and update if incorrect. Check if it's 'ls', 'list', or another subcommand.",
-      "source_reference": "docs/troubleshooting/faq.md:181"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Debug Tips - Profile Debugging",
-      "description": "No guidance on debugging profile selection and profile-specific variable issues",
-      "feature_reference": "environment_management.profiles",
-      "fix_suggestion": "Add debug tips for profile issues: verifying active profile, checking profile-specific values, debugging profile fallback behavior.",
-      "source_reference": "features.json:environment_management.profiles"
-    },
-    {
-      "type": "incomplete_explanation",
-      "severity": "low",
-      "section": "Best Practices - Sub-workflow Debugging",
-      "description": "Best practices don't cover debugging sub-workflows or nested workflow execution",
-      "feature_reference": "workflow_composition.sub_workflows",
-      "fix_suggestion": "Add section on debugging sub-workflows: result passing between workflows, context isolation, failure propagation.",
-      "source_reference": "features.json:workflow_composition.sub_workflows"
-    },
-    {
-      "type": "missing_content",
-      "severity": "low",
-      "section": "Common Issues - Write File Failures",
-      "description": "write_file command troubleshooting not covered",
-      "feature_reference": "command_types.write_file",
-      "fix_suggestion": "Add troubleshooting for write_file issues: permission errors, format validation, directory creation failures, variable interpolation in content.",
-      "source_reference": "features.json:command_types.write_file"
+      "section": "Cross-References",
+      "description": "Should link to specialized troubleshooting pages in other sections",
+      "fix_suggestion": "Add cross-references to: troubleshooting/faq.md, troubleshooting/best-practices-for-debugging.md, and section-specific troubleshooting pages",
+      "source_reference": "docs/troubleshooting/"
     }
   ],
   "positive_aspects": [
-    "Comprehensive coverage of MapReduce troubleshooting with DLQ, checkpoint, and resume issues",
-    "Excellent variable interpolation debugging guidance with practical examples",
-    "Very detailed Claude log analysis techniques with jq examples",
-    "Well-organized quick reference table for common error messages",
-    "Strong worktree debugging section with git commands",
-    "Practical debugging environment variables documented with sources",
-    "Good cross-references to other documentation pages",
-    "All internal links validated and working",
-    "Checkpoint inspection section is very thorough with recovery strategies",
-    "Performance debugging section with timing analysis commands"
+    "Existing FAQ page covers many common questions well",
+    "Good cross-references to detailed specs in CLAUDE.md",
+    "Clear command examples in FAQ"
   ],
   "improvement_suggestions": [
-    "Add troubleshooting for newer workflow composition features (templates, inheritance)",
-    "Include goal_seek and validate command troubleshooting sections",
-    "Add circuit breaker debugging guidance",
-    "Verify and update CLI command syntax for events commands",
-    "Add profile debugging section",
-    "Include sub-workflow debugging techniques",
-    "Add write_file command troubleshooting",
-    "Consider adding a 'Troubleshooting by Feature' index to help users find relevant sections quickly"
+    "Create reference troubleshooting page as central hub for all troubleshooting resources",
+    "Organize by symptom/error type rather than feature area for easier navigation",
+    "Include quick diagnostic flowcharts or decision trees",
+    "Add 'Quick Fixes' section for most common issues",
+    "Link to existing FAQ and specialized troubleshooting pages",
+    "Include section on when to check logs vs DLQ vs events",
+    "Add troubleshooting for concurrent resume protection (Spec 140)",
+    "Cover JSON log location tracking (Spec 121) for MapReduce debugging",
+    "Document cleanup failure handling (Spec 136) troubleshooting steps"
   ],
   "cross_references": [
-    "mapreduce/checkpoint-and-resume",
-    "mapreduce/dead-letter-queue-dlq",
-    "environment/index",
-    "git-context-advanced",
-    "mapreduce/event-tracking",
-    "configuration/environment-variables",
-    "advanced/timeout-configuration",
-    "mapreduce-worktree-architecture"
+    "troubleshooting/faq.md",
+    "troubleshooting/best-practices-for-debugging.md",
+    "mapreduce/checkpoint-and-resume.md",
+    "environment/index.md",
+    "configuration/observability.md"
   ],
   "metadata": {
-    "analyzed_at": "2025-11-11T21:23:00Z",
+    "analyzed_at": "2025-11-11T19:40:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
-    "topics_covered": [
-      "Common issues",
-      "Debug tips",
-      "FAQ",
-      "Variable interpolation",
-      "MapReduce debugging",
-      "Checkpoint inspection",
-      "Claude log analysis",
-      "Worktree debugging",
-      "Performance debugging",
-      "Error messages"
-    ],
-    "validation_focus": "Check troubleshooting covers common user issues",
-    "link_validation": "All internal links validated successfully (4 files checked)"
+    "topics_covered": ["Common issues", "Debug tips", "FAQ"],
+    "validation_focus": "Check troubleshooting covers common user issues"
   }
 }

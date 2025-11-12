@@ -7,7 +7,12 @@ Global configuration settings apply across all Prodigy projects and workflows. T
 The global configuration is defined by the `GlobalConfig` struct, which contains system-wide settings for Prodigy's behavior, external tool integration, and operational parameters.
 
 ```rust
-// Source: src/config/mod.rs:50-59
+// Source: src/config/mod.rs:45-59
+/// Global configuration settings for Prodigy
+///
+/// These settings apply across all projects and workflows. Can be overridden
+/// by project-specific configuration. Stored in the user's home
+/// directory under ~/.prodigy/config.yml.
 pub struct GlobalConfig {
     pub prodigy_home: PathBuf,
     pub default_editor: Option<String>,
@@ -81,9 +86,28 @@ Project-specific configuration files are stored within the project directory:
 
 Prodigy uses a hierarchical configuration system where settings can be overridden at multiple levels. The precedence order from highest to lowest is:
 
+```mermaid
+graph TD
+    Env[Environment Variables<br/>PRODIGY_*] --> Project[Project Config<br/>.prodigy/config.yml]
+    Project --> Global[Global Config<br/>~/.prodigy/config.yml]
+    Global --> Defaults[Default Values<br/>Hardcoded]
+
+    Env -.->|Highest Priority| Resolution[Final Value]
+    Project -.->|Override Global| Resolution
+    Global -.->|Override Defaults| Resolution
+    Defaults -.->|Lowest Priority| Resolution
+
+    style Env fill:#e8f5e9
+    style Project fill:#e1f5ff
+    style Global fill:#fff3e0
+    style Defaults fill:#f5f5f5
+    style Resolution fill:#e8eaf6
 ```
-Environment Variables > Project Config > Global Config > Defaults
-```
+
+**Figure**: Configuration precedence hierarchy showing how values are resolved from highest to lowest priority.
+
+!!! note "Precedence Order"
+    Configuration values are resolved in this order: **Environment Variables** → **Project Config** → **Global Config** → **Defaults**. The first defined value wins.
 
 ### Precedence Examples
 
@@ -125,6 +149,14 @@ pub fn get_auto_commit(&self) -> bool {
 ## Environment Variables
 
 Environment variables provide the highest-priority configuration mechanism, useful for CI/CD environments, temporary overrides, and secrets management.
+
+!!! tip "When to Use Environment Variables"
+    Use environment variables for:
+
+    - **CI/CD pipelines** - Keep secrets out of version control
+    - **Temporary overrides** - Test different settings without modifying config files
+    - **Multi-environment deployments** - Same workflow, different configs per environment
+    - **Sensitive credentials** - API keys and tokens that shouldn't be stored in files
 
 ### Supported Environment Variables
 
@@ -207,10 +239,13 @@ export PRODIGY_CLAUDE_API_KEY=sk-ant-api03-xxxxxxxxxxxxx
 
 ### Best Practices for API Key Management
 
-1. **Development**: Use global config file (`~/.prodigy/config.yml`)
-2. **CI/CD**: Use environment variables (`PRODIGY_CLAUDE_API_KEY`)
-3. **Multi-tenant**: Use project-specific config for different API keys
-4. **Sensitive environments**: Use secret management tools (Vault, AWS Secrets Manager, etc.)
+!!! tip "API Key Storage Strategy"
+    Choose the right storage level for your use case:
+
+    1. **Development**: Use global config file (`~/.prodigy/config.yml`) - convenient for local work
+    2. **CI/CD**: Use environment variables (`PRODIGY_CLAUDE_API_KEY`) - keeps secrets out of code
+    3. **Multi-tenant**: Use project-specific config for different API keys per project
+    4. **Production/Sensitive**: Use secret management tools (Vault, AWS Secrets Manager, GitHub Secrets)
 
 ## Configuration Loading
 
@@ -245,13 +280,19 @@ pub async fn load_with_explicit_path(
 
 **Load Order:**
 
-1. **Explicit Path**: If `-f` or `--file` flag provided, load that exact file (error if not found)
-2. **Project Default**: Check for `.prodigy/workflow.yml` in project directory
-3. **Global Defaults**: Use default `GlobalConfig` values
+!!! note "Configuration Load Sequence"
+    Prodigy loads configuration in this sequence:
+
+    1. **Explicit Path**: If `-f` or `--file` flag provided, load that exact file (error if not found)
+    2. **Project Default**: Check for `.prodigy/workflow.yml` in project directory
+    3. **Global Defaults**: Use default `GlobalConfig` values if no project config exists
 
 ### Configuration Format
 
 Prodigy configuration files must use **YAML format** with the `.yml` extension.
+
+!!! warning "YAML Only"
+    Configuration files MUST use `.yml` extension. Files with `.toml` or other extensions will be rejected with a validation error.
 
 ```rust
 // Source: src/config/loader.rs:65-69
@@ -263,6 +304,9 @@ validate_config_format(extension)
 
 !!! note "TOML Deprecated"
     Earlier versions of Prodigy supported TOML format (`.toml`), but this has been deprecated in favor of YAML for consistency with workflow definitions.
+
+!!! info "Internal Representation"
+    While all Prodigy configuration files must be written in YAML format, some internal data structures (like `ProjectConfig.variables`) use `toml::Table` for historical reasons and backward compatibility. This is an implementation detail - **users should always write configuration in YAML format** with the `.yml` extension.
 
 ## Default Values
 
@@ -344,41 +388,57 @@ claude_api_key: sk-ant-api03-xxxxxxxxxxxxx
 ```yaml
 # ~/.prodigy/config.yml
 # Complete configuration with all options
-prodigy_home: ~/.prodigy
-default_editor: code
-log_level: info
-claude_api_key: sk-ant-api03-xxxxxxxxxxxxx
-max_concurrent_specs: 1
-auto_commit: true
+prodigy_home: ~/.prodigy                        # (1)!
+default_editor: code                            # (2)!
+log_level: info                                 # (3)!
+claude_api_key: sk-ant-api03-xxxxxxxxxxxxx      # (4)!
+max_concurrent_specs: 1                         # (5)!
+auto_commit: true                               # (6)!
 
 plugins:
-  enabled: true
-  directory: ~/.prodigy/plugins
-  auto_load:
+  enabled: true                                 # (7)!
+  directory: ~/.prodigy/plugins                 # (8)!
+  auto_load:                                    # (9)!
     - git-helpers
     - code-review
 ```
+
+1. Directory for sessions, state, events, and DLQ data
+2. Editor for `prodigy edit` commands (falls back to `$EDITOR`)
+3. Logging verbosity: `debug`, `info`, `warn`, `error`
+4. Claude API key for authentication (keep secret!)
+5. Maximum concurrent MapReduce agents (start low, increase carefully)
+6. Automatically commit changes after successful commands
+7. Enable/disable the plugin system
+8. Where plugin scripts are stored
+9. Plugins to load automatically on startup
 
 ### Project Configuration Override
 
 ```yaml
 # <project>/.prodigy/config.yml
 # Project-specific overrides
-name: my-project
-description: Example project with custom settings
+name: my-project                                        # (1)!
+description: Example project with custom settings       # (2)!
 version: 1.0.0
 
 # Override global API key for this project
-claude_api_key: sk-ant-api03-project-specific-key
+claude_api_key: sk-ant-api03-project-specific-key      # (3)!
 
 # Override auto-commit for manual control
-auto_commit: false
+auto_commit: false                                      # (4)!
 
 # Project-specific variables
-variables:
+variables:                                              # (5)!
   deploy_env: staging
   api_url: https://staging.api.example.com
 ```
+
+1. Project identifier used in state and event tracking
+2. Human-readable description for documentation
+3. Project-specific API key (overrides global config)
+4. Disable auto-commit for this project (manual `git commit` control)
+5. Variables available in workflows as `${variable_name}`
 
 ### Environment Variable Workflow
 

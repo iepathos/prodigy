@@ -70,13 +70,33 @@ MapReduce job state management:
 
 ### State Transitions
 
+```mermaid
+stateDiagram-v2
+    [*] --> Running: Workflow Start
+    Running --> Paused: Interrupt (Ctrl+C)
+    Running --> Completed: Success
+    Running --> Failed: Error
+    Running --> Cancelled: User Stop
+
+    Paused --> Running: Resume
+    Paused --> Cancelled: Cleanup
+
+    Completed --> [*]
+    Failed --> [*]
+    Cancelled --> [*]
+
+    note right of Running
+        Checkpoint created
+        State persisted
+    end note
+
+    note right of Paused
+        Resumable state
+        Work preserved
+    end note
 ```
-Creation → Running → Completed
-              ↓
-           Paused → Running → Completed
-              ↓
-           Failed
-```
+
+**Figure**: Session lifecycle showing state transitions and checkpoint behavior.
 
 ## Session Storage
 
@@ -93,9 +113,9 @@ Sessions are stored globally for easy access:
 
 ```json
 {
-  "id": "session-abc123",
-  "session_type": "Workflow",
-  "status": "Paused",
+  "id": "session-abc123",                    // (1)!
+  "session_type": "Workflow",                // (2)!
+  "status": "Paused",                        // (3)!
   "started_at": "2025-01-11T12:00:00Z",
   "updated_at": "2025-01-11T12:05:00Z",
   "completed_at": null,
@@ -105,16 +125,22 @@ Sessions are stored globally for easy access:
     "total_steps": 5,
     "current_step": 2
   },
-  "checkpoints": [
+  "checkpoints": [                            // (4)!
     "checkpoint-1-2025-01-11T12:02:00Z"
   ],
-  "timings": {
+  "timings": {                                // (5)!
     "step1": {"secs": 10, "nanos": 0},
     "step2": {"secs": 15, "nanos": 0}
   },
   "error": null
 }
 ```
+
+1. Unique session identifier used for resume commands
+2. Session type: `Workflow` or `MapReduce`
+3. Current lifecycle state: `Running`, `Paused`, `Completed`, `Failed`, `Cancelled`
+4. List of checkpoint identifiers for resume operations
+5. Execution timing for performance analysis
 
 ## Resume Capabilities
 
@@ -132,6 +158,9 @@ prodigy resume-job mapreduce-xyz
 # Unified resume (auto-detects ID type)
 prodigy resume mapreduce-xyz
 ```
+
+!!! tip "Resume ID Types"
+    You can use either session IDs or job IDs to resume. Prodigy automatically detects the ID type and loads the correct session.
 
 ### Session-Job Mapping
 
@@ -165,6 +194,30 @@ Resume reconstructs state from checkpoints:
 4. Reconstruct execution context
 5. Continue from last completed step
 
+```mermaid
+flowchart TD
+    Start[Resume Command] --> Load[Load Session File]
+    Load --> Verify{Status = Paused?}
+    Verify -->|No| Error[Error: Not Resumable]
+    Verify -->|Yes| Checkpoint[Load Checkpoint]
+    Checkpoint --> Lock{Acquire Lock}
+    Lock -->|Failed| Blocked[Error: Already Running]
+    Lock -->|Success| Context[Reconstruct Context]
+    Context --> Variables[Restore Variables]
+    Context --> State[Restore Work State]
+    Variables --> Continue[Continue Execution]
+    State --> Continue
+    Continue --> Complete[Update Session]
+    Complete --> Release[Release Lock]
+
+    style Start fill:#e1f5ff
+    style Continue fill:#e8f5e9
+    style Error fill:#ffebee
+    style Blocked fill:#ffebee
+```
+
+**Figure**: Resume flow showing checkpoint loading, lock acquisition, and state reconstruction.
+
 ## State Preservation
 
 ### Variables and Context
@@ -182,6 +235,9 @@ In MapReduce workflows:
 - **In-progress items**: Moved back to pending on resume
 - **Failed items**: Tracked in DLQ with retry counts
 - **Pending items**: Continue processing from where left off
+
+!!! note "In-Progress Items on Resume"
+    When a MapReduce workflow is interrupted, any items that were being processed by agents are moved back to the pending queue. This ensures they are reprocessed on resume and prevents partial results.
 
 ## Concurrent Resume Protection
 
@@ -213,6 +269,9 @@ Lock files contain:
 - Automatic cleanup of locks from crashed processes
 - New resume succeeds after stale lock removal
 
+!!! tip "Automatic Stale Lock Cleanup"
+    If a resume process crashes or is killed, the lock file may remain. Prodigy automatically detects when the holding process is no longer running and removes stale locks, allowing new resume attempts to succeed.
+
 ### Lock Errors
 
 If resume blocked by active lock:
@@ -222,6 +281,9 @@ Error: Resume already in progress for job mapreduce-xyz
 Lock held by: PID 12345 on hostname (acquired 2025-01-11 10:30:00 UTC)
 Please wait for the other process to complete.
 ```
+
+!!! warning "Concurrent Resume Prevention"
+    Attempting to resume a session that is already being resumed will fail with a lock error. Wait for the other process to complete, or verify the process is still running before manually removing the lock file.
 
 ## Session Management Commands
 
@@ -283,45 +345,48 @@ Monitor execution progress:
 
 ### Resume Interrupted Workflow
 
-```bash
-# Workflow interrupted during step 3
-^C
+!!! example "Workflow Resume"
+    ```bash
+    # Workflow interrupted during step 3
+    ^C
 
-# List paused sessions
-prodigy sessions list --status paused
+    # List paused sessions
+    prodigy sessions list --status paused
 
-# Resume from checkpoint
-prodigy resume session-abc123
-```
+    # Resume from checkpoint
+    prodigy resume session-abc123
+    ```
 
 ### Resume MapReduce Job
 
-```bash
-# MapReduce job interrupted during map phase
-^C
+!!! example "MapReduce Resume"
+    ```bash
+    # MapReduce job interrupted during map phase
+    ^C
 
-# Check job status
-prodigy sessions show session-mapreduce-xyz
+    # Check job status
+    prodigy sessions show session-mapreduce-xyz
 
-# Resume using session ID
-prodigy resume session-mapreduce-xyz
+    # Resume using session ID
+    prodigy resume session-mapreduce-xyz
 
-# OR resume using job ID
-prodigy resume-job mapreduce-xyz
-```
+    # OR resume using job ID
+    prodigy resume-job mapreduce-xyz
+    ```
 
 ### Prevent Concurrent Resume
 
-```bash
-# Terminal 1: Resume in progress
-$ prodigy resume session-abc123
-# ... executing ...
+!!! example "Concurrent Resume Protection"
+    ```bash
+    # Terminal 1: Resume in progress
+    $ prodigy resume session-abc123
+    # ... executing ...
 
-# Terminal 2: Attempt concurrent resume
-$ prodigy resume session-abc123
-Error: Resume already in progress for session-abc123
-Lock held by: PID 12345 on machine.local (acquired 2025-01-11 10:30:00 UTC)
-```
+    # Terminal 2: Attempt concurrent resume
+    $ prodigy resume session-abc123
+    Error: Resume already in progress for session-abc123
+    Lock held by: PID 12345 on machine.local (acquired 2025-01-11 10:30:00 UTC)
+    ```
 
 ## See Also
 

@@ -29,6 +29,9 @@ Find the right example for your use case:
 
 ## Example 1: Simple Build and Test
 
+!!! example "Basic Workflow"
+    This example shows a simple linear workflow with error handling. The `on_failure` handler automatically invokes Claude to fix failing tests.
+
 ```yaml
 - shell: "cargo build"
 - shell: "cargo test"
@@ -40,6 +43,9 @@ Find the right example for your use case:
 ---
 
 ## Example 2: Coverage Improvement with Goal Seeking
+
+!!! tip "When to Use Goal Seeking"
+    Use `goal_seek` when you need iterative improvement toward a measurable goal (e.g., test coverage, performance metrics). For one-time validation with gap filling, use `validate` instead (see Example 6).
 
 ```yaml
 - goal_seek:
@@ -67,6 +73,30 @@ Goal seeking provides iterative refinement with automatic convergence detection:
    - `PRODIGY_VALIDATION_GAPS` - Identified improvement areas
 4. Repeat until threshold reached, max attempts hit, or convergence detected
 5. Auto-stops when no improvement in last 3 attempts (convergence)
+
+```mermaid
+flowchart TD
+    Start[Start Goal Seek] --> Execute[Execute Improvement<br/>Claude or Shell Command]
+    Execute --> Validate[Run Validation Script]
+    Validate --> Score{Score >= Threshold?}
+
+    Score -->|Yes| Success[Complete - Goal Achieved]
+    Score -->|No| CheckAttempts{Max Attempts<br/>Reached?}
+
+    CheckAttempts -->|Yes| Incomplete[Complete - Goal Not Reached]
+    CheckAttempts -->|No| CheckConvergence{No Improvement<br/>in 3 Attempts?}
+
+    CheckConvergence -->|Yes| Converged[Complete - Converged]
+    CheckConvergence -->|No| SetEnv[Set Environment Vars<br/>PRODIGY_VALIDATION_SCORE<br/>PRODIGY_VALIDATION_OUTPUT<br/>PRODIGY_VALIDATION_GAPS]
+
+    SetEnv --> Execute
+
+    style Success fill:#e8f5e9
+    style Incomplete fill:#fff3e0
+    style Converged fill:#e1f5ff
+```
+
+**Figure**: Goal-seeking execution flow showing iterative refinement with convergence detection.
 
 **Validation Script Format:**
 ```bash
@@ -118,6 +148,9 @@ echo "gaps: Missing tests for auth module"
 
 ## Example 4: Parallel Code Review
 
+!!! example "MapReduce Pattern"
+    This example demonstrates parallel processing using the MapReduce pattern: setup generates work items, map processes them in parallel agents, and reduce aggregates results.
+
 ```yaml
 # Source: Based on examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml
 name: parallel-code-review
@@ -128,19 +161,55 @@ setup:
   - shell: "jq -R -s -c 'split(\"\n\") | map(select(length > 0) | {path: .})' files.txt > items.json"
 
 map:
-  input: items.json
-  json_path: "$[*]"  # Process all items in root array
+  input: items.json            # (1)!
+  json_path: "$[*]"            # (2)!
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
-      capture_output: "review_result"  # Capture command output for use in later steps
-      capture_format: "json"  # Parse output as JSON (see Example 5 for all format options)
+      capture_output: "review_result"
+      capture_format: "json"
     - shell: "cargo check ${item.path}"
-  max_parallel: 5
+  max_parallel: 5              # (3)!
 
 reduce:
   - claude: "/summarize-reviews ${map.results}"
+
+1. JSON file produced by setup phase containing work items
+2. JSONPath expression to extract items from the JSON structure
+3. Number of concurrent agents processing work items in parallel
 ```
+
+```mermaid
+graph TD
+    Start[Start Workflow] --> Setup[Setup Phase<br/>Generate items.json]
+    Setup --> Map[Map Phase<br/>Parallel Processing]
+
+    Map --> A1[Agent 1<br/>Review file 1]
+    Map --> A2[Agent 2<br/>Review file 2]
+    Map --> A3[Agent 3<br/>Review file 3]
+    Map --> A4[Agent 4<br/>Review file 4]
+    Map --> A5[Agent 5<br/>Review file 5]
+
+    A1 --> Merge[Aggregate Results]
+    A2 --> Merge
+    A3 --> Merge
+    A4 --> Merge
+    A5 --> Merge
+
+    Merge --> Reduce[Reduce Phase<br/>Summarize Reviews]
+    Reduce --> End[Complete]
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style A1 fill:#e8f5e9
+    style A2 fill:#e8f5e9
+    style A3 fill:#e8f5e9
+    style A4 fill:#e8f5e9
+    style A5 fill:#e8f5e9
+```
+
+**Figure**: MapReduce execution flow showing setup, parallel map agents, and reduce aggregation.
 
 **Note:** JSONPath `"$[*]"` matches all items in the root array. Since the setup phase creates an array of `{path: ...}` objects, each map agent receives an `item` object with `item.path` available for use in commands.
 
@@ -191,6 +260,9 @@ reduce:
 ---
 
 ## Example 6: Multi-Step Validation
+
+!!! note "Validation vs Goal Seeking"
+    Use `validate` for one-time completion checks with targeted gap filling. Unlike `goal_seek` which iteratively improves a metric, `validate` checks if work meets criteria and fixes specific gaps if not.
 
 ```yaml
 # Source: Validation pattern from src/cook/goal_seek/mod.rs and features.json
@@ -354,6 +426,9 @@ The modern `env`-based approach is recommended for consistency, but legacy workf
 
 ## Example 8: Complex MapReduce with Error Handling
 
+!!! warning "Resource Management"
+    Setting `max_parallel` too high can exhaust system resources (CPU, memory, file handles). Start with 5-10 concurrent agents and monitor resource usage before increasing.
+
 ```yaml
 # Source: Combines patterns from src/config/mapreduce.rs and workflows/debtmap-reduce.yml
 name: tech-debt-elimination
@@ -363,25 +438,24 @@ setup:
   - shell: "debtmap analyze . --output debt.json"
 
 map:
-  input: debt.json
-  json_path: "$.items[*]"
-  filter: "item.severity == 'critical'"
-  sort_by: "item.priority DESC"
-  max_items: 20
-  max_parallel: 5
-  distinct: "item.id"  # Deduplication: Prevents processing duplicate items based on this field
+  input: debt.json                          # (1)!
+  json_path: "$.items[*]"                   # (2)!
+  filter: "item.severity == 'critical'"     # (3)!
+  sort_by: "item.priority DESC"             # (4)!
+  max_items: 20                             # (5)!
+  max_parallel: 5                           # (6)!
+  distinct: "item.id"                       # (7)!
 
   # Timeout configuration (optional - default is 600 seconds / 10 minutes)
   timeout_config:
-    agent_timeout_secs: 600  # Maximum time per agent execution
-    cleanup_grace_period_secs: 30  # Time allowed for cleanup after timeout
+    agent_timeout_secs: 600                 # (8)!
+    cleanup_grace_period_secs: 30           # (9)!
 
   agent_template:
     - claude: "/fix-debt-item '${item.description}'"
       commit_required: true
     - shell: "cargo test"
       on_failure:
-        # on_failure accepts a single command (shell or claude)
         claude: "/debug-and-fix"
 
 reduce:
@@ -389,11 +463,26 @@ reduce:
   - claude: "/compare-debt-reports --before debt.json --after debt-after.json"
 
 error_policy:
-  on_item_failure: dlq  # Default: dlq (failed items to Dead Letter Queue)
-  continue_on_failure: true  # Default: true (continue despite failures)
-  max_failures: 5  # Optional: stop after N failures
-  failure_threshold: 0.3  # Optional: stop if >30% fail
-  error_collection: aggregate  # Default: aggregate (Options: aggregate, immediate, batched:{size})
+  on_item_failure: dlq                      # (10)!
+  continue_on_failure: true                 # (11)!
+  max_failures: 5                           # (12)!
+  failure_threshold: 0.3                    # (13)!
+  error_collection: aggregate               # (14)!
+
+1. JSON file containing work items from setup phase
+2. JSONPath to extract work items from the JSON structure
+3. Only process items matching this condition (severity == 'critical')
+4. Process high-priority items first
+5. Limit to first 20 items (after filtering and sorting)
+6. Run up to 5 agents concurrently
+7. Prevent duplicate processing based on item.id field
+8. Maximum time per agent (10 minutes default)
+9. Extra time allowed for cleanup operations after timeout
+10. Send failed items to Dead Letter Queue for retry
+11. Continue processing remaining items when one fails
+12. Stop workflow after 5 total failures
+13. Stop workflow if >30% of items fail
+14. Aggregate errors and report at end
 ```
 
 **on_failure Syntax Note**: The `on_failure` field accepts a **single command** (either `shell:` or `claude:`), not an array of commands. The command structure is:
@@ -445,6 +534,9 @@ prodigy resume mapreduce-1234567890
 **Session-Job ID Mapping**: The bidirectional mapping between session IDs and job IDs is stored in `~/.prodigy/state/{repo_name}/mappings/` and created automatically when the MapReduce workflow starts. This allows you to resume using either the session ID (e.g., `session-mapreduce-1234567890`) or the job ID (e.g., `mapreduce-1234567890`), and Prodigy will automatically find the correct checkpoint data.
 
 **Source**: Session-job mapping implementation from MapReduce checkpoint and resume (Spec 134)
+
+!!! tip "Dead Letter Queue (DLQ) for Failed Items"
+    Failed work items are automatically sent to the DLQ for retry. Use `prodigy dlq retry <job_id>` to reprocess failed items with the same agent configuration, or `prodigy dlq show <job_id>` to inspect failure details.
 
 **Debugging Failed Agents:**
 When agents fail, DLQ entries include a `json_log_location` field pointing to the Claude JSON log file for debugging:
@@ -686,12 +778,31 @@ reduce:
 
 **Circuit Breaker State Transitions:**
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: Initial State
+    Closed --> Open: failure_threshold<br/>consecutive failures
+    Open --> HalfOpen: timeout expires
+    HalfOpen --> Closed: success_threshold<br/>successes
+    HalfOpen --> Open: any failure in<br/>half_open_requests
+
+    note right of Closed
+        Requests flow normally
+        Track failure count
+    end note
+
+    note right of Open
+        Reject all requests
+        Wait for timeout
+    end note
+
+    note right of HalfOpen
+        Allow limited test requests
+        Evaluate recovery
+    end note
 ```
-Closed → Open (after failure_threshold consecutive failures)
-Open → HalfOpen (after timeout expires)
-HalfOpen → Closed (after success_threshold successes)
-HalfOpen → Open (if any half_open_request fails)
-```
+
+**Figure**: Circuit breaker state machine showing transitions based on failure and success thresholds.
 
 **When to Use Circuit Breakers:**
 - External API calls that may become unavailable
@@ -745,64 +856,85 @@ error_policy:
 
 **Backoff Strategy Variants:**
 
-**1. Exponential (Default)** - Delay doubles each retry:
-```yaml
-backoff:
-  exponential:
-    initial: 1s         # First retry after 1s
-    multiplier: 2.0     # Second after 2s, third after 4s, fourth after 8s
-```
+=== "Exponential (Default)"
+    Delay doubles each retry - best for most scenarios:
+    ```yaml
+    backoff:
+      exponential:
+        initial: 1s         # First retry after 1s
+        multiplier: 2.0     # Second after 2s, third after 4s, fourth after 8s
+    ```
+    **Use when**: Fast backoff needed, transient errors expected
 
-**2. Linear** - Delay increases by fixed increment:
-```yaml
-backoff:
-  linear:
-    initial: 1s         # First retry after 1s
-    increment: 2s       # Second after 3s, third after 5s, fourth after 7s
-```
+=== "Linear"
+    Delay increases by fixed increment - steady load reduction:
+    ```yaml
+    backoff:
+      linear:
+        initial: 1s         # First retry after 1s
+        increment: 2s       # Second after 3s, third after 5s, fourth after 7s
+    ```
+    **Use when**: Gradual backoff preferred, predictable retry timing
 
-**3. Fibonacci** - Delay follows Fibonacci sequence:
-```yaml
-backoff:
-  fibonacci:
-    initial: 1s         # Delays: 1s, 1s, 2s, 3s, 5s, 8s, 13s...
-```
+=== "Fibonacci"
+    Delay follows Fibonacci sequence - gradual then aggressive:
+    ```yaml
+    backoff:
+      fibonacci:
+        initial: 1s         # Delays: 1s, 1s, 2s, 3s, 5s, 8s, 13s...
+    ```
+    **Use when**: Balance between exponential and linear
 
-**4. Fixed** - Same delay for all retries:
-```yaml
-backoff:
-  fixed:
-    delay: 5s           # All retries wait exactly 5s
-```
+=== "Fixed"
+    Same delay for all retries - consistent timing:
+    ```yaml
+    backoff:
+      fixed:
+        delay: 5s           # All retries wait exactly 5s
+    ```
+    **Use when**: Rate limiting, polling operations
 
-**5. Custom** - Specify exact delays:
-```yaml
-backoff:
-  custom:
-    delays: [1s, 5s, 15s, 30s, 60s]
-```
+=== "Custom"
+    Specify exact delays - full control:
+    ```yaml
+    backoff:
+      custom:
+        delays: [1s, 5s, 15s, 30s, 60s]
+    ```
+    **Use when**: Complex SLA requirements, specific retry patterns
 
 **Advanced Retry Configuration:**
 
 ```yaml
 - shell: "curl https://api.example.com/data"
   retry_config:
-    max_attempts: 5
+    max_attempts: 5                         # (1)!
     backoff:
       exponential:
-        initial: 1s
-        multiplier: 2.0
-    initial_delay: 1s           # Base delay before backoff
-    max_delay: 60s              # Cap maximum delay
-    jitter: true                # Add randomness to prevent thundering herd
-    jitter_factor: 0.3          # ±30% random variance
-    retry_budget: 300s          # Total retry time budget (5 minutes)
-    retry_on:                   # Only retry specific error types
-      - network                 # Network errors
-      - timeout                 # Timeout errors
-      - server_error            # HTTP 5xx errors
-      - rate_limit              # Rate limiting errors
-    on_failure: continue        # What to do after all retries fail
+        initial: 1s                         # (2)!
+        multiplier: 2.0                     # (3)!
+    initial_delay: 1s                       # (4)!
+    max_delay: 60s                          # (5)!
+    jitter: true                            # (6)!
+    jitter_factor: 0.3                      # (7)!
+    retry_budget: 300s                      # (8)!
+    retry_on:                               # (9)!
+      - network
+      - timeout
+      - server_error
+      - rate_limit
+    on_failure: continue                    # (10)!
+
+1. Maximum number of retry attempts before giving up
+2. Starting delay for exponential backoff (1s, 2s, 4s, 8s, ...)
+3. Multiplier for exponential growth (2.0 = double each retry)
+4. Base delay added before backoff calculation
+5. Maximum delay cap to prevent excessive waiting
+6. Add randomness to prevent thundering herd problem
+7. Random variance range (0.3 = ±30% of calculated delay)
+8. Total time budget for all retries (5 minutes)
+9. Only retry on specific error types (fail fast on others)
+10. Action after all retries exhausted (continue, fail, dlq)
 ```
 
 **Source**: Test examples from src/cook/retry_v2.rs:582-659, backoff calculation from retry_v2.rs:283-305
