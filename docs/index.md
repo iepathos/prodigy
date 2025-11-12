@@ -23,14 +23,17 @@ Prodigy combines the power of Claude AI with workflow orchestration to:
 Create a simple workflow in `workflow.yml`:
 
 ```yaml
-# Simplified syntax - commands as top-level array
-# For full workflow structure, see workflows/complex-build-pipeline.yml
+# Source: workflows/complex-build-pipeline.yml (simplified)
+# Simplified array syntax - use this for straightforward workflows
 - shell: "cargo build"
 - shell: "cargo test"
   on_failure:
     claude: "/fix-failing-tests"
 - shell: "cargo clippy"
 ```
+
+!!! note "Syntax Options"
+    This example uses the simplified array syntax for simple workflows. For more complex workflows with parallel execution, MapReduce, or advanced features, use the [full workflow structure](workflow-basics/index.md) with `name`, `mode`, and other configuration fields.
 
 Run it:
 
@@ -50,11 +53,11 @@ This book itself is maintained using Prodigy's automated documentation system! L
 
 - **Workflows**: YAML files defining sequences of commands
 - **Commands**: Shell commands, Claude AI invocations, or control flow
-- **Variables**: Dynamic values captured (json, lines, number) and interpolated using `${VAR}` or `$VAR` syntax with defaults, aliases, and nested field access
+- **Variables**: Capture output from commands and use throughout workflow with `${VAR}` syntax. Supports nested fields, defaults, and environment variables. See [Environment Variables](environment/index.md) for details
 - **Environment**: Configuration with secrets management and profile-based values
 - **MapReduce**: Parallel processing across multiple git worktrees
 - **Checkpoints**: Save and resume workflow state for long-running operations
-- **Validation**: Automated testing and implementation completeness checking
+- **Validation**: Workflow structure and syntax validation, implementation completeness checking with the validate command, and runtime validation. See [Command Types](commands.md) for details
 - **Observability**: Event tracking, Claude execution logs, and comprehensive debugging tools
 
 ## Next Steps
