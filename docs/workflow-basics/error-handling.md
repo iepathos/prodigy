@@ -158,7 +158,8 @@ For MapReduce workflows, you can configure workflow-level error policies that co
 ### Basic Configuration
 
 ```yaml
-# Source: workflows/mkdocs-drift.yml:79-83
+# Source: src/cook/workflow/error_policy.rs:13-31
+# Example: workflows/mkdocs-drift.yml:89-93
 name: process-items
 mode: mapreduce
 
@@ -198,7 +199,7 @@ error_policy:
 Prevent cascading failures by opening a circuit after consecutive failures:
 
 ```yaml
-# Source: src/cook/workflow/error_policy.rs:48
+# Source: src/cook/workflow/error_policy.rs:48-56 (CircuitBreakerConfig struct)
 error_policy:
   circuit_breaker:
     failure_threshold: 5      # Open circuit after 5 consecutive failures
@@ -273,26 +274,30 @@ error_policy:
 Configure automatic retry behavior for failed items:
 
 ```yaml
-# Source: src/cook/workflow/error_policy.rs:108
+# Source: src/cook/workflow/error_policy.rs:92-99, 108-120
 error_policy:
   on_item_failure: retry
   retry_config:
     max_attempts: 3
     backoff:
-      type: exponential
-      initial: 1s            # Initial delay (duration format)
-      multiplier: 2          # Double delay each retry
+      exponential:
+        initial: 1s            # Initial delay (duration format)
+        multiplier: 2          # Double delay each retry
 ```
 
 **Backoff Strategy Options:**
 
+The backoff strategy is configured using enum variant syntax. Each variant has specific fields defined by the `BackoffStrategy` enum in `src/cook/workflow/error_policy.rs:108-120`.
+
 ```yaml
+# Source: src/cook/workflow/error_policy.rs:110
 # Fixed delay between retries
 # Always waits the same duration
 backoff:
-  type: fixed
-  delay: 1s
+  fixed:
+    delay: 1s
 
+# Source: src/cook/workflow/error_policy.rs:112-115
 # Linear increase in delay
 # Calculates: delay = initial + (retry_count * increment)
 # Example with initial=1s, increment=500ms:
@@ -300,42 +305,64 @@ backoff:
 #   Retry 2: 1s + (2 * 500ms) = 2s
 #   Retry 3: 1s + (3 * 500ms) = 2.5s
 backoff:
-  type: linear
-  initial: 1s
-  increment: 500ms
+  linear:
+    initial: 1s
+    increment: 500ms
 
+# Source: src/cook/workflow/error_policy.rs:117
 # Exponential backoff (recommended)
 # Calculates: delay = initial * (multiplier ^ retry_count)
 # Example: 1s, 2s, 4s, 8s...
 backoff:
-  type: exponential
-  initial: 1s
-  multiplier: 2
+  exponential:
+    initial: 1s
+    multiplier: 2
 
+# Source: src/cook/workflow/error_policy.rs:119
 # Fibonacci sequence delays
 # Calculates: delay = initial * fibonacci(retry_count)
 # Example: 1s, 1s, 2s, 3s, 5s...
 backoff:
-  type: fibonacci
-  initial: 1s
+  fibonacci:
+    initial: 1s
 ```
 
 **Important:** All duration values use humantime format (e.g., `1s`, `100ms`, `2m`, `30s`), not milliseconds.
 
 > **Note:** All duration values use humantime format (e.g., `1s`, `100ms`, `2m`, `30s`) for consistency. This applies to both BackoffStrategy delays and CircuitBreakerConfig timeout.
 
-#### Jitter
+#### Advanced Retry Configuration
 
-Add randomization to prevent thundering herd:
+Prodigy has two retry configuration systems with different capabilities:
+
+**1. Workflow-Level RetryConfig** (`src/cook/workflow/error_policy.rs:92-99`)
+   - Used in MapReduce `error_policy.retry_config`
+   - Fields: `max_attempts`, `backoff` (BackoffStrategy enum)
+   - Simpler configuration for workflow-level retries
+
+**2. Command-Level RetryConfig** (`src/cook/retry_v2.rs:16-52`)
+   - Used for individual command retry logic
+   - Additional fields: `jitter`, `max_delay`, `retry_budget`, `retry_on`
+   - More advanced features for fine-grained control
+
+**Jitter (Command-Level Only):**
+
+Add randomization to retry delays to prevent thundering herd problems. This feature is available in `retry_v2.rs` RetryConfig but not yet in workflow-level error_policy RetryConfig.
+
 ```yaml
+# Source: src/cook/retry_v2.rs:33-39
+# Note: This syntax is for command-level retry configuration
 retry_config:
-  max_attempts: 5
-  jitter: true
-  backoff:
-    exponential:
-      initial: "1s"
-      multiplier: 2.0
+  attempts: 5              # Max retry attempts
+  initial_delay: 1s        # Starting delay
+  max_delay: 60s          # Cap on delay (prevents unbounded growth)
+  jitter: true            # Enable jitter
+  jitter_factor: 0.1      # Jitter randomization (0.0 to 1.0)
+  backoff: exponential    # Backoff strategy type
 ```
+
+!!! note "Workflow-Level vs Command-Level Retry"
+    The workflow-level `error_policy.retry_config` (used in MapReduce) does not currently support `jitter`, `max_delay`, or `retry_budget` fields. These advanced features are only available in the command-level retry configuration (`retry_v2.rs`).
 
 ### Error Metrics
 
