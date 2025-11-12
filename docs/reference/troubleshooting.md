@@ -6,11 +6,44 @@ Quick reference guide for diagnosing and resolving Prodigy issues. For detailed 
 
 ### When Something Goes Wrong
 
-1. **Check verbosity**: Run with `-v` flag to see detailed output
-2. **Inspect logs**: Use `prodigy logs --latest --summary` for Claude interactions
-3. **Review events**: Use `prodigy events ls --job-id <job_id>` for execution timeline
-4. **Check DLQ**: Use `prodigy dlq show <job_id>` for failed items (MapReduce only)
-5. **Verify state**: Check `~/.prodigy/state/` for checkpoints and session state
+```mermaid
+flowchart TD
+    Start[Issue Detected] --> Verbose[Run with -v flag]
+    Verbose --> Logs{Check Logs}
+
+    Logs -->|Claude interaction| ClaudeLogs[prodigy logs --latest]
+    Logs -->|Execution flow| Events[prodigy events ls]
+    Logs -->|Failed items| DLQ[prodigy dlq show]
+
+    ClaudeLogs --> State{Check State}
+    Events --> State
+    DLQ --> State
+
+    State -->|Session info| Sessions[~/.prodigy/sessions/]
+    State -->|Checkpoints| Checkpoints[~/.prodigy/state/]
+    State -->|Worktrees| Worktrees[prodigy worktree ls]
+
+    Sessions --> Resolve[Resolve Issue]
+    Checkpoints --> Resolve
+    Worktrees --> Resolve
+
+    style Start fill:#ffebee
+    style Verbose fill:#e1f5ff
+    style Logs fill:#fff3e0
+    style State fill:#f3e5f5
+    style Resolve fill:#e8f5e9
+```
+
+**Figure**: Diagnostic workflow for troubleshooting Prodigy issues.
+
+!!! tip "Quick Diagnostics Checklist"
+    Follow this sequence when troubleshooting:
+
+    1. **Check verbosity**: Run with `-v` flag to see detailed output
+    2. **Inspect logs**: Use `prodigy logs --latest --summary` for Claude interactions
+    3. **Review events**: Use `prodigy events ls --job-id <job_id>` for execution timeline
+    4. **Check DLQ**: Use `prodigy dlq show <job_id>` for failed items (MapReduce only)
+    5. **Verify state**: Check `~/.prodigy/state/` for checkpoints and session state
 
 ### Common Error Patterns
 
@@ -76,6 +109,9 @@ Quick reference guide for diagnosing and resolving Prodigy issues. For detailed 
 
 ### Performance Issues
 
+!!! warning "Resource Contention"
+    High `max_parallel` values can exhaust system resources. Start with 5-10 agents and monitor performance before increasing.
+
 **Slow MapReduce execution:**
 - Reduce: `max_parallel` to avoid resource exhaustion
 - Increase: `agent_timeout_secs` if agents timeout
@@ -88,12 +124,22 @@ Quick reference guide for diagnosing and resolving Prodigy issues. For detailed 
 - Check for memory leaks in custom commands
 - Monitor: `prodigy events stats` for bottlenecks
 
+!!! tip "Performance Tuning"
+    For optimal MapReduce performance:
+
+    - **10-1000 work items**: Sweet spot for parallelism benefits
+    - **10 sec - 5 min per item**: Ideal task duration
+    - **Start small**: Test with `max_items: 10` before full run
+
 **Timeout errors:**
 - Increase: `timeout` field in command configuration
 - Split: Large operations into smaller steps
 - Check: For hung processes with `ps aux | grep prodigy`
 
 ### Worktree Problems
+
+!!! warning "Cleanup Failures"
+    If cleanup fails during MapReduce execution, the agent is still marked as successful and results are preserved. Use `prodigy worktree clean-orphaned <job_id>` to clean up later.
 
 **Orphaned worktrees:**
 - List: `prodigy worktree ls`
@@ -116,74 +162,85 @@ Quick reference guide for diagnosing and resolving Prodigy issues. For detailed 
 
 ```bash
 # Default: Clean output
-prodigy run workflow.yml
+prodigy run workflow.yml              # (1)!
 
 # Verbose: Show Claude streaming output
-prodigy run workflow.yml -v
+prodigy run workflow.yml -v           # (2)!
 
 # Very verbose: Add debug logs
-prodigy run workflow.yml -vv
+prodigy run workflow.yml -vv          # (3)!
 
 # Trace: Maximum detail
-prodigy run workflow.yml -vvv
+prodigy run workflow.yml -vvv         # (4)!
 ```
+
+1. Minimal output for production workflows - shows only progress and results
+2. Adds Claude JSON streaming output for debugging interactions
+3. Adds debug-level logs from Prodigy internals
+4. Maximum verbosity including trace-level execution details
 
 ### Log Inspection
 
-**Claude JSON logs:**
-```bash
-# View latest log with summary
-prodigy logs --latest --summary
+!!! example "Claude JSON Logs"
+    Every Claude command creates a streaming JSONL log with full conversation history:
 
-# Follow log in real-time
-prodigy logs --latest --tail
+    ```bash
+    # View latest log with summary
+    prodigy logs --latest --summary
 
-# View specific log file
-cat ~/.claude/projects/{worktree-path}/{uuid}.jsonl | jq -c '.'
-```
+    # Follow log in real-time
+    prodigy logs --latest --tail
 
-**Event logs:**
-```bash
-# List events for job
-prodigy events ls --job-id <job_id>
+    # View specific log file
+    cat ~/.claude/projects/{worktree-path}/{uuid}.jsonl | jq -c '.'
+    ```
 
-# Follow events in real-time
-prodigy events follow --job-id <job_id>
+    Log location is displayed after each Claude command execution.
 
-# Show statistics
-prodigy events stats
-```
+!!! example "Event Logs"
+    Track workflow execution and identify bottlenecks:
+
+    ```bash
+    # List events for job
+    prodigy events ls --job-id <job_id>
+
+    # Follow events in real-time
+    prodigy events follow --job-id <job_id>
+
+    # Show statistics
+    prodigy events stats
+    ```
 
 **Source**: src/cli/commands/events.rs:22-98
 
 ### State Inspection
 
-**Session state:**
-```bash
-# List all sessions
-prodigy sessions list
+=== "Session State"
+    ```bash
+    # List all sessions
+    prodigy sessions list
 
-# View session details
-cat ~/.prodigy/sessions/{session-id}.json | jq '.'
-```
+    # View session details
+    cat ~/.prodigy/sessions/{session-id}.json | jq '.'
+    ```
 
-**Checkpoint state:**
-```bash
-# List checkpoints for job
-ls ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/
+=== "Checkpoint State"
+    ```bash
+    # List checkpoints for job
+    ls ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/
 
-# View checkpoint contents
-cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/map-checkpoint-*.json | jq '.'
-```
+    # View checkpoint contents
+    cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/map-checkpoint-*.json | jq '.'
+    ```
 
-**DLQ contents:**
-```bash
-# Show failed items
-prodigy dlq show <job_id>
+=== "DLQ Contents"
+    ```bash
+    # Show failed items
+    prodigy dlq show <job_id>
 
-# View DLQ file directly
-cat ~/.prodigy/dlq/{repo}/{job_id}.json | jq '.'
-```
+    # View DLQ file directly
+    cat ~/.prodigy/dlq/{repo}/{job_id}.json | jq '.'
+    ```
 
 ### Git Context
 
@@ -219,14 +276,17 @@ Common error patterns:
 
 ## Best Practices for Debugging
 
-1. **Start with verbosity**: Always use `-v` flag when debugging
-2. **Check logs first**: Claude JSON logs contain full interaction details
-3. **Review events**: Event timeline shows execution flow and bottlenecks
-4. **Inspect DLQ early**: Failed items in DLQ indicate systematic issues
-5. **Verify state**: Check checkpoint and session files for corruption
-6. **Test incrementally**: Use `--dry-run` to preview execution
-7. **Monitor resources**: Watch CPU, memory, disk during execution
-8. **Use specialized tools**: `prodigy events`, `prodigy logs`, `prodigy dlq`
+!!! tip "Debugging Workflow"
+    Follow this systematic approach to diagnose issues quickly:
+
+    1. **Start with verbosity**: Always use `-v` flag when debugging
+    2. **Check logs first**: Claude JSON logs contain full interaction details
+    3. **Review events**: Event timeline shows execution flow and bottlenecks
+    4. **Inspect DLQ early**: Failed items in DLQ indicate systematic issues
+    5. **Verify state**: Check checkpoint and session files for corruption
+    6. **Test incrementally**: Use `--dry-run` to preview execution
+    7. **Monitor resources**: Watch CPU, memory, disk during execution
+    8. **Use specialized tools**: `prodigy events`, `prodigy logs`, `prodigy dlq`
 
 For comprehensive debugging strategies, see:
 
