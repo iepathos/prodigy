@@ -1,0 +1,70 @@
+{
+  "item_type": "section-page",
+  "section_id": "advanced",
+  "section_title": "Advanced Features",
+  "page_id": "sessions",
+  "page_title": "Session Management",
+  "page_file": "docs/advanced/sessions.md",
+  "feature_mappings": [
+    "session_management.session_types",
+    "session_management.lifecycle",
+    "session_management.resume"
+  ],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent documentation - comprehensive, accurate, and well-structured. All mapped features are thoroughly documented with clear examples and source references.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Session Types",
+      "description": "Could add brief mention of agent_count field purpose in MapReduce sessions",
+      "feature_reference": "session_management.session_types.mapreduce_sessions",
+      "fix_suggestion": "Add one-line explanation that agent_count tracks currently active parallel agents",
+      "source_reference": "src/unified_session/state.rs:MapReduceSessionData"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of source code references (e.g., src/unified_session/state.rs:117-125)",
+    "Clear and accurate JSON examples showing real session structure",
+    "Comprehensive coverage of all three mapped features",
+    "Well-organized progressive explanation from basics to advanced topics",
+    "Good visual state transition diagram",
+    "Practical examples for common use cases",
+    "Accurate documentation of bidirectional session-job mapping",
+    "Complete coverage of concurrent resume protection with RAII locks",
+    "Proper cross-references to related documentation pages",
+    "All internal links validated and working"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a troubleshooting subsection specific to session-related issues (distinct from general troubleshooting)",
+    "Could add example of how to inspect session file manually with jq commands",
+    "Might benefit from a quick reference table mapping session states to available operations"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "git-integration",
+    "storage"
+  ],
+  "link_validation": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "valid_links": [
+      "../mapreduce/checkpoint-and-resume.md",
+      "git-integration.md",
+      "storage.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-11-11T19:27:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Session types",
+      "Session lifecycle",
+      "Resume capabilities",
+      "State persistence",
+      "Concurrent resume protection"
+    ],
+    "validation_focus": "Check session tracking, lifecycle states, and resume features are documented"
+  }
+}
