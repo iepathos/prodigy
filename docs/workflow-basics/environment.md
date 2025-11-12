@@ -13,6 +13,17 @@ Environment variables in Prodigy allow you to:
 - Use dynamic and conditional variables
 - Reference variables across all workflow phases
 
+### Variable Precedence
+
+Variables can be defined in multiple locations. When the same variable is defined in multiple places, Prodigy uses this precedence order (highest to lowest):
+
+1. **Profile variables** - Activated with `--profile` flag
+2. **Workflow `env` block** - Defined in workflow YAML
+3. **Environment files** - Loaded from `.env` files (later files override earlier)
+4. **Parent process environment** - Inherited from shell
+
+This hierarchy allows you to set sensible defaults while providing runtime overrides when needed.
+
 ## Defining Environment Variables
 
 Environment variables are defined in the `env` block at the workflow root:
@@ -121,6 +132,41 @@ secrets:
 
 The `secrets` block is an alternative to inline `secret: true` definitions.
 
+### Advanced: Secret Providers
+
+Prodigy supports multiple secret providers for integration with external secret management systems:
+
+```yaml
+# Source: src/cook/environment/config.rs:99-112
+env:
+  # Environment variable provider (default)
+  API_TOKEN:
+    secret: true
+    value: "${GITHUB_TOKEN}"
+
+  # File-based secrets
+  DATABASE_PASSWORD:
+    secret: true
+    provider: file
+    key: "/run/secrets/db_password"
+
+  # HashiCorp Vault integration
+  VAULT_TOKEN:
+    secret: true
+    provider: vault
+    key: "secret/data/myapp/token"
+    version: "v2"
+
+  # AWS Secrets Manager
+  AWS_SECRET:
+    secret: true
+    provider: aws
+    key: "myapp/prod/api-key"
+```
+
+!!! note "Provider Availability"
+    Secret provider support depends on configuration. The `env` and `file` providers are always available. Vault and AWS providers require additional setup.
+
 ### Automatic Masking
 
 Secrets are masked in:
@@ -184,7 +230,7 @@ Profile variables override default `env` values. Variables not defined in the pr
 
 ## Environment Files
 
-Load variables from `.env` format files for external configuration.
+Load variables from `.env` format files for external configuration. Environment files support standard `.env` format and can be used for external secrets management and configuration.
 
 ### Defining Environment Files
 
@@ -194,6 +240,8 @@ env_files:
   - .env.production
   - .env.local
 ```
+
+Multiple files can be specified, with later files overriding earlier ones for the same variable names.
 
 ### .env File Format
 
@@ -210,14 +258,19 @@ API_TIMEOUT=30
 ENABLE_CACHING=true
 ```
 
+!!! note "Supported Formats"
+    Environment files follow standard `.env` format with `KEY=VALUE` pairs. Lines starting with `#` are treated as comments. No spaces are allowed around the `=` sign.
+
 ### Variable Precedence
 
 When variables are defined in multiple locations, Prodigy uses this precedence (highest to lowest):
 
-1. Profile variables (`--profile` flag)
-2. Workflow `env` block
-3. Environment files (later files override earlier)
-4. Parent process environment
+1. **Profile variables** (`--profile` flag) - Highest priority
+2. **Workflow `env` block** - Workflow-defined variables
+3. **Environment files** - Later files override earlier files
+4. **Parent process environment** - Lowest priority
+
+This precedence order ensures that explicit workflow configuration takes precedence over external sources, while profiles provide runtime overrides.
 
 ## Usage in Workflow Phases
 
@@ -270,6 +323,9 @@ map:
       on_failure:
         - claude: "/fix-issue --max-retries $MAX_RETRIES"
 ```
+
+!!! note "MapReduce Agent Isolation"
+    Each MapReduce agent runs in an isolated git worktree with its own execution context. Environment variables defined in the workflow are automatically inherited by all agents. Secret masking is maintained across agent boundaries to ensure credentials remain protected.
 
 ### MapReduce Reduce Phase
 
