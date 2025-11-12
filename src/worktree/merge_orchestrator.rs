@@ -124,7 +124,8 @@ impl MergeOrchestrator {
             }
             None => {
                 println!("🔄 Merging worktree '{name}' into '{target_branch}' using Claude-assisted merge...");
-                self.execute_claude_merge(name, worktree_branch, target_branch).await
+                self.execute_claude_merge(name, worktree_branch, target_branch)
+                    .await
             }
         }
     }
@@ -142,7 +143,12 @@ impl MergeOrchestrator {
     /// # Returns
     ///
     /// Output from the Claude merge command
-    async fn execute_claude_merge(&self, name: &str, worktree_branch: &str, target_branch: &str) -> Result<String> {
+    async fn execute_claude_merge(
+        &self,
+        name: &str,
+        worktree_branch: &str,
+        target_branch: &str,
+    ) -> Result<String> {
         let worktree_path = self.base_dir.join(name);
 
         if !worktree_path.exists() {
