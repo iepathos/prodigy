@@ -8,6 +8,39 @@ Prodigy provides comprehensive error handling at both the workflow level (for Ma
 
 Command-level error handling allows you to specify what happens when a single workflow step fails. Use the `on_failure` configuration to define recovery, cleanup, or fallback strategies.
 
+```mermaid
+flowchart TD
+    Start[Execute Command] --> Success{Success?}
+    Success -->|Yes| NextStep[Next Command]
+    Success -->|No| Handler{on_failure<br/>defined?}
+
+    Handler -->|No| FailWorkflow[Fail Workflow]
+    Handler -->|Yes| RunHandler[Execute Handler]
+
+    RunHandler --> HandlerSuccess{Handler<br/>Success?}
+    HandlerSuccess -->|No| HandlerFatal{handler_failure_fatal?}
+    HandlerFatal -->|Yes| FailWorkflow
+    HandlerFatal -->|No| CheckRetry
+
+    HandlerSuccess -->|Yes| CheckRetry{max_attempts<br/>> 1?}
+    CheckRetry -->|Yes| RetryCmd[Retry Original Command]
+    RetryCmd --> AttemptCheck{Attempts<br/>exhausted?}
+    AttemptCheck -->|No| Start
+    AttemptCheck -->|Yes| FinalCheck{fail_workflow?}
+
+    CheckRetry -->|No| FinalCheck
+    FinalCheck -->|Yes| FailWorkflow
+    FinalCheck -->|No| NextStep
+
+    style Success fill:#e8f5e9
+    style Handler fill:#fff3e0
+    style HandlerSuccess fill:#e1f5ff
+    style FailWorkflow fill:#ffebee
+    style NextStep fill:#e8f5e9
+```
+
+**Figure**: Command-level error handling flow showing handler execution, retry logic, and failure propagation.
+
 ### Simple Forms
 
 For basic error handling, use the simplest form that meets your needs:
@@ -36,12 +69,19 @@ For basic error handling, use the simplest form that meets your needs:
 
 For more control over error handling behavior:
 
+!!! tip "Automatic Retry Behavior"
+    Setting `max_attempts > 1` automatically enables retry of the original command after the handler runs. You don't need a separate `retry_original` flag.
+
 ```yaml
 - shell: "cargo clippy"
   on_failure:
-    claude: "/fix-warnings ${shell.output}"
-    fail_workflow: false     # Continue workflow even if handler fails
-    max_attempts: 3          # Retry original command up to 3 times (setting > 1 enables auto-retry)
+    claude: "/fix-warnings ${shell.output}"  # (1)!
+    fail_workflow: false     # (2)!
+    max_attempts: 3          # (3)!
+
+1. Handler receives command output for analysis
+2. Continue workflow even if handler fails
+3. Retry original command up to 3 times (auto-retry when > 1)
 ```
 
 **Available Fields:**
@@ -214,6 +254,41 @@ error_policy:
 
 The circuit breaker operates in three states to protect against cascading failures:
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: Initial State
+
+    Closed --> Open: failure_threshold<br/>consecutive failures
+    Open --> HalfOpen: timeout expires
+    HalfOpen --> Closed: success_threshold<br/>successes
+    HalfOpen --> Open: Any test request fails
+
+    note right of Closed
+        Normal Operation
+        Track failures
+        Process all requests
+    end note
+
+    note right of Open
+        Rejecting Requests
+        Fail fast
+        Wait for timeout
+    end note
+
+    note right of HalfOpen
+        Testing Recovery
+        Limited test requests
+        Verify health
+    end note
+```
+
+**Figure**: Circuit breaker state transitions showing how the breaker protects against cascading failures.
+
+!!! warning "Circuit Breaker Opens After Consecutive Failures"
+    The circuit opens after `failure_threshold` **consecutive** failures, not total failures. A single success resets the failure counter. This means the circuit breaker is designed to detect sustained problems, not intermittent errors.
+
+**State Behaviors:**
+
 1. **Closed (Normal Operation)**
    - All requests are processed normally
    - Failures are tracked; consecutive failures increment the failure counter
@@ -228,14 +303,6 @@ The circuit breaker operates in three states to protect against cascading failur
    - Allows a limited number of test requests (`half_open_requests`) to verify recovery
    - If test requests succeed (reaching `success_threshold`), transitions back to **Closed**
    - If any test request fails, transitions back to **Open** and resets the timeout
-
-**State Transition Flow:**
-```
-Closed → Open (after failure_threshold consecutive failures)
-Open → HalfOpen (after timeout expires)
-HalfOpen → Closed (after success_threshold successes)
-HalfOpen → Open (if any half_open_request fails)
-```
 
 **Monitoring Circuit Breaker State:**
 
@@ -273,16 +340,27 @@ error_policy:
 
 Configure automatic retry behavior for failed items:
 
+!!! tip "Choosing a Backoff Strategy"
+    - **Exponential**: Best for external APIs and network calls (prevents overwhelming services)
+    - **Linear**: Good for predictable resource constraints
+    - **Fixed**: Use for operations with consistent retry cost
+    - **Fibonacci**: Balanced approach between linear and exponential
+
 ```yaml
 # Source: src/cook/workflow/error_policy.rs:92-99, 108-120
 error_policy:
-  on_item_failure: retry
+  on_item_failure: retry    # (1)!
   retry_config:
-    max_attempts: 3
+    max_attempts: 3         # (2)!
     backoff:
       exponential:
-        initial: 1s            # Initial delay (duration format)
-        multiplier: 2          # Double delay each retry
+        initial: 1s         # (3)!
+        multiplier: 2       # (4)!
+
+1. Use retry strategy instead of sending to DLQ
+2. Total attempts including the original (3 means 1 original + 2 retries)
+3. Starting delay before first retry
+4. Multiply delay by this factor for each retry (1s, 2s, 4s...)
 ```
 
 **Backoff Strategy Options:**
@@ -481,6 +559,9 @@ This centralized storage allows multiple worktrees to share the same DLQ.
 
 Understanding when to use command-level versus workflow-level error handling is crucial for building robust workflows.
 
+!!! note "Two Levels of Error Handling"
+    Prodigy provides error handling at two distinct levels, and you can use both in the same workflow for defense in depth. Command-level handlers respond to specific step failures, while workflow-level policies apply consistent rules across all MapReduce items.
+
 | **Aspect** | **Command-Level (`on_failure`)** | **Workflow-Level (`error_policy`)** |
 |------------|-----------------------------------|--------------------------------------|
 | **Scope** | Single workflow step | Entire MapReduce job |
@@ -522,13 +603,19 @@ The `${shell.output}` variable contains the command's stdout/stderr output.
 
 ### Common Patterns
 
-**Cleanup and Retry:**
+!!! example "Cleanup and Retry"
+    This pattern is useful when failures are caused by corrupted caches or stale state:
+
 ```yaml
 - shell: "npm install"
   on_failure:
-    - "npm cache clean --force"
-    - "rm -rf node_modules"
-    - "npm install"
+    - "npm cache clean --force"    # (1)!
+    - "rm -rf node_modules"         # (2)!
+    - "npm install"                 # (3)!
+
+1. Clean npm cache to remove corrupted entries
+2. Remove node_modules to ensure clean state
+3. Retry installation from scratch
 ```
 
 **Conditional Recovery:**
@@ -607,26 +694,29 @@ map:
 
 For complex MapReduce workflows, combine multiple error handling features:
 
+!!! example "Defense in Depth: Multi-Layer Error Handling"
+    This example demonstrates how to combine command-level and workflow-level error handling for maximum resilience:
+
 ```yaml
 # Process API endpoints with comprehensive error handling
 mode: mapreduce
 error_policy:
-  on_item_failure: retry          # Try immediate retry first
-  continue_on_failure: true       # Don't stop entire job
-  max_failures: 50                # Stop if too many failures
-  failure_threshold: 0.15         # Stop if 15% failure rate
+  on_item_failure: retry          # (1)!
+  continue_on_failure: true       # (2)!
+  max_failures: 50                # (3)!
+  failure_threshold: 0.15         # (4)!
 
   # Retry with exponential backoff
   retry_config:
-    max_attempts: 3
+    max_attempts: 3               # (5)!
     backoff:
       type: exponential
       initial: 2s
-      multiplier: 2
+      multiplier: 2               # (6)!
 
   # Protect against cascading failures
   circuit_breaker:
-    failure_threshold: 10
+    failure_threshold: 10         # (7)!
     success_threshold: 3
     timeout: 60s
     half_open_requests: 5
@@ -634,7 +724,7 @@ error_policy:
   # Report errors in batches of 10
   error_collection:
     batched:
-      size: 10
+      size: 10                    # (8)!
 
 map:
   agent_template:
@@ -642,7 +732,17 @@ map:
       on_failure:
         # Item-level recovery before workflow-level retry
         claude: "/diagnose-api-error ${shell.output}"
-        max_attempts: 2
+        max_attempts: 2           # (9)!
+
+1. Try immediate retry first (workflow-level)
+2. Don't stop entire job on failures
+3. Stop if 50 total failures occur
+4. Stop if 15% of items fail (runaway protection)
+5. Retry each failed item up to 3 times
+6. Delays: 2s, 4s, 8s between retries
+7. Open circuit after 10 consecutive failures
+8. Report errors in batches to reduce noise
+9. Item-level handler can retry twice before workflow-level retry
 ```
 
 This configuration provides multiple layers of protection:
