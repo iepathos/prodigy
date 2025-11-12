@@ -103,12 +103,6 @@ reduce:
   - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
   - shell: "git add -A && git commit -m 'chore: remove temporary mkdocs analysis files for ${PROJECT_NAME}' || true"
 
-# Merge workflow - merge back to original branch
-merge:
-  commands:
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
-  timeout: 600
-
 # Error handling
 error_policy:
   on_item_failure: dlq
