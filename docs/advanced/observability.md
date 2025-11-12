@@ -11,6 +11,36 @@ Observability features:
 - **Log analysis**: Tools for inspecting execution history
 - **Performance metrics**: Token usage and timing information
 
+```mermaid
+graph TD
+    Workflow[Workflow Execution] --> Events[Event System]
+    Workflow --> Claude[Claude Commands]
+    Workflow --> Verbosity[Verbosity Control]
+
+    Events --> JSONL[JSONL Event Files<br/>~/.prodigy/events/]
+    Events --> Types[Event Types<br/>AgentStarted, Completed, Failed]
+
+    Claude --> JSONLog[JSON Logs<br/>~/.local/state/claude/logs/]
+    Claude --> Tools[Tool Invocations]
+    Claude --> Tokens[Token Usage]
+
+    Verbosity --> Clean[Default: Clean Output]
+    Verbosity --> Verbose["-v: Show Streaming"]
+    Verbosity --> Debug["-vv: Debug Logs"]
+    Verbosity --> Trace["-vvv: Trace Details"]
+
+    JSONL --> Analysis[Log Analysis]
+    JSONLog --> Analysis
+    Analysis --> Debugging[Debugging & Monitoring]
+
+    style Events fill:#e1f5ff
+    style Claude fill:#fff3e0
+    style Verbosity fill:#f3e5f5
+    style Analysis fill:#e8f5e9
+```
+
+**Figure**: Prodigy's observability architecture showing event tracking, Claude logs, and verbosity control.
+
 ## Event Tracking
 
 All workflow operations are logged to JSONL event files:
@@ -19,6 +49,9 @@ All workflow operations are logged to JSONL event files:
 ~/.prodigy/events/{repo_name}/{job_id}/
 └── events-{timestamp}.jsonl
 ```
+
+!!! tip "Event Storage Best Practice"
+    Events are stored globally in `~/.prodigy/events/` to enable cross-worktree aggregation. Multiple worktrees working on the same job share the same event log, making it easy to monitor parallel execution.
 
 ### Event Types
 
@@ -36,14 +69,21 @@ All workflow operations are logged to JSONL event files:
 **AgentCompleted** - Agent finishes successfully:
 ```json
 {
-  "type": "AgentCompleted",
-  "job_id": "mapreduce-123",
-  "agent_id": "agent-1",
-  "duration": {"secs": 30, "nanos": 0},
-  "commits": ["abc123", "def456"],
-  "json_log_location": "/path/to/logs/session-xyz.json"
+  "type": "AgentCompleted",  // (1)!
+  "job_id": "mapreduce-123",  // (2)!
+  "agent_id": "agent-1",  // (3)!
+  "duration": {"secs": 30, "nanos": 0},  // (4)!
+  "commits": ["abc123", "def456"],  // (5)!
+  "json_log_location": "/path/to/logs/session-xyz.json"  // (6)!
 }
 ```
+
+1. Event type indicating successful completion
+2. MapReduce job identifier
+3. Unique agent identifier for this work item
+4. Total execution time for the agent
+5. Git commits created during execution
+6. Path to Claude's detailed JSON log for debugging
 
 **AgentFailed** - Agent encounters errors:
 ```json
@@ -95,12 +135,16 @@ All workflow operations are logged to JSONL event files:
 Events are organized by repository and job:
 ```
 ~/.prodigy/events/
-└── prodigy/                    # Repository name
-    ├── mapreduce-123/          # Job ID
-    │   └── events-20250111.jsonl
+└── prodigy/                    # (1)!
+    ├── mapreduce-123/          # (2)!
+    │   └── events-20250111.jsonl  # (3)!
     └── mapreduce-456/
         └── events-20250111.jsonl
 ```
+
+1. Repository name for multi-repo support
+2. Job ID groups all events for this MapReduce run
+3. JSONL file with one event per line (append-only)
 
 ## Claude Observability
 
@@ -159,6 +203,9 @@ Claude JSON log: /Users/user/.local/state/claude/logs/session-abc123.json
 
 ### Analyzing JSON Logs
 
+!!! example "Common Log Analysis Tasks"
+    The examples below show how to extract specific information from Claude JSON logs using `jq`. These patterns are useful for debugging agent failures, tracking token usage, and understanding Claude's decision-making process.
+
 **View complete conversation**:
 ```bash
 cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
@@ -184,6 +231,9 @@ cat ~/.local/state/claude/logs/session-abc123.json | \
 ## Verbosity Control
 
 Granular output control with verbosity flags:
+
+!!! tip "Choosing the Right Verbosity Level"
+    Start with default output for production workflows. Use `-v` when debugging Claude interactions or when you need to see streaming output. Reserve `-vv` and `-vvv` for deep troubleshooting of Prodigy internals.
 
 ### Levels
 
@@ -234,6 +284,43 @@ prodigy run workflow.yml
 ## Debugging MapReduce Failures
 
 ### Using JSON Logs
+
+When a MapReduce agent fails, use this debugging workflow:
+
+```mermaid
+flowchart TD
+    Start[Agent Fails] --> DLQ[Check DLQ Item]
+    DLQ --> GetLog{json_log_location<br/>present?}
+
+    GetLog -->|Yes| InspectLog[Inspect Claude JSON Log]
+    GetLog -->|No| CheckEvents[Check Event Stream]
+
+    InspectLog --> FindError[Find Failing Tool/Message]
+    FindError --> Context[Analyze Context]
+
+    Context --> Messages[Review Message History]
+    Context --> Tools[Check Tool Invocations]
+    Context --> Tokens[Examine Token Usage]
+    Context --> Errors[Extract Error Details]
+
+    Messages --> Root[Identify Root Cause]
+    Tools --> Root
+    Tokens --> Root
+    Errors --> Root
+
+    Root --> Fix[Apply Fix]
+    Fix --> Retry[Retry via DLQ]
+
+    CheckEvents --> EventLog[Parse Event JSONL]
+    EventLog --> Root
+
+    style Start fill:#ffebee
+    style GetLog fill:#fff3e0
+    style Root fill:#e8f5e9
+    style Fix fill:#e1f5ff
+```
+
+**Figure**: MapReduce debugging workflow showing how to trace failures using JSON logs and events.
 
 When a MapReduce agent fails:
 
@@ -297,12 +384,16 @@ Events include optional correlation IDs for tracing related operations across mu
 // Source: src/storage/types.rs:75
 {
   "type": "AgentStarted",
-  "job_id": "mapreduce-123",
-  "agent_id": "agent-1",
-  "correlation_id": "trace-abc-123",
+  "job_id": "mapreduce-123",  // (1)!
+  "agent_id": "agent-1",  // (2)!
+  "correlation_id": "trace-abc-123",  // (3)!
   "timestamp": "2025-01-11T12:00:00Z"
 }
 ```
+
+1. Job identifier - groups all agents in this MapReduce run
+2. Agent identifier - unique to this work item
+3. Correlation ID - traces related operations across agents (optional)
 
 **Filter events by correlation ID**:
 ```bash
@@ -354,10 +445,53 @@ cat events.jsonl | \
 
 ### Log Locations
 
-- **Prodigy events**: `~/.prodigy/events/{repo_name}/{job_id}/`
-- **Claude logs**: `~/.local/state/claude/logs/`
-- **Session state**: `~/.prodigy/sessions/`
-- **Checkpoints**: `~/.prodigy/state/{repo_name}/`
+=== "Linux"
+    ```bash
+    # Prodigy events
+    ~/.prodigy/events/{repo_name}/{job_id}/
+
+    # Claude logs
+    ~/.local/state/claude/logs/
+
+    # Session state
+    ~/.prodigy/sessions/
+
+    # Checkpoints
+    ~/.prodigy/state/{repo_name}/
+    ```
+
+=== "macOS"
+    ```bash
+    # Prodigy events
+    ~/.prodigy/events/{repo_name}/{job_id}/
+
+    # Claude logs
+    ~/.local/state/claude/logs/
+
+    # Session state
+    ~/.prodigy/sessions/
+
+    # Checkpoints
+    ~/.prodigy/state/{repo_name}/
+    ```
+
+=== "Windows"
+    ```powershell
+    # Prodigy events
+    %USERPROFILE%\.prodigy\events\{repo_name}\{job_id}\
+
+    # Claude logs
+    %USERPROFILE%\.local\state\claude\logs\
+
+    # Session state
+    %USERPROFILE%\.prodigy\sessions\
+
+    # Checkpoints
+    %USERPROFILE%\.prodigy\state\{repo_name}\
+    ```
+
+!!! warning "Log Storage Considerations"
+    Claude JSON logs can grow large with extensive tool usage. Monitor disk space when running many MapReduce agents. Consider setting up automated cleanup for logs older than 30 days in production environments.
 
 ### Cleanup
 
