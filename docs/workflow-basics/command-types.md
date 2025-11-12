@@ -8,6 +8,7 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 |-------------|------------------|--------------|
 | [`shell:`](#shell-commands) | Execute shell commands | Output capture, conditional execution, timeouts |
 | [`claude:`](#claude-commands) | Run Claude AI commands | Variable interpolation, commit tracking, output declarations |
+| [`analyze:`](#analyze-commands) | Codebase analysis with caching | Cache control, force refresh, format options |
 | [`goal_seek:`](#goal-seek-commands) | Iterative refinement | Score-based validation, automatic retry, convergence detection |
 | [`foreach:`](#foreach-commands) | Parallel iteration | Process lists in parallel, item limits, error handling |
 | [`write_file:`](#write-file-commands) | Create files | Format validation (JSON/YAML), directory creation, permissions |
@@ -15,6 +16,35 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 
 !!! tip "Command Exclusivity"
     Each workflow step must use exactly one command type. You cannot combine `shell:` and `claude:` in the same step. Use `on_success:` or `on_failure:` to chain commands together.
+
+### Choosing the Right Command Type
+
+```mermaid
+flowchart TD
+    Start{What are you<br/>trying to do?}
+
+    Start -->|Run shell commands| Shell[shell:]
+    Start -->|Execute Claude AI| Claude[claude:]
+    Start -->|Analyze codebase| Analyze{Need fresh<br/>metrics?}
+    Start -->|Improve until goal met| GoalSeek[goal_seek:]
+    Start -->|Process multiple items| Foreach[foreach:]
+    Start -->|Save data to file| WriteFile[write_file:]
+    Start -->|Check completeness| Validate[validate:]
+
+    Analyze -->|Yes, after changes| AnalyzeForce[analyze:<br/>force_refresh: true]
+    Analyze -->|No, use cache| AnalyzeCache[analyze:<br/>max_cache_age: 300]
+
+    style Shell fill:#e1f5ff
+    style Claude fill:#f3e5f5
+    style AnalyzeForce fill:#fff3e0
+    style AnalyzeCache fill:#fff3e0
+    style GoalSeek fill:#e8f5e9
+    style Foreach fill:#fce4ec
+    style WriteFile fill:#f1f8e9
+    style Validate fill:#ede7f6
+```
+
+**Figure**: Decision tree for selecting the appropriate command type based on your workflow needs.
 
 ### Shell Commands
 
@@ -25,17 +55,26 @@ Execute shell commands during workflow execution.
 **Syntax**:
 ```yaml
 - shell: "command to execute"
-  timeout: 300                    # Optional: timeout in seconds
-  capture_output: true            # Optional: capture command output
-  capture_format: "json"          # Optional: json, text, lines
-  capture_streams: "both"         # Optional: stdout, stderr, both
-  output_file: "results.txt"      # Optional: redirect output to file
-  on_failure:                     # Optional: commands to run on failure
+  timeout: 300                    # (1)!
+  capture_output: true            # (2)!
+  capture_format: "json"          # (3)!
+  capture_streams: "both"         # (4)!
+  output_file: "results.txt"      # (5)!
+  on_failure:                     # (6)!
     claude: "/debug-failure"
-  on_success:                     # Optional: commands to run on success
+  on_success:                     # (7)!
     shell: "echo 'Success!'"
-  when: "variable == 'value'"     # Optional: conditional execution
+  when: "variable == 'value'"     # (8)!
 ```
+
+1. Maximum execution time in seconds before the command is terminated
+2. Capture command output to a variable (boolean or variable name)
+3. Format for captured output: `json`, `text`, or `lines`
+4. Which streams to capture: `stdout`, `stderr`, or `both`
+5. File path to redirect command output to
+6. Nested command to execute if the shell command fails (non-zero exit)
+7. Nested command to execute if the shell command succeeds (zero exit)
+8. Conditional expression - command only runs if the condition evaluates to true
 
 **Fields**:
 - `shell` (required): The shell command to execute
@@ -68,6 +107,22 @@ Execute shell commands during workflow execution.
     - Running analysis tools (`cargo clippy`, `eslint`)
     - Generating data files
 
+!!! tip "Error Handling Flow"
+    Shell commands support error handling via `on_failure` and `on_success` hooks. The flow looks like:
+
+    ```mermaid
+    flowchart LR
+        Exec[Execute shell command] --> Check{Exit code<br/>zero?}
+        Check -->|Yes| Success[Run on_success<br/>if defined]
+        Check -->|No| Failure[Run on_failure<br/>if defined]
+        Success --> Next[Continue workflow]
+        Failure --> Next
+
+        style Check fill:#fff3e0
+        style Success fill:#e8f5e9
+        style Failure fill:#ffebee
+    ```
+
 ### Claude Commands
 
 Execute Claude CLI commands via Claude Code.
@@ -77,18 +132,26 @@ Execute Claude CLI commands via Claude Code.
 **Syntax**:
 ```yaml
 - claude: "/command-name args"
-  id: "command_id"                # Optional: identifier for referencing outputs
-  commit_required: true           # Optional: expect git commit (default: false)
-  timeout: 600                    # Optional: timeout in seconds
-  outputs:                        # Optional: declare outputs for downstream use
+  id: "command_id"                # (1)!
+  commit_required: true           # (2)!
+  timeout: 600                    # (3)!
+  outputs:                        # (4)!
     spec:
       file_pattern: "*.md"
-  when: "condition"               # Optional: conditional execution
-  on_failure:                     # Optional: commands to run on failure
+  when: "condition"               # (5)!
+  on_failure:                     # (6)!
     claude: "/fix-issue"
-  on_success:                     # Optional: commands to run on success
+  on_success:                     # (7)!
     shell: "echo 'Done'"
 ```
+
+1. Unique identifier for this command - used to reference outputs with `${id.output_name}`
+2. Whether the command is expected to create git commits (validates commit after execution)
+3. Maximum execution time in seconds before the command is terminated
+4. Declare outputs that downstream commands can reference (e.g., files created)
+5. Conditional expression - command only runs if the condition evaluates to true
+6. Nested command to execute if Claude command fails or returns error
+7. Nested command to execute if Claude command succeeds
 
 **Fields**:
 - `claude` (required): The Claude command string with arguments
@@ -126,6 +189,84 @@ Execute Claude CLI commands via Claude Code.
     - Implementing specifications from markdown
     - Debugging test failures with AI assistance
     - Automated code review and linting
+
+### Analyze Commands
+
+Perform codebase analysis with intelligent caching to avoid redundant computation. Analysis results include both metrics and context data that can be used by subsequent Claude commands.
+
+**Source**: src/config/command.rs:332
+
+**Syntax**:
+```yaml
+# Source: workflows/analysis-workflow.yml:19-23
+- analyze:
+    max_cache_age: 300        # Optional: cache validity in seconds
+    force_refresh: false      # Optional: bypass cache (default: false)
+    save: true                # Optional: save analysis results (default: true)
+    format: "summary"         # Optional: output format (summary, detailed)
+```
+
+**Fields**:
+- `max_cache_age` (optional): Maximum age of cached analysis in seconds before refresh
+- `force_refresh` (optional): Force fresh analysis even if cache is valid (default: false)
+- `save` (optional): Save analysis results to context directory (default: true)
+- `format` (optional): Output format for analysis results (summary, detailed)
+
+**Caching Behavior**:
+- If cache exists and is younger than `max_cache_age`, use cached results
+- If `force_refresh: true`, always perform fresh analysis regardless of cache
+- Analysis runs automatically at workflow start unless `--skip-analysis` flag is used
+- Cached results are stored per-repository for reuse across workflows
+
+**Example with cached analysis** (from workflows/analysis-workflow.yml:19-26):
+```yaml
+# Source: workflows/analysis-workflow.yml:19-26
+- analyze:
+    max_cache_age: 300        # Use cache if less than 5 minutes old
+    force_refresh: false      # Don't force if cache is fresh
+    save: true
+    format: "summary"
+
+- claude: "/prodigy-code-review"
+```
+
+**Example with forced refresh** (from workflows/analysis-workflow.yml:29-34):
+```yaml
+# Source: workflows/analysis-workflow.yml:29-34
+- analyze:
+    force_refresh: true       # Always get fresh analysis for accuracy
+    save: true
+    format: "summary"
+
+- claude: "/prodigy-cleanup-tech-debt"
+```
+
+**Example with short cache** (from workflows/tech-debt.yml:3-5):
+```yaml
+# Source: workflows/tech-debt.yml:3-5
+- analyze:
+    max_cache_age: 300
+    save: true
+
+- claude: "/prodigy-cleanup-tech-debt"
+  id: cleanup
+```
+
+!!! example "Common Use Cases"
+    - Refreshing analysis after significant code changes
+    - Providing fresh metrics for tech debt cleanup
+    - Updating context before documentation generation
+    - Caching analysis for multiple commands to save time
+    - Force refresh for critical operations requiring accuracy
+
+!!! info "When to Use Analyze"
+    Use `analyze:` when you need fresh codebase metrics or context for Claude commands. The first analyze in a workflow can use cache, but subsequent analyses after modifications should use `force_refresh: true` for accuracy.
+
+!!! tip "Cache Strategy"
+    - **Development workflows**: Use `max_cache_age: 300` (5 minutes) for fast iteration
+    - **After code changes**: Use `force_refresh: true` for accurate metrics
+    - **Multiple commands**: Share one analysis with appropriate `max_cache_age`
+    - **CI/CD pipelines**: Use `force_refresh: true` for consistency
 
 ### Goal Seek Commands
 
@@ -167,6 +308,34 @@ score: 85
 - `Complete`: Goal achieved (score >= threshold)
 - `Incomplete`: Maximum attempts reached without achieving threshold
 - `Failed`: Error during execution
+
+**Execution Flow**:
+
+```mermaid
+flowchart TD
+    Start[Start goal_seek] --> Run[Execute refinement<br/>claude or shell]
+    Run --> Validate[Run validate command]
+    Validate --> Parse[Parse score from output]
+    Parse --> Check{Score >=<br/>threshold?}
+
+    Check -->|Yes| Complete[Complete<br/>Goal achieved]
+    Check -->|No| Attempts{Attempts <<br/>max_attempts?}
+
+    Attempts -->|Yes| Run
+    Attempts -->|No| Incomplete[Incomplete<br/>Max attempts reached]
+
+    Complete --> End[End]
+    Incomplete --> FailCheck{fail_on_incomplete?}
+    FailCheck -->|true| Fail[Fail workflow]
+    FailCheck -->|false| End
+
+    style Complete fill:#e8f5e9
+    style Incomplete fill:#fff3e0
+    style Fail fill:#ffebee
+    style Check fill:#e1f5ff
+```
+
+**Figure**: Goal-seeking iteration flow showing refinement loop and termination conditions.
 
 **Example** (from workflows/implement-goal.yml:8):
 ```yaml
@@ -239,6 +408,39 @@ Iterate over a list of items, executing commands for each item in parallel or se
 
 **Variable Access**:
 Inside `do` commands, use `${item}` to reference the current item.
+
+**Parallel Execution Strategy**:
+
+```mermaid
+graph TD
+    Items[Work Items:<br/>item1, item2, ..., itemN] --> Distribute{parallel setting}
+
+    Distribute -->|false or 1| Sequential[Sequential Execution<br/>One at a time]
+    Distribute -->|Number N| Parallel[Parallel Execution<br/>N workers]
+
+    Sequential --> W1[Worker: item1]
+    W1 --> W2[Worker: item2]
+    W2 --> W3[Worker: item3]
+
+    Parallel --> P1[Worker 1: item1]
+    Parallel --> P2[Worker 2: item2]
+    Parallel --> P3[Worker N: itemN]
+
+    W3 --> Continue{continue_on_error}
+    P1 --> Continue
+    P2 --> Continue
+    P3 --> Continue
+
+    Continue -->|false| StopOnError[Stop on first error]
+    Continue -->|true| ProcessAll[Process all items]
+
+    style Sequential fill:#e1f5ff
+    style Parallel fill:#e8f5e9
+    style StopOnError fill:#ffebee
+    style ProcessAll fill:#fff3e0
+```
+
+**Figure**: Foreach execution showing sequential vs parallel processing and error handling.
 
 **Example** (from workflows/fix-files-mapreduce.yml - conceptual):
 ```yaml
@@ -410,23 +612,28 @@ Several fields are available across all command types:
 
 Each workflow step must specify **exactly one** command type. You cannot combine multiple command types in a single step:
 
-**Valid**:
-```yaml
-- shell: "cargo test"        # ✓ Only shell command
-- claude: "/lint"            # ✓ Only Claude command
-- goal_seek:                 # ✓ Only goal_seek command
-    goal: "Fix tests"
-    validate: "..."
-```
+=== "Valid ✓"
+    ```yaml
+    - shell: "cargo test"        # ✓ Only shell command
+    - claude: "/lint"            # ✓ Only Claude command
+    - analyze:                   # ✓ Only analyze command
+        max_cache_age: 300
+    - goal_seek:                 # ✓ Only goal_seek command
+        goal: "Fix tests"
+        validate: "..."
+    ```
 
-**Invalid**:
-```yaml
-- shell: "cargo test"        # ✗ Cannot combine shell and claude
-  claude: "/lint"
+=== "Invalid ✗"
+    ```yaml
+    - shell: "cargo test"        # ✗ Cannot combine shell and claude
+      claude: "/lint"
 
-- goal_seek: {...}           # ✗ Cannot combine goal_seek and foreach
-  foreach: {...}
-```
+    - analyze: {...}             # ✗ Cannot combine analyze and claude
+      claude: "/review"
+
+    - goal_seek: {...}           # ✗ Cannot combine goal_seek and foreach
+      foreach: {...}
+    ```
 
 **Enforcement**: src/config/command.rs:465-476
 
