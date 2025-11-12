@@ -11,23 +11,53 @@ Workflow composition features:
 - **Parameters**: Type-safe workflow parameterization
 - **Sub-workflows**: Nested workflow execution with result passing
 
+```mermaid
+graph TD
+    Base[Base Workflow<br/>base-ci.yml] --> Child[Child Workflow<br/>specialized-ci.yml]
+
+    Import1[Common Steps<br/>common/ci-steps.yml] --> Main[Main Workflow<br/>main.yml]
+    Import2[Deploy Steps<br/>common/deploy.yml] --> Main
+
+    Template[Template<br/>rust-ci-template] --> Instance1[Instance 1<br/>project-a-ci]
+    Template --> Instance2[Instance 2<br/>project-b-ci]
+
+    Main --> Sub1[Sub-workflow<br/>build]
+    Main --> Sub2[Sub-workflow<br/>deploy]
+
+    style Base fill:#e1f5ff
+    style Template fill:#fff3e0
+    style Main fill:#f3e5f5
+    style Sub1 fill:#e8f5e9
+    style Sub2 fill:#e8f5e9
+```
+
+**Figure**: Workflow composition architecture showing imports, inheritance, templates, and sub-workflows.
+
 ## Imports
 
 Import workflow definitions from external files:
+
+!!! tip "Best Practice"
+    Use imports to share common steps across multiple workflows. This reduces duplication and ensures consistency across your CI/CD pipelines.
 
 ```yaml
 # main-workflow.yml
 name: main-workflow
 
 imports:
-  - path: "common/ci-steps.yml"
-    alias: ci
+  - path: "common/ci-steps.yml"    # (1)!
+    alias: ci                        # (2)!
   - path: "common/deploy-steps.yml"
     alias: deploy
 
 - shell: "cargo build"
-- workflow: ci.test-suite
-- workflow: deploy.to-staging
+- workflow: ci.test-suite           # (3)!
+- workflow: deploy.to-staging       # (4)!
+
+1. Path relative to workflow file location
+2. Alias for referencing imported workflows
+3. Execute imported workflow using alias
+4. Access nested workflows with dot notation
 ```
 
 ### Import Syntax
@@ -107,6 +137,38 @@ extends: "common-steps"  # Searches in order above
 
 This allows organizing base workflows in dedicated directories while maintaining backward compatibility with workflows in the project root.
 
+```mermaid
+flowchart TD
+    Start[extends: common-steps] --> Check1{bases/<br/>common-steps.yml?}
+    Check1 -->|Found| Load1[Load Base Workflow]
+    Check1 -->|Not Found| Check2{templates/<br/>common-steps.yml?}
+
+    Check2 -->|Found| Load2[Load Base Workflow]
+    Check2 -->|Not Found| Check3{workflows/<br/>common-steps.yml?}
+
+    Check3 -->|Found| Load3[Load Base Workflow]
+    Check3 -->|Not Found| Check4{common-steps.yml<br/>current dir?}
+
+    Check4 -->|Found| Load4[Load Base Workflow]
+    Check4 -->|Not Found| Error[Error: Base Not Found]
+
+    Load1 --> Merge[Merge with Child]
+    Load2 --> Merge
+    Load3 --> Merge
+    Load4 --> Merge
+
+    Merge --> Result[Composed Workflow]
+
+    style Check1 fill:#e1f5ff
+    style Check2 fill:#e1f5ff
+    style Check3 fill:#e1f5ff
+    style Check4 fill:#e1f5ff
+    style Error fill:#ffebee
+    style Result fill:#e8f5e9
+```
+
+**Figure**: Base workflow resolution flow showing priority search order.
+
 ## Templates
 
 Create reusable workflow templates:
@@ -163,6 +225,30 @@ Templates are searched in priority order:
 
     Source: `src/cook/workflow/composer_integration.rs:93-136`
 
+=== "Global Templates"
+    ```bash
+    # Shared across all projects
+    ~/.prodigy/templates/
+    ├── rust-ci.yml
+    ├── python-ci.yml
+    └── deploy-k8s.yml
+    ```
+
+=== "Project Templates"
+    ```bash
+    # Repository-specific templates
+    .prodigy/templates/
+    ├── custom-ci.yml
+    └── integration-tests.yml
+    ```
+
+=== "Legacy Location"
+    ```bash
+    # Older project-local templates
+    templates/
+    └── old-workflow.yml
+    ```
+
 ## Parameters
 
 Define workflow parameters with type checking:
@@ -201,15 +287,21 @@ parameters:
 
 ### Parameter Validation
 
+!!! warning "Validation Expressions"
+    Parameter validation uses boolean expressions. If validation fails, the workflow will not execute. Always test validation rules with expected inputs.
+
 ```yaml
 parameters:
   port:
     type: number
-    validation: "port >= 1024 && port <= 65535"
+    validation: "port >= 1024 && port <= 65535"  # (1)!
 
   environment:
     type: string
-    validation: "environment in ['dev', 'staging', 'prod']"
+    validation: "environment in ['dev', 'staging', 'prod']"  # (2)!
+
+1. Numeric range validation for port numbers
+2. String enum validation for allowed environments
 ```
 
 ### Using Parameters
@@ -246,6 +338,9 @@ merge:
 
 Execute workflows within workflows:
 
+!!! example "Modular Execution"
+    Sub-workflows provide modular execution with independent contexts. Use them to break complex workflows into manageable, reusable pieces.
+
 ```yaml
 name: main-workflow
 
@@ -258,18 +353,23 @@ sub_workflows:
   deploy:
     name: deploy-subworkflow
     parameters:
-      environment: string
+      environment: string               # (1)!
     - shell: "kubectl apply -f k8s/${environment}/"
 
 # Execute sub-workflows
-- workflow: build
+- workflow: build                       # (2)!
 
-- workflow: deploy
+- workflow: deploy                      # (3)!
   parameters:
     environment: "staging"
 
 # Access sub-workflow results
-- shell: "echo Build completed: ${build.success}"
+- shell: "echo Build completed: ${build.success}"  # (4)!
+
+1. Sub-workflow parameters define expected inputs
+2. Execute sub-workflow without parameters
+3. Pass parameters to parameterized sub-workflow
+4. Access sub-workflow results in parent workflow
 ```
 
 ### Sub-Workflow Features
@@ -328,6 +428,36 @@ tags: ["rust", "ci", "testing"]
 parameters:
   # ... parameter definitions
 ```
+
+## Composition in Action
+
+Here's how the composition features work together in real workflows:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Composer
+    participant Registry
+    participant Executor
+
+    User->>Composer: Load workflow.yml
+    Composer->>Registry: Resolve imports
+    Registry-->>Composer: Imported workflows
+    Composer->>Registry: Resolve base (extends)
+    Registry-->>Composer: Base workflow
+    Composer->>Composer: Merge base + child
+    Composer->>Composer: Interpolate parameters
+    Composer->>Composer: Compose sub-workflows
+    Composer-->>Executor: Composed workflow
+    Executor->>Executor: Execute steps
+    Executor->>Executor: Execute sub-workflows
+    Executor-->>User: Results
+
+    Note over Composer,Registry: Template caching<br/>optimization
+    Note over Executor: Sub-workflow<br/>isolation
+```
+
+**Figure**: Workflow composition execution sequence showing resolution, merging, and execution phases.
 
 ## Examples
 
