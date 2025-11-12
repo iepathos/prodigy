@@ -258,6 +258,8 @@ prodigy dlq retry <workflow_id> --force
 - `--filter`: Expression to filter which items to retry (default: all eligible items, src/cli/args.rs:645)
 - `--force`: Force retry of items marked as not eligible (default: false, src/cli/args.rs:657)
 
+**Supported Flags**: `--parallel`, `--max-retries`, `--filter`, `--force`
+
 #### Retry Behavior
 
 The retry functionality is designed to handle large-scale DLQ reprocessing:
