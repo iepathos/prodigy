@@ -29,9 +29,27 @@ setup:
   # Reuses existing feature analysis or creates MkDocs-specific version
   - claude: "/prodigy-analyze-features-for-mkdocs --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
-  # Step 2: Detect documentation gaps and create missing pages
-  # Generates flattened-items.json for map phase (single-file pages + subsections with parent metadata)
+  # Step 2: Detect gaps and create pages for undocumented features
+  # This analyzes features.json against existing docs and creates stub pages for missing features
   - claude: "/prodigy-detect-mkdocs-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --docs-dir $DOCS_DIR"
+    commit_required: true
+
+  # Step 3: Auto-discover ALL documentation pages (including newly created ones)
+  # This ensures we process all pages, not just the curated list in chapters.json
+  - shell: |
+      find $DOCS_DIR -name "*.md" -type f -not -path "*/.prodigy/*" | sort | jq -R -s '
+        split("\n") |
+        map(select(length > 0)) |
+        map({
+          id: (split("/")[-1] | split(".md")[0]),
+          title: (split("/")[-1] | split(".md")[0] | gsub("-|_"; " ")),
+          file: .,
+          type: "auto-discovered",
+          topics: [],
+          validation: "Auto-discovered page - check for drift and enhance with visual features"
+        })
+      ' > $ANALYSIS_DIR/flattened-items.json
+    commit_required: false
 
 # Map phase: Analyze and fix each documentation page for drift
 map:
@@ -84,6 +102,12 @@ reduce:
   # Clean up temporary analysis files (keep validation reports for review)
   - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
   - shell: "git add -A && git commit -m 'chore: remove temporary mkdocs analysis files for ${PROJECT_NAME}' || true"
+
+# Merge workflow - merge back to original branch
+merge:
+  commands:
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+  timeout: 600
 
 # Error handling
 error_policy:
