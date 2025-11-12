@@ -194,6 +194,13 @@ MapReduce worktree (session-xxx)
 - **Clean merges**: Each agent's changes merge independently
 - **Resource safety**: No shared mutable state
 
+!!! note "Cleanup Failure Handling"
+    If worktree cleanup fails after agent completion, the agent's work is still preserved. Failed cleanups are tracked in an orphaned worktree registry and can be retried with:
+    ```bash
+    prodigy worktree clean-orphaned <job-id>
+    ```
+    See [Spec 136](https://github.com/yourusername/prodigy/blob/master/specs/136-cleanup-failure-handling.md) for details.
+
 ### Controlling Parallelism
 
 ```yaml
@@ -253,7 +260,17 @@ Failed work items are automatically sent to the DLQ with:
 - Original work item data
 - Failure reason and error message
 - Timestamp and retry count
-- Claude JSON log location for debugging
+- Claude JSON log location for debugging (via `json_log_location` field)
+
+!!! tip "Debugging with JSON Logs"
+    Each DLQ item includes a `json_log_location` field pointing to the Claude execution log. Use this to inspect the complete conversation, tool invocations, and error context:
+    ```bash
+    # View the log location
+    prodigy dlq show <job-id> | jq '.items[].failure_history[].json_log_location'
+
+    # Inspect the log file
+    cat ~/.local/state/claude/logs/session-xyz.json | jq
+    ```
 
 **Retry failed items:**
 
@@ -279,6 +296,9 @@ prodigy resume-job <job-id>
 ```
 
 All completed work is preserved. In-progress items restart from the beginning.
+
+!!! note "Concurrent Resume Protection"
+    Resume operations are protected from concurrent execution using automatic lock management. If another process is already resuming the same job, you'll receive an error with details about the lock holder. Stale locks (from crashed processes) are automatically detected and cleaned up. See [Spec 140](https://github.com/yourusername/prodigy/blob/master/specs/140-concurrent-resume-protection.md) for details.
 
 ## Learn More
 
