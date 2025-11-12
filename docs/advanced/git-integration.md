@@ -93,13 +93,6 @@ Generated commit messages include:
 - Workflow context
 - Session ID for traceability
 
-### Tracking Metrics
-
-Access commit information via variables:
-- `${git.commits}` - Number of commits created
-- `${git.last_commit}` - SHA of last commit
-- `${git.changed_files}` - Count of modified files
-
 ## Branch Tracking
 
 Prodigy tracks the original branch for intelligent merging:
