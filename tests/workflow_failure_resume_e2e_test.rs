@@ -156,7 +156,7 @@ async fn test_custom_workflow_filename_in_checkpoint() -> Result<()> {
     tokio::fs::create_dir_all(&checkpoint_dir).await?;
 
     // Use a non-standard filename
-    let custom_filenames = vec![
+    let custom_filenames = [
         "prodigy.yml",
         "my-workflow.yaml",
         ".hidden-workflow.yml",
