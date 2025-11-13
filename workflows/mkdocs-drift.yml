@@ -38,17 +38,36 @@ setup:
   # Step 3: Analyze page sizes and structural complexity
   # Identifies oversized pages that should be split into subpages
   # Generates structure-report.json with recommendations
-  # Note: This is analysis-only, no files are modified
   - claude: "/prodigy-analyze-mkdocs-structure --project $PROJECT_NAME --docs-dir $DOCS_DIR --pages $CHAPTERS_FILE --output $ANALYSIS_DIR/structure-report.json"
 
-  # Step 4: Review and optionally migrate oversized pages to subpages
-  # This is a manual decision point - review structure-report.json first
-  # To migrate a page: /prodigy-create-mkdocs-subpages --project $PROJECT_NAME --page <page-id> --pages $CHAPTERS_FILE --docs-dir $DOCS_DIR
-  # For now, this step is commented out (manual intervention required)
-  # Uncomment and specify pages to migrate:
-  # - claude: "/prodigy-create-mkdocs-subpages --project $PROJECT_NAME --page configuration --pages $CHAPTERS_FILE --docs-dir $DOCS_DIR"
+  # Step 4: Extract oversized pages that need splitting
+  # Reads structure-report.json and identifies high-priority pages requiring subsection migration
+  - shell: |
+      if [ -f "$ANALYSIS_DIR/structure-report.json" ]; then
+        jq -r '.recommendations[]? | select(.priority == "high" and .recommended_action == "split_into_subsections") | .chapter_id' \
+          $ANALYSIS_DIR/structure-report.json > $ANALYSIS_DIR/pages-to-split.txt || echo -n "" > $ANALYSIS_DIR/pages-to-split.txt
+      else
+        echo -n "" > $ANALYSIS_DIR/pages-to-split.txt
+      fi
+    commit_required: false
 
-  # Step 5: Auto-discover ALL documentation pages (including newly created ones)
+  # Step 5: Automatically split oversized pages into subsections
+  # This runs BEFORE map phase so agents process optimally-sized pages
+  # Each oversized page is migrated to multi-subpage format with index.md + subpage files
+  - shell: |
+      if [ -s "$ANALYSIS_DIR/pages-to-split.txt" ]; then
+        echo "Found pages to split:"
+        cat $ANALYSIS_DIR/pages-to-split.txt
+        while IFS= read -r page_id; do
+          echo "Splitting page: $page_id"
+          claude "/prodigy-create-mkdocs-subpages --project $PROJECT_NAME --page $page_id --pages $CHAPTERS_FILE --docs-dir $DOCS_DIR --structure-report $ANALYSIS_DIR/structure-report.json"
+        done < $ANALYSIS_DIR/pages-to-split.txt
+      else
+        echo "No oversized pages found - skipping subsection migration"
+      fi
+    commit_required: true
+
+  # Step 6: Auto-discover ALL documentation pages (including newly created subpages)
   # This ensures we process all pages, not just the curated list in chapters.json
   - shell: |
       find $DOCS_DIR -name "*.md" -type f -not -path "*/.prodigy/*" | sort | jq -R -s '
