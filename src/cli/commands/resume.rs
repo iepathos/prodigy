@@ -555,24 +555,219 @@ pub async fn run_resume_job_command(
         }
     }
 
-    println!("\n🔍 Analyzing checkpoints for job: {}", job_id);
-
-    // TODO: Implement full resume logic with CheckpointManager
-    // This is a basic implementation that will be enhanced with:
-    // - Loading checkpoint state from the job directory
-    // - Reconstructing workflow state
-    // - Resuming execution from the appropriate phase (setup/map/reduce)
-
-    println!("\n📋 Next steps for resume implementation:");
-    println!("  1. Load checkpoint using CheckpointManager");
-    println!("  2. Reconstruct workflow state from checkpoint data");
-    println!("  3. Determine which phase to resume from (setup/map/reduce)");
-    println!("  4. Call MapReduceExecutor to continue execution");
-    println!("\n📂 Checkpoint location: {}", job_dir.display());
     println!(
-        "\n💡 Use 'prodigy resume {}' to retry once implementation is complete",
+        "\n🔍 Loading checkpoint and resuming execution for job: {}",
         job_id
     );
+
+    // Execute the actual resume logic
+    execute_mapreduce_resume(&job_id, _force, _max_retries, job_dir).await
+}
+
+/// Execute MapReduce resume with full checkpoint loading and execution
+async fn execute_mapreduce_resume(
+    job_id: &str,
+    force: bool,
+    max_retries: u32,
+    job_dir: PathBuf,
+) -> Result<()> {
+    use crate::cook::execution::events::{EventLogger, JsonlEventWriter};
+    use crate::cook::execution::mapreduce_resume::{
+        EnhancedResumeOptions, MapReduceResumeManager,
+    };
+    use crate::cook::execution::state::DefaultJobStateManager;
+    use crate::cook::orchestrator::ExecutionEnvironment;
+    use std::sync::Arc;
+
+    // Determine project root from job_dir
+    // Job dir is at: ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}
+    // We need to get the repo name and find the corresponding worktree
+    let state_dir = job_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .ok_or_else(|| anyhow!("Invalid job directory structure"))?;
+
+    let repo_name = state_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| anyhow!("Could not determine repository name"))?;
+
+    // Load the checkpoint to get the parent worktree path
+    let state_manager = Arc::new(DefaultJobStateManager::new(state_dir.to_path_buf()));
+    let checkpoint = state_manager
+        .checkpoint_manager
+        .load_checkpoint(job_id)
+        .await
+        .context("Failed to load checkpoint")?;
+
+    // Determine the working directory from the checkpoint's parent worktree
+    let working_dir = if let Some(parent_worktree) = &checkpoint.parent_worktree {
+        PathBuf::from(parent_worktree)
+    } else {
+        // Fallback: try to find worktree in ~/.prodigy/worktrees/{repo_name}/
+        let prodigy_home = crate::storage::get_default_storage_dir()?;
+        let worktrees_dir = prodigy_home.join("worktrees").join(repo_name);
+
+        if !worktrees_dir.exists() {
+            return Err(anyhow!(
+                "No parent worktree found in checkpoint and worktrees directory does not exist: {}",
+                worktrees_dir.display()
+            ));
+        }
+
+        // Find the most recent worktree (this is a heuristic)
+        let mut entries = fs::read_dir(&worktrees_dir)
+            .await
+            .context("Failed to read worktrees directory")?;
+
+        let mut newest_worktree: Option<PathBuf> = None;
+        let mut newest_time = std::time::SystemTime::UNIX_EPOCH;
+
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if entry.path().is_dir() {
+                if let Ok(metadata) = entry.metadata().await {
+                    if let Ok(modified) = metadata.modified() {
+                        if modified > newest_time {
+                            newest_time = modified;
+                            newest_worktree = Some(entry.path());
+                        }
+                    }
+                }
+            }
+        }
+
+        newest_worktree.ok_or_else(|| {
+            anyhow!(
+                "No worktrees found in: {}. The MapReduce job may have been cleaned up.",
+                worktrees_dir.display()
+            )
+        })?
+    };
+
+    println!("📂 Working directory: {}", working_dir.display());
+    println!("📊 Job has {} total items", checkpoint.total_items);
+    println!("✅ Completed: {}", checkpoint.successful_count);
+    println!("❌ Failed: {}", checkpoint.failed_count);
+    println!(
+        "⏳ Remaining: {}",
+        checkpoint.total_items - checkpoint.successful_count - checkpoint.failed_count
+    );
+
+    // Create event logger
+    let events_dir = job_dir.join("events");
+    tokio::fs::create_dir_all(&events_dir)
+        .await
+        .context("Failed to create events directory")?;
+
+    let event_writer = Box::new(
+        JsonlEventWriter::new(events_dir.join("events.jsonl"))
+            .await
+            .context("Failed to create event writer")?,
+    );
+    let event_logger = Arc::new(EventLogger::new(vec![event_writer]));
+
+    // Create resume manager
+    let resume_manager = MapReduceResumeManager::new(
+        job_id.to_string(),
+        state_manager.clone(),
+        event_logger.clone(),
+        state_dir.to_path_buf(),
+    )
+    .await
+    .context("Failed to create resume manager")?;
+
+    // Configure resume options
+    let options = EnhancedResumeOptions {
+        force,
+        max_additional_retries: max_retries,
+        skip_validation: false,
+        from_checkpoint: None,
+        max_parallel: None,
+        force_recreation: false,
+        include_dlq_items: true,
+        validate_environment: true,
+        reset_failed_agents: false,
+    };
+
+    // Create execution environment
+    let env = ExecutionEnvironment {
+        working_dir: Arc::new(working_dir.clone()),
+        project_dir: Arc::new(working_dir.clone()),
+        worktree_name: None,
+        session_id: Arc::from(job_id),
+    };
+
+    println!("\n🚀 Starting resume execution...\n");
+
+    // Resume the job
+    let result = resume_manager
+        .resume_job(job_id, options, &env)
+        .await
+        .context("Failed to resume MapReduce job")?;
+
+    // Display summary based on result
+    display_resume_summary(&result)?;
+
+    Ok(())
+}
+
+/// Display resume summary based on the result
+fn display_resume_summary(
+    result: &crate::cook::execution::mapreduce_resume::EnhancedResumeResult,
+) -> Result<()> {
+    use crate::cook::execution::mapreduce_resume::EnhancedResumeResult;
+
+    println!("\n");
+    println!("═══════════════════════════════════════════════");
+    println!("           MapReduce Resume Summary");
+    println!("═══════════════════════════════════════════════");
+
+    match result {
+        EnhancedResumeResult::FullWorkflowCompleted(full_result) => {
+            println!("\n✅ Workflow completed successfully!");
+            println!("\nMap Phase:");
+            println!("  • Total items: {}", full_result.map_result.total);
+            println!("  • Successful: {}", full_result.map_result.successful);
+            println!("  • Failed: {}", full_result.map_result.failed);
+
+            if let Some(reduce_result) = &full_result.reduce_result {
+                println!("\nReduce Phase:");
+                println!("  • Output: {}", reduce_result);
+            }
+        }
+        EnhancedResumeResult::MapOnlyCompleted(map_result) => {
+            println!("\n✅ Map phase completed!");
+            println!("\nResults:");
+            println!("  • Total items: {}", map_result.total);
+            println!("  • Successful: {}", map_result.successful);
+            println!("  • Failed: {}", map_result.failed);
+            println!("\n⚠️  Note: No reduce phase defined in workflow");
+        }
+        EnhancedResumeResult::PartialResume { phase, progress } => {
+            println!("\n⚠️  Partial resume (interrupted)");
+            println!("\nStatus:");
+            println!("  • Phase: {:?}", phase);
+            println!("  • Progress: {:.1}%", progress * 100.0);
+            println!("\n💡 Run 'prodigy resume-job <job_id>' again to continue");
+        }
+        EnhancedResumeResult::ReadyToExecute {
+            phase,
+            remaining_items,
+            state,
+            ..
+        } => {
+            println!("\n⚠️  Resume prepared but not executed");
+            println!("\nStatus:");
+            println!("  • Phase: {:?}", phase);
+            println!("  • Remaining items: {}", remaining_items.len());
+            println!("  • Completed: {}", state.completed_agents.len());
+            println!("\n💡 Note: This indicates the resume manager prepared the state but did not execute");
+            println!("         This may occur if execution was not triggered properly");
+        }
+    }
+
+    println!("\n═══════════════════════════════════════════════\n");
 
     Ok(())
 }
