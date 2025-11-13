@@ -1,0 +1,85 @@
+# Simple MapReduce workflow to test resume functionality
+# To test: Run this workflow, interrupt it (Ctrl+C) during map phase, then resume
+name: test-mapreduce-resume
+mode: mapreduce
+
+# Setup phase: Create test data with 5 items
+setup:
+  - shell: |
+      echo "Creating test items for MapReduce resume test"
+      cat > /tmp/resume-test-items.json << 'EOF'
+      [
+        {"id": 1, "name": "item-one", "value": 10},
+        {"id": 2, "name": "item-two", "value": 20},
+        {"id": 3, "name": "item-three", "value": 30},
+        {"id": 4, "name": "item-four", "value": 40},
+        {"id": 5, "name": "item-five", "value": 50}
+      ]
+      EOF
+      echo "Created 5 test items"
+      cat /tmp/resume-test-items.json
+
+# Map phase: Process each item with a small delay to allow for interruption
+map:
+  input: /tmp/resume-test-items.json
+  json_path: $[*]
+  max_parallel: 2
+
+  agent_template:
+    - shell: |
+        echo "Processing ${item.name} (id=${item.id}, value=${item.value})"
+        echo "Simulating work..."
+        sleep 2
+
+    - shell: |
+        # Create output file for this item
+        echo "Item: ${item.name}" > output-${item.name}.txt
+        echo "ID: ${item.id}" >> output-${item.name}.txt
+        echo "Value: ${item.value}" >> output-${item.name}.txt
+        echo "Processed at: $(date)" >> output-${item.name}.txt
+        cat output-${item.name}.txt
+
+    - shell: |
+        # Commit the work (required for merge)
+        git add output-${item.name}.txt
+        git commit -m "Process ${item.name} (id=${item.id})" || echo "Commit may have failed"
+
+# Reduce phase: Aggregate results
+reduce:
+  - shell: |
+      echo "=== Reduce Phase: Aggregating Results ==="
+      echo "Checking for output files..."
+      ls -la output-*.txt 2>/dev/null || echo "No output files found yet"
+
+  - shell: |
+      # Count output files
+      count=$(ls output-*.txt 2>/dev/null | wc -l | tr -d ' ')
+      echo "Found $count output files"
+
+      # Verify we got all 5 items
+      if [ "$count" -eq 5 ]; then
+        echo "✅ SUCCESS: All 5 items were processed"
+      else
+        echo "⚠️  WARNING: Expected 5 items, found $count"
+        echo "This is normal if workflow was interrupted and not fully resumed"
+      fi
+
+  - shell: |
+      # Calculate sum of all values
+      echo "=== Calculating sum of values ==="
+      total=0
+      for f in output-*.txt; do
+        if [ -f "$f" ]; then
+          value=$(grep "^Value:" "$f" | cut -d' ' -f2)
+          total=$((total + value))
+          echo "  + $value (from $f)"
+        fi
+      done
+      echo "Total: $total"
+      echo "Expected: 150 (10+20+30+40+50)"
+
+  - shell: |
+      # Cleanup
+      echo "Cleaning up test files..."
+      rm -f /tmp/resume-test-items.json
+      echo "Test complete!"

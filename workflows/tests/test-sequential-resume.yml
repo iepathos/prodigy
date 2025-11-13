@@ -1,0 +1,31 @@
+# Simple sequential workflow to test resume functionality
+# To test: Run this workflow, interrupt it (Ctrl+C) after step 2, then resume
+
+# Format: Direct array of commands (no name field)
+- shell: |
+    echo "Step 1: Creating test file"
+    echo "step1-complete" > /tmp/prodigy-resume-test.txt
+    sleep 2
+
+- shell: |
+    echo "Step 2: Appending to test file"
+    echo "step2-complete" >> /tmp/prodigy-resume-test.txt
+    cat /tmp/prodigy-resume-test.txt
+    sleep 2
+
+- shell: |
+    echo "Step 3: This should be skipped on first run if interrupted before this"
+    echo "step3-complete" >> /tmp/prodigy-resume-test.txt
+    cat /tmp/prodigy-resume-test.txt
+    sleep 2
+
+- shell: |
+    echo "Step 4: Final step"
+    echo "step4-complete" >> /tmp/prodigy-resume-test.txt
+    cat /tmp/prodigy-resume-test.txt
+
+- shell: |
+    echo "Step 5: Cleanup"
+    wc -l /tmp/prodigy-resume-test.txt
+    rm /tmp/prodigy-resume-test.txt
+    echo "All steps completed!"
