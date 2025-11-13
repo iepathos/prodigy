@@ -29,12 +29,26 @@ setup:
   # Reuses existing feature analysis or creates MkDocs-specific version
   - claude: "/prodigy-analyze-features-for-mkdocs --project $PROJECT_NAME --config $PROJECT_CONFIG"
 
-  # Step 2: Detect gaps and create pages for undocumented features
+  # Step 2: Detect documentation gaps for missing features
+  # Ensures all major features have documentation pages
   # This analyzes features.json against existing docs and creates stub pages for missing features
   - claude: "/prodigy-detect-mkdocs-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --docs-dir $DOCS_DIR"
     commit_required: true
 
-  # Step 3: Auto-discover ALL documentation pages (including newly created ones)
+  # Step 3: Analyze page sizes and structural complexity
+  # Identifies oversized pages that should be split into subpages
+  # Generates structure-report.json with recommendations
+  # Note: This is analysis-only, no files are modified
+  - claude: "/prodigy-analyze-mkdocs-structure --project $PROJECT_NAME --docs-dir $DOCS_DIR --pages $CHAPTERS_FILE --output $ANALYSIS_DIR/structure-report.json"
+
+  # Step 4: Review and optionally migrate oversized pages to subpages
+  # This is a manual decision point - review structure-report.json first
+  # To migrate a page: /prodigy-create-mkdocs-subpages --project $PROJECT_NAME --page <page-id> --pages $CHAPTERS_FILE --docs-dir $DOCS_DIR
+  # For now, this step is commented out (manual intervention required)
+  # Uncomment and specify pages to migrate:
+  # - claude: "/prodigy-create-mkdocs-subpages --project $PROJECT_NAME --page configuration --pages $CHAPTERS_FILE --docs-dir $DOCS_DIR"
+
+  # Step 5: Auto-discover ALL documentation pages (including newly created ones)
   # This ensures we process all pages, not just the curated list in chapters.json
   - shell: |
       find $DOCS_DIR -name "*.md" -type f -not -path "*/.prodigy/*" | sort | jq -R -s '
@@ -99,8 +113,8 @@ reduce:
   # This just checks consistency and reports any pages that slipped through
   - claude: "/prodigy-validate-feature-consistency --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/feature-consistency.json"
 
-  # Clean up temporary analysis files (keep validation reports for review)
-  - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
+  # Clean up temporary analysis files (keep structure-report.json and validation reports for review)
+  - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json ${ANALYSIS_DIR}/gap-report.json"
   - shell: "git add -A && git commit -m 'chore: remove temporary mkdocs analysis files for ${PROJECT_NAME}' || true"
 
 # Error handling
