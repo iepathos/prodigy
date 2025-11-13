@@ -572,9 +572,7 @@ async fn execute_mapreduce_resume(
     job_dir: PathBuf,
 ) -> Result<()> {
     use crate::cook::execution::events::{EventLogger, JsonlEventWriter};
-    use crate::cook::execution::mapreduce_resume::{
-        EnhancedResumeOptions, MapReduceResumeManager,
-    };
+    use crate::cook::execution::mapreduce_resume::{EnhancedResumeOptions, MapReduceResumeManager};
     use crate::cook::execution::state::DefaultJobStateManager;
     use crate::cook::orchestrator::ExecutionEnvironment;
     use std::sync::Arc;
