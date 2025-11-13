@@ -38,34 +38,13 @@ setup:
   # Generates structure-report.json with recommendations
   - claude: "/prodigy-analyze-chapter-structure --project $PROJECT_NAME --book-dir $BOOK_DIR --chapters $CHAPTERS_FILE --output $ANALYSIS_DIR/structure-report.json"
 
-  # Step 4: Extract oversized chapters that need splitting
-  # Reads structure-report.json and identifies high-priority chapters requiring subsection migration
-  - shell: |
-      if [ -f "$ANALYSIS_DIR/structure-report.json" ]; then
-        jq -r '.recommendations[]? | select(.priority == "high" and .recommended_action == "split_into_subsections") | .chapter_id' \
-          $ANALYSIS_DIR/structure-report.json > $ANALYSIS_DIR/chapters-to-split.txt || echo -n "" > $ANALYSIS_DIR/chapters-to-split.txt
-      else
-        echo -n "" > $ANALYSIS_DIR/chapters-to-split.txt
-      fi
-    commit_required: false
-
-  # Step 5: Automatically split oversized chapters into subsections
+  # Step 4: Automatically split all oversized chapters into subsections
   # This runs BEFORE map phase so agents process optimally-sized chapters
-  # Each oversized chapter is migrated to multi-subsection format with index.md + subsection files
-  - shell: |
-      if [ -s "$ANALYSIS_DIR/chapters-to-split.txt" ]; then
-        echo "Found chapters to split:"
-        cat $ANALYSIS_DIR/chapters-to-split.txt
-        while IFS= read -r chapter_id; do
-          echo "Splitting chapter: $chapter_id"
-          claude "/prodigy-create-chapter-subsections --project $PROJECT_NAME --chapter $chapter_id --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR --structure-report $ANALYSIS_DIR/structure-report.json"
-        done < $ANALYSIS_DIR/chapters-to-split.txt
-      else
-        echo "No oversized chapters found - skipping subsection migration"
-      fi
+  # Reads structure-report.json and orchestrates splitting of high-priority chapters
+  - claude: "/prodigy-split-oversized-chapters --project $PROJECT_NAME --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR --structure-report $ANALYSIS_DIR/structure-report.json"
     commit_required: true
 
-  # Step 6: Regenerate flattened-items.json after structure changes
+  # Step 5: Regenerate flattened-items.json after structure changes
   # This ensures map phase processes all chapters (including newly split subsections)
   - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR"
 
@@ -106,10 +85,6 @@ reduce:
   # Holistic validation - detect cross-cutting issues map phase can't see
   - claude: "/prodigy-validate-book-holistically --project $PROJECT_NAME --book-dir $BOOK_DIR --output $ANALYSIS_DIR/validation.json --auto-fix true"
     commit_required: true
-
-  # If you need to organize a large chapter into subsections:
-  # - Use /prodigy-migrate-chapter-to-subsections manually
-  # - Or let /prodigy-detect-documentation-gaps create properly validated subsections
 
   # Clean up temporary analysis files (keep validation report for review)
   - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
