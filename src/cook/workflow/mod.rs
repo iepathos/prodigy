@@ -3,6 +3,7 @@
 //! Handles command execution with git commit verification and iteration logic.
 
 pub mod checkpoint;
+pub mod checkpoint_errors;
 pub mod checkpoint_path;
 #[cfg(test)]
 mod checkpoint_tests;
@@ -50,6 +51,7 @@ pub mod variables;
 
 pub use checkpoint::ResumeOptions;
 pub use checkpoint::{CheckpointManager, WorkflowCheckpoint};
+pub use checkpoint_errors::{format_path, mask_secret, CheckpointError};
 pub use checkpoint_path::{resolve_global_base_dir, CheckpointStorage};
 pub use composer_integration::{
     is_composable_workflow, parse_composable_workflow, CompositionError,
