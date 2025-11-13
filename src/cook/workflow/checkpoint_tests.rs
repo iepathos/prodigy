@@ -182,10 +182,14 @@ mod tests {
         );
 
         // Validate with matching hash
-        assert!(CheckpointManager::validate_checkpoint(&checkpoint, "original_hash").is_ok());
+        assert!(
+            CheckpointManager::validate_checkpoint(&checkpoint, "original_hash", None, 3).is_ok()
+        );
 
-        // Validate with different hash (should still pass but with warning)
-        assert!(CheckpointManager::validate_checkpoint(&checkpoint, "different_hash").is_ok());
+        // Validate with different hash (should fail without workflow path)
+        assert!(
+            CheckpointManager::validate_checkpoint(&checkpoint, "different_hash", None, 3).is_ok()
+        );
 
         // Create invalid checkpoint (step index out of bounds)
         let mut invalid_checkpoint = checkpoint.clone();
@@ -193,9 +197,13 @@ mod tests {
         invalid_checkpoint.execution_state.total_steps = 3;
 
         // Should fail validation
-        assert!(
-            CheckpointManager::validate_checkpoint(&invalid_checkpoint, "original_hash").is_err()
-        );
+        assert!(CheckpointManager::validate_checkpoint(
+            &invalid_checkpoint,
+            "original_hash",
+            None,
+            3
+        )
+        .is_err());
     }
 
     #[tokio::test]

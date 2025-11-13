@@ -10,6 +10,7 @@ use crate::cook::session::SessionManager;
 use crate::cook::workflow::checkpoint::{
     self, CheckpointManager, ResumeOptions, WorkflowCheckpoint,
 };
+use crate::cook::workflow::checkpoint_errors::CheckpointError;
 use crate::cook::workflow::error_recovery::{
     on_failure_to_error_handler, RecoveryAction, ResumeError, ResumeErrorRecovery,
 };
@@ -103,10 +104,12 @@ impl ResumeExecutor {
 
         // Check if the workflow file exists
         if !workflow_path.exists() {
-            return Err(anyhow!(
-                "Workflow file not found at {:?}. The file may have been moved or deleted.",
-                workflow_path
-            ));
+            return Err(CheckpointError::workflow_file_not_found(
+                workflow_path,
+                workflow_id.to_string(),
+                Some(checkpoint.timestamp),
+            )
+            .into());
         }
 
         // Delegate to execute_from_checkpoint for full execution
@@ -129,7 +132,19 @@ impl ResumeExecutor {
 
         // Verify the workflow file exists
         if !workflow_path.exists() {
-            return Err(anyhow!("Workflow file not found at {:?}", workflow_path));
+            // Load checkpoint to get timestamp for error message
+            let checkpoint = self
+                .checkpoint_manager
+                .load_checkpoint(workflow_id)
+                .await
+                .context("Failed to load checkpoint")?;
+
+            return Err(CheckpointError::workflow_file_not_found(
+                workflow_path.clone(),
+                workflow_id.to_string(),
+                Some(checkpoint.timestamp),
+            )
+            .into());
         }
 
         // Delegate to execute_from_checkpoint for full execution
@@ -141,22 +156,44 @@ impl ResumeExecutor {
     fn validate_checkpoint(&self, checkpoint: &WorkflowCheckpoint) -> Result<()> {
         // Check checkpoint version compatibility
         if checkpoint.version > checkpoint::CHECKPOINT_VERSION {
-            return Err(anyhow!(
-                "Checkpoint version {} is not supported",
-                checkpoint.version
-            ));
+            let checkpoint_path = checkpoint
+                .workflow_path
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("unknown"));
+
+            return Err(CheckpointError::version_mismatch(
+                checkpoint.version,
+                checkpoint::CHECKPOINT_VERSION,
+                checkpoint_path,
+                Some(checkpoint.timestamp),
+            )
+            .into());
         }
 
         // Validate execution state consistency
         if checkpoint.execution_state.current_step_index > checkpoint.execution_state.total_steps {
-            return Err(anyhow!("Invalid checkpoint: step index out of bounds"));
+            return Err(CheckpointError::InvalidCheckpoint {
+                reason: format!(
+                    "Step index {} exceeds total steps {}",
+                    checkpoint.execution_state.current_step_index,
+                    checkpoint.execution_state.total_steps
+                ),
+                session_id: checkpoint.workflow_id.clone(),
+            }
+            .into());
         }
 
         // Validate completed steps match current index
         if checkpoint.completed_steps.len() > checkpoint.execution_state.current_step_index {
-            return Err(anyhow!(
-                "Checkpoint inconsistency: completed steps exceed current index"
-            ));
+            return Err(CheckpointError::InvalidCheckpoint {
+                reason: format!(
+                    "Completed steps count {} exceeds current step index {}",
+                    checkpoint.completed_steps.len(),
+                    checkpoint.execution_state.current_step_index
+                ),
+                session_id: checkpoint.workflow_id.clone(),
+            }
+            .into());
         }
 
         Ok(())

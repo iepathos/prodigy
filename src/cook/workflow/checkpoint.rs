@@ -2,11 +2,12 @@
 //!
 //! Provides checkpoint creation, persistence, and restoration for workflow execution.
 
+use crate::cook::workflow::checkpoint_errors::CheckpointError;
 use crate::cook::workflow::checkpoint_path::CheckpointStorage;
 use crate::cook::workflow::executor::WorkflowContext;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::variable_checkpoint::VariableCheckpointState;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -391,26 +392,43 @@ impl CheckpointManager {
             .checkpoint_file_path(workflow_id)
             .context("Failed to resolve checkpoint path")?;
 
-        let content = fs::read_to_string(&checkpoint_path)
-            .await
-            .with_context(|| {
-                format!(
-                    "No checkpoint found for workflow {} at path {}",
-                    workflow_id,
-                    checkpoint_path.display()
-                )
-            })?;
+        // Check if checkpoint exists
+        if !checkpoint_path.exists() {
+            let checkpoint_dir = self
+                .storage
+                .resolve_base_dir()
+                .context("Failed to resolve checkpoint directory")?;
 
-        let checkpoint: WorkflowCheckpoint = serde_json::from_str(&content)
-            .with_context(|| format!("Failed to parse checkpoint for workflow {}", workflow_id))?;
+            return Err(CheckpointError::not_found(workflow_id.to_string(), checkpoint_dir).into());
+        }
+
+        let content =
+            fs::read_to_string(&checkpoint_path)
+                .await
+                .map_err(|e| CheckpointError::IoError {
+                    operation: "read checkpoint file".to_string(),
+                    path: Some(checkpoint_path.clone()),
+                    source: e,
+                })?;
+
+        let checkpoint: WorkflowCheckpoint =
+            serde_json::from_str(&content).map_err(|e| -> anyhow::Error {
+                CheckpointError::InvalidCheckpoint {
+                    reason: format!("Failed to parse checkpoint: {}", e),
+                    session_id: workflow_id.to_string(),
+                }
+                .into()
+            })?;
 
         // Validate version compatibility
         if checkpoint.version > CHECKPOINT_VERSION {
-            return Err(anyhow!(
-                "Checkpoint version {} is newer than supported version {}",
+            return Err(CheckpointError::version_mismatch(
                 checkpoint.version,
-                CHECKPOINT_VERSION
-            ));
+                CHECKPOINT_VERSION,
+                checkpoint_path,
+                Some(checkpoint.timestamp),
+            )
+            .into());
         }
 
         Ok(checkpoint)
@@ -469,16 +487,42 @@ impl CheckpointManager {
     }
 
     /// Validate checkpoint compatibility with current workflow
-    pub fn validate_checkpoint(checkpoint: &WorkflowCheckpoint, workflow_hash: &str) -> Result<()> {
+    pub fn validate_checkpoint(
+        checkpoint: &WorkflowCheckpoint,
+        workflow_hash: &str,
+        workflow_path: Option<&PathBuf>,
+        current_steps: usize,
+    ) -> Result<()> {
         // Check workflow hasn't changed incompatibly
         if checkpoint.workflow_hash != workflow_hash {
             warn!("Workflow has changed since checkpoint was created");
-            // In future, could do more sophisticated compatibility checking
+
+            // If we have workflow path info, return detailed error
+            if let Some(path) = workflow_path {
+                return Err(CheckpointError::workflow_hash_mismatch(
+                    checkpoint.workflow_hash.clone(),
+                    workflow_hash.to_string(),
+                    checkpoint.total_steps,
+                    current_steps,
+                    checkpoint.workflow_id.clone(),
+                    path.clone(),
+                    Some(checkpoint.timestamp),
+                )
+                .into());
+            }
         }
 
         // Validate checkpoint integrity
         if checkpoint.execution_state.current_step_index > checkpoint.execution_state.total_steps {
-            return Err(anyhow!("Invalid checkpoint: step index out of bounds"));
+            return Err(CheckpointError::InvalidCheckpoint {
+                reason: format!(
+                    "Step index {} exceeds total steps {}",
+                    checkpoint.execution_state.current_step_index,
+                    checkpoint.execution_state.total_steps
+                ),
+                session_id: checkpoint.workflow_id.clone(),
+            }
+            .into());
         }
 
         Ok(())
