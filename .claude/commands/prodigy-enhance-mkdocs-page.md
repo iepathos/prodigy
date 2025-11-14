@@ -112,15 +112,21 @@ After analyzing content about "Setup → Map → Reduce" phases:
 
 ```mermaid
 graph TD
-    Start[Start Workflow] --> Setup[Setup Phase<br/>Generate work items]
-    Setup --> Map[Map Phase<br/>Parallel Processing]
-    Map --> A1[Agent 1<br/>Item 0]
-    Map --> A2[Agent 2<br/>Item 1]
-    Map --> AN[Agent N<br/>Item N]
+    Start[Start Workflow] --> Setup["Setup Phase
+    Generate work items"]
+    Setup --> Map["Map Phase
+    Parallel Processing"]
+    Map --> A1["Agent 1
+    Item 0"]
+    Map --> A2["Agent 2
+    Item 1"]
+    Map --> AN["Agent N
+    Item N"]
     A1 --> Merge[Merge Results]
     A2 --> Merge
     AN --> Merge
-    Merge --> Reduce[Reduce Phase<br/>Aggregate & Report]
+    Merge --> Reduce["Reduce Phase
+    Aggregate and Report"]
     Reduce --> End[Complete]
 
     style Setup fill:#e1f5ff
@@ -144,10 +150,15 @@ After analyzing content about worktree branching:
 
 ```mermaid
 graph TD
-    Main[Main Branch<br/>main/master] --> Parent[Parent Worktree<br/>session-xxx]
-    Parent --> A1[Agent Worktree 1<br/>agent-1-item-1]
-    Parent --> A2[Agent Worktree 2<br/>agent-2-item-2]
-    Parent --> AN[Agent Worktree N<br/>agent-n-item-n]
+    Main["Main Branch
+    main/master"] --> Parent["Parent Worktree
+    session-xxx"]
+    Parent --> A1["Agent Worktree 1
+    agent-1-item-1"]
+    Parent --> A2["Agent Worktree 2
+    agent-2-item-2"]
+    Parent --> AN["Agent Worktree N
+    agent-n-item-n"]
 
     A1 -->|Merge Changes| Parent
     A2 -->|Merge Changes| Parent
@@ -219,14 +230,17 @@ After analyzing content about on_failure behavior:
 flowchart TD
     Start[Execute Command] --> Success{Success?}
     Success -->|Yes| Next[Next Command]
-    Success -->|No| Handler{on_failure<br/>defined?}
+    Success -->|No| Handler{"on_failure
+    defined?"}
 
     Handler -->|No| Fail[Fail Workflow]
     Handler -->|Yes| RunHandler[Execute Handler]
 
-    RunHandler --> Retry{max_attempts<br/>> 1?}
+    RunHandler --> Retry{"max_attempts
+    > 1?"}
     Retry -->|Yes| RetryCmd[Retry Command]
-    RetryCmd --> AttemptCheck{Attempts<br/>exhausted?}
+    RetryCmd --> AttemptCheck{"Attempts
+    exhausted?"}
     AttemptCheck -->|No| Start
     AttemptCheck -->|Yes| FailCheck{fail_workflow?}
 
@@ -499,12 +513,16 @@ fi
 - ✅ Admonitions appear at decision points or gotchas
 - ✅ Code annotations explain non-obvious parameters
 - ✅ Tabs used for genuine alternatives or platform differences
+- ✅ Diagram labels use proper spacing (e.g., "Search and Suppress" not "SearchAndSuppress")
+- ✅ Multi-line labels use quoted syntax with actual newlines, not HTML `<br/>` tags
 
 **Bad Enhancements:**
 - ❌ Generic diagram that doesn't match page content
 - ❌ Too many admonitions (cluttered page)
 - ❌ Annotations stating the obvious
 - ❌ Tabs for single-variant content
+- ❌ Compound words without spaces in diagram labels (e.g., "SearchAndSuppress")
+- ❌ HTML tags like `<br/>` or HTML entities like `&#40;` in Mermaid diagrams
 
 ### Examples of Context-Aware Enhancement
 
