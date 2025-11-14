@@ -133,26 +133,20 @@ Extract all required parameters:
 
    {Introduction content from before first H2}
 
-   ## Subsections
-
-   This page is organized into the following subpages:
-
-   - [{Subsection 1 Title}](./{subpage-1-id}.md) - {Brief description}
-   - [{Subsection 2 Title}](./{subpage-2-id}.md) - {Brief description}
-   ...
-
-   {Include meta-sections like "Best Practices" as H2s here}
+   {Include meta-sections like "Best Practices" as H2s here if they exist}
 
    ## Best Practices
 
    {Content from Best Practices section if it existed}
    ```
 
+   **IMPORTANT:** Do NOT include a "Subsections" section listing subpages. MkDocs Material automatically displays all subpages in the left navigation sidebar, making this redundant and creating a poor user experience.
+
 2. **Write index.md:**
    - Path: `docs/src/{page-id}/index.md`
    - Use original introduction content
-   - Add subpage navigation
-   - Include any meta-sections that shouldn't be separate files
+   - Include any meta-sections that shouldn't be separate files (e.g., "Best Practices", "Troubleshooting", "Common Patterns")
+   - Do NOT add subpage navigation links (handled by MkDocs sidebar)
 
 **Generate Subsection Files:**
 
