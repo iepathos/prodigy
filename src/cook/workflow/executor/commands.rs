@@ -380,7 +380,6 @@ pub async fn execute_write_file_command(
 // ============================================================================
 
 /// Build command description for logging/dry-run
-#[allow(dead_code)] // Will be used in future refactoring phases
 pub fn format_command_description(command_type: &CommandType) -> String {
     match command_type {
         CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
@@ -410,19 +409,7 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<StepResult> {
-        let command_desc = match command_type {
-            CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
-                format!("claude: {}", cmd)
-            }
-            CommandType::Shell(cmd) => format!("shell: {}", cmd),
-            CommandType::Test(cmd) => format!("test: {}", cmd.command),
-            CommandType::Handler { handler_name, .. } => {
-                format!("handler: {}", handler_name)
-            }
-            CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
-            CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
-            CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
-        };
+        let command_desc = format_command_description(command_type);
 
         println!("[DRY RUN] Would execute: {}", command_desc);
         self.dry_run_commands.push(command_desc.clone());
