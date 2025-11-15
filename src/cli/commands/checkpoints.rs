@@ -1654,5 +1654,99 @@ mod tests {
             // Returns error but repair flag is exercised
             assert!(result.is_err());
         }
+
+        // Tests for MapReduce command
+
+        #[tokio::test]
+        async fn test_mapreduce_command_basic() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::MapReduce {
+                job_id: "test-job-123".to_string(),
+                detailed: false,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should succeed even if job doesn't exist
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_mapreduce_command_with_detailed_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::MapReduce {
+                job_id: "test-job-123".to_string(),
+                detailed: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_mapreduce_command_nonexistent_job() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::MapReduce {
+                job_id: "nonexistent-job".to_string(),
+                detailed: false,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should handle nonexistent jobs gracefully
+            assert!(result.is_ok());
+        }
+
+        // Tests for Delete command
+
+        #[tokio::test]
+        async fn test_delete_command_basic() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Delete {
+                checkpoint_id: "test-checkpoint".to_string(),
+                force: true, // Use force to avoid confirmation prompts
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should succeed even if checkpoint doesn't exist
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_delete_command_with_force_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::Delete {
+                checkpoint_id: "test-workflow-1".to_string(),
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_delete_command_nonexistent_checkpoint() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Delete {
+                checkpoint_id: "nonexistent-checkpoint".to_string(),
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should handle nonexistent checkpoints gracefully
+            assert!(result.is_ok());
+        }
     }
 }
