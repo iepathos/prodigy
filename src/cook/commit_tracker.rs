@@ -424,9 +424,7 @@ impl CommitTracker {
     /// otherwise returns `StagingStrategy::All` for default behavior.
     fn determine_staging_strategy(commit_config: Option<&CommitConfig>) -> StagingStrategy {
         match commit_config {
-            Some(config)
-                if config.include_files.is_some() || config.exclude_files.is_some() =>
-            {
+            Some(config) if config.include_files.is_some() || config.exclude_files.is_some() => {
                 StagingStrategy::Selective
             }
             _ => StagingStrategy::All,
@@ -498,8 +496,7 @@ impl CommitTracker {
     ///
     /// Returns Ok(()) if the message matches the pattern, or an error with details if it doesn't.
     fn validate_commit_message(message: &str, pattern: &str) -> Result<()> {
-        let re = regex::Regex::new(pattern)
-            .map_err(|e| anyhow!("Invalid message pattern: {e}"))?;
+        let re = regex::Regex::new(pattern).map_err(|e| anyhow!("Invalid message pattern: {e}"))?;
 
         if !re.is_match(message) {
             return Err(anyhow!(
@@ -561,11 +558,7 @@ impl CommitTracker {
     ///
     /// Retrieves the commit details for the specified HEAD ref, sets the step name,
     /// and adds it to the tracked commits list.
-    async fn track_new_commit(
-        &self,
-        step_name: &str,
-        new_head: &str,
-    ) -> Result<TrackedCommit> {
+    async fn track_new_commit(&self, step_name: &str, new_head: &str) -> Result<TrackedCommit> {
         let mut commits = self
             .get_commits_between(&format!("{new_head}^"), new_head)
             .await?;
@@ -600,7 +593,8 @@ impl CommitTracker {
         self.stage_files(strategy, commit_config).await?;
 
         // Prepare and validate commit message
-        let message = Self::prepare_commit_message(step_name, message_template, variables, commit_config)?;
+        let message =
+            Self::prepare_commit_message(step_name, message_template, variables, commit_config)?;
 
         // Check GPG configuration if signing is requested
         let gpg_configured = if let Some(config) = commit_config {
@@ -673,7 +667,11 @@ impl CommitTracker {
         step_name: &str,
         variables: &HashMap<String, String>,
     ) -> Result<String> {
-        Ok(Self::generate_commit_message(step_name, Some(template), variables))
+        Ok(Self::generate_commit_message(
+            step_name,
+            Some(template),
+            variables,
+        ))
     }
 
     /// Validate a commit message against a pattern (delegates to pure function)
