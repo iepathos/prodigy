@@ -516,22 +516,7 @@ impl WorkflowCommand {
 
                 cmd
             }
-            WorkflowCommand::SimpleObject(simple) => {
-                let mut cmd = Command::new(&simple.name);
-                if let Some(commit_required) = simple.commit_required {
-                    cmd.metadata.commit_required = commit_required;
-                }
-                if let Some(args) = &simple.args {
-                    for arg in args {
-                        cmd.args.push(CommandArg::parse(arg));
-                    }
-                }
-                if let Some(analysis) = simple.analysis.clone() {
-                    cmd.analysis = Some(analysis.clone());
-                    cmd.metadata.analysis = Some(analysis);
-                }
-                cmd
-            }
+            WorkflowCommand::SimpleObject(simple) => build_simple_command(simple),
         }
     }
 }
@@ -586,6 +571,31 @@ fn apply_workflow_metadata(cmd: &mut Command, step: &WorkflowStepCommand) {
     // Apply ID and outputs
     cmd.id = step.id.clone();
     cmd.outputs = step.outputs.clone();
+}
+
+/// Build a Command from a SimpleCommand
+///
+/// Constructs a Command with optional commit requirements, arguments,
+/// and analysis configuration from a SimpleCommand object.
+fn build_simple_command(simple: &SimpleCommand) -> Command {
+    let mut cmd = Command::new(&simple.name);
+
+    if let Some(commit_required) = simple.commit_required {
+        cmd.metadata.commit_required = commit_required;
+    }
+
+    if let Some(args) = &simple.args {
+        for arg in args {
+            cmd.args.push(CommandArg::parse(arg));
+        }
+    }
+
+    if let Some(analysis) = simple.analysis.clone() {
+        cmd.analysis = Some(analysis.clone());
+        cmd.metadata.analysis = Some(analysis);
+    }
+
+    cmd
 }
 
 impl Command {
