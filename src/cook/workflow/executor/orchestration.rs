@@ -19,11 +19,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context as AnyhowContext, Result};
 
+use crate::cook::environment::EnvironmentConfig;
 use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 
-use super::{normalized, CheckpointCompletedStep, StepResult, WorkflowContext};
+use super::{normalized, CheckpointCompletedStep, ExecutionEnvironment, StepResult, WorkflowContext};
 
 #[cfg(test)]
 use std::collections::HashMap;
@@ -90,6 +91,49 @@ pub async fn validate_mapreduce_dry_run(workflow: &ExtendedWorkflowConfig) -> Re
             Err(anyhow!("Dry-run validation failed: {}", e))
         }
     }
+}
+
+/// Prepare MapReduce environment and initialize workflow context
+///
+/// Creates the execution environment and workflow context with populated
+/// environment variables from global configuration.
+pub fn prepare_mapreduce_environment(
+    env: &ExecutionEnvironment,
+    global_env_config: Option<&EnvironmentConfig>,
+) -> Result<(ExecutionEnvironment, WorkflowContext)> {
+    use crate::cook::environment::{EnvValue, EnvironmentContextBuilder};
+
+    // Use the existing environment directly - it already points to parent worktree
+    let worktree_env = env.clone();
+
+    // SPEC 128: Create immutable environment context for worktree execution
+    // This context explicitly specifies the worktree directory and prevents
+    // hidden state mutations. All environment configuration is immutable after creation.
+    let _worktree_context = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
+        .with_config(global_env_config.unwrap_or(&EnvironmentConfig::default()))
+        .context("Failed to create immutable environment context")?
+        .build();
+
+    // Note: The immutable context pattern is now available for future refactoring.
+    // Currently, the executor still uses ExecutionEnvironment (worktree_env) which is
+    // passed explicitly to all phase executors. This ensures working directory is
+    // always explicit in function signatures rather than hidden in mutable state.
+
+    let mut workflow_context = WorkflowContext::default();
+
+    // Populate workflow context with environment variables from global config
+    if let Some(global_env_config) = global_env_config {
+        for (key, env_value) in &global_env_config.global_env {
+            // Resolve the env value to a string
+            if let EnvValue::Static(value) = env_value {
+                workflow_context.variables.insert(key.clone(), value.clone());
+            }
+            // For Dynamic and Conditional values, we'd need to evaluate them here
+            // For now, we only support Static values in MapReduce workflows
+        }
+    }
+
+    Ok((worktree_env, workflow_context))
 }
 
 // ============================================================================

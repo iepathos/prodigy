@@ -67,7 +67,7 @@ use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use chrono::Utc;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -1281,54 +1281,17 @@ impl WorkflowExecutor {
         // Don't duplicate the message - it's already shown by the orchestrator
 
         // SPEC 134: MapReduce executes in the parent worktree (already created by orchestrator)
-        // No need to create an additional intermediate worktree. This ensures:
-        // 1. Setup phase runs in parent worktree
-        // 2. Agent worktrees branch from parent worktree
-        // 3. Reduce phase runs in parent worktree
-        // 4. User is prompted to merge parent worktree to original branch (via orchestrator cleanup)
         tracing::info!(
             "Executing MapReduce in parent worktree: {}",
             env.working_dir.display()
         );
 
-        // Use the existing environment directly - it already points to parent worktree
-        let worktree_env = env.clone();
+        // Prepare environment and workflow context with environment variables
+        let (worktree_env, mut workflow_context) =
+            orchestration::prepare_mapreduce_environment(env, self.global_environment_config.as_ref())?;
 
-        // SPEC 128: Create immutable environment context for worktree execution
-        // This context explicitly specifies the worktree directory and prevents
-        // hidden state mutations. All environment configuration is immutable after creation.
-        use crate::cook::environment::EnvironmentContextBuilder;
-        let _worktree_context = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
-            .with_config(
-                self.global_environment_config
-                    .as_ref()
-                    .unwrap_or(&crate::cook::environment::EnvironmentConfig::default()),
-            )
-            .context("Failed to create immutable environment context")?
-            .build();
-
-        // Note: The immutable context pattern is now available for future refactoring.
-        // Currently, the executor still uses ExecutionEnvironment (worktree_env) which is
-        // passed explicitly to all phase executors. This ensures working directory is
-        // always explicit in function signatures rather than hidden in mutable state.
-
-        let mut workflow_context = WorkflowContext::default();
         let mut generated_input_file: Option<String> = None;
         let mut _captured_variables = HashMap::new();
-
-        // Populate workflow context with environment variables from global config
-        if let Some(ref global_env_config) = self.global_environment_config {
-            for (key, env_value) in &global_env_config.global_env {
-                // Resolve the env value to a string
-                if let crate::cook::environment::EnvValue::Static(value) = env_value {
-                    workflow_context
-                        .variables
-                        .insert(key.clone(), value.clone());
-                }
-                // For Dynamic and Conditional values, we'd need to evaluate them here
-                // For now, we only support Static values in MapReduce workflows
-            }
-        }
 
         // Execute setup phase if present
         if !workflow.steps.is_empty() || workflow.setup_phase.is_some() {
