@@ -501,19 +501,30 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
 }
 
 impl WorkflowCommand {
+    /// Convert a `WorkflowCommand` to a unified `Command` representation
+    ///
+    /// This method handles the conversion of various workflow command formats
+    /// into a unified `Command` type suitable for execution. The conversion flow:
+    ///
+    /// 1. **Simple**: Direct string parsing via `Command::from_string`
+    /// 2. **Structured**: Clone the boxed Command
+    /// 3. **WorkflowStep**: Extract command string, parse, and apply metadata
+    /// 4. **SimpleObject**: Build command with optional args and metadata
+    ///
+    /// The method uses helper functions to maintain low complexity:
+    /// - `extract_command_string`: Handles command type branching
+    /// - `apply_workflow_metadata`: Configures commit and analysis settings
+    /// - `build_simple_command`: Constructs from SimpleCommand object
     #[must_use]
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
             WorkflowCommand::Structured(c) => *c.clone(),
             WorkflowCommand::WorkflowStep(step) => {
-                // Convert WorkflowStepCommand to Command
                 let step = &**step;
                 let command_str = extract_command_string(step);
-
                 let mut cmd = Command::from_string(&command_str);
                 apply_workflow_metadata(&mut cmd, step);
-
                 cmd
             }
             WorkflowCommand::SimpleObject(simple) => build_simple_command(simple),
