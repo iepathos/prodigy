@@ -557,6 +557,31 @@ impl CommitTracker {
         args
     }
 
+    /// Track a newly created commit
+    ///
+    /// Retrieves the commit details for the specified HEAD ref, sets the step name,
+    /// and adds it to the tracked commits list.
+    async fn track_new_commit(
+        &self,
+        step_name: &str,
+        new_head: &str,
+    ) -> Result<TrackedCommit> {
+        let mut commits = self
+            .get_commits_between(&format!("{new_head}^"), new_head)
+            .await?;
+
+        let mut commit = commits
+            .pop()
+            .ok_or_else(|| anyhow!("Failed to retrieve created commit"))?;
+
+        commit.step_name = step_name.to_string();
+
+        let mut tracked = self.tracked_commits.write().await;
+        tracked.push(commit.clone());
+
+        Ok(commit)
+    }
+
     /// Create an auto-commit with the given configuration
     pub async fn create_auto_commit(
         &self,
@@ -602,25 +627,9 @@ impl CommitTracker {
             .git_command_in_dir(&commit_args_refs, "create commit", &self.working_dir)
             .await?;
 
-        // Get the new HEAD
+        // Get the new HEAD and track the commit
         let new_head = self.get_current_head().await?;
-
-        // Get commit details
-        let mut commits = self
-            .get_commits_between(&format!("{new_head}^"), &new_head)
-            .await?;
-
-        if let Some(mut commit) = commits.pop() {
-            commit.step_name = step_name.to_string();
-
-            // Add to tracked commits
-            let mut tracked = self.tracked_commits.write().await;
-            tracked.push(commit.clone());
-
-            Ok(commit)
-        } else {
-            Err(anyhow!("Failed to retrieve created commit"))
-        }
+        self.track_new_commit(step_name, &new_head).await
     }
 
     /// Track commits created during step execution
