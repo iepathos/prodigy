@@ -19,7 +19,6 @@ use tokio::task::JoinHandle;
 
 /// Represents the outcome of a workflow execution
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)] // Used in Phase 5
 enum ExecutionOutcome {
     Success,
     Interrupted,
@@ -27,7 +26,6 @@ enum ExecutionOutcome {
 }
 
 /// Classify the execution result based on result and session status
-#[allow(dead_code)] // Used in Phase 5
 fn classify_execution_result(
     result: &Result<()>,
     session_status: SessionStatus,
@@ -45,13 +43,13 @@ fn classify_execution_result(
 }
 
 /// Determine if a checkpoint should be saved based on the outcome
-#[allow(dead_code)] // Used in Phase 5
+#[allow(dead_code)] // Reserved for future checkpoint optimization
 fn should_save_checkpoint(outcome: &ExecutionOutcome) -> bool {
     matches!(outcome, ExecutionOutcome::Interrupted)
 }
 
 /// Generate the resume message for the user
-#[allow(dead_code)] // Used in Phase 5
+#[allow(dead_code)] // Reserved for future message centralization
 fn determine_resume_message(
     session_id: &str,
     playbook_path: &str,
@@ -349,34 +347,41 @@ impl ExecutionPipeline {
         cleanup_fn: impl std::future::Future<Output = Result<()>>,
         display_health_fn: impl std::future::Future<Output = Result<()>>,
     ) -> Result<()> {
-        match execution_result {
-            Ok(_) => {
+        // Classify the execution outcome
+        let session_status = if execution_result.is_err() {
+            self.session_manager
+                .get_state()
+                .context("Failed to get session state after cook error")?
+                .status
+        } else {
+            SessionStatus::InProgress
+        };
+
+        let outcome = classify_execution_result(&execution_result, session_status);
+
+        // Route to appropriate handler
+        match outcome {
+            ExecutionOutcome::Success => {
                 self.handle_session_success().await?;
+                let summary = self.execute_cleanup_and_completion(cleanup_fn).await?;
+                self.display_completion_summary(&summary, config, display_health_fn)
+                    .await?;
+                Ok(())
             }
-            Err(e) => {
-                // Check if session was interrupted
-                let state = self
-                    .session_manager
-                    .get_state()
-                    .context("Failed to get session state after cook error")?;
-                if state.status == SessionStatus::Interrupted {
-                    self.handle_session_interruption(&env.session_id, config, env)
-                        .await?;
-                } else {
-                    self.handle_session_failure(&e, &env.session_id).await?;
-                }
-                return Err(e);
+            ExecutionOutcome::Interrupted => {
+                self.handle_session_interruption(&env.session_id, config, env)
+                    .await?;
+                execution_result
+            }
+            ExecutionOutcome::Failed(_) => {
+                self.handle_session_failure(
+                    execution_result.as_ref().unwrap_err(),
+                    &env.session_id,
+                )
+                .await?;
+                execution_result
             }
         }
-
-        // Execute cleanup and complete session
-        let summary = self.execute_cleanup_and_completion(cleanup_fn).await?;
-
-        // Display summary
-        self.display_completion_summary(&summary, config, display_health_fn)
-            .await?;
-
-        Ok(())
     }
 
     /// Validate that a session is in a resumable state
