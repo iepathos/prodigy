@@ -76,6 +76,15 @@ pub struct TrackedCommit {
     pub agent_id: Option<String>,
 }
 
+/// Strategy for staging files before commit
+#[derive(Debug, Clone, PartialEq)]
+enum StagingStrategy {
+    /// Stage all changes
+    All,
+    /// Stage only files matching the patterns
+    Selective,
+}
+
 /// Tracks commits created during workflow execution
 pub struct CommitTracker {
     /// Git operations interface
@@ -409,6 +418,163 @@ impl CommitTracker {
         Ok(files)
     }
 
+    /// Determine the staging strategy based on commit configuration (pure function)
+    ///
+    /// Returns `StagingStrategy::Selective` if include or exclude patterns are specified,
+    /// otherwise returns `StagingStrategy::All` for default behavior.
+    fn determine_staging_strategy(commit_config: Option<&CommitConfig>) -> StagingStrategy {
+        match commit_config {
+            Some(config) if config.include_files.is_some() || config.exclude_files.is_some() => {
+                StagingStrategy::Selective
+            }
+            _ => StagingStrategy::All,
+        }
+    }
+
+    /// Stage files based on the staging strategy
+    ///
+    /// For `StagingStrategy::All`, stages all changes with `git add .`.
+    /// For `StagingStrategy::Selective`, stages only files matching include/exclude patterns.
+    async fn stage_files(
+        &self,
+        strategy: StagingStrategy,
+        commit_config: Option<&CommitConfig>,
+    ) -> Result<()> {
+        match strategy {
+            StagingStrategy::All => {
+                self.git_ops
+                    .git_command_in_dir(&["add", "."], "stage all changes", &self.working_dir)
+                    .await?;
+            }
+            StagingStrategy::Selective => {
+                let files_to_stage = self.get_files_to_stage(commit_config).await?;
+
+                if files_to_stage.is_empty() {
+                    return Err(anyhow!("No files match the specified patterns"));
+                }
+
+                for file in files_to_stage {
+                    self.git_ops
+                        .git_command_in_dir(&["add", &file], "stage file", &self.working_dir)
+                        .await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Generate commit message from template or step name (pure function)
+    ///
+    /// Interpolates variables in the template using the provided step name and variables map.
+    /// If no template is provided, returns a default message format.
+    fn generate_commit_message(
+        step_name: &str,
+        template: Option<&str>,
+        variables: &HashMap<String, String>,
+    ) -> String {
+        match template {
+            Some(tmpl) => {
+                let mut message = tmpl.to_string();
+
+                // Replace ${step.name}
+                message = message.replace("${step.name}", step_name);
+
+                // Replace other variables
+                for (key, value) in variables {
+                    message = message.replace(&format!("${{{key}}}"), value);
+                    message = message.replace(&format!("${key}"), value);
+                }
+
+                message
+            }
+            None => format!("Auto-commit: {step_name}"),
+        }
+    }
+
+    /// Validate commit message against a regex pattern (pure function)
+    ///
+    /// Returns Ok(()) if the message matches the pattern, or an error with details if it doesn't.
+    fn validate_commit_message(message: &str, pattern: &str) -> Result<()> {
+        let re = regex::Regex::new(pattern).map_err(|e| anyhow!("Invalid message pattern: {e}"))?;
+
+        if !re.is_match(message) {
+            return Err(anyhow!(
+                "Commit message '{}' does not match required pattern '{}'",
+                message,
+                pattern
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Prepare and validate commit message (combines generation and validation)
+    ///
+    /// Generates the message from template/step name, then validates it against the pattern
+    /// if one is configured in commit_config.
+    fn prepare_commit_message(
+        step_name: &str,
+        template: Option<&str>,
+        variables: &HashMap<String, String>,
+        commit_config: Option<&CommitConfig>,
+    ) -> Result<String> {
+        let message = Self::generate_commit_message(step_name, template, variables);
+
+        if let Some(config) = commit_config {
+            if let Some(pattern) = &config.message_pattern {
+                Self::validate_commit_message(&message, pattern)?;
+            }
+        }
+
+        Ok(message)
+    }
+
+    /// Build git commit arguments (pure function)
+    ///
+    /// Constructs the argument vector for git commit command, including message,
+    /// optional author override, and optional GPG signing flag.
+    fn build_commit_args(
+        message: &str,
+        commit_config: Option<&CommitConfig>,
+        gpg_configured: bool,
+    ) -> Vec<String> {
+        let mut args = vec!["commit".to_string(), "-m".to_string(), message.to_string()];
+
+        if let Some(config) = commit_config {
+            if let Some(author) = &config.author {
+                args.push(format!("--author={}", author));
+            }
+
+            if config.sign && gpg_configured {
+                args.push("-S".to_string());
+            }
+        }
+
+        args
+    }
+
+    /// Track a newly created commit
+    ///
+    /// Retrieves the commit details for the specified HEAD ref, sets the step name,
+    /// and adds it to the tracked commits list.
+    async fn track_new_commit(&self, step_name: &str, new_head: &str) -> Result<TrackedCommit> {
+        let mut commits = self
+            .get_commits_between(&format!("{new_head}^"), new_head)
+            .await?;
+
+        let mut commit = commits
+            .pop()
+            .ok_or_else(|| anyhow!("Failed to retrieve created commit"))?;
+
+        commit.step_name = step_name.to_string();
+
+        let mut tracked = self.tracked_commits.write().await;
+        tracked.push(commit.clone());
+
+        Ok(commit)
+    }
+
     /// Create an auto-commit with the given configuration
     pub async fn create_auto_commit(
         &self,
@@ -422,91 +588,42 @@ impl CommitTracker {
             return Err(anyhow!("No changes to commit"));
         }
 
-        // Stage files based on patterns
-        if commit_config.is_some()
-            && (commit_config.unwrap().include_files.is_some()
-                || commit_config.unwrap().exclude_files.is_some())
-        {
-            // Use selective file staging
-            let files_to_stage = self.get_files_to_stage(commit_config).await?;
+        // Determine staging strategy and stage files
+        let strategy = Self::determine_staging_strategy(commit_config);
+        self.stage_files(strategy, commit_config).await?;
 
-            if files_to_stage.is_empty() {
-                return Err(anyhow!("No files match the specified patterns"));
-            }
+        // Prepare and validate commit message
+        let message =
+            Self::prepare_commit_message(step_name, message_template, variables, commit_config)?;
 
-            // Stage each file individually
-            for file in files_to_stage {
-                self.git_ops
-                    .git_command_in_dir(&["add", &file], "stage file", &self.working_dir)
-                    .await?;
-            }
-        } else {
-            // Stage all changes (default behavior)
-            self.git_ops
-                .git_command_in_dir(&["add", "."], "stage all changes", &self.working_dir)
-                .await?;
-        }
-
-        // Generate commit message
-        let message = if let Some(template) = message_template {
-            self.interpolate_template(template, step_name, variables)?
-        } else {
-            format!("Auto-commit: {step_name}")
-        };
-
-        // Validate message pattern if configured
-        if let Some(config) = commit_config {
-            if let Some(pattern) = &config.message_pattern {
-                self.validate_message(&message, pattern)?;
-            }
-        }
-
-        // Create the commit with optional author override and signing
-        let mut commit_args = vec!["commit", "-m", &message];
-
-        // Add author override if specified from commit_config
-        let author_string;
-        if let Some(config) = commit_config {
-            if let Some(author) = &config.author {
-                author_string = format!("--author={}", author);
-                commit_args.push(&author_string);
-            }
-
-            // Add GPG signing if enabled and properly configured
+        // Check GPG configuration if signing is requested
+        let gpg_configured = if let Some(config) = commit_config {
             if config.sign {
-                if self.check_gpg_config().await? {
-                    commit_args.push("-S");
-                } else {
+                let configured = self.check_gpg_config().await?;
+                if !configured {
                     log::warn!(
                         "GPG signing requested but not properly configured, skipping signing"
                     );
                 }
+                configured
+            } else {
+                false
             }
-        }
+        } else {
+            false
+        };
+
+        // Build commit arguments
+        let commit_args = Self::build_commit_args(&message, commit_config, gpg_configured);
+        let commit_args_refs: Vec<&str> = commit_args.iter().map(String::as_str).collect();
 
         self.git_ops
-            .git_command_in_dir(&commit_args, "create commit", &self.working_dir)
+            .git_command_in_dir(&commit_args_refs, "create commit", &self.working_dir)
             .await?;
 
-        // Get the new HEAD
+        // Get the new HEAD and track the commit
         let new_head = self.get_current_head().await?;
-
-        // Get commit details
-        let mut commits = self
-            .get_commits_between(&format!("{new_head}^"), &new_head)
-            .await?;
-
-        if let Some(mut commit) = commits.pop() {
-            commit.step_name = step_name.to_string();
-
-            // Add to tracked commits
-            let mut tracked = self.tracked_commits.write().await;
-            tracked.push(commit.clone());
-
-            Ok(commit)
-        } else {
-            Err(anyhow!("Failed to retrieve created commit"))
-        }
+        self.track_new_commit(step_name, &new_head).await
     }
 
     /// Track commits created during step execution
@@ -539,40 +656,27 @@ impl CommitTracker {
         self.tracked_commits.read().await.clone()
     }
 
-    /// Interpolate variables in a message template
+    /// Interpolate variables in a message template (delegates to pure function)
+    ///
+    /// This method exists for backward compatibility with tests.
+    /// New code should use `generate_commit_message` directly.
+    #[cfg(test)]
     fn interpolate_template(
         &self,
         template: &str,
         step_name: &str,
         variables: &HashMap<String, String>,
     ) -> Result<String> {
-        let mut message = template.to_string();
-
-        // Replace ${step.name}
-        message = message.replace("${step.name}", step_name);
-
-        // Replace other variables
-        for (key, value) in variables {
-            message = message.replace(&format!("${{{key}}}"), value);
-            message = message.replace(&format!("${key}"), value);
-        }
-
-        Ok(message)
+        Ok(Self::generate_commit_message(
+            step_name,
+            Some(template),
+            variables,
+        ))
     }
 
-    /// Validate a commit message against a pattern
+    /// Validate a commit message against a pattern (delegates to pure function)
     pub fn validate_message(&self, message: &str, pattern: &str) -> Result<()> {
-        let re = regex::Regex::new(pattern).map_err(|e| anyhow!("Invalid message pattern: {e}"))?;
-
-        if !re.is_match(message) {
-            return Err(anyhow!(
-                "Commit message '{}' does not match required pattern '{}'",
-                message,
-                pattern
-            ));
-        }
-
-        Ok(())
+        Self::validate_commit_message(message, pattern)
     }
 
     /// Squash commits into a single commit
