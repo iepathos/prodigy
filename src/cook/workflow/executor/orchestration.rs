@@ -19,12 +19,160 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::cook::workflow::WorkflowStep;
+use anyhow::{anyhow, Context as AnyhowContext, Result};
 
-use super::{normalized, CheckpointCompletedStep, StepResult, WorkflowContext};
+use crate::cook::environment::EnvironmentConfig;
+use crate::cook::execution::MapPhase;
+use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
+
+use super::{
+    normalized, CheckpointCompletedStep, ExecutionEnvironment, StepResult, WorkflowContext,
+};
 
 #[cfg(test)]
 use std::collections::HashMap;
+
+// ============================================================================
+// MapReduce Orchestration Helpers
+// ============================================================================
+
+/// Validate MapReduce workflow in dry-run mode
+///
+/// Performs comprehensive validation of MapReduce workflow configuration
+/// including setup, map, and reduce phases. Returns early if validation fails.
+pub async fn validate_mapreduce_dry_run(workflow: &ExtendedWorkflowConfig) -> Result<()> {
+    use crate::cook::execution::mapreduce::dry_run::{
+        DryRunConfig, DryRunValidator, OutputFormatter,
+    };
+
+    println!("[DRY RUN] MapReduce workflow execution simulation mode");
+    println!("[DRY RUN] Validating workflow configuration...");
+
+    // Create dry-run configuration
+    let _dry_run_config = DryRunConfig {
+        show_work_items: true,
+        show_variables: true,
+        show_resources: true,
+        sample_size: Some(5),
+    };
+
+    // Create the validator
+    let validator = DryRunValidator::new();
+
+    // Validate the workflow
+    let validation_result = validator
+        .validate_workflow_phases(
+            workflow.setup_phase.clone(),
+            workflow
+                .map_phase
+                .as_ref()
+                .ok_or_else(|| anyhow!("MapReduce workflow requires map phase"))?
+                .clone(),
+            workflow.reduce_phase.clone(),
+        )
+        .await;
+
+    match validation_result {
+        Ok(report) => {
+            // Display the validation report
+            let formatter = OutputFormatter::new();
+            println!("{}", formatter.format_human(&report));
+
+            if report.errors.is_empty() {
+                println!("\n[DRY RUN] Validation successful! Workflow is ready to execute.");
+                Ok(())
+            } else {
+                println!(
+                    "\n[DRY RUN] Validation failed with {} error(s)",
+                    report.errors.len()
+                );
+                Err(anyhow!("Dry-run validation failed"))
+            }
+        }
+        Err(e) => {
+            println!("[DRY RUN] Validation failed: {}", e);
+            Err(anyhow!("Dry-run validation failed: {}", e))
+        }
+    }
+}
+
+/// Prepare MapReduce environment and initialize workflow context
+///
+/// Creates the execution environment and workflow context with populated
+/// environment variables from global configuration.
+pub fn prepare_mapreduce_environment(
+    env: &ExecutionEnvironment,
+    global_env_config: Option<&EnvironmentConfig>,
+) -> Result<(ExecutionEnvironment, WorkflowContext)> {
+    use crate::cook::environment::{EnvValue, EnvironmentContextBuilder};
+
+    // Use the existing environment directly - it already points to parent worktree
+    let worktree_env = env.clone();
+
+    // SPEC 128: Create immutable environment context for worktree execution
+    // This context explicitly specifies the worktree directory and prevents
+    // hidden state mutations. All environment configuration is immutable after creation.
+    let _worktree_context = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
+        .with_config(global_env_config.unwrap_or(&EnvironmentConfig::default()))
+        .context("Failed to create immutable environment context")?
+        .build();
+
+    // Note: The immutable context pattern is now available for future refactoring.
+    // Currently, the executor still uses ExecutionEnvironment (worktree_env) which is
+    // passed explicitly to all phase executors. This ensures working directory is
+    // always explicit in function signatures rather than hidden in mutable state.
+
+    let mut workflow_context = WorkflowContext::default();
+
+    // Populate workflow context with environment variables from global config
+    if let Some(global_env_config) = global_env_config {
+        for (key, env_value) in &global_env_config.global_env {
+            // Resolve the env value to a string
+            if let EnvValue::Static(value) = env_value {
+                workflow_context
+                    .variables
+                    .insert(key.clone(), value.clone());
+            }
+            // For Dynamic and Conditional values, we'd need to evaluate them here
+            // For now, we only support Static values in MapReduce workflows
+        }
+    }
+
+    Ok((worktree_env, workflow_context))
+}
+
+/// Configure map phase with input interpolation
+///
+/// Takes the workflow's map phase configuration, updates input if setup generated
+/// a file, and interpolates environment variables in the input path.
+pub fn configure_map_phase(
+    workflow: &ExtendedWorkflowConfig,
+    generated_input: Option<String>,
+    context: &WorkflowContext,
+) -> Result<MapPhase> {
+    // Ensure we have map phase configuration
+    let mut map_phase = workflow
+        .map_phase
+        .as_ref()
+        .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?
+        .clone();
+
+    // Update map phase input if setup generated a work-items.json file
+    if let Some(generated_file) = generated_input {
+        map_phase.config.input = generated_file;
+    }
+
+    // Interpolate map phase input with environment variables
+    let mut interpolated_input = map_phase.config.input.clone();
+    for (key, value) in &context.variables {
+        // Replace both ${VAR} and $VAR patterns
+        interpolated_input = interpolated_input.replace(&format!("${{{}}}", key), value);
+        interpolated_input = interpolated_input.replace(&format!("${}", key), value);
+    }
+    map_phase.config.input = interpolated_input;
+
+    Ok(map_phase)
+}
 
 // ============================================================================
 // Step Tracking Helpers
