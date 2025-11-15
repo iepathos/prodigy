@@ -207,19 +207,11 @@ impl WorkflowExecutor {
             // Check if we should retry the original command
             if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
                 let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-                for retry in 1..=max_retries {
-                    self.user_interaction.display_info(&format!(
-                        "Retrying original command (attempt {}/{})",
-                        retry, max_retries
-                    ));
-                    // Create a copy of the step without on_failure to avoid recursion
-                    let mut retry_step = step.clone();
-                    retry_step.on_failure = None;
-                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                    if retry_result.success {
-                        result = retry_result;
-                        break;
-                    }
+                if let Some(retry_result) = self
+                    .retry_original_command(step, max_retries, env, ctx)
+                    .await?
+                {
+                    result = retry_result;
                 }
             }
         } else if let Some(handler) = on_failure_config.handler() {
@@ -235,19 +227,11 @@ impl WorkflowExecutor {
             // Check if we should retry the original command
             if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
                 let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-                for retry in 1..=max_retries {
-                    self.user_interaction.display_info(&format!(
-                        "Retrying original command (attempt {}/{})",
-                        retry, max_retries
-                    ));
-                    // Create a copy of the step without on_failure to avoid recursion
-                    let mut retry_step = step.clone();
-                    retry_step.on_failure = None;
-                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                    if retry_result.success {
-                        result = retry_result;
-                        break;
-                    }
+                if let Some(retry_result) = self
+                    .retry_original_command(step, max_retries, env, ctx)
+                    .await?
+                {
+                    result = retry_result;
                 }
             }
         }
@@ -307,6 +291,34 @@ impl WorkflowExecutor {
         }
 
         Ok((handler_success, handler_outputs))
+    }
+
+    /// Retry the original command after handler execution
+    ///
+    /// Returns Some(StepResult) if retry succeeds, None if all retries fail.
+    async fn retry_original_command(
+        &mut self,
+        step: &WorkflowStep,
+        max_retries: u32,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<Option<StepResult>> {
+        for retry in 1..=max_retries {
+            self.user_interaction.display_info(&format!(
+                "Retrying original command (attempt {}/{})",
+                retry, max_retries
+            ));
+
+            // Create a copy of the step without on_failure to avoid recursion
+            let mut retry_step = step.clone();
+            retry_step.on_failure = None;
+
+            let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
+            if retry_result.success {
+                return Ok(Some(retry_result));
+            }
+        }
+        Ok(None)
     }
 
     /// Determine command type from a workflow step
