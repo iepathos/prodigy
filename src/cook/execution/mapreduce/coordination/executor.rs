@@ -747,7 +747,19 @@ impl MapReduceCoordinator {
         results
     }
 
-    /// Execute the map phase
+    /// Execute the map phase with parallel work item processing
+    ///
+    /// This orchestrates the map phase execution flow:
+    /// 1. Initialize semaphore for concurrency control
+    /// 2. Spawn parallel agents for each work item via `process_single_work_item`
+    /// 3. Collect and aggregate results via `collect_agent_results`
+    /// 4. Log summary metrics
+    ///
+    /// The function has been refactored to reduce complexity by extracting:
+    /// - Result conversion logic to `convert_execution_result_to_agent_result`
+    /// - DLQ integration to `handle_dlq_for_failed_item`
+    /// - Single item processing to `process_single_work_item`
+    /// - Future collection to `collect_agent_results`
     async fn execute_map_phase_internal(
         &self,
         map_phase: MapPhase,
@@ -776,7 +788,7 @@ impl MapReduceCoordinator {
         // Get the timeout enforcer if configured
         let timeout_enforcer = self.timeout_enforcer.lock().await.clone();
 
-        // Process items in parallel with controlled concurrency
+        // Spawn parallel agents for each work item
         let agent_futures: Vec<_> = work_items
             .into_iter()
             .enumerate()
