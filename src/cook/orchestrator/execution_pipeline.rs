@@ -147,15 +147,8 @@ impl ExecutionPipeline {
         Ok(())
     }
 
-    /// Setup signal handlers for graceful interruption
-    pub fn setup_signal_handlers(
-        &self,
-        config: &CookConfig,
-        session_id: &str,
-        worktree_name: Option<Arc<str>>,
-    ) -> Result<JoinHandle<()>> {
-        log::debug!("Setting up signal handlers");
-
+    /// Create a WorktreeManager from the config
+    fn create_worktree_manager(&self, config: &CookConfig) -> Result<WorktreeManager> {
         // Get merge config from workflow or mapreduce config
         let merge_config = config.workflow.merge.clone().or_else(|| {
             config
@@ -167,13 +160,38 @@ impl ExecutionPipeline {
         // Get workflow environment variables
         let workflow_env = config.workflow.env.clone().unwrap_or_default();
 
-        let worktree_manager = Arc::new(WorktreeManager::with_config(
+        WorktreeManager::with_config(
             config.project_path.to_path_buf(),
             self.subprocess.clone(),
             config.command.verbosity,
             merge_config,
             workflow_env,
-        )?);
+        )
+    }
+
+    /// Update worktree state to mark as interrupted
+    fn update_worktree_interrupted_state(
+        worktree_manager: &WorktreeManager,
+        worktree_name: &str,
+    ) -> Result<()> {
+        worktree_manager.update_session_state(worktree_name, |state| {
+            state.status = WorktreeStatus::Interrupted;
+            state.interrupted_at = Some(chrono::Utc::now());
+            state.interruption_type = Some(crate::worktree::InterruptionType::Unknown);
+            state.resumable = true;
+        })
+    }
+
+    /// Setup signal handlers for graceful interruption
+    pub fn setup_signal_handlers(
+        &self,
+        config: &CookConfig,
+        session_id: &str,
+        worktree_name: Option<Arc<str>>,
+    ) -> Result<JoinHandle<()>> {
+        log::debug!("Setting up signal handlers");
+
+        let worktree_manager = Arc::new(self.create_worktree_manager(config)?);
 
         crate::cook::signal_handler::setup_interrupt_handlers(
             worktree_manager,
@@ -255,31 +273,8 @@ impl ExecutionPipeline {
 
                     // Also update worktree state if using a worktree
                     if let Some(ref name) = env.worktree_name {
-                        // Get merge config from workflow or mapreduce config
-                        let merge_config = config.workflow.merge.clone().or_else(|| {
-                            config
-                                .mapreduce_config
-                                .as_ref()
-                                .and_then(|m| m.merge.clone())
-                        });
-
-                        // Get workflow environment variables
-                        let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-                        let worktree_manager = WorktreeManager::with_config(
-                            config.project_path.to_path_buf(),
-                            self.subprocess.clone(),
-                            config.command.verbosity,
-                            merge_config,
-                            workflow_env,
-                        )?;
-                        worktree_manager.update_session_state(name.as_ref(), |state| {
-                            state.status = WorktreeStatus::Interrupted;
-                            state.interrupted_at = Some(chrono::Utc::now());
-                            state.interruption_type =
-                                Some(crate::worktree::InterruptionType::Unknown);
-                            state.resumable = true;
-                        })?;
+                        let worktree_manager = self.create_worktree_manager(config)?;
+                        Self::update_worktree_interrupted_state(&worktree_manager, name.as_ref())?;
                     }
                 } else {
                     self.session_manager
