@@ -512,17 +512,7 @@ impl WorkflowCommand {
                 let command_str = extract_command_string(step);
 
                 let mut cmd = Command::from_string(&command_str);
-
-                // Apply metadata
-                cmd.metadata.commit_required = step.commit_required;
-                if let Some(analysis) = &step.analysis {
-                    cmd.analysis = Some(analysis.clone());
-                    cmd.metadata.analysis = Some(analysis.clone());
-                }
-
-                // Apply ID and outputs
-                cmd.id = step.id.clone();
-                cmd.outputs = step.outputs.clone();
+                apply_workflow_metadata(&mut cmd, step);
 
                 cmd
             }
@@ -579,6 +569,23 @@ fn extract_command_string(step: &WorkflowStepCommand) -> String {
         // No command specified
         String::new()
     }
+}
+
+/// Apply workflow metadata to a Command
+///
+/// Configures commit requirements, analysis settings, ID, and outputs
+/// from the WorkflowStepCommand to the Command.
+fn apply_workflow_metadata(cmd: &mut Command, step: &WorkflowStepCommand) {
+    // Apply metadata
+    cmd.metadata.commit_required = step.commit_required;
+    if let Some(analysis) = &step.analysis {
+        cmd.analysis = Some(analysis.clone());
+        cmd.metadata.analysis = Some(analysis.clone());
+    }
+
+    // Apply ID and outputs
+    cmd.id = step.id.clone();
+    cmd.outputs = step.outputs.clone();
 }
 
 impl Command {
