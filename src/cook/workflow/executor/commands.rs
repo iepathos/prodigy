@@ -472,29 +472,16 @@ impl WorkflowExecutor {
         })
     }
 
-    /// Main command dispatcher that routes to specific command handlers
-    pub(super) async fn execute_command_by_type(
+    /// Dispatch command execution to appropriate handler
+    async fn dispatch_command_execution(
         &mut self,
-        command_type: &CommandType,
+        command_type: CommandType,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
-        mut env_vars: HashMap<String, String>,
+        env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
-        // Handle dry-run mode
-        if self.dry_run {
-            return self.handle_dry_run_mode(command_type, step, env, ctx).await;
-        }
-
-        // Add timeout to environment variables if configured for the step
-        if let Some(timeout_secs) = step.timeout {
-            env_vars.insert(
-                "PRODIGY_COMMAND_TIMEOUT".to_string(),
-                timeout_secs.to_string(),
-            );
-        }
-
-        match command_type.clone() {
+        match command_type {
             CommandType::Claude(cmd) => {
                 let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(&cmd);
                 self.log_variable_resolutions(&resolutions);
@@ -551,6 +538,33 @@ impl WorkflowExecutor {
                 execute_write_file_command(&config, &env.working_dir).await
             }
         }
+    }
+
+    /// Main command dispatcher that routes to specific command handlers
+    pub(super) async fn execute_command_by_type(
+        &mut self,
+        command_type: &CommandType,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        mut env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        // Handle dry-run mode
+        if self.dry_run {
+            return self.handle_dry_run_mode(command_type, step, env, ctx).await;
+        }
+
+        // Add timeout to environment variables if configured for the step
+        if let Some(timeout_secs) = step.timeout {
+            env_vars.insert(
+                "PRODIGY_COMMAND_TIMEOUT".to_string(),
+                timeout_secs.to_string(),
+            );
+        }
+
+        // Dispatch to appropriate command handler
+        self.dispatch_command_execution(command_type.clone(), step, env, ctx, env_vars)
+            .await
     }
 
     /// Execute a Claude command (instance method wrapper)
