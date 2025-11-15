@@ -600,10 +600,7 @@ impl MapReduceCoordinator {
     ) {
         // Get current attempt number for this item
         let retry_counts_read = retry_counts.read().await;
-        let attempt_number = retry_tracking::get_item_attempt_number(
-            item_id,
-            &retry_counts_read,
-        );
+        let attempt_number = retry_tracking::get_item_attempt_number(item_id, &retry_counts_read);
         drop(retry_counts_read); // Release read lock
 
         if let Some(dlq_item) =
@@ -622,10 +619,8 @@ impl MapReduceCoordinator {
 
                 // Increment retry count in state
                 let mut retry_counts_write = retry_counts.write().await;
-                *retry_counts_write = retry_tracking::increment_retry_count(
-                    item_id,
-                    retry_counts_write.clone(),
-                );
+                *retry_counts_write =
+                    retry_tracking::increment_retry_count(item_id, retry_counts_write.clone());
             }
         }
     }
@@ -655,10 +650,7 @@ impl MapReduceCoordinator {
     ) -> MapReduceResult<AgentResult> {
         // Acquire semaphore permit
         let _permit = semaphore.acquire().await.map_err(|e| {
-            MapReduceError::ProcessingError(format!(
-                "Failed to acquire semaphore: {}",
-                e
-            ))
+            MapReduceError::ProcessingError(format!("Failed to acquire semaphore: {}", e))
         })?;
 
         let item_id = format!("item_{}", index);
