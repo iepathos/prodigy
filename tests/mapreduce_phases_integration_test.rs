@@ -68,6 +68,7 @@ async fn test_setup_phase_execution() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     // Create coordinator
@@ -124,6 +125,7 @@ async fn test_setup_phase_failure() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     let coordinator = PhaseCoordinator::new(Some(setup_phase), map_phase, None, subprocess.clone());
@@ -169,6 +171,7 @@ async fn test_map_phase_with_json_input() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     let coordinator = PhaseCoordinator::new(None, map_phase, None, subprocess.clone());
@@ -202,6 +205,7 @@ async fn test_reduce_phase_aggregation() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     // Create reduce phase
@@ -252,6 +256,7 @@ async fn test_coordinator_state_machine() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     let reduce_phase = ReducePhase {
@@ -316,6 +321,7 @@ async fn test_phase_context_variable_passing() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     let coordinator = PhaseCoordinator::new(Some(setup_phase), map_phase, None, subprocess.clone());
@@ -380,6 +386,7 @@ async fn test_empty_workflow_completes() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     let coordinator = PhaseCoordinator::new(None, map_phase, None, subprocess.clone());

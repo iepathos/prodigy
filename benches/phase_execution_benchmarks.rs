@@ -127,6 +127,7 @@ fn bench_map_phase_work_items(c: &mut Criterion) {
                         max_items: Some(count),
                         distinct: None,
                         timeout_config: None,
+                        workflow_env: std::collections::HashMap::new(),
                     };
 
                     let executor =
@@ -233,6 +234,7 @@ fn bench_full_workflow_execution(c: &mut Criterion) {
                 max_items: None,
                 distinct: None,
                 timeout_config: None,
+                workflow_env: std::collections::HashMap::new(),
             };
 
             // Reduce phase: aggregate results
@@ -299,6 +301,7 @@ fn bench_phase_transitions(c: &mut Criterion) {
                 max_items: None,
                 distinct: None,
                 timeout_config: None,
+                workflow_env: std::collections::HashMap::new(),
             };
 
             let coordinator = PhaseCoordinator::new(None, map_phase, None, subprocess.clone());
@@ -340,6 +343,7 @@ fn bench_phase_scaling(c: &mut Criterion) {
                         max_items: None,
                         distinct: None,
                         timeout_config: None,
+                        workflow_env: std::collections::HashMap::new(),
                     };
 
                     let coordinator =
