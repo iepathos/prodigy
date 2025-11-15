@@ -67,7 +67,7 @@ use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -152,176 +152,213 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<StepResult> {
-        // Inject error context as variables
+        // 1. Inject error context
         let step_name = self.get_step_display_name(step);
-        ctx.variables
-            .insert("error.message".to_string(), result.stderr.clone());
-        ctx.variables.insert(
-            "error.exit_code".to_string(),
-            result.exit_code.unwrap_or(-1).to_string(),
+        let error_vars = failure_handler::create_error_context_variables(
+            &result.stderr,
+            result.exit_code,
+            &step_name,
         );
-        ctx.variables
-            .insert("error.step".to_string(), step_name.clone());
-        ctx.variables
-            .insert("error.timestamp".to_string(), Utc::now().to_rfc3339());
+        for (key, value) in error_vars {
+            ctx.variables.insert(key, value);
+        }
 
-        // Get handler commands
+        // 2. Execute handler (new or legacy)
         let handler_commands = on_failure_config.handler_commands();
-
         if !handler_commands.is_empty() {
-            let strategy = on_failure_config.strategy();
-            self.user_interaction.display_info(&format!(
-                "Executing on_failure handler ({:?} strategy)...",
-                strategy
+            result = self
+                .handle_new_style_failure(
+                    step,
+                    result,
+                    on_failure_config,
+                    &handler_commands,
+                    env,
+                    ctx,
+                )
+                .await?;
+        } else if let Some(handler) = on_failure_config.handler() {
+            result = self
+                .handle_legacy_failure(step, result, on_failure_config, &handler, env, ctx)
+                .await?;
+        }
+
+        // 3. Cleanup error context
+        for key in failure_handler::get_error_context_keys() {
+            ctx.variables.remove(key);
+        }
+
+        Ok(result)
+    }
+
+    /// Execute handler commands in sequence
+    ///
+    /// Returns (success, outputs) tuple indicating if all handlers succeeded and their outputs.
+    async fn execute_handler_commands(
+        &mut self,
+        handler_commands: &[crate::cook::workflow::on_failure::HandlerCommand],
+        timeout: Option<u64>,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<(bool, Vec<String>)> {
+        let mut handler_success = true;
+        let mut handler_outputs = Vec::new();
+
+        for (idx, cmd) in handler_commands.iter().enumerate() {
+            self.user_interaction.display_progress(&format!(
+                "Handler command {}/{}",
+                idx + 1,
+                handler_commands.len()
             ));
 
-            let mut handler_success = true;
-            let mut handler_outputs = Vec::new();
+            let handler_step = failure_handler::create_handler_step(cmd, timeout);
 
-            // Execute each handler command
-            for (idx, cmd) in handler_commands.iter().enumerate() {
-                self.user_interaction.display_progress(&format!(
-                    "Handler command {}/{}",
-                    idx + 1,
-                    handler_commands.len()
-                ));
-
-                // Create a WorkflowStep from the HandlerCommand
-                let handler_step = WorkflowStep {
-                    name: None,
-                    shell: cmd.shell.clone(),
-                    claude: cmd.claude.clone(),
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    write_file: None,
-                    command: None,
-                    handler: None,
-                    capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    auto_commit: false,
-                    commit_config: None,
-                    output_file: None,
-                    timeout: on_failure_config.handler_timeout(),
-                    capture_output: CaptureOutput::Disabled,
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: Default::default(),
-                    commit_required: false,
-                    working_dir: None,
-                    env: Default::default(),
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                };
-
-                // Execute the handler command
-                match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
-                    Ok(handler_result) => {
-                        handler_outputs.push(handler_result.stdout.clone());
-                        if !handler_result.success && !cmd.continue_on_error {
-                            handler_success = false;
-                            self.user_interaction
-                                .display_error(&format!("Handler command {} failed", idx + 1));
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        self.user_interaction.display_error(&format!(
-                            "Handler command {} error: {}",
-                            idx + 1,
-                            e
-                        ));
-                        if !cmd.continue_on_error {
-                            handler_success = false;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Add handler output to result
-            result = failure_handler::append_handler_output(result, &handler_outputs);
-
-            // Create handler result for strategy determination
-            let handler_result = failure_handler::FailureHandlerResult {
-                success: handler_success,
-                outputs: handler_outputs,
-                recovered: false,
-            };
-
-            // Check if step should be marked as recovered
-            if failure_handler::determine_recovery_strategy(&handler_result, strategy) {
-                self.user_interaction
-                    .display_success("Step recovered through on_failure handler");
-                result = failure_handler::mark_step_recovered(result);
-            }
-
-            // Check if handler failure should be fatal
-            if failure_handler::is_handler_failure_fatal(handler_success, on_failure_config) {
-                return Err(anyhow!("Handler failure is fatal"));
-            }
-
-            // Check if we should retry the original command
-            if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
-                let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-                for retry in 1..=max_retries {
-                    self.user_interaction.display_info(&format!(
-                        "Retrying original command (attempt {}/{})",
-                        retry, max_retries
-                    ));
-                    // Create a copy of the step without on_failure to avoid recursion
-                    let mut retry_step = step.clone();
-                    retry_step.on_failure = None;
-                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                    if retry_result.success {
-                        result = retry_result;
+            match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
+                Ok(handler_result) => {
+                    handler_outputs.push(handler_result.stdout.clone());
+                    if !handler_result.success && !cmd.continue_on_error {
+                        handler_success = false;
+                        self.user_interaction
+                            .display_error(&format!("Handler command {} failed", idx + 1));
                         break;
                     }
                 }
-            }
-        } else if let Some(handler) = on_failure_config.handler() {
-            // Fallback to legacy handler for backward compatibility
-            self.user_interaction
-                .display_info("Executing on_failure handler...");
-            let failure_result = Box::pin(self.execute_step(&handler, env, ctx)).await?;
-            result = failure_handler::append_handler_output(
-                result,
-                std::slice::from_ref(&failure_result.stdout),
-            );
-
-            // Check if we should retry the original command
-            if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
-                let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-                for retry in 1..=max_retries {
-                    self.user_interaction.display_info(&format!(
-                        "Retrying original command (attempt {}/{})",
-                        retry, max_retries
+                Err(e) => {
+                    self.user_interaction.display_error(&format!(
+                        "Handler command {} error: {}",
+                        idx + 1,
+                        e
                     ));
-                    // Create a copy of the step without on_failure to avoid recursion
-                    let mut retry_step = step.clone();
-                    retry_step.on_failure = None;
-                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                    if retry_result.success {
-                        result = retry_result;
+                    if !cmd.continue_on_error {
+                        handler_success = false;
                         break;
                     }
                 }
             }
         }
 
-        // Clear error variables from context
-        ctx.variables.remove("error.message");
-        ctx.variables.remove("error.exit_code");
-        ctx.variables.remove("error.step");
-        ctx.variables.remove("error.timestamp");
+        Ok((handler_success, handler_outputs))
+    }
+
+    /// Handle failure with new-style handler commands
+    async fn handle_new_style_failure(
+        &mut self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+        on_failure_config: &OnFailureConfig,
+        handler_commands: &[crate::cook::workflow::on_failure::HandlerCommand],
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        let strategy = on_failure_config.strategy();
+        self.user_interaction.display_info(&format!(
+            "Executing on_failure handler ({:?} strategy)...",
+            strategy
+        ));
+
+        // Execute handler commands
+        let (handler_success, handler_outputs) = self
+            .execute_handler_commands(
+                handler_commands,
+                on_failure_config.handler_timeout(),
+                env,
+                ctx,
+            )
+            .await?;
+
+        // Add handler output to result
+        result = failure_handler::append_handler_output(result, &handler_outputs);
+
+        // Create handler result for strategy determination
+        let handler_result = failure_handler::FailureHandlerResult {
+            success: handler_success,
+            outputs: handler_outputs,
+            recovered: false,
+        };
+
+        // Check if step should be marked as recovered
+        if failure_handler::determine_recovery_strategy(&handler_result, strategy) {
+            self.user_interaction
+                .display_success("Step recovered through on_failure handler");
+            result = failure_handler::mark_step_recovered(result);
+        }
+
+        // Check if handler failure should be fatal
+        if failure_handler::is_handler_failure_fatal(handler_success, on_failure_config) {
+            return Err(anyhow!("Handler failure is fatal"));
+        }
+
+        // Check if we should retry the original command
+        if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
+            let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
+            if let Some(retry_result) = self
+                .retry_original_command(step, max_retries, env, ctx)
+                .await?
+            {
+                result = retry_result;
+            }
+        }
 
         Ok(result)
+    }
+
+    /// Handle failure with legacy handler
+    async fn handle_legacy_failure(
+        &mut self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+        on_failure_config: &OnFailureConfig,
+        handler: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        self.user_interaction
+            .display_info("Executing on_failure handler...");
+        let failure_result = Box::pin(self.execute_step(handler, env, ctx)).await?;
+        result = failure_handler::append_handler_output(
+            result,
+            std::slice::from_ref(&failure_result.stdout),
+        );
+
+        // Check if we should retry the original command
+        if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
+            let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
+            if let Some(retry_result) = self
+                .retry_original_command(step, max_retries, env, ctx)
+                .await?
+            {
+                result = retry_result;
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Retry the original command after handler execution
+    ///
+    /// Returns Some(StepResult) if retry succeeds, None if all retries fail.
+    async fn retry_original_command(
+        &mut self,
+        step: &WorkflowStep,
+        max_retries: u32,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<Option<StepResult>> {
+        for retry in 1..=max_retries {
+            self.user_interaction.display_info(&format!(
+                "Retrying original command (attempt {}/{})",
+                retry, max_retries
+            ));
+
+            // Create a copy of the step without on_failure to avoid recursion
+            let mut retry_step = step.clone();
+            retry_step.on_failure = None;
+
+            let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
+            if retry_result.success {
+                return Ok(Some(retry_result));
+            }
+        }
+        Ok(None)
     }
 
     /// Determine command type from a workflow step
