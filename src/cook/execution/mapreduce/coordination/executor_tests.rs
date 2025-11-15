@@ -148,13 +148,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -181,13 +184,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -214,13 +220,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -247,13 +256,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -274,13 +286,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -301,13 +316,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -328,13 +346,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -357,13 +378,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
@@ -390,13 +414,16 @@ mod handle_on_failure_tests {
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
+        let command_executor =
+            crate::cook::execution::mapreduce::coordination::CommandExecutor::new(
+                claude_executor.clone(),
+                subprocess.clone(),
+            );
         let result = MapReduceCoordinator::handle_on_failure(
             &config,
             &worktree_path,
             &variables,
-            &env,
-            &claude_executor,
-            &subprocess,
+            &command_executor,
             &user_interaction,
         )
         .await;
