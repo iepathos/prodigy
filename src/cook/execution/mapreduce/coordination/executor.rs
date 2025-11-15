@@ -587,6 +587,49 @@ impl MapReduceCoordinator {
         }
     }
 
+    /// Handle Dead Letter Queue integration for failed items
+    ///
+    /// This helper function manages DLQ operations for failed work items,
+    /// including retry tracking, error logging, and state updates.
+    async fn handle_dlq_for_failed_item(
+        agent_result: &AgentResult,
+        item: &Value,
+        item_id: &str,
+        dlq: Arc<DeadLetterQueue>,
+        retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+    ) {
+        // Get current attempt number for this item
+        let retry_counts_read = retry_counts.read().await;
+        let attempt_number = retry_tracking::get_item_attempt_number(
+            item_id,
+            &retry_counts_read,
+        );
+        drop(retry_counts_read); // Release read lock
+
+        if let Some(dlq_item) =
+            dlq_integration::agent_result_to_dlq_item(agent_result, item, attempt_number)
+        {
+            if let Err(e) = dlq.add(dlq_item).await {
+                warn!(
+                    "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
+                    agent_result.item_id, e
+                );
+            } else {
+                info!(
+                    "Added failed item {} to DLQ (attempt {})",
+                    agent_result.item_id, attempt_number
+                );
+
+                // Increment retry count in state
+                let mut retry_counts_write = retry_counts.write().await;
+                *retry_counts_write = retry_tracking::increment_retry_count(
+                    item_id,
+                    retry_counts_write.clone(),
+                );
+            }
+        }
+    }
+
     /// Execute the map phase
     async fn execute_map_phase_internal(
         &self,
@@ -694,36 +737,14 @@ impl MapReduceCoordinator {
                     result_collector.add_result(agent_result.clone()).await;
 
                     // Add failed items to DLQ (graceful failure - don't break workflow)
-                    // Get current attempt number for this item
-                    let retry_counts_read = retry_counts.read().await;
-                    let attempt_number = retry_tracking::get_item_attempt_number(
+                    Self::handle_dlq_for_failed_item(
+                        &agent_result,
+                        &item_for_dlq,
                         &item_id,
-                        &retry_counts_read,
-                    );
-                    drop(retry_counts_read); // Release read lock
-
-                    if let Some(dlq_item) =
-                        dlq_integration::agent_result_to_dlq_item(&agent_result, &item_for_dlq, attempt_number)
-                    {
-                        if let Err(e) = dlq.add(dlq_item).await {
-                            warn!(
-                                "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
-                                agent_result.item_id, e
-                            );
-                        } else {
-                            info!(
-                                "Added failed item {} to DLQ (attempt {})",
-                                agent_result.item_id, attempt_number
-                            );
-
-                            // Increment retry count in state
-                            let mut retry_counts_write = retry_counts.write().await;
-                            *retry_counts_write = retry_tracking::increment_retry_count(
-                                &item_id,
-                                retry_counts_write.clone(),
-                            );
-                        }
-                    }
+                        dlq.clone(),
+                        retry_counts.clone(),
+                    )
+                    .await;
 
                     Ok::<AgentResult, MapReduceError>(agent_result)
                 })
