@@ -380,7 +380,6 @@ pub async fn execute_write_file_command(
 // ============================================================================
 
 /// Build command description for logging/dry-run
-#[allow(dead_code)] // Will be used in future refactoring phases
 pub fn format_command_description(command_type: &CommandType) -> String {
     match command_type {
         CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
@@ -397,106 +396,102 @@ pub fn format_command_description(command_type: &CommandType) -> String {
     }
 }
 
+/// Add timeout to environment variables if configured (pure function)
+fn add_timeout_to_env_vars(env_vars: &mut HashMap<String, String>, timeout: Option<u64>) {
+    if let Some(timeout_secs) = timeout {
+        env_vars.insert(
+            "PRODIGY_COMMAND_TIMEOUT".to_string(),
+            timeout_secs.to_string(),
+        );
+    }
+}
+
 // ============================================================================
 // WorkflowExecutor Command Execution Methods
 // ============================================================================
 
 impl WorkflowExecutor {
-    /// Main command dispatcher that routes to specific command handlers
-    pub(super) async fn execute_command_by_type(
+    /// Handle dry-run mode for a command
+    async fn handle_dry_run_mode(
         &mut self,
         command_type: &CommandType,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
-        mut env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
-        // Handle dry-run mode
-        if self.dry_run {
-            let command_desc = match command_type {
-                CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
-                    format!("claude: {}", cmd)
+        let command_desc = format_command_description(command_type);
+
+        println!("[DRY RUN] Would execute: {}", command_desc);
+        self.dry_run_commands.push(command_desc.clone());
+
+        // Track potential failure handlers
+        if let Some(on_failure) = &step.on_failure {
+            let handler_desc = match on_failure {
+                OnFailureConfig::SingleCommand(cmd) => format!("on_failure: {}", cmd),
+                OnFailureConfig::MultipleCommands(cmds) => {
+                    format!("on_failure: {} commands", cmds.len())
                 }
-                CommandType::Shell(cmd) => format!("shell: {}", cmd),
-                CommandType::Test(cmd) => format!("test: {}", cmd.command),
-                CommandType::Handler { handler_name, .. } => {
-                    format!("handler: {}", handler_name)
+                OnFailureConfig::Advanced { claude, shell, .. } => {
+                    if let Some(claude) = claude {
+                        format!("on_failure: claude {}", claude)
+                    } else if let Some(shell) = shell {
+                        format!("on_failure: shell {}", shell)
+                    } else {
+                        "on_failure: unknown".to_string()
+                    }
                 }
-                CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
-                CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
-                CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
+                OnFailureConfig::Detailed(config) => {
+                    format!("on_failure: {} handler commands", config.commands.len())
+                }
+                _ => "on_failure: configured".to_string(),
             };
-
-            println!("[DRY RUN] Would execute: {}", command_desc);
-            self.dry_run_commands.push(command_desc.clone());
-
-            // Track potential failure handlers
-            if let Some(on_failure) = &step.on_failure {
-                let handler_desc = match on_failure {
-                    OnFailureConfig::SingleCommand(cmd) => format!("on_failure: {}", cmd),
-                    OnFailureConfig::MultipleCommands(cmds) => {
-                        format!("on_failure: {} commands", cmds.len())
-                    }
-                    OnFailureConfig::Advanced { claude, shell, .. } => {
-                        if let Some(claude) = claude {
-                            format!("on_failure: claude {}", claude)
-                        } else if let Some(shell) = shell {
-                            format!("on_failure: shell {}", shell)
-                        } else {
-                            "on_failure: unknown".to_string()
-                        }
-                    }
-                    OnFailureConfig::Detailed(config) => {
-                        format!("on_failure: {} handler commands", config.commands.len())
-                    }
-                    _ => "on_failure: configured".to_string(),
-                };
-                self.dry_run_potential_handlers.push(handler_desc);
-            }
-
-            // Handle commit_required in dry-run mode
-            if step.commit_required {
-                println!(
-                    "[DRY RUN] commit_required - assuming commit created by: {}",
-                    command_desc
-                );
-                self.assumed_commits.push(command_desc.clone());
-            }
-
-            // Simulate validation in dry-run mode since we're returning early
-            // and the normal validation handling after command execution won't be reached
-            if let Some(validation_config) = &step.validate {
-                self.handle_validation(validation_config, env, ctx).await?;
-            }
-
-            // Simulate step validation in dry-run mode
-            if let Some(step_validation) = &step.step_validate {
-                if !step.skip_validation {
-                    let _validation_result = self
-                        .handle_step_validation(step_validation, env, ctx, step)
-                        .await?;
-                }
-            }
-
-            // Return success result for dry-run
-            return Ok(StepResult {
-                success: true,
-                stdout: format!("[dry-run] {}", command_desc),
-                stderr: String::new(),
-                exit_code: Some(0),
-                json_log_location: None,
-            });
+            self.dry_run_potential_handlers.push(handler_desc);
         }
 
-        // Add timeout to environment variables if configured for the step
-        if let Some(timeout_secs) = step.timeout {
-            env_vars.insert(
-                "PRODIGY_COMMAND_TIMEOUT".to_string(),
-                timeout_secs.to_string(),
+        // Handle commit_required in dry-run mode
+        if step.commit_required {
+            println!(
+                "[DRY RUN] commit_required - assuming commit created by: {}",
+                command_desc
             );
+            self.assumed_commits.push(command_desc.clone());
         }
 
-        match command_type.clone() {
+        // Simulate validation in dry-run mode since we're returning early
+        // and the normal validation handling after command execution won't be reached
+        if let Some(validation_config) = &step.validate {
+            self.handle_validation(validation_config, env, ctx).await?;
+        }
+
+        // Simulate step validation in dry-run mode
+        if let Some(step_validation) = &step.step_validate {
+            if !step.skip_validation {
+                let _validation_result = self
+                    .handle_step_validation(step_validation, env, ctx, step)
+                    .await?;
+            }
+        }
+
+        // Return success result for dry-run
+        Ok(StepResult {
+            success: true,
+            stdout: format!("[dry-run] {}", command_desc),
+            stderr: String::new(),
+            exit_code: Some(0),
+            json_log_location: None,
+        })
+    }
+
+    /// Dispatch command execution to appropriate handler
+    async fn dispatch_command_execution(
+        &mut self,
+        command_type: CommandType,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        match command_type {
             CommandType::Claude(cmd) => {
                 let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(&cmd);
                 self.log_variable_resolutions(&resolutions);
@@ -553,6 +548,28 @@ impl WorkflowExecutor {
                 execute_write_file_command(&config, &env.working_dir).await
             }
         }
+    }
+
+    /// Main command dispatcher that routes to specific command handlers
+    pub(super) async fn execute_command_by_type(
+        &mut self,
+        command_type: &CommandType,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        mut env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        // Handle dry-run mode
+        if self.dry_run {
+            return self.handle_dry_run_mode(command_type, step, env, ctx).await;
+        }
+
+        // Add timeout to environment variables if configured
+        add_timeout_to_env_vars(&mut env_vars, step.timeout);
+
+        // Dispatch to appropriate command handler
+        self.dispatch_command_execution(command_type.clone(), step, env, ctx, env_vars)
+            .await
     }
 
     /// Execute a Claude command (instance method wrapper)

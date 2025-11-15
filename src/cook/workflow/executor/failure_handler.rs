@@ -221,6 +221,92 @@ pub fn format_retry_failure_message(attempt: u32, max_attempts: u32, error: &str
 }
 
 // ============================================================================
+// Error Context Management
+// ============================================================================
+
+/// Create error context variables for workflow context injection
+///
+/// Pure function that creates error variable map for handler execution.
+pub fn create_error_context_variables(
+    stderr: &str,
+    exit_code: Option<i32>,
+    step_name: &str,
+) -> Vec<(String, String)> {
+    vec![
+        ("error.message".to_string(), stderr.to_string()),
+        (
+            "error.exit_code".to_string(),
+            exit_code.unwrap_or(-1).to_string(),
+        ),
+        ("error.step".to_string(), step_name.to_string()),
+        (
+            "error.timestamp".to_string(),
+            chrono::Utc::now().to_rfc3339(),
+        ),
+    ]
+}
+
+/// Get list of error context variable keys for cleanup
+///
+/// Returns the keys that should be removed from context after handler execution.
+pub fn get_error_context_keys() -> Vec<&'static str> {
+    vec![
+        "error.message",
+        "error.exit_code",
+        "error.step",
+        "error.timestamp",
+    ]
+}
+
+// ============================================================================
+// Handler Step Construction
+// ============================================================================
+
+/// Create a WorkflowStep from a HandlerCommand
+///
+/// Pure function that converts handler configuration into executable step.
+pub fn create_handler_step(
+    cmd: &crate::cook::workflow::on_failure::HandlerCommand,
+    timeout: Option<u64>,
+) -> super::data_structures::WorkflowStep {
+    use super::data_structures::WorkflowStep;
+    use super::types::CaptureOutput;
+
+    WorkflowStep {
+        name: None,
+        shell: cmd.shell.clone(),
+        claude: cmd.claude.clone(),
+        test: None,
+        goal_seek: None,
+        foreach: None,
+        write_file: None,
+        command: None,
+        handler: None,
+        capture: None,
+        capture_format: None,
+        capture_streams: Default::default(),
+        auto_commit: false,
+        commit_config: None,
+        output_file: None,
+        timeout,
+        capture_output: CaptureOutput::Disabled,
+        on_failure: None,
+        retry: None,
+        on_success: None,
+        on_exit_code: Default::default(),
+        commit_required: false,
+        working_dir: None,
+        env: Default::default(),
+        validate: None,
+        step_validate: None,
+        skip_validation: false,
+        validation_timeout: None,
+        ignore_validation_failure: false,
+        when: None,
+    }
+}
+
+// ============================================================================
 // Handler Strategy Helpers
 // ============================================================================
 

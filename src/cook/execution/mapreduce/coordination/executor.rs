@@ -3,12 +3,12 @@
 //! This module coordinates the execution of MapReduce jobs,
 //! managing phases and resource allocation.
 
+use super::command_executor::CommandExecutor;
 use crate::cook::execution::claude::ClaudeExecutorImpl;
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::input_source::InputSource;
-use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::mapreduce::{
     agent::{AgentConfig, AgentLifecycleManager, AgentResult, AgentStatus},
     aggregation::{AggregationSummary, CollectionStrategy, ResultCollector},
@@ -26,7 +26,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{OnFailureConfig, StepResult, WorkflowStep};
+use crate::cook::workflow::{OnFailureConfig, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -70,8 +70,8 @@ pub struct MapReduceCoordinator {
     event_logger: Arc<EventLogger>,
     /// Job ID for tracking
     job_id: String,
-    /// Claude executor for Claude commands
-    #[cfg_attr(test, allow(dead_code))]
+    /// Claude executor for Claude commands (used via command_executor)
+    #[allow(dead_code)]
     pub(crate) claude_executor: Arc<dyn ClaudeExecutor>,
     /// Session manager
     _session_manager: Arc<dyn SessionManager>,
@@ -87,6 +87,8 @@ pub struct MapReduceCoordinator {
     dlq: Arc<DeadLetterQueue>,
     /// Retry counts for work items (for accurate DLQ attempt tracking)
     retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+    /// Command executor for running workflow steps
+    command_executor: CommandExecutor,
 }
 
 impl MapReduceCoordinator {
@@ -159,6 +161,9 @@ impl MapReduceCoordinator {
             })
         });
 
+        // Create command executor
+        let command_executor = CommandExecutor::new(claude_executor.clone(), subprocess.clone());
+
         Self {
             agent_manager,
             _state_manager: state_manager,
@@ -176,6 +181,7 @@ impl MapReduceCoordinator {
             orphaned_worktrees: Arc::new(Mutex::new(Vec::new())),
             dlq: Arc::new(dlq),
             retry_counts: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            command_executor,
         }
     }
 
@@ -329,20 +335,7 @@ impl MapReduceCoordinator {
     /// Get a displayable name for a workflow step
     #[cfg_attr(test, allow(dead_code))]
     pub(crate) fn get_step_display_name(step: &WorkflowStep) -> String {
-        if let Some(claude_cmd) = &step.claude {
-            format!("claude: {}", claude_cmd)
-        } else if let Some(shell_cmd) = &step.shell {
-            // Truncate long shell commands for readability
-            if shell_cmd.len() > 60 {
-                format!("shell: {}...", &shell_cmd[..57])
-            } else {
-                format!("shell: {}", shell_cmd)
-            }
-        } else if let Some(write_file) = &step.write_file {
-            format!("write_file: {}", write_file.path)
-        } else {
-            "unknown step".to_string()
-        }
+        CommandExecutor::get_step_display_name(step)
     }
 
     /// Execute the setup phase
@@ -397,7 +390,18 @@ impl MapReduceCoordinator {
             debug!("==============================");
 
             // Execute the step
-            let result = self.execute_setup_step(step, env, env_vars).await?;
+            let result = self
+                .command_executor
+                .execute_setup_step(step, env, env_vars)
+                .await
+                .map_err(|e| {
+                    MapReduceError::ProcessingError(format!(
+                        "Setup step {} ({}) failed: {}",
+                        index + 1,
+                        step_name,
+                        e
+                    ))
+                })?;
 
             // Display completion
             if result.success {
@@ -424,9 +428,7 @@ impl MapReduceCoordinator {
                         on_failure,
                         &env.working_dir,
                         &variables,
-                        env,
-                        &self.claude_executor,
-                        &self.subprocess,
+                        &self.command_executor,
                         &self.user_interaction,
                     )
                     .await?;
@@ -482,90 +484,6 @@ impl MapReduceCoordinator {
         Ok(())
     }
 
-    /// Execute a single setup step
-    async fn execute_setup_step(
-        &self,
-        step: &WorkflowStep,
-        env: &ExecutionEnvironment,
-        env_vars: HashMap<String, String>,
-    ) -> MapReduceResult<StepResult> {
-        use crate::subprocess::ProcessCommandBuilder;
-
-        if let Some(shell_cmd) = &step.shell {
-            info!("Executing shell command: {}", shell_cmd);
-            info!("Working directory: {}", env.working_dir.display());
-
-            let command = ProcessCommandBuilder::new("sh")
-                .args(["-c", shell_cmd])
-                .current_dir(&env.working_dir)
-                .envs(env_vars)
-                .build();
-
-            let output = self.subprocess.runner().run(command).await.map_err(|e| {
-                MapReduceError::ProcessingError(format!("Shell command failed: {}", e))
-            })?;
-
-            let exit_code = match output.status {
-                crate::subprocess::runner::ExitStatus::Success => 0,
-                crate::subprocess::runner::ExitStatus::Error(code) => code,
-                crate::subprocess::runner::ExitStatus::Timeout => -1,
-                crate::subprocess::runner::ExitStatus::Signal(sig) => -sig,
-            };
-
-            Ok(StepResult {
-                success: exit_code == 0,
-                exit_code: Some(exit_code),
-                stdout: output.stdout,
-                stderr: output.stderr,
-                json_log_location: None,
-            })
-        } else if let Some(claude_cmd) = &step.claude {
-            info!("Executing Claude command: {}", claude_cmd);
-
-            let result = self
-                .claude_executor
-                .execute_claude_command(claude_cmd, &env.working_dir, env_vars)
-                .await
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!("Claude command failed: {}", e))
-                })?;
-
-            let json_log_location = result.json_log_location().map(|s| s.to_string());
-
-            Ok(StepResult {
-                success: result.success,
-                exit_code: result.exit_code,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                json_log_location,
-            })
-        } else if let Some(write_file_cfg) = &step.write_file {
-            info!("Executing write_file command: {}", write_file_cfg.path);
-
-            let result =
-                crate::cook::workflow::execute_write_file_command(write_file_cfg, &env.working_dir)
-                    .await
-                    .map_err(|e| {
-                        MapReduceError::ProcessingError(format!("Write file command failed: {}", e))
-                    })?;
-
-            Ok(StepResult {
-                success: result.success,
-                exit_code: result.exit_code,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                json_log_location: result.json_log_location,
-            })
-        } else {
-            Err(MapReduceError::InvalidConfiguration {
-                reason: "Step must have either 'claude', 'shell', or 'write_file' command"
-                    .to_string(),
-                field: "step".to_string(),
-                value: format!("{:?}", step),
-            })
-        }
-    }
-
     /// Load work items from input source
     async fn load_work_items(&self, map_phase: &MapPhase) -> MapReduceResult<Vec<Value>> {
         info!("Loading work items from: {}", map_phase.config.input);
@@ -614,7 +532,226 @@ impl MapReduceCoordinator {
         Ok(items)
     }
 
-    /// Execute the map phase
+    /// Convert execution result to AgentResult with appropriate event logging
+    ///
+    /// This helper function handles the conversion of agent execution results,
+    /// logging appropriate events (completed or failed) and structuring the
+    /// AgentResult consistently.
+    async fn convert_execution_result_to_agent_result(
+        result: MapReduceResult<AgentResult>,
+        agent_id: String,
+        item_id: String,
+        duration: Duration,
+        event_logger: Arc<EventLogger>,
+    ) -> MapReduceResult<AgentResult> {
+        match result {
+            Ok(agent_result) => {
+                event_logger
+                    .log_event(MapReduceEvent::agent_completed(
+                        agent_id.clone(),
+                        item_id.clone(),
+                        chrono::Duration::from_std(duration)
+                            .unwrap_or(chrono::Duration::seconds(0)),
+                        None,
+                    ))
+                    .await
+                    .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+                Ok(agent_result)
+            }
+            Err(e) => {
+                event_logger
+                    .log_event(MapReduceEvent::agent_failed(
+                        agent_id.clone(),
+                        item_id.clone(),
+                        e.to_string(),
+                    ))
+                    .await
+                    .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+                Ok(AgentResult {
+                    item_id: item_id.clone(),
+                    status: AgentStatus::Failed(e.to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: std::time::Duration::from_secs(0),
+                    error: Some(e.to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: Some(agent_id),
+                    files_modified: vec![],
+                    json_log_location: None,
+                    cleanup_status: None,
+                })
+            }
+        }
+    }
+
+    /// Handle Dead Letter Queue integration for failed items
+    ///
+    /// This helper function manages DLQ operations for failed work items,
+    /// including retry tracking, error logging, and state updates.
+    async fn handle_dlq_for_failed_item(
+        agent_result: &AgentResult,
+        item: &Value,
+        item_id: &str,
+        dlq: Arc<DeadLetterQueue>,
+        retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+    ) {
+        // Get current attempt number for this item
+        let retry_counts_read = retry_counts.read().await;
+        let attempt_number = retry_tracking::get_item_attempt_number(item_id, &retry_counts_read);
+        drop(retry_counts_read); // Release read lock
+
+        if let Some(dlq_item) =
+            dlq_integration::agent_result_to_dlq_item(agent_result, item, attempt_number)
+        {
+            if let Err(e) = dlq.add(dlq_item).await {
+                warn!(
+                    "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
+                    agent_result.item_id, e
+                );
+            } else {
+                info!(
+                    "Added failed item {} to DLQ (attempt {})",
+                    agent_result.item_id, attempt_number
+                );
+
+                // Increment retry count in state
+                let mut retry_counts_write = retry_counts.write().await;
+                *retry_counts_write =
+                    retry_tracking::increment_retry_count(item_id, retry_counts_write.clone());
+            }
+        }
+    }
+
+    /// Process a single work item with complete agent lifecycle management
+    ///
+    /// This helper function orchestrates the complete execution flow for a single work item,
+    /// including semaphore acquisition, agent execution, result conversion, and DLQ integration.
+    #[allow(clippy::too_many_arguments)]
+    async fn process_single_work_item(
+        index: usize,
+        item: Value,
+        job_id: String,
+        map_phase: MapPhase,
+        env: ExecutionEnvironment,
+        semaphore: Arc<Semaphore>,
+        agent_manager: Arc<dyn AgentLifecycleManager>,
+        merge_queue: Arc<MergeQueue>,
+        event_logger: Arc<EventLogger>,
+        result_collector: Arc<ResultCollector>,
+        user_interaction: Arc<dyn UserInteraction>,
+        command_executor: CommandExecutor,
+        dlq: Arc<DeadLetterQueue>,
+        retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+        timeout_enforcer: Option<Arc<TimeoutEnforcer>>,
+        total_items: usize,
+    ) -> MapReduceResult<AgentResult> {
+        // Acquire semaphore permit
+        let _permit = semaphore.acquire().await.map_err(|e| {
+            MapReduceError::ProcessingError(format!("Failed to acquire semaphore: {}", e))
+        })?;
+
+        let item_id = format!("item_{}", index);
+        let agent_id = format!("{}_agent_{}", job_id, index);
+
+        // Log agent start
+        event_logger
+            .log_event(MapReduceEvent::agent_started(
+                agent_id.clone(),
+                item_id.clone(),
+            ))
+            .await
+            .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+        let start_time = Instant::now();
+
+        // Clone item for DLQ tracking in case of failure
+        let item_for_dlq = item.clone();
+
+        // Execute agent with item
+        let result = Self::execute_agent_for_item(
+            &agent_manager,
+            &merge_queue,
+            &agent_id,
+            &item_id,
+            item,
+            &map_phase,
+            &env,
+            &user_interaction,
+            &command_executor,
+            timeout_enforcer.as_ref(),
+            index,
+            total_items,
+        )
+        .await;
+
+        let duration = start_time.elapsed();
+
+        // Convert result to AgentResult
+        let agent_result = Self::convert_execution_result_to_agent_result(
+            result,
+            agent_id.clone(),
+            item_id.clone(),
+            duration,
+            event_logger.clone(),
+        )
+        .await?;
+
+        // Add result to collector
+        result_collector.add_result(agent_result.clone()).await;
+
+        // Add failed items to DLQ (graceful failure - don't break workflow)
+        Self::handle_dlq_for_failed_item(
+            &agent_result,
+            &item_for_dlq,
+            &item_id,
+            dlq.clone(),
+            retry_counts.clone(),
+        )
+        .await;
+
+        Ok(agent_result)
+    }
+
+    /// Collect results from agent futures, handling errors gracefully
+    ///
+    /// This helper function waits for all agent futures to complete,
+    /// collecting successful results and logging failures without breaking the workflow.
+    async fn collect_agent_results(
+        agent_futures: Vec<tokio::task::JoinHandle<MapReduceResult<AgentResult>>>,
+    ) -> Vec<AgentResult> {
+        let mut results = Vec::new();
+        for future in agent_futures {
+            match future.await {
+                Ok(Ok(result)) => results.push(result),
+                Ok(Err(e)) => {
+                    warn!("Agent execution failed: {}", e);
+                    // Continue processing other agents
+                }
+                Err(e) => {
+                    warn!("Agent task panicked: {}", e);
+                    // Continue processing other agents
+                }
+            }
+        }
+        results
+    }
+
+    /// Execute the map phase with parallel work item processing
+    ///
+    /// This orchestrates the map phase execution flow:
+    /// 1. Initialize semaphore for concurrency control
+    /// 2. Spawn parallel agents for each work item via `process_single_work_item`
+    /// 3. Collect and aggregate results via `collect_agent_results`
+    /// 4. Log summary metrics
+    ///
+    /// The function has been refactored to reduce complexity by extracting:
+    /// - Result conversion logic to `convert_execution_result_to_agent_result`
+    /// - DLQ integration to `handle_dlq_for_failed_item`
+    /// - Single item processing to `process_single_work_item`
+    /// - Future collection to `collect_agent_results`
     async fn execute_map_phase_internal(
         &self,
         map_phase: MapPhase,
@@ -643,7 +780,7 @@ impl MapReduceCoordinator {
         // Get the timeout enforcer if configured
         let timeout_enforcer = self.timeout_enforcer.lock().await.clone();
 
-        // Process items in parallel with controlled concurrency
+        // Spawn parallel agents for each work item
         let agent_futures: Vec<_> = work_items
             .into_iter()
             .enumerate()
@@ -654,8 +791,7 @@ impl MapReduceCoordinator {
                 let event_logger = Arc::clone(&self.event_logger);
                 let result_collector = Arc::clone(&self.result_collector);
                 let user_interaction = Arc::clone(&self.user_interaction);
-                let claude_executor = Arc::clone(&self.claude_executor);
-                let subprocess = Arc::clone(&self.subprocess);
+                let command_executor = self.command_executor.clone();
                 let dlq = Arc::clone(&self.dlq);
                 let retry_counts = Arc::clone(&self.retry_counts);
                 let map_phase = map_phase.clone();
@@ -663,150 +799,29 @@ impl MapReduceCoordinator {
                 let job_id = self.job_id.clone();
                 let timeout_enforcer = timeout_enforcer.clone();
 
-                tokio::spawn(async move {
-                    // Acquire semaphore permit
-                    let _permit = sem.acquire().await.map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Failed to acquire semaphore: {}",
-                            e
-                        ))
-                    })?;
-
-                    let item_id = format!("item_{}", index);
-                    let agent_id = format!("{}_agent_{}", job_id, index);
-
-                    // Log agent start
-                    event_logger
-                        .log_event(MapReduceEvent::agent_started(
-                            agent_id.clone(),
-                            item_id.clone(),
-                        ))
-                        .await
-                        .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                    let start_time = Instant::now();
-
-                    // Clone item for DLQ tracking in case of failure
-                    let item_for_dlq = item.clone();
-
-                    // Execute agent with item
-                    let result = Self::execute_agent_for_item(
-                        &agent_manager,
-                        &merge_queue,
-                        &agent_id,
-                        &item_id,
-                        item,
-                        &map_phase,
-                        &env,
-                        &user_interaction,
-                        &claude_executor,
-                        &subprocess,
-                        timeout_enforcer.as_ref(),
-                        index,
-                        total_items,
-                    )
-                    .await;
-
-                    let duration = start_time.elapsed();
-
-                    // Convert result to AgentResult
-                    let agent_result = match result {
-                        Ok(agent_result) => {
-                            event_logger
-                                .log_event(MapReduceEvent::agent_completed(
-                                    agent_id.clone(),
-                                    item_id.clone(),
-                                    chrono::Duration::from_std(duration)
-                                        .unwrap_or(chrono::Duration::seconds(0)),
-                                    None,
-                                ))
-                                .await
-                                .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                            agent_result
-                        }
-                        Err(e) => {
-                            event_logger
-                                .log_event(MapReduceEvent::agent_failed(
-                                    agent_id.clone(),
-                                    item_id.clone(),
-                                    e.to_string(),
-                                ))
-                                .await
-                                .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                            AgentResult {
-                                item_id: item_id.clone(),
-                                status: AgentStatus::Failed(e.to_string()),
-                                output: None,
-                                commits: vec![],
-                                duration: std::time::Duration::from_secs(0),
-                                error: Some(e.to_string()),
-                                worktree_path: None,
-                                branch_name: None,
-                                worktree_session_id: Some(agent_id),
-                                files_modified: vec![],
-                                json_log_location: None,
-                                cleanup_status: None,
-                            }
-                        }
-                    };
-
-                    // Add result to collector
-                    result_collector.add_result(agent_result.clone()).await;
-
-                    // Add failed items to DLQ (graceful failure - don't break workflow)
-                    // Get current attempt number for this item
-                    let retry_counts_read = retry_counts.read().await;
-                    let attempt_number = retry_tracking::get_item_attempt_number(
-                        &item_id,
-                        &retry_counts_read,
-                    );
-                    drop(retry_counts_read); // Release read lock
-
-                    if let Some(dlq_item) =
-                        dlq_integration::agent_result_to_dlq_item(&agent_result, &item_for_dlq, attempt_number)
-                    {
-                        if let Err(e) = dlq.add(dlq_item).await {
-                            warn!(
-                                "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
-                                agent_result.item_id, e
-                            );
-                        } else {
-                            info!(
-                                "Added failed item {} to DLQ (attempt {})",
-                                agent_result.item_id, attempt_number
-                            );
-
-                            // Increment retry count in state
-                            let mut retry_counts_write = retry_counts.write().await;
-                            *retry_counts_write = retry_tracking::increment_retry_count(
-                                &item_id,
-                                retry_counts_write.clone(),
-                            );
-                        }
-                    }
-
-                    Ok::<AgentResult, MapReduceError>(agent_result)
-                })
+                tokio::spawn(Self::process_single_work_item(
+                    index,
+                    item,
+                    job_id,
+                    map_phase,
+                    env,
+                    sem,
+                    agent_manager,
+                    merge_queue,
+                    event_logger,
+                    result_collector,
+                    user_interaction,
+                    command_executor,
+                    dlq,
+                    retry_counts,
+                    timeout_enforcer,
+                    total_items,
+                ))
             })
             .collect();
 
         // Wait for all agents to complete
-        let mut results = Vec::new();
-        for future in agent_futures {
-            match future.await {
-                Ok(Ok(result)) => results.push(result),
-                Ok(Err(e)) => {
-                    warn!("Agent execution failed: {}", e);
-                    // Continue processing other agents
-                }
-                Err(e) => {
-                    warn!("Agent task panicked: {}", e);
-                    // Continue processing other agents
-                }
-            }
-        }
+        let results = Self::collect_agent_results(agent_futures).await;
 
         // Log map phase completion
         let summary = AggregationSummary::from_results(&results);
@@ -1004,8 +1019,7 @@ impl MapReduceCoordinator {
     /// * `item_id` - ID of the work item
     /// * `agent_id` - ID of the agent
     /// * `env` - Execution environment
-    /// * `claude_executor` - Claude command executor
-    /// * `subprocess` - Subprocess manager
+    /// * `command_executor` - Command executor for running steps
     /// * `timeout_enforcer` - Optional timeout enforcer
     /// * `user_interaction` - User interaction handler
     ///
@@ -1018,9 +1032,8 @@ impl MapReduceCoordinator {
         item: &Value,
         item_id: &str,
         agent_id: &str,
-        env: &ExecutionEnvironment,
-        claude_executor: &Arc<dyn ClaudeExecutor>,
-        subprocess: &Arc<SubprocessManager>,
+        _env: &ExecutionEnvironment,
+        command_executor: &CommandExecutor,
         timeout_enforcer: Option<&Arc<TimeoutEnforcer>>,
         user_interaction: &Arc<dyn UserInteraction>,
     ) -> MapReduceResult<(String, Vec<String>, Vec<String>)> {
@@ -1045,16 +1058,14 @@ impl MapReduceCoordinator {
             let variables = Self::build_item_variables(item, item_id);
 
             // Execute the step in the agent's worktree
-            let step_result = Self::execute_step_in_agent_worktree(
-                handle.worktree_path(),
-                step,
-                &variables,
-                None, // Map phase doesn't need full context
-                env,
-                claude_executor,
-                subprocess,
-            )
-            .await?;
+            let step_result = command_executor
+                .execute_step_in_worktree(
+                    handle.worktree_path(),
+                    step,
+                    &variables,
+                    None, // Map phase doesn't need full context
+                )
+                .await?;
 
             // Notify timeout enforcer of command completion
             Self::register_command_lifecycle(
@@ -1079,9 +1090,7 @@ impl MapReduceCoordinator {
                         on_failure,
                         handle.worktree_path(),
                         &variables,
-                        env,
-                        claude_executor,
-                        subprocess,
+                        command_executor,
                         user_interaction,
                     )
                     .await?;
@@ -1168,8 +1177,7 @@ impl MapReduceCoordinator {
         map_phase: &MapPhase,
         env: &ExecutionEnvironment,
         user_interaction: &Arc<dyn UserInteraction>,
-        claude_executor: &Arc<dyn ClaudeExecutor>,
-        subprocess: &Arc<SubprocessManager>,
+        command_executor: &CommandExecutor,
         timeout_enforcer: Option<&Arc<TimeoutEnforcer>>,
         agent_index: usize,
         total_items: usize,
@@ -1214,8 +1222,7 @@ impl MapReduceCoordinator {
                 item_id,
                 agent_id,
                 env,
-                claude_executor,
-                subprocess,
+                command_executor,
                 timeout_enforcer,
                 user_interaction,
             )
@@ -1273,227 +1280,15 @@ impl MapReduceCoordinator {
         Ok(agent_result)
     }
 
-    /// Execute a step in an agent's worktree with variable interpolation
-    ///
-    /// # Arguments
-    ///
-    /// * `variables` - Limited scalar variables for environment variable export.
-    ///   Excludes large data like `map.results` to prevent E2BIG errors.
-    /// * `full_context` - Optional full interpolation context including large
-    ///   variables. Used for write_file commands to enable `${map.results}`.
-    ///   If None, falls back to building context from `variables` HashMap.
-    ///
-    /// # Variable Context Strategy
-    ///
-    /// - **Shell/Claude commands**: Use `variables` HashMap → converted to env vars
-    /// - **write_file commands**: Use `full_context` if provided for interpolation
-    /// - **Fallback**: If no `full_context`, build from `variables` (map phase)
-    async fn execute_step_in_agent_worktree(
-        worktree_path: &Path,
-        step: &WorkflowStep,
-        variables: &HashMap<String, String>,
-        full_context: Option<&InterpolationContext>,
-        _env: &ExecutionEnvironment,
-        claude_executor: &Arc<dyn ClaudeExecutor>,
-        subprocess: &Arc<SubprocessManager>,
-    ) -> MapReduceResult<StepResult> {
-        use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
-        use crate::subprocess::ProcessCommandBuilder;
-
-        // Create interpolation engine for variable substitution
-        let mut engine = InterpolationEngine::default();
-
-        // Build interpolation context with priority fallback
-        let interp_context = if let Some(full_ctx) = full_context {
-            // Use provided full context (for reduce phase with map.results)
-            full_ctx.clone()
-        } else {
-            // Build from limited variables HashMap (for map phase)
-            let mut ctx = InterpolationContext::new();
-
-            // Build a nested JSON structure for item variables
-            let mut item_obj = serde_json::Map::new();
-            let mut other_vars = serde_json::Map::new();
-
-            for (key, value) in variables {
-                if let Some(item_field) = key.strip_prefix("item.") {
-                    // Add to item object
-                    item_obj.insert(
-                        item_field.to_string(),
-                        serde_json::Value::String(value.clone()),
-                    );
-                } else {
-                    // Add as top-level variable
-                    other_vars.insert(key.clone(), serde_json::Value::String(value.clone()));
-                }
-            }
-
-            // Set the item object in context
-            if !item_obj.is_empty() {
-                ctx.set("item", serde_json::Value::Object(item_obj));
-            }
-
-            // Set other variables
-            for (key, value) in other_vars {
-                ctx.set(key, value);
-            }
-
-            ctx
-        };
-
-        // Execute based on step type
-        if let Some(claude_cmd) = &step.claude {
-            // Interpolate variables in command
-            let interpolated_cmd =
-                engine
-                    .interpolate(claude_cmd, &interp_context)
-                    .map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Variable interpolation failed: {}",
-                            e
-                        ))
-                    })?;
-
-            // Execute Claude command
-            info!("Executing Claude command in worktree: {}", interpolated_cmd);
-
-            let mut env_vars = HashMap::new();
-            env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-            env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "false".to_string());
-
-            let result = claude_executor
-                .execute_claude_command(&interpolated_cmd, worktree_path, env_vars)
-                .await
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!(
-                        "Failed to execute Claude command: {}",
-                        e
-                    ))
-                })?;
-
-            let json_log_location = result.json_log_location().map(|s| s.to_string());
-
-            Ok(StepResult {
-                success: result.success,
-                exit_code: result.exit_code,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                json_log_location,
-            })
-        } else if let Some(shell_cmd) = &step.shell {
-            // Debug: print context
-            debug!("Interpolating shell command: {}", shell_cmd);
-            debug!("Context variables: {:?}", interp_context);
-
-            // Interpolate variables in command
-            let interpolated_cmd = engine
-                .interpolate(shell_cmd, &interp_context)
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
-                })?;
-
-            // Execute shell command
-            info!("Executing shell command in worktree: {}", interpolated_cmd);
-
-            let command = ProcessCommandBuilder::new("sh")
-                .args(["-c", &interpolated_cmd])
-                .current_dir(worktree_path)
-                .envs(variables.clone())
-                .build();
-
-            let output = subprocess.runner().run(command).await.map_err(|e| {
-                MapReduceError::ProcessingError(format!("Failed to execute shell command: {}", e))
-            })?;
-
-            let exit_code = match output.status {
-                crate::subprocess::runner::ExitStatus::Success => 0,
-                crate::subprocess::runner::ExitStatus::Error(code) => code,
-                crate::subprocess::runner::ExitStatus::Timeout => -1,
-                crate::subprocess::runner::ExitStatus::Signal(sig) => -sig,
-            };
-
-            Ok(StepResult {
-                success: exit_code == 0,
-                exit_code: Some(exit_code),
-                stdout: output.stdout,
-                stderr: output.stderr,
-                json_log_location: None,
-            })
-        } else if let Some(write_file_cfg) = &step.write_file {
-            // Interpolate variables in path and content
-            let interpolated_path = engine
-                .interpolate(&write_file_cfg.path, &interp_context)
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!(
-                        "Variable interpolation failed for path: {}",
-                        e
-                    ))
-                })?;
-
-            let interpolated_content = engine
-                .interpolate(&write_file_cfg.content, &interp_context)
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!(
-                        "Variable interpolation failed for content: {}",
-                        e
-                    ))
-                })?;
-
-            // Create interpolated config
-            let interpolated_cfg = crate::config::command::WriteFileConfig {
-                path: interpolated_path,
-                content: interpolated_content,
-                format: write_file_cfg.format.clone(),
-                create_dirs: write_file_cfg.create_dirs,
-                mode: write_file_cfg.mode.clone(),
-            };
-
-            // Execute write_file command
-            info!(
-                "Executing write_file command in worktree: {}",
-                interpolated_cfg.path
-            );
-
-            let result =
-                crate::cook::workflow::execute_write_file_command(&interpolated_cfg, worktree_path)
-                    .await
-                    .map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Failed to execute write_file command: {}",
-                            e
-                        ))
-                    })?;
-
-            Ok(StepResult {
-                success: result.success,
-                exit_code: result.exit_code,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                json_log_location: result.json_log_location,
-            })
-        } else {
-            Err(MapReduceError::InvalidConfiguration {
-                reason: "Step must have either 'claude', 'shell', or 'write_file' command"
-                    .to_string(),
-                field: "step".to_string(),
-                value: format!("{:?}", step),
-            })
-        }
-    }
-
     /// Handle on_failure configuration
     #[cfg_attr(test, allow(dead_code))]
     pub(crate) async fn handle_on_failure(
         on_failure: &OnFailureConfig,
         worktree_path: &Path,
         variables: &HashMap<String, String>,
-        _env: &ExecutionEnvironment,
-        claude_executor: &Arc<dyn ClaudeExecutor>,
-        subprocess: &Arc<SubprocessManager>,
+        command_executor: &CommandExecutor,
         user_interaction: &Arc<dyn UserInteraction>,
     ) -> MapReduceResult<bool> {
-        use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
-
         // Extract commands based on OnFailureConfig variant
         let (claude_cmd, shell_cmd) = match on_failure {
             OnFailureConfig::Advanced { claude, shell, .. } => {
@@ -1511,79 +1306,38 @@ impl MapReduceCoordinator {
 
         // Execute Claude command if present
         if let Some(cmd) = claude_cmd {
-            let mut engine = InterpolationEngine::default();
-            let mut interp_context = InterpolationContext::new();
-            for (key, value) in variables {
-                interp_context.set(key.clone(), value.clone());
-            }
+            user_interaction
+                .display_progress(&format!("on_failure: Executing Claude command: {}", cmd));
+            info!("Executing on_failure Claude command: {}", cmd);
 
-            let interpolated_cmd = engine.interpolate(cmd, &interp_context).map_err(|e| {
-                MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
-            })?;
+            let step = WorkflowStep {
+                claude: Some(cmd.to_string()),
+                ..Default::default()
+            };
 
-            user_interaction.display_progress(&format!(
-                "on_failure: Executing Claude command: {}",
-                interpolated_cmd
-            ));
-            info!("Executing on_failure Claude command: {}", interpolated_cmd);
-
-            let mut env_vars = HashMap::new();
-            env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-            let result = claude_executor
-                .execute_claude_command(&interpolated_cmd, worktree_path, env_vars)
-                .await
-                .map_err(|e| {
-                    MapReduceError::ProcessingError(format!(
-                        "Failed to execute on_failure handler: {}",
-                        e
-                    ))
-                })?;
+            let result = command_executor
+                .execute_step_in_worktree(worktree_path, &step, variables, None)
+                .await?;
 
             return Ok(result.success);
         }
 
         // Execute shell command if present
         if let Some(cmd) = shell_cmd {
-            use crate::subprocess::ProcessCommandBuilder;
+            user_interaction
+                .display_progress(&format!("on_failure: Executing shell command: {}", cmd));
+            info!("Executing on_failure shell command: {}", cmd);
 
-            let mut engine = InterpolationEngine::default();
-            let mut interp_context = InterpolationContext::new();
-            for (key, value) in variables {
-                interp_context.set(key.clone(), value.clone());
-            }
-
-            let interpolated_cmd = engine.interpolate(cmd, &interp_context).map_err(|e| {
-                MapReduceError::ProcessingError(format!("Variable interpolation failed: {}", e))
-            })?;
-
-            user_interaction.display_progress(&format!(
-                "on_failure: Executing shell command: {}",
-                interpolated_cmd
-            ));
-            info!("Executing on_failure shell command: {}", interpolated_cmd);
-
-            let command = ProcessCommandBuilder::new("sh")
-                .args(["-c", &interpolated_cmd])
-                .current_dir(worktree_path)
-                .envs(variables.clone())
-                .build();
-
-            let output = subprocess.runner().run(command).await.map_err(|e| {
-                MapReduceError::ProcessingError(format!(
-                    "Failed to execute on_failure shell command: {}",
-                    e
-                ))
-            })?;
-
-            let exit_code = match output.status {
-                crate::subprocess::runner::ExitStatus::Success => 0,
-                crate::subprocess::runner::ExitStatus::Error(code) => code,
-                crate::subprocess::runner::ExitStatus::Timeout => -1,
-                crate::subprocess::runner::ExitStatus::Signal(sig) => -sig,
+            let step = WorkflowStep {
+                shell: Some(cmd.to_string()),
+                ..Default::default()
             };
 
-            return Ok(exit_code == 0);
+            let result = command_executor
+                .execute_step_in_worktree(worktree_path, &step, variables, None)
+                .await?;
+
+            return Ok(result.success);
         }
 
         // No handler to execute
@@ -1698,16 +1452,15 @@ impl MapReduceCoordinator {
                 reduce.commands.len()
             ));
 
-            let step_result = Self::execute_step_in_agent_worktree(
-                &env.working_dir,
-                step,
-                &variables,
-                Some(&full_context), // Reduce phase provides full context
-                env,
-                &self.claude_executor,
-                &self.subprocess,
-            )
-            .await?;
+            let step_result = self
+                .command_executor
+                .execute_step_in_worktree(
+                    &env.working_dir,
+                    step,
+                    &variables,
+                    Some(&full_context), // Reduce phase provides full context
+                )
+                .await?;
 
             if !step_result.success {
                 // Handle on_failure if configured
@@ -1721,9 +1474,7 @@ impl MapReduceCoordinator {
                         on_failure,
                         &env.working_dir,
                         &variables,
-                        env,
-                        &self.claude_executor,
-                        &self.subprocess,
+                        &self.command_executor,
                         &self.user_interaction,
                     )
                     .await?;

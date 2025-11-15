@@ -501,76 +501,112 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
 }
 
 impl WorkflowCommand {
+    /// Convert a `WorkflowCommand` to a unified `Command` representation
+    ///
+    /// This method handles the conversion of various workflow command formats
+    /// into a unified `Command` type suitable for execution. The conversion flow:
+    ///
+    /// 1. **Simple**: Direct string parsing via `Command::from_string`
+    /// 2. **Structured**: Clone the boxed Command
+    /// 3. **WorkflowStep**: Extract command string, parse, and apply metadata
+    /// 4. **SimpleObject**: Build command with optional args and metadata
+    ///
+    /// The method uses helper functions to maintain low complexity:
+    /// - `extract_command_string`: Handles command type branching
+    /// - `apply_workflow_metadata`: Configures commit and analysis settings
+    /// - `build_simple_command`: Constructs from SimpleCommand object
     #[must_use]
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
             WorkflowCommand::Structured(c) => *c.clone(),
             WorkflowCommand::WorkflowStep(step) => {
-                // Convert WorkflowStepCommand to Command
                 let step = &**step;
-                let command_str = if let Some(claude_cmd) = &step.claude {
-                    claude_cmd.clone()
-                } else if let Some(shell_cmd) = &step.shell {
-                    // For shell commands, we might need special handling
-                    // For now, treat it as a simple command
-                    format!("shell {shell_cmd}")
-                } else if let Some(_analyze_attrs) = &step.analyze {
-                    // Analyze commands are handled via modular handlers
-                    "analyze".to_string()
-                } else if let Some(test_cmd) = &step.test {
-                    // For test commands, we need special handling
-                    format!("test {}", test_cmd.command)
-                } else if let Some(goal_seek_config) = &step.goal_seek {
-                    // For goal_seek commands, we need special handling
-                    format!("goal_seek {}", goal_seek_config.goal)
-                } else if let Some(foreach_config) = &step.foreach {
-                    // For foreach commands, we need special handling
-                    match &foreach_config.input {
-                        ForeachInput::Command(cmd) => format!("foreach {}", cmd),
-                        ForeachInput::List(items) => format!("foreach {} items", items.len()),
-                    }
-                } else if let Some(write_file_config) = &step.write_file {
-                    // For write_file commands
-                    format!("write_file {}", write_file_config.path)
-                } else {
-                    // No command specified
-                    String::new()
-                };
-
+                let command_str = extract_command_string(step);
                 let mut cmd = Command::from_string(&command_str);
-
-                // Apply metadata
-                cmd.metadata.commit_required = step.commit_required;
-                if let Some(analysis) = &step.analysis {
-                    cmd.analysis = Some(analysis.clone());
-                    cmd.metadata.analysis = Some(analysis.clone());
-                }
-
-                // Apply ID and outputs
-                cmd.id = step.id.clone();
-                cmd.outputs = step.outputs.clone();
-
+                apply_workflow_metadata(&mut cmd, step);
                 cmd
             }
-            WorkflowCommand::SimpleObject(simple) => {
-                let mut cmd = Command::new(&simple.name);
-                if let Some(commit_required) = simple.commit_required {
-                    cmd.metadata.commit_required = commit_required;
-                }
-                if let Some(args) = &simple.args {
-                    for arg in args {
-                        cmd.args.push(CommandArg::parse(arg));
-                    }
-                }
-                if let Some(analysis) = simple.analysis.clone() {
-                    cmd.analysis = Some(analysis.clone());
-                    cmd.metadata.analysis = Some(analysis);
-                }
-                cmd
-            }
+            WorkflowCommand::SimpleObject(simple) => build_simple_command(simple),
         }
     }
+}
+
+/// Extract command string from a WorkflowStepCommand
+///
+/// Pure function that converts various command types (claude, shell, analyze, etc.)
+/// into a string representation suitable for Command::from_string.
+fn extract_command_string(step: &WorkflowStepCommand) -> String {
+    if let Some(claude_cmd) = &step.claude {
+        claude_cmd.clone()
+    } else if let Some(shell_cmd) = &step.shell {
+        // For shell commands, we might need special handling
+        // For now, treat it as a simple command
+        format!("shell {shell_cmd}")
+    } else if let Some(_analyze_attrs) = &step.analyze {
+        // Analyze commands are handled via modular handlers
+        "analyze".to_string()
+    } else if let Some(test_cmd) = &step.test {
+        // For test commands, we need special handling
+        format!("test {}", test_cmd.command)
+    } else if let Some(goal_seek_config) = &step.goal_seek {
+        // For goal_seek commands, we need special handling
+        format!("goal_seek {}", goal_seek_config.goal)
+    } else if let Some(foreach_config) = &step.foreach {
+        // For foreach commands, we need special handling
+        match &foreach_config.input {
+            ForeachInput::Command(cmd) => format!("foreach {cmd}"),
+            ForeachInput::List(items) => format!("foreach {} items", items.len()),
+        }
+    } else if let Some(write_file_config) = &step.write_file {
+        // For write_file commands
+        format!("write_file {}", write_file_config.path)
+    } else {
+        // No command specified
+        String::new()
+    }
+}
+
+/// Apply workflow metadata to a Command
+///
+/// Configures commit requirements, analysis settings, ID, and outputs
+/// from the WorkflowStepCommand to the Command.
+fn apply_workflow_metadata(cmd: &mut Command, step: &WorkflowStepCommand) {
+    // Apply metadata
+    cmd.metadata.commit_required = step.commit_required;
+    if let Some(analysis) = &step.analysis {
+        cmd.analysis = Some(analysis.clone());
+        cmd.metadata.analysis = Some(analysis.clone());
+    }
+
+    // Apply ID and outputs
+    cmd.id = step.id.clone();
+    cmd.outputs = step.outputs.clone();
+}
+
+/// Build a Command from a SimpleCommand
+///
+/// Constructs a Command with optional commit requirements, arguments,
+/// and analysis configuration from a SimpleCommand object.
+fn build_simple_command(simple: &SimpleCommand) -> Command {
+    let mut cmd = Command::new(&simple.name);
+
+    if let Some(commit_required) = simple.commit_required {
+        cmd.metadata.commit_required = commit_required;
+    }
+
+    if let Some(args) = &simple.args {
+        for arg in args {
+            cmd.args.push(CommandArg::parse(arg));
+        }
+    }
+
+    if let Some(analysis) = simple.analysis.clone() {
+        cmd.analysis = Some(analysis.clone());
+        cmd.metadata.analysis = Some(analysis);
+    }
+
+    cmd
 }
 
 impl Command {

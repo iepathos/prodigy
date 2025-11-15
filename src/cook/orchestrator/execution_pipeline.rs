@@ -2,6 +2,22 @@
 //!
 //! This module contains the logic for executing workflows, managing session state,
 //! and handling signal interrupts during execution.
+//!
+//! ## Pure Helper Functions
+//!
+//! This module includes several pure, testable helper functions that extract
+//! business logic from the main execution pipeline:
+//!
+//! - `build_variable_map`: Transforms command outputs into variable mappings
+//! - `build_command_string`: Constructs command strings from name and arguments
+//! - `should_store_outputs`: Determines if command outputs should be persisted
+//! - `build_step_description`: Creates human-readable step descriptions
+//!
+//! These functions are designed to be:
+//! - Pure (no side effects)
+//! - Independently testable
+//! - Easy to reason about
+//! - Focused on single responsibilities
 
 use crate::abstractions::git::GitOperations;
 use crate::cook::execution::claude::ClaudeExecutor;
@@ -16,6 +32,57 @@ use log::debug;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+
+/// Represents the outcome of a workflow execution
+#[derive(Debug, Clone, PartialEq)]
+enum ExecutionOutcome {
+    Success,
+    Interrupted,
+    Failed(String),
+}
+
+/// Classify the execution result based on result and session status
+fn classify_execution_result(
+    result: &Result<()>,
+    session_status: SessionStatus,
+) -> ExecutionOutcome {
+    match result {
+        Ok(_) => ExecutionOutcome::Success,
+        Err(e) => {
+            if session_status == SessionStatus::Interrupted {
+                ExecutionOutcome::Interrupted
+            } else {
+                ExecutionOutcome::Failed(e.to_string())
+            }
+        }
+    }
+}
+
+/// Determine if a checkpoint should be saved based on the outcome
+#[allow(dead_code)] // Reserved for future checkpoint optimization
+fn should_save_checkpoint(outcome: &ExecutionOutcome) -> bool {
+    matches!(outcome, ExecutionOutcome::Interrupted)
+}
+
+/// Generate the resume message for the user
+#[allow(dead_code)] // Reserved for future message centralization
+fn determine_resume_message(
+    session_id: &str,
+    playbook_path: &str,
+    outcome: &ExecutionOutcome,
+) -> Option<String> {
+    match outcome {
+        ExecutionOutcome::Interrupted => Some(format!(
+            "\nSession interrupted. Resume with: prodigy run {} --resume {}",
+            playbook_path, session_id
+        )),
+        ExecutionOutcome::Failed(_) => Some(format!(
+            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+            session_id
+        )),
+        ExecutionOutcome::Success => None,
+    }
+}
 
 /// Execution pipeline for coordinating workflow execution
 pub struct ExecutionPipeline {
@@ -94,15 +161,8 @@ impl ExecutionPipeline {
         Ok(())
     }
 
-    /// Setup signal handlers for graceful interruption
-    pub fn setup_signal_handlers(
-        &self,
-        config: &CookConfig,
-        session_id: &str,
-        worktree_name: Option<Arc<str>>,
-    ) -> Result<JoinHandle<()>> {
-        log::debug!("Setting up signal handlers");
-
+    /// Create a WorktreeManager from the config
+    fn create_worktree_manager(&self, config: &CookConfig) -> Result<WorktreeManager> {
         // Get merge config from workflow or mapreduce config
         let merge_config = config.workflow.merge.clone().or_else(|| {
             config
@@ -114,13 +174,142 @@ impl ExecutionPipeline {
         // Get workflow environment variables
         let workflow_env = config.workflow.env.clone().unwrap_or_default();
 
-        let worktree_manager = Arc::new(WorktreeManager::with_config(
+        WorktreeManager::with_config(
             config.project_path.to_path_buf(),
             self.subprocess.clone(),
             config.command.verbosity,
             merge_config,
             workflow_env,
-        )?);
+        )
+    }
+
+    /// Update worktree state to mark as interrupted
+    fn update_worktree_interrupted_state(
+        worktree_manager: &WorktreeManager,
+        worktree_name: &str,
+    ) -> Result<()> {
+        worktree_manager.update_session_state(worktree_name, |state| {
+            state.status = WorktreeStatus::Interrupted;
+            state.interrupted_at = Some(chrono::Utc::now());
+            state.interruption_type = Some(crate::worktree::InterruptionType::Unknown);
+            state.resumable = true;
+        })
+    }
+
+    /// Handle successful session completion
+    async fn handle_session_success(&self) -> Result<()> {
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+            .await?;
+        self.user_interaction
+            .display_success("Cook session completed successfully!");
+        Ok(())
+    }
+
+    /// Handle session interruption
+    async fn handle_session_interruption(
+        &self,
+        session_id: &str,
+        config: &CookConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Display resume message
+        let playbook_path = config
+            .workflow
+            .commands
+            .first()
+            .map(|_| config.command.playbook.display().to_string())
+            .unwrap_or_else(|| "<workflow>".to_string());
+
+        self.user_interaction.display_warning(&format!(
+            "\nSession interrupted. Resume with: prodigy run {} --resume {}",
+            playbook_path, session_id
+        ));
+
+        // Save checkpoint for resume
+        let checkpoint_path = env.working_dir.join(".prodigy").join("session_state.json");
+        self.session_manager.save_state(&checkpoint_path).await?;
+
+        // Update worktree state if using a worktree
+        if let Some(ref name) = env.worktree_name {
+            let worktree_manager = self.create_worktree_manager(config)?;
+            Self::update_worktree_interrupted_state(&worktree_manager, name.as_ref())?;
+        }
+
+        Ok(())
+    }
+
+    /// Handle session failure
+    async fn handle_session_failure(&self, error: &anyhow::Error, session_id: &str) -> Result<()> {
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+            .await?;
+        self.session_manager
+            .update_session(SessionUpdate::AddError(error.to_string()))
+            .await?;
+        self.user_interaction
+            .display_error(&format!("Session failed: {error}"));
+
+        // Display how to resume the session
+        let state = self
+            .session_manager
+            .get_state()
+            .context("Failed to get session state for resume info")?;
+        if state.workflow_state.is_some() {
+            self.user_interaction.display_info(&format!(
+                "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+                session_id
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Execute cleanup and complete the session
+    async fn execute_cleanup_and_completion(
+        &self,
+        cleanup_fn: impl std::future::Future<Output = Result<()>>,
+    ) -> Result<super::super::session::SessionSummary> {
+        // Run cleanup
+        cleanup_fn.await?;
+
+        // Complete session
+        self.session_manager.complete_session().await
+    }
+
+    /// Display session completion summary
+    async fn display_completion_summary(
+        &self,
+        summary: &super::super::session::SessionSummary,
+        config: &CookConfig,
+        display_health_fn: impl std::future::Future<Output = Result<()>>,
+    ) -> Result<()> {
+        // Don't display session stats in dry-run mode
+        if !config.command.dry_run {
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        }
+
+        // Display health score if metrics flag is set
+        if config.command.metrics {
+            display_health_fn.await?;
+        }
+
+        Ok(())
+    }
+
+    /// Setup signal handlers for graceful interruption
+    pub fn setup_signal_handlers(
+        &self,
+        config: &CookConfig,
+        session_id: &str,
+        worktree_name: Option<Arc<str>>,
+    ) -> Result<JoinHandle<()>> {
+        log::debug!("Setting up signal handlers");
+
+        let worktree_manager = Arc::new(self.create_worktree_manager(config)?);
 
         crate::cook::signal_handler::setup_interrupt_handlers(
             worktree_manager,
@@ -170,110 +359,41 @@ impl ExecutionPipeline {
         cleanup_fn: impl std::future::Future<Output = Result<()>>,
         display_health_fn: impl std::future::Future<Output = Result<()>>,
     ) -> Result<()> {
-        match execution_result {
-            Ok(_) => {
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+        // Classify the execution outcome
+        let session_status = if execution_result.is_err() {
+            self.session_manager
+                .get_state()
+                .context("Failed to get session state after cook error")?
+                .status
+        } else {
+            SessionStatus::InProgress
+        };
+
+        let outcome = classify_execution_result(&execution_result, session_status);
+
+        // Route to appropriate handler
+        match outcome {
+            ExecutionOutcome::Success => {
+                self.handle_session_success().await?;
+                let summary = self.execute_cleanup_and_completion(cleanup_fn).await?;
+                self.display_completion_summary(&summary, config, display_health_fn)
                     .await?;
-                self.user_interaction
-                    .display_success("Cook session completed successfully!");
+                Ok(())
             }
-            Err(e) => {
-                // Check if session was interrupted
-                let state = self
-                    .session_manager
-                    .get_state()
-                    .context("Failed to get session state after cook error")?;
-                if state.status == SessionStatus::Interrupted {
-                    self.user_interaction.display_warning(&format!(
-                        "\nSession interrupted. Resume with: prodigy run {} --resume {}",
-                        config
-                            .workflow
-                            .commands
-                            .first()
-                            .map(|_| config.command.playbook.display().to_string())
-                            .unwrap_or_else(|| "<workflow>".to_string()),
-                        env.session_id
-                    ));
-                    // Save checkpoint for resume
-                    let checkpoint_path =
-                        env.working_dir.join(".prodigy").join("session_state.json");
-                    self.session_manager.save_state(&checkpoint_path).await?;
-
-                    // Also update worktree state if using a worktree
-                    if let Some(ref name) = env.worktree_name {
-                        // Get merge config from workflow or mapreduce config
-                        let merge_config = config.workflow.merge.clone().or_else(|| {
-                            config
-                                .mapreduce_config
-                                .as_ref()
-                                .and_then(|m| m.merge.clone())
-                        });
-
-                        // Get workflow environment variables
-                        let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-                        let worktree_manager = WorktreeManager::with_config(
-                            config.project_path.to_path_buf(),
-                            self.subprocess.clone(),
-                            config.command.verbosity,
-                            merge_config,
-                            workflow_env,
-                        )?;
-                        worktree_manager.update_session_state(name.as_ref(), |state| {
-                            state.status = WorktreeStatus::Interrupted;
-                            state.interrupted_at = Some(chrono::Utc::now());
-                            state.interruption_type =
-                                Some(crate::worktree::InterruptionType::Unknown);
-                            state.resumable = true;
-                        })?;
-                    }
-                } else {
-                    self.session_manager
-                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                        .await?;
-                    self.session_manager
-                        .update_session(SessionUpdate::AddError(e.to_string()))
-                        .await?;
-                    self.user_interaction
-                        .display_error(&format!("Session failed: {e}"));
-
-                    // Display how to resume the session
-                    let state = self
-                        .session_manager
-                        .get_state()
-                        .context("Failed to get session state for resume info")?;
-                    if state.workflow_state.is_some() {
-                        self.user_interaction.display_info(&format!(
-                            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
-                            env.session_id
-                        ));
-                    }
-                }
-                return Err(e);
+            ExecutionOutcome::Interrupted => {
+                self.handle_session_interruption(&env.session_id, config, env)
+                    .await?;
+                execution_result
+            }
+            ExecutionOutcome::Failed(_) => {
+                self.handle_session_failure(
+                    execution_result.as_ref().unwrap_err(),
+                    &env.session_id,
+                )
+                .await?;
+                execution_result
             }
         }
-
-        // Cleanup
-        cleanup_fn.await?;
-
-        // Complete session
-        let summary = self.session_manager.complete_session().await?;
-
-        // Don't display session stats in dry-run mode
-        if !config.command.dry_run {
-            self.user_interaction.display_info(&format!(
-                "Session complete: {} iterations, {} files changed",
-                summary.iterations, summary.files_changed
-            ));
-        }
-
-        // Display health score if metrics flag is set
-        if config.command.metrics {
-            display_health_fn.await?;
-        }
-
-        Ok(())
     }
 
     /// Validate that a session is in a resumable state
@@ -624,17 +744,7 @@ impl ExecutionPipeline {
                 crate::config::apply_command_defaults(&mut command);
 
                 // Display step start with description
-                let step_description = format!(
-                    "{}: {}",
-                    command.name,
-                    command
-                        .args
-                        .iter()
-                        .map(|a| a.resolve(&HashMap::new()))
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                );
+                let step_description = build_step_description(&command.name, &command.args);
                 self.user_interaction.step_start(
                     (step_index + 1) as u32,
                     config.workflow.commands.len() as u32,
@@ -644,29 +754,11 @@ impl ExecutionPipeline {
                 // Analysis functionality has been removed in v0.3.0
 
                 // Resolve variables from command outputs for use in variable expansion
-                let mut resolved_variables = HashMap::new();
-
-                // Collect all available outputs as variables
-                for (cmd_id, outputs) in &command_outputs {
-                    for (output_name, value) in outputs {
-                        let var_name = format!("{cmd_id}.{output_name}");
-                        resolved_variables.insert(var_name, value.clone());
-                    }
-                }
-
-                // The command args already contain variable references that will be
-                // expanded by the command parser
-                let final_args = command.args.clone();
+                let resolved_variables = build_variable_map(&command_outputs);
 
                 // Build final command string with resolved arguments
-                let mut cmd_parts = vec![format!("/{}", command.name)];
-                for arg in &final_args {
-                    let resolved_arg = arg.resolve(&resolved_variables);
-                    if !resolved_arg.is_empty() {
-                        cmd_parts.push(resolved_arg);
-                    }
-                }
-                let final_command = cmd_parts.join(" ");
+                let final_command =
+                    build_command_string(&command.name, &command.args, &resolved_variables);
 
                 self.user_interaction
                     .display_action(&format!("Executing command: {final_command}"));
@@ -727,11 +819,13 @@ impl ExecutionPipeline {
                         }
                     }
 
-                    // Store outputs for this command
-                    if let Some(ref id) = command.id {
-                        command_outputs.insert(id.clone(), cmd_output_map);
-                        self.user_interaction
-                            .display_success(&format!("💾 Stored outputs for command '{id}'"));
+                    // Store outputs for this command if it has an ID
+                    if should_store_outputs(&command.id) {
+                        if let Some(ref id) = command.id {
+                            command_outputs.insert(id.clone(), cmd_output_map);
+                            self.user_interaction
+                                .display_success(&format!("💾 Stored outputs for command '{id}'"));
+                        }
                     }
                 }
             }
@@ -930,5 +1024,325 @@ impl ExecutionPipeline {
         }
 
         result
+    }
+}
+
+/// Build a variable map from command outputs
+///
+/// This pure function takes command outputs and transforms them into a flat
+/// map of variables with names in the format "command_id.output_name".
+///
+/// # Arguments
+/// * `command_outputs` - Map of command IDs to their output maps
+///
+/// # Returns
+/// A flat HashMap where keys are "command_id.output_name" and values are the output values
+fn build_variable_map(
+    command_outputs: &HashMap<String, HashMap<String, String>>,
+) -> HashMap<String, String> {
+    let mut resolved_variables = HashMap::new();
+
+    // Collect all available outputs as variables
+    for (cmd_id, outputs) in command_outputs {
+        for (output_name, value) in outputs {
+            let var_name = format!("{cmd_id}.{output_name}");
+            resolved_variables.insert(var_name, value.clone());
+        }
+    }
+
+    resolved_variables
+}
+
+/// Build a command string from command name and arguments
+///
+/// This pure function constructs a complete command string by combining the
+/// command name with resolved arguments, filtering out empty arguments.
+///
+/// # Arguments
+/// * `command_name` - The name of the command (without leading '/')
+/// * `args` - The command arguments to resolve
+/// * `variables` - Map of variables for argument resolution
+///
+/// # Returns
+/// A complete command string with format "/<command_name> <arg1> <arg2> ..."
+fn build_command_string(
+    command_name: &str,
+    args: &[crate::config::command::CommandArg],
+    variables: &HashMap<String, String>,
+) -> String {
+    let mut cmd_parts = vec![format!("/{command_name}")];
+    for arg in args {
+        let resolved_arg = arg.resolve(variables);
+        if !resolved_arg.is_empty() {
+            cmd_parts.push(resolved_arg);
+        }
+    }
+    cmd_parts.join(" ")
+}
+
+/// Determine if command outputs should be stored
+///
+/// This pure function checks if a command has an ID, which determines whether
+/// its outputs should be stored for later reference by other commands.
+///
+/// # Arguments
+/// * `command_id` - Optional command ID
+///
+/// # Returns
+/// true if outputs should be stored, false otherwise
+fn should_store_outputs(command_id: &Option<String>) -> bool {
+    command_id.is_some()
+}
+
+/// Build a step description from command name and arguments
+///
+/// This pure function constructs a human-readable step description by
+/// combining the command name with resolved arguments, filtering out empty ones.
+///
+/// # Arguments
+/// * `command_name` - The name of the command
+/// * `args` - The command arguments to resolve
+///
+/// # Returns
+/// A formatted string like "command_name: arg1 arg2 arg3"
+fn build_step_description(
+    command_name: &str,
+    args: &[crate::config::command::CommandArg],
+) -> String {
+    let args_str = args
+        .iter()
+        .map(|a| a.resolve(&HashMap::new()))
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if args_str.is_empty() {
+        command_name.to_string()
+    } else {
+        format!("{command_name}: {args_str}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_classify_execution_result_success() {
+        let result: Result<()> = Ok(());
+        let outcome = classify_execution_result(&result, SessionStatus::InProgress);
+        assert_eq!(outcome, ExecutionOutcome::Success);
+    }
+
+    #[test]
+    fn test_classify_execution_result_interrupted() {
+        let result: Result<()> = Err(anyhow!("interrupted"));
+        let outcome = classify_execution_result(&result, SessionStatus::Interrupted);
+        assert_eq!(outcome, ExecutionOutcome::Interrupted);
+    }
+
+    #[test]
+    fn test_classify_execution_result_failed() {
+        let result: Result<()> = Err(anyhow!("test error"));
+        let outcome = classify_execution_result(&result, SessionStatus::InProgress);
+        match outcome {
+            ExecutionOutcome::Failed(msg) => assert!(msg.contains("test error")),
+            _ => panic!("Expected Failed outcome"),
+        }
+    }
+
+    #[test]
+    fn test_should_save_checkpoint_on_interrupted() {
+        let outcome = ExecutionOutcome::Interrupted;
+        assert!(should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_should_not_save_checkpoint_on_success() {
+        let outcome = ExecutionOutcome::Success;
+        assert!(!should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_should_not_save_checkpoint_on_failed() {
+        let outcome = ExecutionOutcome::Failed("error".to_string());
+        assert!(!should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_determine_resume_message_interrupted() {
+        let outcome = ExecutionOutcome::Interrupted;
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_some());
+        assert!(message
+            .unwrap()
+            .contains("prodigy run workflow.yml --resume session-123"));
+    }
+
+    #[test]
+    fn test_determine_resume_message_failed() {
+        let outcome = ExecutionOutcome::Failed("error".to_string());
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_some());
+        assert!(message.unwrap().contains("prodigy resume session-123"));
+    }
+
+    #[test]
+    fn test_determine_resume_message_success() {
+        let outcome = ExecutionOutcome::Success;
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_none());
+    }
+
+    #[test]
+    fn test_build_variable_map_empty() {
+        let command_outputs = HashMap::new();
+        let result = build_variable_map(&command_outputs);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_build_variable_map_single_command_single_output() {
+        let mut command_outputs = HashMap::new();
+        let mut outputs = HashMap::new();
+        outputs.insert("result".to_string(), "value1".to_string());
+        command_outputs.insert("cmd1".to_string(), outputs);
+
+        let result = build_variable_map(&command_outputs);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get("cmd1.result"), Some(&"value1".to_string()));
+    }
+
+    #[test]
+    fn test_build_variable_map_multiple_commands_multiple_outputs() {
+        let mut command_outputs = HashMap::new();
+
+        let mut outputs1 = HashMap::new();
+        outputs1.insert("result".to_string(), "value1".to_string());
+        outputs1.insert("status".to_string(), "ok".to_string());
+        command_outputs.insert("cmd1".to_string(), outputs1);
+
+        let mut outputs2 = HashMap::new();
+        outputs2.insert("output".to_string(), "data".to_string());
+        command_outputs.insert("cmd2".to_string(), outputs2);
+
+        let result = build_variable_map(&command_outputs);
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result.get("cmd1.result"), Some(&"value1".to_string()));
+        assert_eq!(result.get("cmd1.status"), Some(&"ok".to_string()));
+        assert_eq!(result.get("cmd2.output"), Some(&"data".to_string()));
+    }
+
+    #[test]
+    fn test_build_command_string_no_args() {
+        use crate::config::command::CommandArg;
+        let args: Vec<CommandArg> = vec![];
+        let variables = HashMap::new();
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd");
+    }
+
+    #[test]
+    fn test_build_command_string_with_static_args() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("arg2".to_string()),
+        ];
+        let variables = HashMap::new();
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd arg1 arg2");
+    }
+
+    #[test]
+    fn test_build_command_string_with_variable_references() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Variable("FILE".to_string()),
+            CommandArg::Literal("--flag".to_string()),
+        ];
+        let mut variables = HashMap::new();
+        variables.insert("FILE".to_string(), "test.txt".to_string());
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd test.txt --flag");
+    }
+
+    #[test]
+    fn test_build_command_string_filters_empty_args() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("".to_string()), // Empty literal will be filtered
+            CommandArg::Literal("arg2".to_string()),
+        ];
+        let variables = HashMap::new();
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd arg1 arg2");
+    }
+
+    #[test]
+    fn test_should_store_outputs_with_id() {
+        let command_id = Some("cmd1".to_string());
+        assert!(should_store_outputs(&command_id));
+    }
+
+    #[test]
+    fn test_should_store_outputs_without_id() {
+        let command_id: Option<String> = None;
+        assert!(!should_store_outputs(&command_id));
+    }
+
+    #[test]
+    fn test_should_store_outputs_with_empty_id() {
+        // Even an empty string ID should allow storage
+        let command_id = Some("".to_string());
+        assert!(should_store_outputs(&command_id));
+    }
+
+    #[test]
+    fn test_build_step_description_no_args() {
+        use crate::config::command::CommandArg;
+        let args: Vec<CommandArg> = vec![];
+
+        let result = build_step_description("test-cmd", &args);
+
+        assert_eq!(result, "test-cmd");
+    }
+
+    #[test]
+    fn test_build_step_description_with_args() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("arg2".to_string()),
+        ];
+
+        let result = build_step_description("test-cmd", &args);
+
+        assert_eq!(result, "test-cmd: arg1 arg2");
+    }
+
+    #[test]
+    fn test_build_step_description_filters_empty() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("".to_string()), // Empty arg
+            CommandArg::Literal("arg2".to_string()),
+        ];
+
+        let result = build_step_description("test-cmd", &args);
+
+        assert_eq!(result, "test-cmd: arg1 arg2");
     }
 }

@@ -1321,4 +1321,410 @@ mod tests {
         assert!(checkpoint_dir.join("failed-1.checkpoint.json").exists());
         assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
     }
+
+    // ========================================================================
+    // Integration Tests for run_checkpoints_command Entry Point
+    // ========================================================================
+
+    mod test_run_checkpoints_command {
+        use super::*;
+        use crate::cli::args::CheckpointCommands;
+
+        /// Helper to set up a temporary checkpoint directory structure
+        async fn setup_test_checkpoint_env() -> (TempDir, PathBuf) {
+            let temp_dir = TempDir::new().expect("Failed to create temp dir");
+            let working_dir = temp_dir.path().to_path_buf();
+
+            // Create .prodigy directory structure
+            let prodigy_dir = working_dir.join(".prodigy");
+            fs::create_dir_all(&prodigy_dir)
+                .await
+                .expect("Failed to create .prodigy dir");
+
+            (temp_dir, working_dir)
+        }
+
+        /// Helper to create checkpoint directory with test data
+        /// This creates checkpoints in the GlobalStorage structure
+        async fn create_checkpoint_with_data(
+            working_dir: &Path,
+            workflow_id: &str,
+            status: WorkflowStatus,
+        ) {
+            // Initialize storage to get the proper checkpoint directory
+            let (_storage, _repo_name, checkpoint_dir) = initialize_checkpoint_storage(working_dir)
+                .await
+                .expect("Failed to initialize storage");
+
+            // Ensure checkpoint directory exists
+            fs::create_dir_all(&checkpoint_dir)
+                .await
+                .expect("Failed to create checkpoint dir");
+
+            let checkpoint = create_test_checkpoint(status);
+            save_checkpoint_to_file(&checkpoint_dir, workflow_id, &checkpoint)
+                .await
+                .expect("Failed to save checkpoint");
+        }
+
+        // Tests for List command
+
+        #[tokio::test]
+        async fn test_list_command_with_workflow_id() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: Some("test-workflow-1".to_string()),
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_without_workflow_id() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-2", WorkflowStatus::Completed)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_no_checkpoints() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_verbose_mode() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: Some("test-workflow-1".to_string()),
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 1).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_nonexistent_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: Some("nonexistent-workflow".to_string()),
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should not error, just indicate not found
+            assert!(result.is_ok());
+        }
+
+        // Tests for Clean command
+
+        #[tokio::test]
+        async fn test_clean_command_with_workflow_id() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            // Get the checkpoint directory first
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir)
+                    .await
+                    .expect("Failed to initialize storage");
+
+            // Create checkpoint directory
+            fs::create_dir_all(&checkpoint_dir)
+                .await
+                .expect("Failed to create checkpoint dir");
+
+            // Note: clean_specific_checkpoint looks for {workflow_id}.json (not .checkpoint.json)
+            // This appears to be a bug, but we test the actual behavior
+            let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
+            let checkpoint_path = checkpoint_dir.join("test-workflow-1.json");
+            let json =
+                serde_json::to_string_pretty(&checkpoint).expect("Failed to serialize checkpoint");
+            fs::write(&checkpoint_path, json)
+                .await
+                .expect("Failed to save checkpoint");
+
+            let command = CheckpointCommands::Clean {
+                workflow_id: Some("test-workflow-1".to_string()),
+                all: false,
+                force: true, // Use force to skip confirmation
+                path: Some(working_dir.clone()),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+
+            // Verify checkpoint was deleted
+            assert!(!checkpoint_path.exists());
+        }
+
+        #[tokio::test]
+        async fn test_clean_command_with_all_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "completed-1", WorkflowStatus::Completed)
+                .await;
+            create_checkpoint_with_data(&working_dir, "completed-2", WorkflowStatus::Completed)
+                .await;
+            create_checkpoint_with_data(&working_dir, "running-1", WorkflowStatus::Running).await;
+
+            let command = CheckpointCommands::Clean {
+                workflow_id: None,
+                all: true,
+                force: true,
+                path: Some(working_dir.clone()),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+
+            // Verify completed checkpoints deleted, running not deleted
+            let (_storage, _repo_name, checkpoint_dir) =
+                initialize_checkpoint_storage(&working_dir)
+                    .await
+                    .expect("Failed to initialize storage");
+            assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
+            assert!(!checkpoint_dir.join("completed-2.checkpoint.json").exists());
+            assert!(checkpoint_dir.join("running-1.checkpoint.json").exists());
+        }
+
+        #[tokio::test]
+        async fn test_clean_command_invalid_request() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Completed)
+                .await;
+
+            // Neither workflow_id nor all flag specified
+            let command = CheckpointCommands::Clean {
+                workflow_id: None,
+                all: false,
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should succeed but print message
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_clean_command_no_checkpoints() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Clean {
+                workflow_id: None,
+                all: true,
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_clean_command_nonexistent_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Completed)
+                .await;
+
+            let command = CheckpointCommands::Clean {
+                workflow_id: Some("nonexistent-workflow".to_string()),
+                all: false,
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should succeed, no error if workflow doesn't exist
+            assert!(result.is_ok());
+        }
+
+        // Tests for Show command
+
+        #[tokio::test]
+        async fn test_show_command_with_valid_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::Show {
+                workflow_id: "test-workflow-1".to_string(),
+                version: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_show_command_with_nonexistent_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Show {
+                workflow_id: "nonexistent-workflow".to_string(),
+                version: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Show command prints error message but returns Ok
+            assert!(result.is_ok());
+        }
+
+        // Tests for Validate command
+        // Note: Validate works with MapReduce checkpoints, not workflow checkpoints
+
+        #[tokio::test]
+        async fn test_validate_command_nonexistent_checkpoint() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Validate {
+                checkpoint_id: "nonexistent-checkpoint".to_string(),
+                repair: false,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Validate returns error for nonexistent MapReduce checkpoints
+            assert!(result.is_err());
+        }
+
+        #[tokio::test]
+        async fn test_validate_command_with_repair_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Validate {
+                checkpoint_id: "test-checkpoint".to_string(),
+                repair: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Returns error but repair flag is exercised
+            assert!(result.is_err());
+        }
+
+        // Tests for MapReduce command
+
+        #[tokio::test]
+        async fn test_mapreduce_command_basic() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::MapReduce {
+                job_id: "test-job-123".to_string(),
+                detailed: false,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should succeed even if job doesn't exist
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_mapreduce_command_with_detailed_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::MapReduce {
+                job_id: "test-job-123".to_string(),
+                detailed: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_mapreduce_command_nonexistent_job() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::MapReduce {
+                job_id: "nonexistent-job".to_string(),
+                detailed: false,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should handle nonexistent jobs gracefully
+            assert!(result.is_ok());
+        }
+
+        // Tests for Delete command
+
+        #[tokio::test]
+        async fn test_delete_command_basic() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Delete {
+                checkpoint_id: "test-checkpoint".to_string(),
+                force: true, // Use force to avoid confirmation prompts
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should succeed even if checkpoint doesn't exist
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_delete_command_with_force_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::Delete {
+                checkpoint_id: "test-workflow-1".to_string(),
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_delete_command_nonexistent_checkpoint() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Delete {
+                checkpoint_id: "nonexistent-checkpoint".to_string(),
+                force: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should handle nonexistent checkpoints gracefully
+            assert!(result.is_ok());
+        }
+    }
 }

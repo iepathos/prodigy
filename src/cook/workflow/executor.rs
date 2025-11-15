@@ -67,8 +67,7 @@ use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
-use anyhow::{anyhow, Context, Result};
-use chrono::Utc;
+use anyhow::{anyhow, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
@@ -152,176 +151,213 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<StepResult> {
-        // Inject error context as variables
+        // 1. Inject error context
         let step_name = self.get_step_display_name(step);
-        ctx.variables
-            .insert("error.message".to_string(), result.stderr.clone());
-        ctx.variables.insert(
-            "error.exit_code".to_string(),
-            result.exit_code.unwrap_or(-1).to_string(),
+        let error_vars = failure_handler::create_error_context_variables(
+            &result.stderr,
+            result.exit_code,
+            &step_name,
         );
-        ctx.variables
-            .insert("error.step".to_string(), step_name.clone());
-        ctx.variables
-            .insert("error.timestamp".to_string(), Utc::now().to_rfc3339());
+        for (key, value) in error_vars {
+            ctx.variables.insert(key, value);
+        }
 
-        // Get handler commands
+        // 2. Execute handler (new or legacy)
         let handler_commands = on_failure_config.handler_commands();
-
         if !handler_commands.is_empty() {
-            let strategy = on_failure_config.strategy();
-            self.user_interaction.display_info(&format!(
-                "Executing on_failure handler ({:?} strategy)...",
-                strategy
+            result = self
+                .handle_new_style_failure(
+                    step,
+                    result,
+                    on_failure_config,
+                    &handler_commands,
+                    env,
+                    ctx,
+                )
+                .await?;
+        } else if let Some(handler) = on_failure_config.handler() {
+            result = self
+                .handle_legacy_failure(step, result, on_failure_config, &handler, env, ctx)
+                .await?;
+        }
+
+        // 3. Cleanup error context
+        for key in failure_handler::get_error_context_keys() {
+            ctx.variables.remove(key);
+        }
+
+        Ok(result)
+    }
+
+    /// Execute handler commands in sequence
+    ///
+    /// Returns (success, outputs) tuple indicating if all handlers succeeded and their outputs.
+    async fn execute_handler_commands(
+        &mut self,
+        handler_commands: &[crate::cook::workflow::on_failure::HandlerCommand],
+        timeout: Option<u64>,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<(bool, Vec<String>)> {
+        let mut handler_success = true;
+        let mut handler_outputs = Vec::new();
+
+        for (idx, cmd) in handler_commands.iter().enumerate() {
+            self.user_interaction.display_progress(&format!(
+                "Handler command {}/{}",
+                idx + 1,
+                handler_commands.len()
             ));
 
-            let mut handler_success = true;
-            let mut handler_outputs = Vec::new();
+            let handler_step = failure_handler::create_handler_step(cmd, timeout);
 
-            // Execute each handler command
-            for (idx, cmd) in handler_commands.iter().enumerate() {
-                self.user_interaction.display_progress(&format!(
-                    "Handler command {}/{}",
-                    idx + 1,
-                    handler_commands.len()
-                ));
-
-                // Create a WorkflowStep from the HandlerCommand
-                let handler_step = WorkflowStep {
-                    name: None,
-                    shell: cmd.shell.clone(),
-                    claude: cmd.claude.clone(),
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    write_file: None,
-                    command: None,
-                    handler: None,
-                    capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    auto_commit: false,
-                    commit_config: None,
-                    output_file: None,
-                    timeout: on_failure_config.handler_timeout(),
-                    capture_output: CaptureOutput::Disabled,
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: Default::default(),
-                    commit_required: false,
-                    working_dir: None,
-                    env: Default::default(),
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                };
-
-                // Execute the handler command
-                match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
-                    Ok(handler_result) => {
-                        handler_outputs.push(handler_result.stdout.clone());
-                        if !handler_result.success && !cmd.continue_on_error {
-                            handler_success = false;
-                            self.user_interaction
-                                .display_error(&format!("Handler command {} failed", idx + 1));
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        self.user_interaction.display_error(&format!(
-                            "Handler command {} error: {}",
-                            idx + 1,
-                            e
-                        ));
-                        if !cmd.continue_on_error {
-                            handler_success = false;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Add handler output to result
-            result = failure_handler::append_handler_output(result, &handler_outputs);
-
-            // Create handler result for strategy determination
-            let handler_result = failure_handler::FailureHandlerResult {
-                success: handler_success,
-                outputs: handler_outputs,
-                recovered: false,
-            };
-
-            // Check if step should be marked as recovered
-            if failure_handler::determine_recovery_strategy(&handler_result, strategy) {
-                self.user_interaction
-                    .display_success("Step recovered through on_failure handler");
-                result = failure_handler::mark_step_recovered(result);
-            }
-
-            // Check if handler failure should be fatal
-            if failure_handler::is_handler_failure_fatal(handler_success, on_failure_config) {
-                return Err(anyhow!("Handler failure is fatal"));
-            }
-
-            // Check if we should retry the original command
-            if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
-                let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-                for retry in 1..=max_retries {
-                    self.user_interaction.display_info(&format!(
-                        "Retrying original command (attempt {}/{})",
-                        retry, max_retries
-                    ));
-                    // Create a copy of the step without on_failure to avoid recursion
-                    let mut retry_step = step.clone();
-                    retry_step.on_failure = None;
-                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                    if retry_result.success {
-                        result = retry_result;
+            match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
+                Ok(handler_result) => {
+                    handler_outputs.push(handler_result.stdout.clone());
+                    if !handler_result.success && !cmd.continue_on_error {
+                        handler_success = false;
+                        self.user_interaction
+                            .display_error(&format!("Handler command {} failed", idx + 1));
                         break;
                     }
                 }
-            }
-        } else if let Some(handler) = on_failure_config.handler() {
-            // Fallback to legacy handler for backward compatibility
-            self.user_interaction
-                .display_info("Executing on_failure handler...");
-            let failure_result = Box::pin(self.execute_step(&handler, env, ctx)).await?;
-            result = failure_handler::append_handler_output(
-                result,
-                std::slice::from_ref(&failure_result.stdout),
-            );
-
-            // Check if we should retry the original command
-            if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
-                let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-                for retry in 1..=max_retries {
-                    self.user_interaction.display_info(&format!(
-                        "Retrying original command (attempt {}/{})",
-                        retry, max_retries
+                Err(e) => {
+                    self.user_interaction.display_error(&format!(
+                        "Handler command {} error: {}",
+                        idx + 1,
+                        e
                     ));
-                    // Create a copy of the step without on_failure to avoid recursion
-                    let mut retry_step = step.clone();
-                    retry_step.on_failure = None;
-                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                    if retry_result.success {
-                        result = retry_result;
+                    if !cmd.continue_on_error {
+                        handler_success = false;
                         break;
                     }
                 }
             }
         }
 
-        // Clear error variables from context
-        ctx.variables.remove("error.message");
-        ctx.variables.remove("error.exit_code");
-        ctx.variables.remove("error.step");
-        ctx.variables.remove("error.timestamp");
+        Ok((handler_success, handler_outputs))
+    }
+
+    /// Handle failure with new-style handler commands
+    async fn handle_new_style_failure(
+        &mut self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+        on_failure_config: &OnFailureConfig,
+        handler_commands: &[crate::cook::workflow::on_failure::HandlerCommand],
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        let strategy = on_failure_config.strategy();
+        self.user_interaction.display_info(&format!(
+            "Executing on_failure handler ({:?} strategy)...",
+            strategy
+        ));
+
+        // Execute handler commands
+        let (handler_success, handler_outputs) = self
+            .execute_handler_commands(
+                handler_commands,
+                on_failure_config.handler_timeout(),
+                env,
+                ctx,
+            )
+            .await?;
+
+        // Add handler output to result
+        result = failure_handler::append_handler_output(result, &handler_outputs);
+
+        // Create handler result for strategy determination
+        let handler_result = failure_handler::FailureHandlerResult {
+            success: handler_success,
+            outputs: handler_outputs,
+            recovered: false,
+        };
+
+        // Check if step should be marked as recovered
+        if failure_handler::determine_recovery_strategy(&handler_result, strategy) {
+            self.user_interaction
+                .display_success("Step recovered through on_failure handler");
+            result = failure_handler::mark_step_recovered(result);
+        }
+
+        // Check if handler failure should be fatal
+        if failure_handler::is_handler_failure_fatal(handler_success, on_failure_config) {
+            return Err(anyhow!("Handler failure is fatal"));
+        }
+
+        // Check if we should retry the original command
+        if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
+            let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
+            if let Some(retry_result) = self
+                .retry_original_command(step, max_retries, env, ctx)
+                .await?
+            {
+                result = retry_result;
+            }
+        }
 
         Ok(result)
+    }
+
+    /// Handle failure with legacy handler
+    async fn handle_legacy_failure(
+        &mut self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+        on_failure_config: &OnFailureConfig,
+        handler: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        self.user_interaction
+            .display_info("Executing on_failure handler...");
+        let failure_result = Box::pin(self.execute_step(handler, env, ctx)).await?;
+        result = failure_handler::append_handler_output(
+            result,
+            std::slice::from_ref(&failure_result.stdout),
+        );
+
+        // Check if we should retry the original command
+        if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
+            let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
+            if let Some(retry_result) = self
+                .retry_original_command(step, max_retries, env, ctx)
+                .await?
+            {
+                result = retry_result;
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Retry the original command after handler execution
+    ///
+    /// Returns Some(StepResult) if retry succeeds, None if all retries fail.
+    async fn retry_original_command(
+        &mut self,
+        step: &WorkflowStep,
+        max_retries: u32,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<Option<StepResult>> {
+        for retry in 1..=max_retries {
+            self.user_interaction.display_info(&format!(
+                "Retrying original command (attempt {}/{})",
+                retry, max_retries
+            ));
+
+            // Create a copy of the step without on_failure to avoid recursion
+            let mut retry_step = step.clone();
+            retry_step.on_failure = None;
+
+            let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
+            if retry_result.success {
+                return Ok(Some(retry_result));
+            }
+        }
+        Ok(None)
     }
 
     /// Determine command type from a workflow step
@@ -1261,129 +1297,21 @@ impl WorkflowExecutor {
         Err(anyhow!("No commits created by {}", step_display))
     }
 
-    /// Execute a MapReduce workflow
-    async fn execute_mapreduce(
+    /// Execute MapReduce setup phase if present
+    ///
+    /// Handles setup phase configuration, execution with file detection,
+    /// and variable capture. Returns the generated input file path if any.
+    async fn execute_mapreduce_setup_phase(
         &mut self,
         workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
+        worktree_env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+    ) -> Result<(Option<String>, HashMap<String, String>)> {
         use crate::cook::execution::setup_executor::SetupPhaseExecutor;
-        use crate::cook::execution::{MapReduceExecutor, SetupPhase};
+        use crate::cook::execution::SetupPhase;
 
-        let workflow_start = Instant::now();
-
-        // Handle dry-run mode for MapReduce
-        if self.dry_run {
-            // Use the DryRunValidator to validate the workflow
-            use crate::cook::execution::mapreduce::dry_run::{DryRunConfig, DryRunValidator};
-
-            println!("[DRY RUN] MapReduce workflow execution simulation mode");
-            println!("[DRY RUN] Validating workflow configuration...");
-
-            // Create dry-run configuration
-            let _dry_run_config = DryRunConfig {
-                show_work_items: true,
-                show_variables: true,
-                show_resources: true,
-                sample_size: Some(5),
-            };
-
-            // Create the validator
-            let validator = DryRunValidator::new();
-
-            // Validate the workflow
-            let validation_result = validator
-                .validate_workflow_phases(
-                    workflow.setup_phase.clone(),
-                    workflow
-                        .map_phase
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("MapReduce workflow requires map phase"))?
-                        .clone(),
-                    workflow.reduce_phase.clone(),
-                )
-                .await;
-
-            match validation_result {
-                Ok(report) => {
-                    // Display the validation report
-                    use crate::cook::execution::mapreduce::dry_run::OutputFormatter;
-                    let formatter = OutputFormatter::new();
-                    println!("{}", formatter.format_human(&report));
-
-                    if report.errors.is_empty() {
-                        println!(
-                            "\n[DRY RUN] Validation successful! Workflow is ready to execute."
-                        );
-                    } else {
-                        println!(
-                            "\n[DRY RUN] Validation failed with {} error(s)",
-                            report.errors.len()
-                        );
-                        return Err(anyhow!("Dry-run validation failed"));
-                    }
-                }
-                Err(e) => {
-                    println!("[DRY RUN] Validation failed: {}", e);
-                    return Err(anyhow!("Dry-run validation failed: {}", e));
-                }
-            }
-
-            // Don't actually execute in dry-run mode
-            return Ok(());
-        }
-
-        // Don't duplicate the message - it's already shown by the orchestrator
-
-        // SPEC 134: MapReduce executes in the parent worktree (already created by orchestrator)
-        // No need to create an additional intermediate worktree. This ensures:
-        // 1. Setup phase runs in parent worktree
-        // 2. Agent worktrees branch from parent worktree
-        // 3. Reduce phase runs in parent worktree
-        // 4. User is prompted to merge parent worktree to original branch (via orchestrator cleanup)
-        tracing::info!(
-            "Executing MapReduce in parent worktree: {}",
-            env.working_dir.display()
-        );
-
-        // Use the existing environment directly - it already points to parent worktree
-        let worktree_env = env.clone();
-
-        // SPEC 128: Create immutable environment context for worktree execution
-        // This context explicitly specifies the worktree directory and prevents
-        // hidden state mutations. All environment configuration is immutable after creation.
-        use crate::cook::environment::EnvironmentContextBuilder;
-        let _worktree_context = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
-            .with_config(
-                self.global_environment_config
-                    .as_ref()
-                    .unwrap_or(&crate::cook::environment::EnvironmentConfig::default()),
-            )
-            .context("Failed to create immutable environment context")?
-            .build();
-
-        // Note: The immutable context pattern is now available for future refactoring.
-        // Currently, the executor still uses ExecutionEnvironment (worktree_env) which is
-        // passed explicitly to all phase executors. This ensures working directory is
-        // always explicit in function signatures rather than hidden in mutable state.
-
-        let mut workflow_context = WorkflowContext::default();
         let mut generated_input_file: Option<String> = None;
-        let mut _captured_variables = HashMap::new();
-
-        // Populate workflow context with environment variables from global config
-        if let Some(ref global_env_config) = self.global_environment_config {
-            for (key, env_value) in &global_env_config.global_env {
-                // Resolve the env value to a string
-                if let crate::cook::environment::EnvValue::Static(value) = env_value {
-                    workflow_context
-                        .variables
-                        .insert(key.clone(), value.clone());
-                }
-                // For Dynamic and Conditional values, we'd need to evaluate them here
-                // For now, we only support Static values in MapReduce workflows
-            }
-        }
+        let mut captured_variables = HashMap::new();
 
         // Execute setup phase if present
         if !workflow.steps.is_empty() || workflow.setup_phase.is_some() {
@@ -1411,17 +1339,9 @@ impl WorkflowExecutor {
 
             if !setup_phase.commands.is_empty() {
                 // SPEC 128: Immutable Environment Context Pattern
-                // Instead of mutating EnvironmentManager's working directory (which caused bugs),
-                // we create an immutable context that explicitly specifies the worktree directory.
                 // The setup phase executor uses worktree_env (ExecutionEnvironment) which already
-                // has the correct working directory set, making this mutation unnecessary.
-                //
-                // The previous code:
-                //   env_manager.set_working_dir(worktree_path);  // Hidden mutation!
-                // caused bugs because state changes weren't visible in function signatures.
-                //
-                // The new approach: Pass worktree_env explicitly to all executors
-                // (already done via execute_with_file_detection parameter)
+                // has the correct working directory set, making environment mutations unnecessary.
+                // Pass worktree_env explicitly to all executors.
 
                 let mut setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
@@ -1431,13 +1351,13 @@ impl WorkflowExecutor {
                     .execute_with_file_detection(
                         &setup_phase.commands,
                         self,
-                        &worktree_env,
-                        &mut workflow_context,
+                        worktree_env,
+                        workflow_context,
                     )
                     .await
                     .map_err(|e| anyhow!("Setup phase failed: {}", e))?;
 
-                _captured_variables = captured;
+                captured_variables = captured;
                 generated_input_file = gen_file;
             }
 
@@ -1445,26 +1365,55 @@ impl WorkflowExecutor {
                 .display_success("Setup phase completed");
         }
 
-        // Ensure we have map phase configuration
-        let mut map_phase = workflow
-            .map_phase
-            .as_ref()
-            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?
-            .clone();
+        Ok((generated_input_file, captured_variables))
+    }
 
-        // Update map phase input if setup generated a work-items.json file
-        if let Some(generated_file) = generated_input_file {
-            map_phase.config.input = generated_file;
+    /// Execute a MapReduce workflow
+    ///
+    /// High-level orchestration of MapReduce workflow execution:
+    /// 1. Validate workflow in dry-run mode (if enabled)
+    /// 2. Prepare execution environment and workflow context
+    /// 3. Execute setup phase (if present)
+    /// 4. Configure map phase with interpolated inputs
+    /// 5. Create and execute MapReduce executor
+    /// 6. Update session with results
+    async fn execute_mapreduce(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        use crate::cook::execution::MapReduceExecutor;
+
+        let workflow_start = Instant::now();
+
+        // Handle dry-run mode for MapReduce
+        if self.dry_run {
+            orchestration::validate_mapreduce_dry_run(workflow).await?;
+            return Ok(());
         }
 
-        // Interpolate map phase input with environment variables
-        let mut interpolated_input = map_phase.config.input.clone();
-        for (key, value) in &workflow_context.variables {
-            // Replace both ${VAR} and $VAR patterns
-            interpolated_input = interpolated_input.replace(&format!("${{{}}}", key), value);
-            interpolated_input = interpolated_input.replace(&format!("${}", key), value);
-        }
-        map_phase.config.input = interpolated_input;
+        // Don't duplicate the message - it's already shown by the orchestrator
+
+        // SPEC 134: MapReduce executes in the parent worktree (already created by orchestrator)
+        tracing::info!(
+            "Executing MapReduce in parent worktree: {}",
+            env.working_dir.display()
+        );
+
+        // Prepare environment and workflow context with environment variables
+        let (worktree_env, mut workflow_context) = orchestration::prepare_mapreduce_environment(
+            env,
+            self.global_environment_config.as_ref(),
+        )?;
+
+        // Execute setup phase if present, capturing output and generated files
+        let (generated_input_file, _captured_variables) = self
+            .execute_mapreduce_setup_phase(workflow, &worktree_env, &mut workflow_context)
+            .await?;
+
+        // Configure map phase with input interpolation and environment variables
+        let map_phase =
+            orchestration::configure_map_phase(workflow, generated_input_file, &workflow_context)?;
 
         // Create MapReduce executor
         // Use the parent worktree as the base for map phase agent worktrees
@@ -1624,6 +1573,7 @@ mod tests {
     #[cfg(test)]
     async fn test_get_current_head(working_dir: &std::path::Path) -> Result<String> {
         use crate::abstractions::git::RealGitOperations;
+        use anyhow::Context;
         let git_ops = RealGitOperations::new();
         let output = git_ops
             .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
