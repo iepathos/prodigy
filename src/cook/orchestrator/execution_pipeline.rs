@@ -646,19 +646,9 @@ impl ExecutionPipeline {
                 // Resolve variables from command outputs for use in variable expansion
                 let resolved_variables = build_variable_map(&command_outputs);
 
-                // The command args already contain variable references that will be
-                // expanded by the command parser
-                let final_args = command.args.clone();
-
                 // Build final command string with resolved arguments
-                let mut cmd_parts = vec![format!("/{}", command.name)];
-                for arg in &final_args {
-                    let resolved_arg = arg.resolve(&resolved_variables);
-                    if !resolved_arg.is_empty() {
-                        cmd_parts.push(resolved_arg);
-                    }
-                }
-                let final_command = cmd_parts.join(" ");
+                let final_command =
+                    build_command_string(&command.name, &command.args, &resolved_variables);
 
                 self.user_interaction
                     .display_action(&format!("Executing command: {final_command}"));
@@ -951,6 +941,33 @@ fn build_variable_map(
     resolved_variables
 }
 
+/// Build a command string from command name and arguments
+///
+/// This pure function constructs a complete command string by combining the
+/// command name with resolved arguments, filtering out empty arguments.
+///
+/// # Arguments
+/// * `command_name` - The name of the command (without leading '/')
+/// * `args` - The command arguments to resolve
+/// * `variables` - Map of variables for argument resolution
+///
+/// # Returns
+/// A complete command string with format "/<command_name> <arg1> <arg2> ..."
+fn build_command_string(
+    command_name: &str,
+    args: &[crate::config::command::CommandArg],
+    variables: &HashMap<String, String>,
+) -> String {
+    let mut cmd_parts = vec![format!("/{command_name}")];
+    for arg in args {
+        let resolved_arg = arg.resolve(variables);
+        if !resolved_arg.is_empty() {
+            cmd_parts.push(resolved_arg);
+        }
+    }
+    cmd_parts.join(" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -994,5 +1011,60 @@ mod tests {
         assert_eq!(result.get("cmd1.result"), Some(&"value1".to_string()));
         assert_eq!(result.get("cmd1.status"), Some(&"ok".to_string()));
         assert_eq!(result.get("cmd2.output"), Some(&"data".to_string()));
+    }
+
+    #[test]
+    fn test_build_command_string_no_args() {
+        use crate::config::command::CommandArg;
+        let args: Vec<CommandArg> = vec![];
+        let variables = HashMap::new();
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd");
+    }
+
+    #[test]
+    fn test_build_command_string_with_static_args() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("arg2".to_string()),
+        ];
+        let variables = HashMap::new();
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd arg1 arg2");
+    }
+
+    #[test]
+    fn test_build_command_string_with_variable_references() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Variable("FILE".to_string()),
+            CommandArg::Literal("--flag".to_string()),
+        ];
+        let mut variables = HashMap::new();
+        variables.insert("FILE".to_string(), "test.txt".to_string());
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd test.txt --flag");
+    }
+
+    #[test]
+    fn test_build_command_string_filters_empty_args() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("".to_string()), // Empty literal will be filtered
+            CommandArg::Literal("arg2".to_string()),
+        ];
+        let variables = HashMap::new();
+
+        let result = build_command_string("test-cmd", &args, &variables);
+
+        assert_eq!(result, "/test-cmd arg1 arg2");
     }
 }
