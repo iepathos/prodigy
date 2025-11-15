@@ -224,11 +224,7 @@ impl ExecutionPipeline {
     }
 
     /// Handle session failure
-    async fn handle_session_failure(
-        &self,
-        error: &anyhow::Error,
-        session_id: &str,
-    ) -> Result<()> {
+    async fn handle_session_failure(&self, error: &anyhow::Error, session_id: &str) -> Result<()> {
         self.session_manager
             .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
             .await?;
@@ -1092,7 +1088,9 @@ mod tests {
         let outcome = ExecutionOutcome::Interrupted;
         let message = determine_resume_message("session-123", "workflow.yml", &outcome);
         assert!(message.is_some());
-        assert!(message.unwrap().contains("prodigy run workflow.yml --resume session-123"));
+        assert!(message
+            .unwrap()
+            .contains("prodigy run workflow.yml --resume session-123"));
     }
 
     #[test]
