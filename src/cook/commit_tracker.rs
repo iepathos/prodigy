@@ -533,6 +533,30 @@ impl CommitTracker {
         Ok(message)
     }
 
+    /// Build git commit arguments (pure function)
+    ///
+    /// Constructs the argument vector for git commit command, including message,
+    /// optional author override, and optional GPG signing flag.
+    fn build_commit_args(
+        message: &str,
+        commit_config: Option<&CommitConfig>,
+        gpg_configured: bool,
+    ) -> Vec<String> {
+        let mut args = vec!["commit".to_string(), "-m".to_string(), message.to_string()];
+
+        if let Some(config) = commit_config {
+            if let Some(author) = &config.author {
+                args.push(format!("--author={}", author));
+            }
+
+            if config.sign && gpg_configured {
+                args.push("-S".to_string());
+            }
+        }
+
+        args
+    }
+
     /// Create an auto-commit with the given configuration
     pub async fn create_auto_commit(
         &self,
@@ -553,31 +577,29 @@ impl CommitTracker {
         // Prepare and validate commit message
         let message = Self::prepare_commit_message(step_name, message_template, variables, commit_config)?;
 
-        // Create the commit with optional author override and signing
-        let mut commit_args = vec!["commit", "-m", &message];
-
-        // Add author override if specified from commit_config
-        let author_string;
-        if let Some(config) = commit_config {
-            if let Some(author) = &config.author {
-                author_string = format!("--author={}", author);
-                commit_args.push(&author_string);
-            }
-
-            // Add GPG signing if enabled and properly configured
+        // Check GPG configuration if signing is requested
+        let gpg_configured = if let Some(config) = commit_config {
             if config.sign {
-                if self.check_gpg_config().await? {
-                    commit_args.push("-S");
-                } else {
+                let configured = self.check_gpg_config().await?;
+                if !configured {
                     log::warn!(
                         "GPG signing requested but not properly configured, skipping signing"
                     );
                 }
+                configured
+            } else {
+                false
             }
-        }
+        } else {
+            false
+        };
+
+        // Build commit arguments
+        let commit_args = Self::build_commit_args(&message, commit_config, gpg_configured);
+        let commit_args_refs: Vec<&str> = commit_args.iter().map(String::as_str).collect();
 
         self.git_ops
-            .git_command_in_dir(&commit_args, "create commit", &self.working_dir)
+            .git_command_in_dir(&commit_args_refs, "create commit", &self.working_dir)
             .await?;
 
         // Get the new HEAD
