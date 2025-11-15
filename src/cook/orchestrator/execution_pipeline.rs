@@ -255,6 +255,41 @@ impl ExecutionPipeline {
         Ok(())
     }
 
+    /// Execute cleanup and complete the session
+    async fn execute_cleanup_and_completion(
+        &self,
+        cleanup_fn: impl std::future::Future<Output = Result<()>>,
+    ) -> Result<super::super::session::SessionSummary> {
+        // Run cleanup
+        cleanup_fn.await?;
+
+        // Complete session
+        self.session_manager.complete_session().await
+    }
+
+    /// Display session completion summary
+    async fn display_completion_summary(
+        &self,
+        summary: &super::super::session::SessionSummary,
+        config: &CookConfig,
+        display_health_fn: impl std::future::Future<Output = Result<()>>,
+    ) -> Result<()> {
+        // Don't display session stats in dry-run mode
+        if !config.command.dry_run {
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        }
+
+        // Display health score if metrics flag is set
+        if config.command.metrics {
+            display_health_fn.await?;
+        }
+
+        Ok(())
+    }
+
     /// Setup signal handlers for graceful interruption
     pub fn setup_signal_handlers(
         &self,
@@ -334,24 +369,12 @@ impl ExecutionPipeline {
             }
         }
 
-        // Cleanup
-        cleanup_fn.await?;
+        // Execute cleanup and complete session
+        let summary = self.execute_cleanup_and_completion(cleanup_fn).await?;
 
-        // Complete session
-        let summary = self.session_manager.complete_session().await?;
-
-        // Don't display session stats in dry-run mode
-        if !config.command.dry_run {
-            self.user_interaction.display_info(&format!(
-                "Session complete: {} iterations, {} files changed",
-                summary.iterations, summary.files_changed
-            ));
-        }
-
-        // Display health score if metrics flag is set
-        if config.command.metrics {
-            display_health_fn.await?;
-        }
+        // Display summary
+        self.display_completion_summary(&summary, config, display_health_fn)
+            .await?;
 
         Ok(())
     }
