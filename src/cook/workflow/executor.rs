@@ -184,38 +184,8 @@ impl WorkflowExecutor {
                 ));
 
                 // Create a WorkflowStep from the HandlerCommand
-                let handler_step = WorkflowStep {
-                    name: None,
-                    shell: cmd.shell.clone(),
-                    claude: cmd.claude.clone(),
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    write_file: None,
-                    command: None,
-                    handler: None,
-                    capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    auto_commit: false,
-                    commit_config: None,
-                    output_file: None,
-                    timeout: on_failure_config.handler_timeout(),
-                    capture_output: CaptureOutput::Disabled,
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: Default::default(),
-                    commit_required: false,
-                    working_dir: None,
-                    env: Default::default(),
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                };
+                let handler_step =
+                    failure_handler::create_handler_step(cmd, on_failure_config.handler_timeout());
 
                 // Execute the handler command
                 match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
