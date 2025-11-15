@@ -144,7 +144,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -180,7 +180,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -216,7 +216,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -252,7 +252,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(false);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -282,7 +282,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -312,7 +312,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -342,7 +342,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -374,7 +374,7 @@ mod handle_on_failure_tests {
         let worktree_path = PathBuf::from("/tmp/test");
         let mut variables = HashMap::new();
         variables.insert("item_id".to_string(), "item-123".to_string());
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
@@ -410,7 +410,7 @@ mod handle_on_failure_tests {
         let subprocess = create_mock_subprocess(true);
         let worktree_path = PathBuf::from("/tmp/test");
         let variables = HashMap::new();
-        let env = create_test_env();
+        let _env = create_test_env();
 
         let user_interaction: Arc<dyn crate::cook::interaction::UserInteraction> =
             Arc::new(crate::cook::interaction::MockUserInteraction::new());
