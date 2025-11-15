@@ -466,6 +466,73 @@ impl CommitTracker {
         Ok(())
     }
 
+    /// Generate commit message from template or step name (pure function)
+    ///
+    /// Interpolates variables in the template using the provided step name and variables map.
+    /// If no template is provided, returns a default message format.
+    fn generate_commit_message(
+        step_name: &str,
+        template: Option<&str>,
+        variables: &HashMap<String, String>,
+    ) -> String {
+        match template {
+            Some(tmpl) => {
+                let mut message = tmpl.to_string();
+
+                // Replace ${step.name}
+                message = message.replace("${step.name}", step_name);
+
+                // Replace other variables
+                for (key, value) in variables {
+                    message = message.replace(&format!("${{{key}}}"), value);
+                    message = message.replace(&format!("${key}"), value);
+                }
+
+                message
+            }
+            None => format!("Auto-commit: {step_name}"),
+        }
+    }
+
+    /// Validate commit message against a regex pattern (pure function)
+    ///
+    /// Returns Ok(()) if the message matches the pattern, or an error with details if it doesn't.
+    fn validate_commit_message(message: &str, pattern: &str) -> Result<()> {
+        let re = regex::Regex::new(pattern)
+            .map_err(|e| anyhow!("Invalid message pattern: {e}"))?;
+
+        if !re.is_match(message) {
+            return Err(anyhow!(
+                "Commit message '{}' does not match required pattern '{}'",
+                message,
+                pattern
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Prepare and validate commit message (combines generation and validation)
+    ///
+    /// Generates the message from template/step name, then validates it against the pattern
+    /// if one is configured in commit_config.
+    fn prepare_commit_message(
+        step_name: &str,
+        template: Option<&str>,
+        variables: &HashMap<String, String>,
+        commit_config: Option<&CommitConfig>,
+    ) -> Result<String> {
+        let message = Self::generate_commit_message(step_name, template, variables);
+
+        if let Some(config) = commit_config {
+            if let Some(pattern) = &config.message_pattern {
+                Self::validate_commit_message(&message, pattern)?;
+            }
+        }
+
+        Ok(message)
+    }
+
     /// Create an auto-commit with the given configuration
     pub async fn create_auto_commit(
         &self,
@@ -483,19 +550,8 @@ impl CommitTracker {
         let strategy = Self::determine_staging_strategy(commit_config);
         self.stage_files(strategy, commit_config).await?;
 
-        // Generate commit message
-        let message = if let Some(template) = message_template {
-            self.interpolate_template(template, step_name, variables)?
-        } else {
-            format!("Auto-commit: {step_name}")
-        };
-
-        // Validate message pattern if configured
-        if let Some(config) = commit_config {
-            if let Some(pattern) = &config.message_pattern {
-                self.validate_message(&message, pattern)?;
-            }
-        }
+        // Prepare and validate commit message
+        let message = Self::prepare_commit_message(step_name, message_template, variables, commit_config)?;
 
         // Create the commit with optional author override and signing
         let mut commit_args = vec!["commit", "-m", &message];
@@ -575,40 +631,23 @@ impl CommitTracker {
         self.tracked_commits.read().await.clone()
     }
 
-    /// Interpolate variables in a message template
+    /// Interpolate variables in a message template (delegates to pure function)
+    ///
+    /// This method exists for backward compatibility with tests.
+    /// New code should use `generate_commit_message` directly.
+    #[cfg(test)]
     fn interpolate_template(
         &self,
         template: &str,
         step_name: &str,
         variables: &HashMap<String, String>,
     ) -> Result<String> {
-        let mut message = template.to_string();
-
-        // Replace ${step.name}
-        message = message.replace("${step.name}", step_name);
-
-        // Replace other variables
-        for (key, value) in variables {
-            message = message.replace(&format!("${{{key}}}"), value);
-            message = message.replace(&format!("${key}"), value);
-        }
-
-        Ok(message)
+        Ok(Self::generate_commit_message(step_name, Some(template), variables))
     }
 
-    /// Validate a commit message against a pattern
+    /// Validate a commit message against a pattern (delegates to pure function)
     pub fn validate_message(&self, message: &str, pattern: &str) -> Result<()> {
-        let re = regex::Regex::new(pattern).map_err(|e| anyhow!("Invalid message pattern: {e}"))?;
-
-        if !re.is_match(message) {
-            return Err(anyhow!(
-                "Commit message '{}' does not match required pattern '{}'",
-                message,
-                pattern
-            ));
-        }
-
-        Ok(())
+        Self::validate_commit_message(message, pattern)
     }
 
     /// Squash commits into a single commit
