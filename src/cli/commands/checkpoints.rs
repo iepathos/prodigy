@@ -1352,10 +1352,9 @@ mod tests {
             status: WorkflowStatus,
         ) {
             // Initialize storage to get the proper checkpoint directory
-            let (_storage, _repo_name, checkpoint_dir) =
-                initialize_checkpoint_storage(working_dir)
-                    .await
-                    .expect("Failed to initialize storage");
+            let (_storage, _repo_name, checkpoint_dir) = initialize_checkpoint_storage(working_dir)
+                .await
+                .expect("Failed to initialize storage");
 
             // Ensure checkpoint directory exists
             fs::create_dir_all(&checkpoint_dir)
@@ -1390,12 +1389,8 @@ mod tests {
             let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
             create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
                 .await;
-            create_checkpoint_with_data(
-                &working_dir,
-                "test-workflow-2",
-                WorkflowStatus::Completed,
-            )
-            .await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-2", WorkflowStatus::Completed)
+                .await;
 
             let command = CheckpointCommands::List {
                 workflow_id: None,
@@ -1471,8 +1466,8 @@ mod tests {
             // This appears to be a bug, but we test the actual behavior
             let checkpoint = create_test_checkpoint(WorkflowStatus::Completed);
             let checkpoint_path = checkpoint_dir.join("test-workflow-1.json");
-            let json = serde_json::to_string_pretty(&checkpoint)
-                .expect("Failed to serialize checkpoint");
+            let json =
+                serde_json::to_string_pretty(&checkpoint).expect("Failed to serialize checkpoint");
             fs::write(&checkpoint_path, json)
                 .await
                 .expect("Failed to save checkpoint");
@@ -1494,20 +1489,11 @@ mod tests {
         #[tokio::test]
         async fn test_clean_command_with_all_flag() {
             let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
-            create_checkpoint_with_data(
-                &working_dir,
-                "completed-1",
-                WorkflowStatus::Completed,
-            )
-            .await;
-            create_checkpoint_with_data(
-                &working_dir,
-                "completed-2",
-                WorkflowStatus::Completed,
-            )
-            .await;
-            create_checkpoint_with_data(&working_dir, "running-1", WorkflowStatus::Running)
+            create_checkpoint_with_data(&working_dir, "completed-1", WorkflowStatus::Completed)
                 .await;
+            create_checkpoint_with_data(&working_dir, "completed-2", WorkflowStatus::Completed)
+                .await;
+            create_checkpoint_with_data(&working_dir, "running-1", WorkflowStatus::Running).await;
 
             let command = CheckpointCommands::Clean {
                 workflow_id: None,
@@ -1532,12 +1518,8 @@ mod tests {
         #[tokio::test]
         async fn test_clean_command_invalid_request() {
             let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
-            create_checkpoint_with_data(
-                &working_dir,
-                "test-workflow-1",
-                WorkflowStatus::Completed,
-            )
-            .await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Completed)
+                .await;
 
             // Neither workflow_id nor all flag specified
             let command = CheckpointCommands::Clean {
@@ -1570,12 +1552,8 @@ mod tests {
         #[tokio::test]
         async fn test_clean_command_nonexistent_workflow() {
             let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
-            create_checkpoint_with_data(
-                &working_dir,
-                "test-workflow-1",
-                WorkflowStatus::Completed,
-            )
-            .await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Completed)
+                .await;
 
             let command = CheckpointCommands::Clean {
                 workflow_id: Some("nonexistent-workflow".to_string()),
