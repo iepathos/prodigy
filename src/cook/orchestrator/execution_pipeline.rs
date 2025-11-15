@@ -644,15 +644,7 @@ impl ExecutionPipeline {
                 // Analysis functionality has been removed in v0.3.0
 
                 // Resolve variables from command outputs for use in variable expansion
-                let mut resolved_variables = HashMap::new();
-
-                // Collect all available outputs as variables
-                for (cmd_id, outputs) in &command_outputs {
-                    for (output_name, value) in outputs {
-                        let var_name = format!("{cmd_id}.{output_name}");
-                        resolved_variables.insert(var_name, value.clone());
-                    }
-                }
+                let resolved_variables = build_variable_map(&command_outputs);
 
                 // The command args already contain variable references that will be
                 // expanded by the command parser
@@ -930,5 +922,77 @@ impl ExecutionPipeline {
         }
 
         result
+    }
+}
+
+/// Build a variable map from command outputs
+///
+/// This pure function takes command outputs and transforms them into a flat
+/// map of variables with names in the format "command_id.output_name".
+///
+/// # Arguments
+/// * `command_outputs` - Map of command IDs to their output maps
+///
+/// # Returns
+/// A flat HashMap where keys are "command_id.output_name" and values are the output values
+fn build_variable_map(
+    command_outputs: &HashMap<String, HashMap<String, String>>,
+) -> HashMap<String, String> {
+    let mut resolved_variables = HashMap::new();
+
+    // Collect all available outputs as variables
+    for (cmd_id, outputs) in command_outputs {
+        for (output_name, value) in outputs {
+            let var_name = format!("{cmd_id}.{output_name}");
+            resolved_variables.insert(var_name, value.clone());
+        }
+    }
+
+    resolved_variables
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_variable_map_empty() {
+        let command_outputs = HashMap::new();
+        let result = build_variable_map(&command_outputs);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_build_variable_map_single_command_single_output() {
+        let mut command_outputs = HashMap::new();
+        let mut outputs = HashMap::new();
+        outputs.insert("result".to_string(), "value1".to_string());
+        command_outputs.insert("cmd1".to_string(), outputs);
+
+        let result = build_variable_map(&command_outputs);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get("cmd1.result"), Some(&"value1".to_string()));
+    }
+
+    #[test]
+    fn test_build_variable_map_multiple_commands_multiple_outputs() {
+        let mut command_outputs = HashMap::new();
+
+        let mut outputs1 = HashMap::new();
+        outputs1.insert("result".to_string(), "value1".to_string());
+        outputs1.insert("status".to_string(), "ok".to_string());
+        command_outputs.insert("cmd1".to_string(), outputs1);
+
+        let mut outputs2 = HashMap::new();
+        outputs2.insert("output".to_string(), "data".to_string());
+        command_outputs.insert("cmd2".to_string(), outputs2);
+
+        let result = build_variable_map(&command_outputs);
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result.get("cmd1.result"), Some(&"value1".to_string()));
+        assert_eq!(result.get("cmd1.status"), Some(&"ok".to_string()));
+        assert_eq!(result.get("cmd2.output"), Some(&"data".to_string()));
     }
 }
