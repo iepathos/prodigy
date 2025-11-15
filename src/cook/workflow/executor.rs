@@ -1274,62 +1274,7 @@ impl WorkflowExecutor {
 
         // Handle dry-run mode for MapReduce
         if self.dry_run {
-            // Use the DryRunValidator to validate the workflow
-            use crate::cook::execution::mapreduce::dry_run::{DryRunConfig, DryRunValidator};
-
-            println!("[DRY RUN] MapReduce workflow execution simulation mode");
-            println!("[DRY RUN] Validating workflow configuration...");
-
-            // Create dry-run configuration
-            let _dry_run_config = DryRunConfig {
-                show_work_items: true,
-                show_variables: true,
-                show_resources: true,
-                sample_size: Some(5),
-            };
-
-            // Create the validator
-            let validator = DryRunValidator::new();
-
-            // Validate the workflow
-            let validation_result = validator
-                .validate_workflow_phases(
-                    workflow.setup_phase.clone(),
-                    workflow
-                        .map_phase
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("MapReduce workflow requires map phase"))?
-                        .clone(),
-                    workflow.reduce_phase.clone(),
-                )
-                .await;
-
-            match validation_result {
-                Ok(report) => {
-                    // Display the validation report
-                    use crate::cook::execution::mapreduce::dry_run::OutputFormatter;
-                    let formatter = OutputFormatter::new();
-                    println!("{}", formatter.format_human(&report));
-
-                    if report.errors.is_empty() {
-                        println!(
-                            "\n[DRY RUN] Validation successful! Workflow is ready to execute."
-                        );
-                    } else {
-                        println!(
-                            "\n[DRY RUN] Validation failed with {} error(s)",
-                            report.errors.len()
-                        );
-                        return Err(anyhow!("Dry-run validation failed"));
-                    }
-                }
-                Err(e) => {
-                    println!("[DRY RUN] Validation failed: {}", e);
-                    return Err(anyhow!("Dry-run validation failed: {}", e));
-                }
-            }
-
-            // Don't actually execute in dry-run mode
+            orchestration::validate_mapreduce_dry_run(workflow).await?;
             return Ok(());
         }
 

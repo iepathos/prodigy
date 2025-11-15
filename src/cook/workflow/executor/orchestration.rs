@@ -19,12 +19,78 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::cook::workflow::WorkflowStep;
+use anyhow::{anyhow, Result};
+
+use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 
 use super::{normalized, CheckpointCompletedStep, StepResult, WorkflowContext};
 
 #[cfg(test)]
 use std::collections::HashMap;
+
+// ============================================================================
+// MapReduce Orchestration Helpers
+// ============================================================================
+
+/// Validate MapReduce workflow in dry-run mode
+///
+/// Performs comprehensive validation of MapReduce workflow configuration
+/// including setup, map, and reduce phases. Returns early if validation fails.
+pub async fn validate_mapreduce_dry_run(workflow: &ExtendedWorkflowConfig) -> Result<()> {
+    use crate::cook::execution::mapreduce::dry_run::{
+        DryRunConfig, DryRunValidator, OutputFormatter,
+    };
+
+    println!("[DRY RUN] MapReduce workflow execution simulation mode");
+    println!("[DRY RUN] Validating workflow configuration...");
+
+    // Create dry-run configuration
+    let _dry_run_config = DryRunConfig {
+        show_work_items: true,
+        show_variables: true,
+        show_resources: true,
+        sample_size: Some(5),
+    };
+
+    // Create the validator
+    let validator = DryRunValidator::new();
+
+    // Validate the workflow
+    let validation_result = validator
+        .validate_workflow_phases(
+            workflow.setup_phase.clone(),
+            workflow
+                .map_phase
+                .as_ref()
+                .ok_or_else(|| anyhow!("MapReduce workflow requires map phase"))?
+                .clone(),
+            workflow.reduce_phase.clone(),
+        )
+        .await;
+
+    match validation_result {
+        Ok(report) => {
+            // Display the validation report
+            let formatter = OutputFormatter::new();
+            println!("{}", formatter.format_human(&report));
+
+            if report.errors.is_empty() {
+                println!("\n[DRY RUN] Validation successful! Workflow is ready to execute.");
+                Ok(())
+            } else {
+                println!(
+                    "\n[DRY RUN] Validation failed with {} error(s)",
+                    report.errors.len()
+                );
+                Err(anyhow!("Dry-run validation failed"))
+            }
+        }
+        Err(e) => {
+            println!("[DRY RUN] Validation failed: {}", e);
+            Err(anyhow!("Dry-run validation failed: {}", e))
+        }
+    }
+}
 
 // ============================================================================
 // Step Tracking Helpers
