@@ -22,6 +22,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context as AnyhowContext, Result};
 
 use crate::cook::environment::EnvironmentConfig;
+use crate::cook::execution::MapPhase;
 use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 
 use super::{normalized, CheckpointCompletedStep, ExecutionEnvironment, StepResult, WorkflowContext};
@@ -134,6 +135,39 @@ pub fn prepare_mapreduce_environment(
     }
 
     Ok((worktree_env, workflow_context))
+}
+
+/// Configure map phase with input interpolation
+///
+/// Takes the workflow's map phase configuration, updates input if setup generated
+/// a file, and interpolates environment variables in the input path.
+pub fn configure_map_phase(
+    workflow: &ExtendedWorkflowConfig,
+    generated_input: Option<String>,
+    context: &WorkflowContext,
+) -> Result<MapPhase> {
+    // Ensure we have map phase configuration
+    let mut map_phase = workflow
+        .map_phase
+        .as_ref()
+        .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?
+        .clone();
+
+    // Update map phase input if setup generated a work-items.json file
+    if let Some(generated_file) = generated_input {
+        map_phase.config.input = generated_file;
+    }
+
+    // Interpolate map phase input with environment variables
+    let mut interpolated_input = map_phase.config.input.clone();
+    for (key, value) in &context.variables {
+        // Replace both ${VAR} and $VAR patterns
+        interpolated_input = interpolated_input.replace(&format!("${{{}}}", key), value);
+        interpolated_input = interpolated_input.replace(&format!("${}", key), value);
+    }
+    map_phase.config.input = interpolated_input;
+
+    Ok(map_phase)
 }
 
 // ============================================================================

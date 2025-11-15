@@ -1365,26 +1365,12 @@ impl WorkflowExecutor {
             .execute_mapreduce_setup_phase(workflow, &worktree_env, &mut workflow_context)
             .await?;
 
-        // Ensure we have map phase configuration
-        let mut map_phase = workflow
-            .map_phase
-            .as_ref()
-            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?
-            .clone();
-
-        // Update map phase input if setup generated a work-items.json file
-        if let Some(generated_file) = generated_input_file {
-            map_phase.config.input = generated_file;
-        }
-
-        // Interpolate map phase input with environment variables
-        let mut interpolated_input = map_phase.config.input.clone();
-        for (key, value) in &workflow_context.variables {
-            // Replace both ${VAR} and $VAR patterns
-            interpolated_input = interpolated_input.replace(&format!("${{{}}}", key), value);
-            interpolated_input = interpolated_input.replace(&format!("${}", key), value);
-        }
-        map_phase.config.input = interpolated_input;
+        // Configure map phase with input interpolation and environment variables
+        let map_phase = orchestration::configure_map_phase(
+            workflow,
+            generated_input_file,
+            &workflow_context,
+        )?;
 
         // Create MapReduce executor
         // Use the parent worktree as the base for map phase agent worktrees
