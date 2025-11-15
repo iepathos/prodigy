@@ -172,45 +172,15 @@ impl WorkflowExecutor {
                 strategy
             ));
 
-            let mut handler_success = true;
-            let mut handler_outputs = Vec::new();
-
-            // Execute each handler command
-            for (idx, cmd) in handler_commands.iter().enumerate() {
-                self.user_interaction.display_progress(&format!(
-                    "Handler command {}/{}",
-                    idx + 1,
-                    handler_commands.len()
-                ));
-
-                // Create a WorkflowStep from the HandlerCommand
-                let handler_step =
-                    failure_handler::create_handler_step(cmd, on_failure_config.handler_timeout());
-
-                // Execute the handler command
-                match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
-                    Ok(handler_result) => {
-                        handler_outputs.push(handler_result.stdout.clone());
-                        if !handler_result.success && !cmd.continue_on_error {
-                            handler_success = false;
-                            self.user_interaction
-                                .display_error(&format!("Handler command {} failed", idx + 1));
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        self.user_interaction.display_error(&format!(
-                            "Handler command {} error: {}",
-                            idx + 1,
-                            e
-                        ));
-                        if !cmd.continue_on_error {
-                            handler_success = false;
-                            break;
-                        }
-                    }
-                }
-            }
+            // Execute handler commands
+            let (handler_success, handler_outputs) = self
+                .execute_handler_commands(
+                    &handler_commands,
+                    on_failure_config.handler_timeout(),
+                    env,
+                    ctx,
+                )
+                .await?;
 
             // Add handler output to result
             result = failure_handler::append_handler_output(result, &handler_outputs);
@@ -288,6 +258,55 @@ impl WorkflowExecutor {
         }
 
         Ok(result)
+    }
+
+    /// Execute handler commands in sequence
+    ///
+    /// Returns (success, outputs) tuple indicating if all handlers succeeded and their outputs.
+    async fn execute_handler_commands(
+        &mut self,
+        handler_commands: &[crate::cook::workflow::on_failure::HandlerCommand],
+        timeout: Option<u64>,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<(bool, Vec<String>)> {
+        let mut handler_success = true;
+        let mut handler_outputs = Vec::new();
+
+        for (idx, cmd) in handler_commands.iter().enumerate() {
+            self.user_interaction.display_progress(&format!(
+                "Handler command {}/{}",
+                idx + 1,
+                handler_commands.len()
+            ));
+
+            let handler_step = failure_handler::create_handler_step(cmd, timeout);
+
+            match Box::pin(self.execute_step(&handler_step, env, ctx)).await {
+                Ok(handler_result) => {
+                    handler_outputs.push(handler_result.stdout.clone());
+                    if !handler_result.success && !cmd.continue_on_error {
+                        handler_success = false;
+                        self.user_interaction
+                            .display_error(&format!("Handler command {} failed", idx + 1));
+                        break;
+                    }
+                }
+                Err(e) => {
+                    self.user_interaction.display_error(&format!(
+                        "Handler command {} error: {}",
+                        idx + 1,
+                        e
+                    ));
+                    if !cmd.continue_on_error {
+                        handler_success = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok((handler_success, handler_outputs))
     }
 
     /// Determine command type from a workflow step
