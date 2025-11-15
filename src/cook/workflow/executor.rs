@@ -1261,37 +1261,21 @@ impl WorkflowExecutor {
         Err(anyhow!("No commits created by {}", step_display))
     }
 
-    /// Execute a MapReduce workflow
-    async fn execute_mapreduce(
+    /// Execute MapReduce setup phase if present
+    ///
+    /// Handles setup phase configuration, execution with file detection,
+    /// and variable capture. Returns the generated input file path if any.
+    async fn execute_mapreduce_setup_phase(
         &mut self,
         workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
+        worktree_env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+    ) -> Result<(Option<String>, HashMap<String, String>)> {
         use crate::cook::execution::setup_executor::SetupPhaseExecutor;
-        use crate::cook::execution::{MapReduceExecutor, SetupPhase};
-
-        let workflow_start = Instant::now();
-
-        // Handle dry-run mode for MapReduce
-        if self.dry_run {
-            orchestration::validate_mapreduce_dry_run(workflow).await?;
-            return Ok(());
-        }
-
-        // Don't duplicate the message - it's already shown by the orchestrator
-
-        // SPEC 134: MapReduce executes in the parent worktree (already created by orchestrator)
-        tracing::info!(
-            "Executing MapReduce in parent worktree: {}",
-            env.working_dir.display()
-        );
-
-        // Prepare environment and workflow context with environment variables
-        let (worktree_env, mut workflow_context) =
-            orchestration::prepare_mapreduce_environment(env, self.global_environment_config.as_ref())?;
+        use crate::cook::execution::SetupPhase;
 
         let mut generated_input_file: Option<String> = None;
-        let mut _captured_variables = HashMap::new();
+        let mut captured_variables = HashMap::new();
 
         // Execute setup phase if present
         if !workflow.steps.is_empty() || workflow.setup_phase.is_some() {
@@ -1319,17 +1303,9 @@ impl WorkflowExecutor {
 
             if !setup_phase.commands.is_empty() {
                 // SPEC 128: Immutable Environment Context Pattern
-                // Instead of mutating EnvironmentManager's working directory (which caused bugs),
-                // we create an immutable context that explicitly specifies the worktree directory.
                 // The setup phase executor uses worktree_env (ExecutionEnvironment) which already
-                // has the correct working directory set, making this mutation unnecessary.
-                //
-                // The previous code:
-                //   env_manager.set_working_dir(worktree_path);  // Hidden mutation!
-                // caused bugs because state changes weren't visible in function signatures.
-                //
-                // The new approach: Pass worktree_env explicitly to all executors
-                // (already done via execute_with_file_detection parameter)
+                // has the correct working directory set, making environment mutations unnecessary.
+                // Pass worktree_env explicitly to all executors.
 
                 let mut setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
@@ -1339,19 +1315,55 @@ impl WorkflowExecutor {
                     .execute_with_file_detection(
                         &setup_phase.commands,
                         self,
-                        &worktree_env,
-                        &mut workflow_context,
+                        worktree_env,
+                        workflow_context,
                     )
                     .await
                     .map_err(|e| anyhow!("Setup phase failed: {}", e))?;
 
-                _captured_variables = captured;
+                captured_variables = captured;
                 generated_input_file = gen_file;
             }
 
             self.user_interaction
                 .display_success("Setup phase completed");
         }
+
+        Ok((generated_input_file, captured_variables))
+    }
+
+    /// Execute a MapReduce workflow
+    async fn execute_mapreduce(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        use crate::cook::execution::MapReduceExecutor;
+
+        let workflow_start = Instant::now();
+
+        // Handle dry-run mode for MapReduce
+        if self.dry_run {
+            orchestration::validate_mapreduce_dry_run(workflow).await?;
+            return Ok(());
+        }
+
+        // Don't duplicate the message - it's already shown by the orchestrator
+
+        // SPEC 134: MapReduce executes in the parent worktree (already created by orchestrator)
+        tracing::info!(
+            "Executing MapReduce in parent worktree: {}",
+            env.working_dir.display()
+        );
+
+        // Prepare environment and workflow context with environment variables
+        let (worktree_env, mut workflow_context) =
+            orchestration::prepare_mapreduce_environment(env, self.global_environment_config.as_ref())?;
+
+        // Execute setup phase if present, capturing output and generated files
+        let (generated_input_file, _captured_variables) = self
+            .execute_mapreduce_setup_phase(workflow, &worktree_env, &mut workflow_context)
+            .await?;
 
         // Ensure we have map phase configuration
         let mut map_phase = workflow
@@ -1532,6 +1544,7 @@ mod tests {
     #[cfg(test)]
     async fn test_get_current_head(working_dir: &std::path::Path) -> Result<String> {
         use crate::abstractions::git::RealGitOperations;
+        use anyhow::Context;
         let git_ops = RealGitOperations::new();
         let output = git_ops
             .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
