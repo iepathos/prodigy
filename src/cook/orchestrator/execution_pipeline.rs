@@ -17,6 +17,59 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
+/// Represents the outcome of a workflow execution
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)] // Used in Phase 5
+enum ExecutionOutcome {
+    Success,
+    Interrupted,
+    Failed(String),
+}
+
+/// Classify the execution result based on result and session status
+#[allow(dead_code)] // Used in Phase 5
+fn classify_execution_result(
+    result: &Result<()>,
+    session_status: SessionStatus,
+) -> ExecutionOutcome {
+    match result {
+        Ok(_) => ExecutionOutcome::Success,
+        Err(e) => {
+            if session_status == SessionStatus::Interrupted {
+                ExecutionOutcome::Interrupted
+            } else {
+                ExecutionOutcome::Failed(e.to_string())
+            }
+        }
+    }
+}
+
+/// Determine if a checkpoint should be saved based on the outcome
+#[allow(dead_code)] // Used in Phase 5
+fn should_save_checkpoint(outcome: &ExecutionOutcome) -> bool {
+    matches!(outcome, ExecutionOutcome::Interrupted)
+}
+
+/// Generate the resume message for the user
+#[allow(dead_code)] // Used in Phase 5
+fn determine_resume_message(
+    session_id: &str,
+    playbook_path: &str,
+    outcome: &ExecutionOutcome,
+) -> Option<String> {
+    match outcome {
+        ExecutionOutcome::Interrupted => Some(format!(
+            "\nSession interrupted. Resume with: prodigy run {} --resume {}",
+            playbook_path, session_id
+        )),
+        ExecutionOutcome::Failed(_) => Some(format!(
+            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+            session_id
+        )),
+        ExecutionOutcome::Success => None,
+    }
+}
+
 /// Execution pipeline for coordinating workflow execution
 pub struct ExecutionPipeline {
     session_manager: Arc<dyn SessionManager>,
@@ -930,5 +983,75 @@ impl ExecutionPipeline {
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_classify_execution_result_success() {
+        let result: Result<()> = Ok(());
+        let outcome = classify_execution_result(&result, SessionStatus::InProgress);
+        assert_eq!(outcome, ExecutionOutcome::Success);
+    }
+
+    #[test]
+    fn test_classify_execution_result_interrupted() {
+        let result: Result<()> = Err(anyhow!("interrupted"));
+        let outcome = classify_execution_result(&result, SessionStatus::Interrupted);
+        assert_eq!(outcome, ExecutionOutcome::Interrupted);
+    }
+
+    #[test]
+    fn test_classify_execution_result_failed() {
+        let result: Result<()> = Err(anyhow!("test error"));
+        let outcome = classify_execution_result(&result, SessionStatus::InProgress);
+        match outcome {
+            ExecutionOutcome::Failed(msg) => assert!(msg.contains("test error")),
+            _ => panic!("Expected Failed outcome"),
+        }
+    }
+
+    #[test]
+    fn test_should_save_checkpoint_on_interrupted() {
+        let outcome = ExecutionOutcome::Interrupted;
+        assert!(should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_should_not_save_checkpoint_on_success() {
+        let outcome = ExecutionOutcome::Success;
+        assert!(!should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_should_not_save_checkpoint_on_failed() {
+        let outcome = ExecutionOutcome::Failed("error".to_string());
+        assert!(!should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_determine_resume_message_interrupted() {
+        let outcome = ExecutionOutcome::Interrupted;
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_some());
+        assert!(message.unwrap().contains("prodigy run workflow.yml --resume session-123"));
+    }
+
+    #[test]
+    fn test_determine_resume_message_failed() {
+        let outcome = ExecutionOutcome::Failed("error".to_string());
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_some());
+        assert!(message.unwrap().contains("prodigy resume session-123"));
+    }
+
+    #[test]
+    fn test_determine_resume_message_success() {
+        let outcome = ExecutionOutcome::Success;
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_none());
     }
 }
