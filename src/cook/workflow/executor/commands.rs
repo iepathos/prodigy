@@ -402,6 +402,89 @@ pub fn format_command_description(command_type: &CommandType) -> String {
 // ============================================================================
 
 impl WorkflowExecutor {
+    /// Handle dry-run mode for a command
+    async fn handle_dry_run_mode(
+        &mut self,
+        command_type: &CommandType,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        let command_desc = match command_type {
+            CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
+                format!("claude: {}", cmd)
+            }
+            CommandType::Shell(cmd) => format!("shell: {}", cmd),
+            CommandType::Test(cmd) => format!("test: {}", cmd.command),
+            CommandType::Handler { handler_name, .. } => {
+                format!("handler: {}", handler_name)
+            }
+            CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
+            CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
+            CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
+        };
+
+        println!("[DRY RUN] Would execute: {}", command_desc);
+        self.dry_run_commands.push(command_desc.clone());
+
+        // Track potential failure handlers
+        if let Some(on_failure) = &step.on_failure {
+            let handler_desc = match on_failure {
+                OnFailureConfig::SingleCommand(cmd) => format!("on_failure: {}", cmd),
+                OnFailureConfig::MultipleCommands(cmds) => {
+                    format!("on_failure: {} commands", cmds.len())
+                }
+                OnFailureConfig::Advanced { claude, shell, .. } => {
+                    if let Some(claude) = claude {
+                        format!("on_failure: claude {}", claude)
+                    } else if let Some(shell) = shell {
+                        format!("on_failure: shell {}", shell)
+                    } else {
+                        "on_failure: unknown".to_string()
+                    }
+                }
+                OnFailureConfig::Detailed(config) => {
+                    format!("on_failure: {} handler commands", config.commands.len())
+                }
+                _ => "on_failure: configured".to_string(),
+            };
+            self.dry_run_potential_handlers.push(handler_desc);
+        }
+
+        // Handle commit_required in dry-run mode
+        if step.commit_required {
+            println!(
+                "[DRY RUN] commit_required - assuming commit created by: {}",
+                command_desc
+            );
+            self.assumed_commits.push(command_desc.clone());
+        }
+
+        // Simulate validation in dry-run mode since we're returning early
+        // and the normal validation handling after command execution won't be reached
+        if let Some(validation_config) = &step.validate {
+            self.handle_validation(validation_config, env, ctx).await?;
+        }
+
+        // Simulate step validation in dry-run mode
+        if let Some(step_validation) = &step.step_validate {
+            if !step.skip_validation {
+                let _validation_result = self
+                    .handle_step_validation(step_validation, env, ctx, step)
+                    .await?;
+            }
+        }
+
+        // Return success result for dry-run
+        Ok(StepResult {
+            success: true,
+            stdout: format!("[dry-run] {}", command_desc),
+            stderr: String::new(),
+            exit_code: Some(0),
+            json_log_location: None,
+        })
+    }
+
     /// Main command dispatcher that routes to specific command handlers
     pub(super) async fn execute_command_by_type(
         &mut self,
@@ -413,79 +496,7 @@ impl WorkflowExecutor {
     ) -> Result<StepResult> {
         // Handle dry-run mode
         if self.dry_run {
-            let command_desc = match command_type {
-                CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
-                    format!("claude: {}", cmd)
-                }
-                CommandType::Shell(cmd) => format!("shell: {}", cmd),
-                CommandType::Test(cmd) => format!("test: {}", cmd.command),
-                CommandType::Handler { handler_name, .. } => {
-                    format!("handler: {}", handler_name)
-                }
-                CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
-                CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
-                CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
-            };
-
-            println!("[DRY RUN] Would execute: {}", command_desc);
-            self.dry_run_commands.push(command_desc.clone());
-
-            // Track potential failure handlers
-            if let Some(on_failure) = &step.on_failure {
-                let handler_desc = match on_failure {
-                    OnFailureConfig::SingleCommand(cmd) => format!("on_failure: {}", cmd),
-                    OnFailureConfig::MultipleCommands(cmds) => {
-                        format!("on_failure: {} commands", cmds.len())
-                    }
-                    OnFailureConfig::Advanced { claude, shell, .. } => {
-                        if let Some(claude) = claude {
-                            format!("on_failure: claude {}", claude)
-                        } else if let Some(shell) = shell {
-                            format!("on_failure: shell {}", shell)
-                        } else {
-                            "on_failure: unknown".to_string()
-                        }
-                    }
-                    OnFailureConfig::Detailed(config) => {
-                        format!("on_failure: {} handler commands", config.commands.len())
-                    }
-                    _ => "on_failure: configured".to_string(),
-                };
-                self.dry_run_potential_handlers.push(handler_desc);
-            }
-
-            // Handle commit_required in dry-run mode
-            if step.commit_required {
-                println!(
-                    "[DRY RUN] commit_required - assuming commit created by: {}",
-                    command_desc
-                );
-                self.assumed_commits.push(command_desc.clone());
-            }
-
-            // Simulate validation in dry-run mode since we're returning early
-            // and the normal validation handling after command execution won't be reached
-            if let Some(validation_config) = &step.validate {
-                self.handle_validation(validation_config, env, ctx).await?;
-            }
-
-            // Simulate step validation in dry-run mode
-            if let Some(step_validation) = &step.step_validate {
-                if !step.skip_validation {
-                    let _validation_result = self
-                        .handle_step_validation(step_validation, env, ctx, step)
-                        .await?;
-                }
-            }
-
-            // Return success result for dry-run
-            return Ok(StepResult {
-                success: true,
-                stdout: format!("[dry-run] {}", command_desc),
-                stderr: String::new(),
-                exit_code: Some(0),
-                json_log_location: None,
-            });
+            return self.handle_dry_run_mode(command_type, step, env, ctx).await;
         }
 
         // Add timeout to environment variables if configured for the step
