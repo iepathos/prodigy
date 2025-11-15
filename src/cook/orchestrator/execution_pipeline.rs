@@ -182,6 +182,79 @@ impl ExecutionPipeline {
         })
     }
 
+    /// Handle successful session completion
+    async fn handle_session_success(&self) -> Result<()> {
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+            .await?;
+        self.user_interaction
+            .display_success("Cook session completed successfully!");
+        Ok(())
+    }
+
+    /// Handle session interruption
+    async fn handle_session_interruption(
+        &self,
+        session_id: &str,
+        config: &CookConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Display resume message
+        let playbook_path = config
+            .workflow
+            .commands
+            .first()
+            .map(|_| config.command.playbook.display().to_string())
+            .unwrap_or_else(|| "<workflow>".to_string());
+
+        self.user_interaction.display_warning(&format!(
+            "\nSession interrupted. Resume with: prodigy run {} --resume {}",
+            playbook_path, session_id
+        ));
+
+        // Save checkpoint for resume
+        let checkpoint_path = env.working_dir.join(".prodigy").join("session_state.json");
+        self.session_manager.save_state(&checkpoint_path).await?;
+
+        // Update worktree state if using a worktree
+        if let Some(ref name) = env.worktree_name {
+            let worktree_manager = self.create_worktree_manager(config)?;
+            Self::update_worktree_interrupted_state(&worktree_manager, name.as_ref())?;
+        }
+
+        Ok(())
+    }
+
+    /// Handle session failure
+    async fn handle_session_failure(
+        &self,
+        error: &anyhow::Error,
+        session_id: &str,
+    ) -> Result<()> {
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+            .await?;
+        self.session_manager
+            .update_session(SessionUpdate::AddError(error.to_string()))
+            .await?;
+        self.user_interaction
+            .display_error(&format!("Session failed: {error}"));
+
+        // Display how to resume the session
+        let state = self
+            .session_manager
+            .get_state()
+            .context("Failed to get session state for resume info")?;
+        if state.workflow_state.is_some() {
+            self.user_interaction.display_info(&format!(
+                "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+                session_id
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Setup signal handlers for graceful interruption
     pub fn setup_signal_handlers(
         &self,
@@ -243,11 +316,7 @@ impl ExecutionPipeline {
     ) -> Result<()> {
         match execution_result {
             Ok(_) => {
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
-                    .await?;
-                self.user_interaction
-                    .display_success("Cook session completed successfully!");
+                self.handle_session_success().await?;
             }
             Err(e) => {
                 // Check if session was interrupted
@@ -256,47 +325,10 @@ impl ExecutionPipeline {
                     .get_state()
                     .context("Failed to get session state after cook error")?;
                 if state.status == SessionStatus::Interrupted {
-                    self.user_interaction.display_warning(&format!(
-                        "\nSession interrupted. Resume with: prodigy run {} --resume {}",
-                        config
-                            .workflow
-                            .commands
-                            .first()
-                            .map(|_| config.command.playbook.display().to_string())
-                            .unwrap_or_else(|| "<workflow>".to_string()),
-                        env.session_id
-                    ));
-                    // Save checkpoint for resume
-                    let checkpoint_path =
-                        env.working_dir.join(".prodigy").join("session_state.json");
-                    self.session_manager.save_state(&checkpoint_path).await?;
-
-                    // Also update worktree state if using a worktree
-                    if let Some(ref name) = env.worktree_name {
-                        let worktree_manager = self.create_worktree_manager(config)?;
-                        Self::update_worktree_interrupted_state(&worktree_manager, name.as_ref())?;
-                    }
+                    self.handle_session_interruption(&env.session_id, config, env)
+                        .await?;
                 } else {
-                    self.session_manager
-                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                        .await?;
-                    self.session_manager
-                        .update_session(SessionUpdate::AddError(e.to_string()))
-                        .await?;
-                    self.user_interaction
-                        .display_error(&format!("Session failed: {e}"));
-
-                    // Display how to resume the session
-                    let state = self
-                        .session_manager
-                        .get_state()
-                        .context("Failed to get session state for resume info")?;
-                    if state.workflow_state.is_some() {
-                        self.user_interaction.display_info(&format!(
-                            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
-                            env.session_id
-                        ));
-                    }
+                    self.handle_session_failure(&e, &env.session_id).await?;
                 }
                 return Err(e);
             }
