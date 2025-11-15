@@ -25,7 +25,9 @@ use crate::cook::environment::EnvironmentConfig;
 use crate::cook::execution::MapPhase;
 use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 
-use super::{normalized, CheckpointCompletedStep, ExecutionEnvironment, StepResult, WorkflowContext};
+use super::{
+    normalized, CheckpointCompletedStep, ExecutionEnvironment, StepResult, WorkflowContext,
+};
 
 #[cfg(test)]
 use std::collections::HashMap;
@@ -127,7 +129,9 @@ pub fn prepare_mapreduce_environment(
         for (key, env_value) in &global_env_config.global_env {
             // Resolve the env value to a string
             if let EnvValue::Static(value) = env_value {
-                workflow_context.variables.insert(key.clone(), value.clone());
+                workflow_context
+                    .variables
+                    .insert(key.clone(), value.clone());
             }
             // For Dynamic and Conditional values, we'd need to evaluate them here
             // For now, we only support Static values in MapReduce workflows

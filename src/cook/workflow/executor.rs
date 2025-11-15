@@ -1333,6 +1333,14 @@ impl WorkflowExecutor {
     }
 
     /// Execute a MapReduce workflow
+    ///
+    /// High-level orchestration of MapReduce workflow execution:
+    /// 1. Validate workflow in dry-run mode (if enabled)
+    /// 2. Prepare execution environment and workflow context
+    /// 3. Execute setup phase (if present)
+    /// 4. Configure map phase with interpolated inputs
+    /// 5. Create and execute MapReduce executor
+    /// 6. Update session with results
     async fn execute_mapreduce(
         &mut self,
         workflow: &ExtendedWorkflowConfig,
@@ -1357,8 +1365,10 @@ impl WorkflowExecutor {
         );
 
         // Prepare environment and workflow context with environment variables
-        let (worktree_env, mut workflow_context) =
-            orchestration::prepare_mapreduce_environment(env, self.global_environment_config.as_ref())?;
+        let (worktree_env, mut workflow_context) = orchestration::prepare_mapreduce_environment(
+            env,
+            self.global_environment_config.as_ref(),
+        )?;
 
         // Execute setup phase if present, capturing output and generated files
         let (generated_input_file, _captured_variables) = self
@@ -1366,11 +1376,8 @@ impl WorkflowExecutor {
             .await?;
 
         // Configure map phase with input interpolation and environment variables
-        let map_phase = orchestration::configure_map_phase(
-            workflow,
-            generated_input_file,
-            &workflow_context,
-        )?;
+        let map_phase =
+            orchestration::configure_map_phase(workflow, generated_input_file, &workflow_context)?;
 
         // Create MapReduce executor
         // Use the parent worktree as the base for map phase agent worktrees
