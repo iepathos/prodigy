@@ -532,6 +532,61 @@ impl MapReduceCoordinator {
         Ok(items)
     }
 
+    /// Convert execution result to AgentResult with appropriate event logging
+    ///
+    /// This helper function handles the conversion of agent execution results,
+    /// logging appropriate events (completed or failed) and structuring the
+    /// AgentResult consistently.
+    async fn convert_execution_result_to_agent_result(
+        result: MapReduceResult<AgentResult>,
+        agent_id: String,
+        item_id: String,
+        duration: Duration,
+        event_logger: Arc<EventLogger>,
+    ) -> MapReduceResult<AgentResult> {
+        match result {
+            Ok(agent_result) => {
+                event_logger
+                    .log_event(MapReduceEvent::agent_completed(
+                        agent_id.clone(),
+                        item_id.clone(),
+                        chrono::Duration::from_std(duration)
+                            .unwrap_or(chrono::Duration::seconds(0)),
+                        None,
+                    ))
+                    .await
+                    .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+                Ok(agent_result)
+            }
+            Err(e) => {
+                event_logger
+                    .log_event(MapReduceEvent::agent_failed(
+                        agent_id.clone(),
+                        item_id.clone(),
+                        e.to_string(),
+                    ))
+                    .await
+                    .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+                Ok(AgentResult {
+                    item_id: item_id.clone(),
+                    status: AgentStatus::Failed(e.to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: std::time::Duration::from_secs(0),
+                    error: Some(e.to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: Some(agent_id),
+                    files_modified: vec![],
+                    json_log_location: None,
+                    cleanup_status: None,
+                })
+            }
+        }
+    }
+
     /// Execute the map phase
     async fn execute_map_phase_internal(
         &self,
@@ -626,47 +681,14 @@ impl MapReduceCoordinator {
                     let duration = start_time.elapsed();
 
                     // Convert result to AgentResult
-                    let agent_result = match result {
-                        Ok(agent_result) => {
-                            event_logger
-                                .log_event(MapReduceEvent::agent_completed(
-                                    agent_id.clone(),
-                                    item_id.clone(),
-                                    chrono::Duration::from_std(duration)
-                                        .unwrap_or(chrono::Duration::seconds(0)),
-                                    None,
-                                ))
-                                .await
-                                .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                            agent_result
-                        }
-                        Err(e) => {
-                            event_logger
-                                .log_event(MapReduceEvent::agent_failed(
-                                    agent_id.clone(),
-                                    item_id.clone(),
-                                    e.to_string(),
-                                ))
-                                .await
-                                .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                            AgentResult {
-                                item_id: item_id.clone(),
-                                status: AgentStatus::Failed(e.to_string()),
-                                output: None,
-                                commits: vec![],
-                                duration: std::time::Duration::from_secs(0),
-                                error: Some(e.to_string()),
-                                worktree_path: None,
-                                branch_name: None,
-                                worktree_session_id: Some(agent_id),
-                                files_modified: vec![],
-                                json_log_location: None,
-                                cleanup_status: None,
-                            }
-                        }
-                    };
+                    let agent_result = Self::convert_execution_result_to_agent_result(
+                        result,
+                        agent_id.clone(),
+                        item_id.clone(),
+                        duration,
+                        event_logger.clone(),
+                    )
+                    .await?;
 
                     // Add result to collector
                     result_collector.add_result(agent_result.clone()).await;
