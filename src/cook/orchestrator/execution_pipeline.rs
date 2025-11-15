@@ -17,6 +17,57 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
+/// Represents the outcome of a workflow execution
+#[derive(Debug, Clone, PartialEq)]
+enum ExecutionOutcome {
+    Success,
+    Interrupted,
+    Failed(String),
+}
+
+/// Classify the execution result based on result and session status
+fn classify_execution_result(
+    result: &Result<()>,
+    session_status: SessionStatus,
+) -> ExecutionOutcome {
+    match result {
+        Ok(_) => ExecutionOutcome::Success,
+        Err(e) => {
+            if session_status == SessionStatus::Interrupted {
+                ExecutionOutcome::Interrupted
+            } else {
+                ExecutionOutcome::Failed(e.to_string())
+            }
+        }
+    }
+}
+
+/// Determine if a checkpoint should be saved based on the outcome
+#[allow(dead_code)] // Reserved for future checkpoint optimization
+fn should_save_checkpoint(outcome: &ExecutionOutcome) -> bool {
+    matches!(outcome, ExecutionOutcome::Interrupted)
+}
+
+/// Generate the resume message for the user
+#[allow(dead_code)] // Reserved for future message centralization
+fn determine_resume_message(
+    session_id: &str,
+    playbook_path: &str,
+    outcome: &ExecutionOutcome,
+) -> Option<String> {
+    match outcome {
+        ExecutionOutcome::Interrupted => Some(format!(
+            "\nSession interrupted. Resume with: prodigy run {} --resume {}",
+            playbook_path, session_id
+        )),
+        ExecutionOutcome::Failed(_) => Some(format!(
+            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+            session_id
+        )),
+        ExecutionOutcome::Success => None,
+    }
+}
+
 /// Execution pipeline for coordinating workflow execution
 pub struct ExecutionPipeline {
     session_manager: Arc<dyn SessionManager>,
@@ -94,15 +145,8 @@ impl ExecutionPipeline {
         Ok(())
     }
 
-    /// Setup signal handlers for graceful interruption
-    pub fn setup_signal_handlers(
-        &self,
-        config: &CookConfig,
-        session_id: &str,
-        worktree_name: Option<Arc<str>>,
-    ) -> Result<JoinHandle<()>> {
-        log::debug!("Setting up signal handlers");
-
+    /// Create a WorktreeManager from the config
+    fn create_worktree_manager(&self, config: &CookConfig) -> Result<WorktreeManager> {
         // Get merge config from workflow or mapreduce config
         let merge_config = config.workflow.merge.clone().or_else(|| {
             config
@@ -114,13 +158,142 @@ impl ExecutionPipeline {
         // Get workflow environment variables
         let workflow_env = config.workflow.env.clone().unwrap_or_default();
 
-        let worktree_manager = Arc::new(WorktreeManager::with_config(
+        WorktreeManager::with_config(
             config.project_path.to_path_buf(),
             self.subprocess.clone(),
             config.command.verbosity,
             merge_config,
             workflow_env,
-        )?);
+        )
+    }
+
+    /// Update worktree state to mark as interrupted
+    fn update_worktree_interrupted_state(
+        worktree_manager: &WorktreeManager,
+        worktree_name: &str,
+    ) -> Result<()> {
+        worktree_manager.update_session_state(worktree_name, |state| {
+            state.status = WorktreeStatus::Interrupted;
+            state.interrupted_at = Some(chrono::Utc::now());
+            state.interruption_type = Some(crate::worktree::InterruptionType::Unknown);
+            state.resumable = true;
+        })
+    }
+
+    /// Handle successful session completion
+    async fn handle_session_success(&self) -> Result<()> {
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+            .await?;
+        self.user_interaction
+            .display_success("Cook session completed successfully!");
+        Ok(())
+    }
+
+    /// Handle session interruption
+    async fn handle_session_interruption(
+        &self,
+        session_id: &str,
+        config: &CookConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Display resume message
+        let playbook_path = config
+            .workflow
+            .commands
+            .first()
+            .map(|_| config.command.playbook.display().to_string())
+            .unwrap_or_else(|| "<workflow>".to_string());
+
+        self.user_interaction.display_warning(&format!(
+            "\nSession interrupted. Resume with: prodigy run {} --resume {}",
+            playbook_path, session_id
+        ));
+
+        // Save checkpoint for resume
+        let checkpoint_path = env.working_dir.join(".prodigy").join("session_state.json");
+        self.session_manager.save_state(&checkpoint_path).await?;
+
+        // Update worktree state if using a worktree
+        if let Some(ref name) = env.worktree_name {
+            let worktree_manager = self.create_worktree_manager(config)?;
+            Self::update_worktree_interrupted_state(&worktree_manager, name.as_ref())?;
+        }
+
+        Ok(())
+    }
+
+    /// Handle session failure
+    async fn handle_session_failure(&self, error: &anyhow::Error, session_id: &str) -> Result<()> {
+        self.session_manager
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+            .await?;
+        self.session_manager
+            .update_session(SessionUpdate::AddError(error.to_string()))
+            .await?;
+        self.user_interaction
+            .display_error(&format!("Session failed: {error}"));
+
+        // Display how to resume the session
+        let state = self
+            .session_manager
+            .get_state()
+            .context("Failed to get session state for resume info")?;
+        if state.workflow_state.is_some() {
+            self.user_interaction.display_info(&format!(
+                "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+                session_id
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Execute cleanup and complete the session
+    async fn execute_cleanup_and_completion(
+        &self,
+        cleanup_fn: impl std::future::Future<Output = Result<()>>,
+    ) -> Result<super::super::session::SessionSummary> {
+        // Run cleanup
+        cleanup_fn.await?;
+
+        // Complete session
+        self.session_manager.complete_session().await
+    }
+
+    /// Display session completion summary
+    async fn display_completion_summary(
+        &self,
+        summary: &super::super::session::SessionSummary,
+        config: &CookConfig,
+        display_health_fn: impl std::future::Future<Output = Result<()>>,
+    ) -> Result<()> {
+        // Don't display session stats in dry-run mode
+        if !config.command.dry_run {
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        }
+
+        // Display health score if metrics flag is set
+        if config.command.metrics {
+            display_health_fn.await?;
+        }
+
+        Ok(())
+    }
+
+    /// Setup signal handlers for graceful interruption
+    pub fn setup_signal_handlers(
+        &self,
+        config: &CookConfig,
+        session_id: &str,
+        worktree_name: Option<Arc<str>>,
+    ) -> Result<JoinHandle<()>> {
+        log::debug!("Setting up signal handlers");
+
+        let worktree_manager = Arc::new(self.create_worktree_manager(config)?);
 
         crate::cook::signal_handler::setup_interrupt_handlers(
             worktree_manager,
@@ -170,110 +343,41 @@ impl ExecutionPipeline {
         cleanup_fn: impl std::future::Future<Output = Result<()>>,
         display_health_fn: impl std::future::Future<Output = Result<()>>,
     ) -> Result<()> {
-        match execution_result {
-            Ok(_) => {
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+        // Classify the execution outcome
+        let session_status = if execution_result.is_err() {
+            self.session_manager
+                .get_state()
+                .context("Failed to get session state after cook error")?
+                .status
+        } else {
+            SessionStatus::InProgress
+        };
+
+        let outcome = classify_execution_result(&execution_result, session_status);
+
+        // Route to appropriate handler
+        match outcome {
+            ExecutionOutcome::Success => {
+                self.handle_session_success().await?;
+                let summary = self.execute_cleanup_and_completion(cleanup_fn).await?;
+                self.display_completion_summary(&summary, config, display_health_fn)
                     .await?;
-                self.user_interaction
-                    .display_success("Cook session completed successfully!");
+                Ok(())
             }
-            Err(e) => {
-                // Check if session was interrupted
-                let state = self
-                    .session_manager
-                    .get_state()
-                    .context("Failed to get session state after cook error")?;
-                if state.status == SessionStatus::Interrupted {
-                    self.user_interaction.display_warning(&format!(
-                        "\nSession interrupted. Resume with: prodigy run {} --resume {}",
-                        config
-                            .workflow
-                            .commands
-                            .first()
-                            .map(|_| config.command.playbook.display().to_string())
-                            .unwrap_or_else(|| "<workflow>".to_string()),
-                        env.session_id
-                    ));
-                    // Save checkpoint for resume
-                    let checkpoint_path =
-                        env.working_dir.join(".prodigy").join("session_state.json");
-                    self.session_manager.save_state(&checkpoint_path).await?;
-
-                    // Also update worktree state if using a worktree
-                    if let Some(ref name) = env.worktree_name {
-                        // Get merge config from workflow or mapreduce config
-                        let merge_config = config.workflow.merge.clone().or_else(|| {
-                            config
-                                .mapreduce_config
-                                .as_ref()
-                                .and_then(|m| m.merge.clone())
-                        });
-
-                        // Get workflow environment variables
-                        let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-                        let worktree_manager = WorktreeManager::with_config(
-                            config.project_path.to_path_buf(),
-                            self.subprocess.clone(),
-                            config.command.verbosity,
-                            merge_config,
-                            workflow_env,
-                        )?;
-                        worktree_manager.update_session_state(name.as_ref(), |state| {
-                            state.status = WorktreeStatus::Interrupted;
-                            state.interrupted_at = Some(chrono::Utc::now());
-                            state.interruption_type =
-                                Some(crate::worktree::InterruptionType::Unknown);
-                            state.resumable = true;
-                        })?;
-                    }
-                } else {
-                    self.session_manager
-                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                        .await?;
-                    self.session_manager
-                        .update_session(SessionUpdate::AddError(e.to_string()))
-                        .await?;
-                    self.user_interaction
-                        .display_error(&format!("Session failed: {e}"));
-
-                    // Display how to resume the session
-                    let state = self
-                        .session_manager
-                        .get_state()
-                        .context("Failed to get session state for resume info")?;
-                    if state.workflow_state.is_some() {
-                        self.user_interaction.display_info(&format!(
-                            "\n💡 To resume from last checkpoint, run: prodigy resume {}",
-                            env.session_id
-                        ));
-                    }
-                }
-                return Err(e);
+            ExecutionOutcome::Interrupted => {
+                self.handle_session_interruption(&env.session_id, config, env)
+                    .await?;
+                execution_result
+            }
+            ExecutionOutcome::Failed(_) => {
+                self.handle_session_failure(
+                    execution_result.as_ref().unwrap_err(),
+                    &env.session_id,
+                )
+                .await?;
+                execution_result
             }
         }
-
-        // Cleanup
-        cleanup_fn.await?;
-
-        // Complete session
-        let summary = self.session_manager.complete_session().await?;
-
-        // Don't display session stats in dry-run mode
-        if !config.command.dry_run {
-            self.user_interaction.display_info(&format!(
-                "Session complete: {} iterations, {} files changed",
-                summary.iterations, summary.files_changed
-            ));
-        }
-
-        // Display health score if metrics flag is set
-        if config.command.metrics {
-            display_health_fn.await?;
-        }
-
-        Ok(())
     }
 
     /// Validate that a session is in a resumable state
@@ -930,5 +1034,77 @@ impl ExecutionPipeline {
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_classify_execution_result_success() {
+        let result: Result<()> = Ok(());
+        let outcome = classify_execution_result(&result, SessionStatus::InProgress);
+        assert_eq!(outcome, ExecutionOutcome::Success);
+    }
+
+    #[test]
+    fn test_classify_execution_result_interrupted() {
+        let result: Result<()> = Err(anyhow!("interrupted"));
+        let outcome = classify_execution_result(&result, SessionStatus::Interrupted);
+        assert_eq!(outcome, ExecutionOutcome::Interrupted);
+    }
+
+    #[test]
+    fn test_classify_execution_result_failed() {
+        let result: Result<()> = Err(anyhow!("test error"));
+        let outcome = classify_execution_result(&result, SessionStatus::InProgress);
+        match outcome {
+            ExecutionOutcome::Failed(msg) => assert!(msg.contains("test error")),
+            _ => panic!("Expected Failed outcome"),
+        }
+    }
+
+    #[test]
+    fn test_should_save_checkpoint_on_interrupted() {
+        let outcome = ExecutionOutcome::Interrupted;
+        assert!(should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_should_not_save_checkpoint_on_success() {
+        let outcome = ExecutionOutcome::Success;
+        assert!(!should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_should_not_save_checkpoint_on_failed() {
+        let outcome = ExecutionOutcome::Failed("error".to_string());
+        assert!(!should_save_checkpoint(&outcome));
+    }
+
+    #[test]
+    fn test_determine_resume_message_interrupted() {
+        let outcome = ExecutionOutcome::Interrupted;
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_some());
+        assert!(message
+            .unwrap()
+            .contains("prodigy run workflow.yml --resume session-123"));
+    }
+
+    #[test]
+    fn test_determine_resume_message_failed() {
+        let outcome = ExecutionOutcome::Failed("error".to_string());
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_some());
+        assert!(message.unwrap().contains("prodigy resume session-123"));
+    }
+
+    #[test]
+    fn test_determine_resume_message_success() {
+        let outcome = ExecutionOutcome::Success;
+        let message = determine_resume_message("session-123", "workflow.yml", &outcome);
+        assert!(message.is_none());
     }
 }
