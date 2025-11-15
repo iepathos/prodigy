@@ -2,6 +2,22 @@
 //!
 //! This module contains the logic for executing workflows, managing session state,
 //! and handling signal interrupts during execution.
+//!
+//! ## Pure Helper Functions
+//!
+//! This module includes several pure, testable helper functions that extract
+//! business logic from the main execution pipeline:
+//!
+//! - `build_variable_map`: Transforms command outputs into variable mappings
+//! - `build_command_string`: Constructs command strings from name and arguments
+//! - `should_store_outputs`: Determines if command outputs should be persisted
+//! - `build_step_description`: Creates human-readable step descriptions
+//!
+//! These functions are designed to be:
+//! - Pure (no side effects)
+//! - Independently testable
+//! - Easy to reason about
+//! - Focused on single responsibilities
 
 use crate::abstractions::git::GitOperations;
 use crate::cook::execution::claude::ClaudeExecutor;
