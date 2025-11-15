@@ -68,7 +68,6 @@ use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::testing::config::TestConfiguration;
 use crate::unified_session::{format_duration, TimingTracker};
 use anyhow::{anyhow, Context, Result};
-use chrono::Utc;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
@@ -154,16 +153,14 @@ impl WorkflowExecutor {
     ) -> Result<StepResult> {
         // Inject error context as variables
         let step_name = self.get_step_display_name(step);
-        ctx.variables
-            .insert("error.message".to_string(), result.stderr.clone());
-        ctx.variables.insert(
-            "error.exit_code".to_string(),
-            result.exit_code.unwrap_or(-1).to_string(),
+        let error_vars = failure_handler::create_error_context_variables(
+            &result.stderr,
+            result.exit_code,
+            &step_name,
         );
-        ctx.variables
-            .insert("error.step".to_string(), step_name.clone());
-        ctx.variables
-            .insert("error.timestamp".to_string(), Utc::now().to_rfc3339());
+        for (key, value) in error_vars {
+            ctx.variables.insert(key, value);
+        }
 
         // Get handler commands
         let handler_commands = on_failure_config.handler_commands();
@@ -316,10 +313,9 @@ impl WorkflowExecutor {
         }
 
         // Clear error variables from context
-        ctx.variables.remove("error.message");
-        ctx.variables.remove("error.exit_code");
-        ctx.variables.remove("error.step");
-        ctx.variables.remove("error.timestamp");
+        for key in failure_handler::get_error_context_keys() {
+            ctx.variables.remove(key);
+        }
 
         Ok(result)
     }

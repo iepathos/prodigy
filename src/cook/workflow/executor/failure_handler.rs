@@ -221,6 +221,44 @@ pub fn format_retry_failure_message(attempt: u32, max_attempts: u32, error: &str
 }
 
 // ============================================================================
+// Error Context Management
+// ============================================================================
+
+/// Create error context variables for workflow context injection
+///
+/// Pure function that creates error variable map for handler execution.
+pub fn create_error_context_variables(
+    stderr: &str,
+    exit_code: Option<i32>,
+    step_name: &str,
+) -> Vec<(String, String)> {
+    vec![
+        ("error.message".to_string(), stderr.to_string()),
+        (
+            "error.exit_code".to_string(),
+            exit_code.unwrap_or(-1).to_string(),
+        ),
+        ("error.step".to_string(), step_name.to_string()),
+        (
+            "error.timestamp".to_string(),
+            chrono::Utc::now().to_rfc3339(),
+        ),
+    ]
+}
+
+/// Get list of error context variable keys for cleanup
+///
+/// Returns the keys that should be removed from context after handler execution.
+pub fn get_error_context_keys() -> Vec<&'static str> {
+    vec![
+        "error.message",
+        "error.exit_code",
+        "error.step",
+        "error.timestamp",
+    ]
+}
+
+// ============================================================================
 // Handler Strategy Helpers
 // ============================================================================
 
