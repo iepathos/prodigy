@@ -723,6 +723,30 @@ impl MapReduceCoordinator {
         Ok(agent_result)
     }
 
+    /// Collect results from agent futures, handling errors gracefully
+    ///
+    /// This helper function waits for all agent futures to complete,
+    /// collecting successful results and logging failures without breaking the workflow.
+    async fn collect_agent_results(
+        agent_futures: Vec<tokio::task::JoinHandle<MapReduceResult<AgentResult>>>,
+    ) -> Vec<AgentResult> {
+        let mut results = Vec::new();
+        for future in agent_futures {
+            match future.await {
+                Ok(Ok(result)) => results.push(result),
+                Ok(Err(e)) => {
+                    warn!("Agent execution failed: {}", e);
+                    // Continue processing other agents
+                }
+                Err(e) => {
+                    warn!("Agent task panicked: {}", e);
+                    // Continue processing other agents
+                }
+            }
+        }
+        results
+    }
+
     /// Execute the map phase
     async fn execute_map_phase_internal(
         &self,
@@ -793,20 +817,7 @@ impl MapReduceCoordinator {
             .collect();
 
         // Wait for all agents to complete
-        let mut results = Vec::new();
-        for future in agent_futures {
-            match future.await {
-                Ok(Ok(result)) => results.push(result),
-                Ok(Err(e)) => {
-                    warn!("Agent execution failed: {}", e);
-                    // Continue processing other agents
-                }
-                Err(e) => {
-                    warn!("Agent task panicked: {}", e);
-                    // Continue processing other agents
-                }
-            }
-        }
+        let results = Self::collect_agent_results(agent_futures).await;
 
         // Log map phase completion
         let summary = AggregationSummary::from_results(&results);
