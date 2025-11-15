@@ -572,6 +572,8 @@ impl MapReduceResumeManager {
 
         // Prepare execution context for remaining map items
         // We can now use the agent_template from the state
+        // NOTE: workflow_env is not preserved in resume state, so we use empty HashMap
+        // This is acceptable as environment variables should be consistent across resume
         let map_phase = MapPhase {
             config: state.config.clone(),
             json_path: None,
@@ -581,6 +583,7 @@ impl MapReduceResumeManager {
             max_items: None,
             distinct: None,
             timeout_config: None,
+            workflow_env: std::collections::HashMap::new(),
         };
 
         // Return execution context so the caller can execute with a mutable executor

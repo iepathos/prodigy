@@ -93,6 +93,9 @@ pub struct MapPhase {
     /// Timeout configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_config: Option<crate::cook::execution::mapreduce::timeout::TimeoutConfig>,
+    /// Workflow environment variables (resolved from env section and command-line args)
+    #[serde(skip)]
+    pub workflow_env: std::collections::HashMap<String, String>,
 }
 
 /// Reduce phase configuration

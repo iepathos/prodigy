@@ -1036,6 +1036,7 @@ impl MapReduceCoordinator {
         command_executor: &CommandExecutor,
         timeout_enforcer: Option<&Arc<TimeoutEnforcer>>,
         user_interaction: &Arc<dyn UserInteraction>,
+        workflow_env: &HashMap<String, String>,
     ) -> MapReduceResult<(String, Vec<String>, Vec<String>)> {
         let mut output = String::new();
         let mut all_commits = Vec::new();
@@ -1054,8 +1055,8 @@ impl MapReduceCoordinator {
 
             let cmd_start = Instant::now();
 
-            // Create variables for interpolation
-            let variables = Self::build_item_variables(item, item_id);
+            // Create variables for interpolation (includes workflow env)
+            let variables = Self::build_item_variables(item, item_id, workflow_env);
 
             // Execute the step in the agent's worktree
             let step_result = command_executor
@@ -1085,11 +1086,14 @@ impl MapReduceCoordinator {
                         index + 1
                     ));
 
+                    // Rebuild variables for on_failure handler (should include workflow env)
+                    let failure_variables = Self::build_item_variables(item, item_id, workflow_env);
+
                     // Execute on_failure handler
                     let handler_result = Self::handle_on_failure(
                         on_failure,
                         handle.worktree_path(),
-                        &variables,
+                        &failure_variables,
                         command_executor,
                         user_interaction,
                     )
@@ -1138,10 +1142,17 @@ impl MapReduceCoordinator {
     ///
     /// # Returns
     /// HashMap of variable names to string values for interpolation
-    fn build_item_variables(item: &Value, item_id: &str) -> HashMap<String, String> {
+    fn build_item_variables(
+        item: &Value,
+        item_id: &str,
+        workflow_env: &HashMap<String, String>,
+    ) -> HashMap<String, String> {
         let mut variables = HashMap::new();
 
-        // Store the item fields as flattened variables for interpolation
+        // Start with workflow environment variables (lowest precedence)
+        variables.extend(workflow_env.clone());
+
+        // Store the item fields as flattened variables for interpolation (override workflow env)
         if let Value::Object(map) = item {
             for (key, value) in map {
                 let var_key = format!("item.{}", key);
@@ -1225,6 +1236,7 @@ impl MapReduceCoordinator {
                 command_executor,
                 timeout_enforcer,
                 user_interaction,
+                &map_phase.workflow_env,
             )
             .await?;
 
@@ -1611,7 +1623,9 @@ mod tests {
             "optional": null
         });
 
-        let variables = MapReduceCoordinator::build_item_variables(&item, "item-123");
+        let workflow_env = HashMap::new();
+        let variables =
+            MapReduceCoordinator::build_item_variables(&item, "item-123", &workflow_env);
 
         assert_eq!(variables.get("item.name"), Some(&"test-item".to_string()));
         assert_eq!(variables.get("item.count"), Some(&"42".to_string()));
@@ -1630,7 +1644,9 @@ mod tests {
             }
         });
 
-        let variables = MapReduceCoordinator::build_item_variables(&item, "item-456");
+        let workflow_env = HashMap::new();
+        let variables =
+            MapReduceCoordinator::build_item_variables(&item, "item-456", &workflow_env);
 
         assert_eq!(variables.get("item.name"), Some(&"test".to_string()));
         // Nested objects should be serialized to JSON
@@ -1642,7 +1658,9 @@ mod tests {
     fn test_build_item_variables_with_empty_object() {
         let item = json!({});
 
-        let variables = MapReduceCoordinator::build_item_variables(&item, "item-789");
+        let workflow_env = HashMap::new();
+        let variables =
+            MapReduceCoordinator::build_item_variables(&item, "item-789", &workflow_env);
 
         // Should still have item_json and item_id
         assert_eq!(variables.get("item_id"), Some(&"item-789".to_string()));
@@ -1654,7 +1672,9 @@ mod tests {
     fn test_build_item_variables_with_non_object() {
         let item = json!("just a string");
 
-        let variables = MapReduceCoordinator::build_item_variables(&item, "item-999");
+        let workflow_env = HashMap::new();
+        let variables =
+            MapReduceCoordinator::build_item_variables(&item, "item-999", &workflow_env);
 
         // Should still have item_json and item_id
         assert_eq!(variables.get("item_id"), Some(&"item-999".to_string()));

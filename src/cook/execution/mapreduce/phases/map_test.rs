@@ -4,6 +4,7 @@ use super::*;
 use crate::cook::execution::mapreduce::{MapPhase, MapReduceConfig};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::subprocess::SubprocessManager;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -40,6 +41,7 @@ fn create_test_map_phase() -> MapPhase {
         max_items: Some(10),
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     }
 }
 

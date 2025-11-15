@@ -290,6 +290,7 @@ fn test_map_phase_configuration() {
         max_items: None,
         distinct: None,
         timeout_config: None,
+        workflow_env: HashMap::new(),
     };
 
     assert_eq!(map_phase.config.max_parallel, 20);
@@ -1825,6 +1826,7 @@ mod additional_coverage_tests {
             max_items: Some(100),
             distinct: Some("item.id".to_string()),
             timeout_config: None,
+            workflow_env: HashMap::new(),
         };
 
         assert_eq!(map_phase.config.max_parallel, 50);

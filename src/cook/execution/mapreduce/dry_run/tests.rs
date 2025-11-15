@@ -83,6 +83,7 @@ fn create_test_map_phase() -> MapPhase {
         max_items: Some(10),
         distinct: None,
         timeout_config: None,
+        workflow_env: std::collections::HashMap::new(),
     }
 }
 

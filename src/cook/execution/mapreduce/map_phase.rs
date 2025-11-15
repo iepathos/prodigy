@@ -31,6 +31,7 @@ pub struct MapPhaseResult {
 }
 
 /// Execute map phase with state management
+#[allow(clippy::too_many_arguments)]
 pub async fn execute_with_state<F>(
     job_id: &str,
     _map_phase: &MapPhase,
@@ -38,6 +39,7 @@ pub async fn execute_with_state<F>(
     state: Arc<Mutex<MapReduceJobState>>,
     max_parallel: usize,
     worktree_pool: Option<Arc<WorktreePool>>,
+    workflow_env: &HashMap<String, String>,
     agent_executor: F,
 ) -> MapReduceResult<MapPhaseResult>
 where
@@ -76,8 +78,8 @@ where
         let agent_executor = agent_executor.clone();
         let agent_id = format!("agent-{}-{}", job_id, index);
 
-        // Create agent context
-        let context = create_agent_context(&agent_id, &item, index);
+        // Create agent context with workflow environment variables
+        let context = create_agent_context(&agent_id, &item, index, workflow_env);
 
         futures.push(tokio::spawn(async move {
             let result = execute_agent_with_pool(context, pool_clone, agent_executor).await;
@@ -156,8 +158,18 @@ async fn acquire_worktree_from_pool(
     })
 }
 
-/// Create agent context from work item
-fn create_agent_context(agent_id: &str, item: &Value, index: usize) -> AgentContext {
+/// Create agent context from work item and workflow environment
+///
+/// Variable precedence (highest to lowest):
+/// 1. Item variables (e.g., ${item.name})
+/// 2. Agent-specific variables (e.g., ${ITEM_INDEX})
+/// 3. Workflow environment variables (e.g., ${BLOG_POST})
+fn create_agent_context(
+    agent_id: &str,
+    item: &Value,
+    index: usize,
+    workflow_env: &HashMap<String, String>,
+) -> AgentContext {
     let mut context = AgentContext::new(
         agent_id.to_string(),
         std::path::PathBuf::from("."),
@@ -170,8 +182,14 @@ fn create_agent_context(agent_id: &str, item: &Value, index: usize) -> AgentCont
         },
     );
 
-    // Add item variables
-    context.variables = extract_item_variables(item);
+    // Start with workflow environment variables (lowest precedence)
+    context.variables = workflow_env.clone();
+
+    // Add item variables (these override workflow env)
+    let item_vars = extract_item_variables(item);
+    context.variables.extend(item_vars);
+
+    // Add agent-specific variables (highest precedence)
     context
         .variables
         .insert("ITEM_INDEX".to_string(), index.to_string());

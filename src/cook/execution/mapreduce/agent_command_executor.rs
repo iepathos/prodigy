@@ -182,10 +182,13 @@ impl AgentCommandExecutor {
                 steps.len()
             );
 
-            // Create interpolation context - convert variables to HashMap
+            // Create interpolation context from agent variables
             let mut vars_map = HashMap::new();
-            // Add item variable for interpolation
-            vars_map.insert("item".to_string(), serde_json::json!({}));
+
+            // Add all agent context variables (includes workflow env and item vars)
+            for (key, value) in &agent_context.variables {
+                vars_map.insert(key.clone(), serde_json::Value::String(value.clone()));
+            }
 
             let interp_context = InterpolationContext {
                 variables: vars_map,

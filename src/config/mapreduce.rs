@@ -559,6 +559,7 @@ impl MapReduceWorkflowConfig {
             max_items: self.map.max_items,
             distinct: self.map.distinct.clone(),
             timeout_config: self.map.timeout_config.clone(),
+            workflow_env: self.env.clone().unwrap_or_default(),
         })
     }
 
