@@ -44,7 +44,7 @@ setup:
   # This runs BEFORE map phase so agents process optimally-sized pages
   # Reads structure-report.json and orchestrates splitting of high-priority pages
   - claude: "/prodigy-split-oversized-mkdocs-pages --project $PROJECT_NAME --pages $CHAPTERS_FILE --docs-dir $DOCS_DIR --structure-report $ANALYSIS_DIR/structure-report.json"
-    commit_required: true
+    commit_required: false
 
   # Step 5: Auto-discover ALL documentation pages (including newly created subpages)
   # This ensures we process all pages, not just the curated list in chapters.json
@@ -110,6 +110,14 @@ reduce:
   # Note: Page-level enhancements happen in map phase where agents have context
   # This just checks consistency and reports any pages that slipped through
   - claude: "/prodigy-validate-feature-consistency --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/feature-consistency.json"
+
+  # Mermaid diagram validation - ensure all diagrams have valid syntax
+  - shell: "cd .prodigy/scripts && npm install --silent && node validate-mermaid.js ../../$DOCS_DIR"
+    on_failure:
+      # Fix any invalid Mermaid diagrams found
+      # Pass validation output (JSON on stderr) to Claude for context
+      claude: "/prodigy-fix-mermaid-diagrams --validation-output '${shell.stderr}'"
+      commit_required: true
 
   # Clean up temporary analysis files (keep structure-report.json and validation reports for review)
   - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json ${ANALYSIS_DIR}/gap-report.json"
