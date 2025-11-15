@@ -532,7 +532,226 @@ impl MapReduceCoordinator {
         Ok(items)
     }
 
-    /// Execute the map phase
+    /// Convert execution result to AgentResult with appropriate event logging
+    ///
+    /// This helper function handles the conversion of agent execution results,
+    /// logging appropriate events (completed or failed) and structuring the
+    /// AgentResult consistently.
+    async fn convert_execution_result_to_agent_result(
+        result: MapReduceResult<AgentResult>,
+        agent_id: String,
+        item_id: String,
+        duration: Duration,
+        event_logger: Arc<EventLogger>,
+    ) -> MapReduceResult<AgentResult> {
+        match result {
+            Ok(agent_result) => {
+                event_logger
+                    .log_event(MapReduceEvent::agent_completed(
+                        agent_id.clone(),
+                        item_id.clone(),
+                        chrono::Duration::from_std(duration)
+                            .unwrap_or(chrono::Duration::seconds(0)),
+                        None,
+                    ))
+                    .await
+                    .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+                Ok(agent_result)
+            }
+            Err(e) => {
+                event_logger
+                    .log_event(MapReduceEvent::agent_failed(
+                        agent_id.clone(),
+                        item_id.clone(),
+                        e.to_string(),
+                    ))
+                    .await
+                    .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+                Ok(AgentResult {
+                    item_id: item_id.clone(),
+                    status: AgentStatus::Failed(e.to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: std::time::Duration::from_secs(0),
+                    error: Some(e.to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: Some(agent_id),
+                    files_modified: vec![],
+                    json_log_location: None,
+                    cleanup_status: None,
+                })
+            }
+        }
+    }
+
+    /// Handle Dead Letter Queue integration for failed items
+    ///
+    /// This helper function manages DLQ operations for failed work items,
+    /// including retry tracking, error logging, and state updates.
+    async fn handle_dlq_for_failed_item(
+        agent_result: &AgentResult,
+        item: &Value,
+        item_id: &str,
+        dlq: Arc<DeadLetterQueue>,
+        retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+    ) {
+        // Get current attempt number for this item
+        let retry_counts_read = retry_counts.read().await;
+        let attempt_number = retry_tracking::get_item_attempt_number(item_id, &retry_counts_read);
+        drop(retry_counts_read); // Release read lock
+
+        if let Some(dlq_item) =
+            dlq_integration::agent_result_to_dlq_item(agent_result, item, attempt_number)
+        {
+            if let Err(e) = dlq.add(dlq_item).await {
+                warn!(
+                    "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
+                    agent_result.item_id, e
+                );
+            } else {
+                info!(
+                    "Added failed item {} to DLQ (attempt {})",
+                    agent_result.item_id, attempt_number
+                );
+
+                // Increment retry count in state
+                let mut retry_counts_write = retry_counts.write().await;
+                *retry_counts_write =
+                    retry_tracking::increment_retry_count(item_id, retry_counts_write.clone());
+            }
+        }
+    }
+
+    /// Process a single work item with complete agent lifecycle management
+    ///
+    /// This helper function orchestrates the complete execution flow for a single work item,
+    /// including semaphore acquisition, agent execution, result conversion, and DLQ integration.
+    #[allow(clippy::too_many_arguments)]
+    async fn process_single_work_item(
+        index: usize,
+        item: Value,
+        job_id: String,
+        map_phase: MapPhase,
+        env: ExecutionEnvironment,
+        semaphore: Arc<Semaphore>,
+        agent_manager: Arc<dyn AgentLifecycleManager>,
+        merge_queue: Arc<MergeQueue>,
+        event_logger: Arc<EventLogger>,
+        result_collector: Arc<ResultCollector>,
+        user_interaction: Arc<dyn UserInteraction>,
+        command_executor: CommandExecutor,
+        dlq: Arc<DeadLetterQueue>,
+        retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+        timeout_enforcer: Option<Arc<TimeoutEnforcer>>,
+        total_items: usize,
+    ) -> MapReduceResult<AgentResult> {
+        // Acquire semaphore permit
+        let _permit = semaphore.acquire().await.map_err(|e| {
+            MapReduceError::ProcessingError(format!("Failed to acquire semaphore: {}", e))
+        })?;
+
+        let item_id = format!("item_{}", index);
+        let agent_id = format!("{}_agent_{}", job_id, index);
+
+        // Log agent start
+        event_logger
+            .log_event(MapReduceEvent::agent_started(
+                agent_id.clone(),
+                item_id.clone(),
+            ))
+            .await
+            .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+        let start_time = Instant::now();
+
+        // Clone item for DLQ tracking in case of failure
+        let item_for_dlq = item.clone();
+
+        // Execute agent with item
+        let result = Self::execute_agent_for_item(
+            &agent_manager,
+            &merge_queue,
+            &agent_id,
+            &item_id,
+            item,
+            &map_phase,
+            &env,
+            &user_interaction,
+            &command_executor,
+            timeout_enforcer.as_ref(),
+            index,
+            total_items,
+        )
+        .await;
+
+        let duration = start_time.elapsed();
+
+        // Convert result to AgentResult
+        let agent_result = Self::convert_execution_result_to_agent_result(
+            result,
+            agent_id.clone(),
+            item_id.clone(),
+            duration,
+            event_logger.clone(),
+        )
+        .await?;
+
+        // Add result to collector
+        result_collector.add_result(agent_result.clone()).await;
+
+        // Add failed items to DLQ (graceful failure - don't break workflow)
+        Self::handle_dlq_for_failed_item(
+            &agent_result,
+            &item_for_dlq,
+            &item_id,
+            dlq.clone(),
+            retry_counts.clone(),
+        )
+        .await;
+
+        Ok(agent_result)
+    }
+
+    /// Collect results from agent futures, handling errors gracefully
+    ///
+    /// This helper function waits for all agent futures to complete,
+    /// collecting successful results and logging failures without breaking the workflow.
+    async fn collect_agent_results(
+        agent_futures: Vec<tokio::task::JoinHandle<MapReduceResult<AgentResult>>>,
+    ) -> Vec<AgentResult> {
+        let mut results = Vec::new();
+        for future in agent_futures {
+            match future.await {
+                Ok(Ok(result)) => results.push(result),
+                Ok(Err(e)) => {
+                    warn!("Agent execution failed: {}", e);
+                    // Continue processing other agents
+                }
+                Err(e) => {
+                    warn!("Agent task panicked: {}", e);
+                    // Continue processing other agents
+                }
+            }
+        }
+        results
+    }
+
+    /// Execute the map phase with parallel work item processing
+    ///
+    /// This orchestrates the map phase execution flow:
+    /// 1. Initialize semaphore for concurrency control
+    /// 2. Spawn parallel agents for each work item via `process_single_work_item`
+    /// 3. Collect and aggregate results via `collect_agent_results`
+    /// 4. Log summary metrics
+    ///
+    /// The function has been refactored to reduce complexity by extracting:
+    /// - Result conversion logic to `convert_execution_result_to_agent_result`
+    /// - DLQ integration to `handle_dlq_for_failed_item`
+    /// - Single item processing to `process_single_work_item`
+    /// - Future collection to `collect_agent_results`
     async fn execute_map_phase_internal(
         &self,
         map_phase: MapPhase,
@@ -561,7 +780,7 @@ impl MapReduceCoordinator {
         // Get the timeout enforcer if configured
         let timeout_enforcer = self.timeout_enforcer.lock().await.clone();
 
-        // Process items in parallel with controlled concurrency
+        // Spawn parallel agents for each work item
         let agent_futures: Vec<_> = work_items
             .into_iter()
             .enumerate()
@@ -580,149 +799,29 @@ impl MapReduceCoordinator {
                 let job_id = self.job_id.clone();
                 let timeout_enforcer = timeout_enforcer.clone();
 
-                tokio::spawn(async move {
-                    // Acquire semaphore permit
-                    let _permit = sem.acquire().await.map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Failed to acquire semaphore: {}",
-                            e
-                        ))
-                    })?;
-
-                    let item_id = format!("item_{}", index);
-                    let agent_id = format!("{}_agent_{}", job_id, index);
-
-                    // Log agent start
-                    event_logger
-                        .log_event(MapReduceEvent::agent_started(
-                            agent_id.clone(),
-                            item_id.clone(),
-                        ))
-                        .await
-                        .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                    let start_time = Instant::now();
-
-                    // Clone item for DLQ tracking in case of failure
-                    let item_for_dlq = item.clone();
-
-                    // Execute agent with item
-                    let result = Self::execute_agent_for_item(
-                        &agent_manager,
-                        &merge_queue,
-                        &agent_id,
-                        &item_id,
-                        item,
-                        &map_phase,
-                        &env,
-                        &user_interaction,
-                        &command_executor,
-                        timeout_enforcer.as_ref(),
-                        index,
-                        total_items,
-                    )
-                    .await;
-
-                    let duration = start_time.elapsed();
-
-                    // Convert result to AgentResult
-                    let agent_result = match result {
-                        Ok(agent_result) => {
-                            event_logger
-                                .log_event(MapReduceEvent::agent_completed(
-                                    agent_id.clone(),
-                                    item_id.clone(),
-                                    chrono::Duration::from_std(duration)
-                                        .unwrap_or(chrono::Duration::seconds(0)),
-                                    None,
-                                ))
-                                .await
-                                .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                            agent_result
-                        }
-                        Err(e) => {
-                            event_logger
-                                .log_event(MapReduceEvent::agent_failed(
-                                    agent_id.clone(),
-                                    item_id.clone(),
-                                    e.to_string(),
-                                ))
-                                .await
-                                .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                            AgentResult {
-                                item_id: item_id.clone(),
-                                status: AgentStatus::Failed(e.to_string()),
-                                output: None,
-                                commits: vec![],
-                                duration: std::time::Duration::from_secs(0),
-                                error: Some(e.to_string()),
-                                worktree_path: None,
-                                branch_name: None,
-                                worktree_session_id: Some(agent_id),
-                                files_modified: vec![],
-                                json_log_location: None,
-                                cleanup_status: None,
-                            }
-                        }
-                    };
-
-                    // Add result to collector
-                    result_collector.add_result(agent_result.clone()).await;
-
-                    // Add failed items to DLQ (graceful failure - don't break workflow)
-                    // Get current attempt number for this item
-                    let retry_counts_read = retry_counts.read().await;
-                    let attempt_number = retry_tracking::get_item_attempt_number(
-                        &item_id,
-                        &retry_counts_read,
-                    );
-                    drop(retry_counts_read); // Release read lock
-
-                    if let Some(dlq_item) =
-                        dlq_integration::agent_result_to_dlq_item(&agent_result, &item_for_dlq, attempt_number)
-                    {
-                        if let Err(e) = dlq.add(dlq_item).await {
-                            warn!(
-                                "Failed to add item {} to DLQ: {}. Item tracking may be incomplete.",
-                                agent_result.item_id, e
-                            );
-                        } else {
-                            info!(
-                                "Added failed item {} to DLQ (attempt {})",
-                                agent_result.item_id, attempt_number
-                            );
-
-                            // Increment retry count in state
-                            let mut retry_counts_write = retry_counts.write().await;
-                            *retry_counts_write = retry_tracking::increment_retry_count(
-                                &item_id,
-                                retry_counts_write.clone(),
-                            );
-                        }
-                    }
-
-                    Ok::<AgentResult, MapReduceError>(agent_result)
-                })
+                tokio::spawn(Self::process_single_work_item(
+                    index,
+                    item,
+                    job_id,
+                    map_phase,
+                    env,
+                    sem,
+                    agent_manager,
+                    merge_queue,
+                    event_logger,
+                    result_collector,
+                    user_interaction,
+                    command_executor,
+                    dlq,
+                    retry_counts,
+                    timeout_enforcer,
+                    total_items,
+                ))
             })
             .collect();
 
         // Wait for all agents to complete
-        let mut results = Vec::new();
-        for future in agent_futures {
-            match future.await {
-                Ok(Ok(result)) => results.push(result),
-                Ok(Err(e)) => {
-                    warn!("Agent execution failed: {}", e);
-                    // Continue processing other agents
-                }
-                Err(e) => {
-                    warn!("Agent task panicked: {}", e);
-                    // Continue processing other agents
-                }
-            }
-        }
+        let results = Self::collect_agent_results(agent_futures).await;
 
         // Log map phase completion
         let summary = AggregationSummary::from_results(&results);
