@@ -630,6 +630,99 @@ impl MapReduceCoordinator {
         }
     }
 
+    /// Process a single work item with complete agent lifecycle management
+    ///
+    /// This helper function orchestrates the complete execution flow for a single work item,
+    /// including semaphore acquisition, agent execution, result conversion, and DLQ integration.
+    #[allow(clippy::too_many_arguments)]
+    async fn process_single_work_item(
+        index: usize,
+        item: Value,
+        job_id: String,
+        map_phase: MapPhase,
+        env: ExecutionEnvironment,
+        semaphore: Arc<Semaphore>,
+        agent_manager: Arc<dyn AgentLifecycleManager>,
+        merge_queue: Arc<MergeQueue>,
+        event_logger: Arc<EventLogger>,
+        result_collector: Arc<ResultCollector>,
+        user_interaction: Arc<dyn UserInteraction>,
+        command_executor: CommandExecutor,
+        dlq: Arc<DeadLetterQueue>,
+        retry_counts: Arc<tokio::sync::RwLock<HashMap<String, u32>>>,
+        timeout_enforcer: Option<Arc<TimeoutEnforcer>>,
+        total_items: usize,
+    ) -> MapReduceResult<AgentResult> {
+        // Acquire semaphore permit
+        let _permit = semaphore.acquire().await.map_err(|e| {
+            MapReduceError::ProcessingError(format!(
+                "Failed to acquire semaphore: {}",
+                e
+            ))
+        })?;
+
+        let item_id = format!("item_{}", index);
+        let agent_id = format!("{}_agent_{}", job_id, index);
+
+        // Log agent start
+        event_logger
+            .log_event(MapReduceEvent::agent_started(
+                agent_id.clone(),
+                item_id.clone(),
+            ))
+            .await
+            .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
+
+        let start_time = Instant::now();
+
+        // Clone item for DLQ tracking in case of failure
+        let item_for_dlq = item.clone();
+
+        // Execute agent with item
+        let result = Self::execute_agent_for_item(
+            &agent_manager,
+            &merge_queue,
+            &agent_id,
+            &item_id,
+            item,
+            &map_phase,
+            &env,
+            &user_interaction,
+            &command_executor,
+            timeout_enforcer.as_ref(),
+            index,
+            total_items,
+        )
+        .await;
+
+        let duration = start_time.elapsed();
+
+        // Convert result to AgentResult
+        let agent_result = Self::convert_execution_result_to_agent_result(
+            result,
+            agent_id.clone(),
+            item_id.clone(),
+            duration,
+            event_logger.clone(),
+        )
+        .await?;
+
+        // Add result to collector
+        result_collector.add_result(agent_result.clone()).await;
+
+        // Add failed items to DLQ (graceful failure - don't break workflow)
+        Self::handle_dlq_for_failed_item(
+            &agent_result,
+            &item_for_dlq,
+            &item_id,
+            dlq.clone(),
+            retry_counts.clone(),
+        )
+        .await;
+
+        Ok(agent_result)
+    }
+
     /// Execute the map phase
     async fn execute_map_phase_internal(
         &self,
@@ -678,76 +771,24 @@ impl MapReduceCoordinator {
                 let job_id = self.job_id.clone();
                 let timeout_enforcer = timeout_enforcer.clone();
 
-                tokio::spawn(async move {
-                    // Acquire semaphore permit
-                    let _permit = sem.acquire().await.map_err(|e| {
-                        MapReduceError::ProcessingError(format!(
-                            "Failed to acquire semaphore: {}",
-                            e
-                        ))
-                    })?;
-
-                    let item_id = format!("item_{}", index);
-                    let agent_id = format!("{}_agent_{}", job_id, index);
-
-                    // Log agent start
-                    event_logger
-                        .log_event(MapReduceEvent::agent_started(
-                            agent_id.clone(),
-                            item_id.clone(),
-                        ))
-                        .await
-                        .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
-
-                    let start_time = Instant::now();
-
-                    // Clone item for DLQ tracking in case of failure
-                    let item_for_dlq = item.clone();
-
-                    // Execute agent with item
-                    let result = Self::execute_agent_for_item(
-                        &agent_manager,
-                        &merge_queue,
-                        &agent_id,
-                        &item_id,
-                        item,
-                        &map_phase,
-                        &env,
-                        &user_interaction,
-                        &command_executor,
-                        timeout_enforcer.as_ref(),
-                        index,
-                        total_items,
-                    )
-                    .await;
-
-                    let duration = start_time.elapsed();
-
-                    // Convert result to AgentResult
-                    let agent_result = Self::convert_execution_result_to_agent_result(
-                        result,
-                        agent_id.clone(),
-                        item_id.clone(),
-                        duration,
-                        event_logger.clone(),
-                    )
-                    .await?;
-
-                    // Add result to collector
-                    result_collector.add_result(agent_result.clone()).await;
-
-                    // Add failed items to DLQ (graceful failure - don't break workflow)
-                    Self::handle_dlq_for_failed_item(
-                        &agent_result,
-                        &item_for_dlq,
-                        &item_id,
-                        dlq.clone(),
-                        retry_counts.clone(),
-                    )
-                    .await;
-
-                    Ok::<AgentResult, MapReduceError>(agent_result)
-                })
+                tokio::spawn(Self::process_single_work_item(
+                    index,
+                    item,
+                    job_id,
+                    map_phase,
+                    env,
+                    sem,
+                    agent_manager,
+                    merge_queue,
+                    event_logger,
+                    result_collector,
+                    user_interaction,
+                    command_executor,
+                    dlq,
+                    retry_counts,
+                    timeout_enforcer,
+                    total_items,
+                ))
             })
             .collect();
 
