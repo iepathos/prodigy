@@ -1588,5 +1588,71 @@ mod tests {
             // Should succeed, no error if workflow doesn't exist
             assert!(result.is_ok());
         }
+
+        // Tests for Show command
+
+        #[tokio::test]
+        async fn test_show_command_with_valid_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::Show {
+                workflow_id: "test-workflow-1".to_string(),
+                version: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_show_command_with_nonexistent_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Show {
+                workflow_id: "nonexistent-workflow".to_string(),
+                version: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Show command prints error message but returns Ok
+            assert!(result.is_ok());
+        }
+
+        // Tests for Validate command
+        // Note: Validate works with MapReduce checkpoints, not workflow checkpoints
+
+        #[tokio::test]
+        async fn test_validate_command_nonexistent_checkpoint() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Validate {
+                checkpoint_id: "nonexistent-checkpoint".to_string(),
+                repair: false,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Validate returns error for nonexistent MapReduce checkpoints
+            assert!(result.is_err());
+        }
+
+        #[tokio::test]
+        async fn test_validate_command_with_repair_flag() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::Validate {
+                checkpoint_id: "test-checkpoint".to_string(),
+                repair: true,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Returns error but repair flag is exercised
+            assert!(result.is_err());
+        }
     }
 }
