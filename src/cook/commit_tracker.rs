@@ -76,6 +76,15 @@ pub struct TrackedCommit {
     pub agent_id: Option<String>,
 }
 
+/// Strategy for staging files before commit
+#[derive(Debug, Clone, PartialEq)]
+enum StagingStrategy {
+    /// Stage all changes
+    All,
+    /// Stage only files matching the patterns
+    Selective,
+}
+
 /// Tracks commits created during workflow execution
 pub struct CommitTracker {
     /// Git operations interface
@@ -409,6 +418,54 @@ impl CommitTracker {
         Ok(files)
     }
 
+    /// Determine the staging strategy based on commit configuration (pure function)
+    ///
+    /// Returns `StagingStrategy::Selective` if include or exclude patterns are specified,
+    /// otherwise returns `StagingStrategy::All` for default behavior.
+    fn determine_staging_strategy(commit_config: Option<&CommitConfig>) -> StagingStrategy {
+        match commit_config {
+            Some(config)
+                if config.include_files.is_some() || config.exclude_files.is_some() =>
+            {
+                StagingStrategy::Selective
+            }
+            _ => StagingStrategy::All,
+        }
+    }
+
+    /// Stage files based on the staging strategy
+    ///
+    /// For `StagingStrategy::All`, stages all changes with `git add .`.
+    /// For `StagingStrategy::Selective`, stages only files matching include/exclude patterns.
+    async fn stage_files(
+        &self,
+        strategy: StagingStrategy,
+        commit_config: Option<&CommitConfig>,
+    ) -> Result<()> {
+        match strategy {
+            StagingStrategy::All => {
+                self.git_ops
+                    .git_command_in_dir(&["add", "."], "stage all changes", &self.working_dir)
+                    .await?;
+            }
+            StagingStrategy::Selective => {
+                let files_to_stage = self.get_files_to_stage(commit_config).await?;
+
+                if files_to_stage.is_empty() {
+                    return Err(anyhow!("No files match the specified patterns"));
+                }
+
+                for file in files_to_stage {
+                    self.git_ops
+                        .git_command_in_dir(&["add", &file], "stage file", &self.working_dir)
+                        .await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Create an auto-commit with the given configuration
     pub async fn create_auto_commit(
         &self,
@@ -422,30 +479,9 @@ impl CommitTracker {
             return Err(anyhow!("No changes to commit"));
         }
 
-        // Stage files based on patterns
-        if commit_config.is_some()
-            && (commit_config.unwrap().include_files.is_some()
-                || commit_config.unwrap().exclude_files.is_some())
-        {
-            // Use selective file staging
-            let files_to_stage = self.get_files_to_stage(commit_config).await?;
-
-            if files_to_stage.is_empty() {
-                return Err(anyhow!("No files match the specified patterns"));
-            }
-
-            // Stage each file individually
-            for file in files_to_stage {
-                self.git_ops
-                    .git_command_in_dir(&["add", &file], "stage file", &self.working_dir)
-                    .await?;
-            }
-        } else {
-            // Stage all changes (default behavior)
-            self.git_ops
-                .git_command_in_dir(&["add", "."], "stage all changes", &self.working_dir)
-                .await?;
-        }
+        // Determine staging strategy and stage files
+        let strategy = Self::determine_staging_strategy(commit_config);
+        self.stage_files(strategy, commit_config).await?;
 
         // Generate commit message
         let message = if let Some(template) = message_template {
