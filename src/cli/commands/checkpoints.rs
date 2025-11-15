@@ -1321,4 +1321,122 @@ mod tests {
         assert!(checkpoint_dir.join("failed-1.checkpoint.json").exists());
         assert!(!checkpoint_dir.join("completed-1.checkpoint.json").exists());
     }
+
+    // ========================================================================
+    // Integration Tests for run_checkpoints_command Entry Point
+    // ========================================================================
+
+    mod test_run_checkpoints_command {
+        use super::*;
+        use crate::cli::args::CheckpointCommands;
+
+        /// Helper to set up a temporary checkpoint directory structure
+        async fn setup_test_checkpoint_env() -> (TempDir, PathBuf) {
+            let temp_dir = TempDir::new().expect("Failed to create temp dir");
+            let working_dir = temp_dir.path().to_path_buf();
+
+            // Create .prodigy directory structure
+            let prodigy_dir = working_dir.join(".prodigy");
+            fs::create_dir_all(&prodigy_dir)
+                .await
+                .expect("Failed to create .prodigy dir");
+
+            (temp_dir, working_dir)
+        }
+
+        /// Helper to create checkpoint directory with test data
+        async fn create_checkpoint_with_data(
+            working_dir: &Path,
+            workflow_id: &str,
+            status: WorkflowStatus,
+        ) {
+            let checkpoint_dir = working_dir.join(".prodigy");
+            let checkpoint = create_test_checkpoint(status);
+            save_checkpoint_to_file(&checkpoint_dir, workflow_id, &checkpoint)
+                .await
+                .expect("Failed to save checkpoint");
+        }
+
+        // Tests for List command
+
+        #[tokio::test]
+        async fn test_list_command_with_workflow_id() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: Some("test-workflow-1".to_string()),
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_without_workflow_id() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+            create_checkpoint_with_data(
+                &working_dir,
+                "test-workflow-2",
+                WorkflowStatus::Completed,
+            )
+            .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_no_checkpoints() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: None,
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_verbose_mode() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: Some("test-workflow-1".to_string()),
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 1).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn test_list_command_nonexistent_workflow() {
+            let (_temp_dir, working_dir) = setup_test_checkpoint_env().await;
+            create_checkpoint_with_data(&working_dir, "test-workflow-1", WorkflowStatus::Running)
+                .await;
+
+            let command = CheckpointCommands::List {
+                workflow_id: Some("nonexistent-workflow".to_string()),
+                path: Some(working_dir),
+            };
+
+            let result = run_checkpoints_command(command, 0).await;
+            // Should not error, just indicate not found
+            assert!(result.is_ok());
+        }
+    }
 }
