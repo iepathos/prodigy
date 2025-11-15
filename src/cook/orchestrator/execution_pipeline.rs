@@ -709,11 +709,13 @@ impl ExecutionPipeline {
                         }
                     }
 
-                    // Store outputs for this command
-                    if let Some(ref id) = command.id {
-                        command_outputs.insert(id.clone(), cmd_output_map);
-                        self.user_interaction
-                            .display_success(&format!("💾 Stored outputs for command '{id}'"));
+                    // Store outputs for this command if it has an ID
+                    if should_store_outputs(&command.id) {
+                        if let Some(ref id) = command.id {
+                            command_outputs.insert(id.clone(), cmd_output_map);
+                            self.user_interaction
+                                .display_success(&format!("💾 Stored outputs for command '{id}'"));
+                        }
                     }
                 }
             }
@@ -968,6 +970,20 @@ fn build_command_string(
     cmd_parts.join(" ")
 }
 
+/// Determine if command outputs should be stored
+///
+/// This pure function checks if a command has an ID, which determines whether
+/// its outputs should be stored for later reference by other commands.
+///
+/// # Arguments
+/// * `command_id` - Optional command ID
+///
+/// # Returns
+/// true if outputs should be stored, false otherwise
+fn should_store_outputs(command_id: &Option<String>) -> bool {
+    command_id.is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1066,5 +1082,24 @@ mod tests {
         let result = build_command_string("test-cmd", &args, &variables);
 
         assert_eq!(result, "/test-cmd arg1 arg2");
+    }
+
+    #[test]
+    fn test_should_store_outputs_with_id() {
+        let command_id = Some("cmd1".to_string());
+        assert!(should_store_outputs(&command_id));
+    }
+
+    #[test]
+    fn test_should_store_outputs_without_id() {
+        let command_id: Option<String> = None;
+        assert!(!should_store_outputs(&command_id));
+    }
+
+    #[test]
+    fn test_should_store_outputs_with_empty_id() {
+        // Even an empty string ID should allow storage
+        let command_id = Some("".to_string());
+        assert!(should_store_outputs(&command_id));
     }
 }
