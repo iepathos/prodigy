@@ -396,6 +396,16 @@ pub fn format_command_description(command_type: &CommandType) -> String {
     }
 }
 
+/// Add timeout to environment variables if configured (pure function)
+fn add_timeout_to_env_vars(env_vars: &mut HashMap<String, String>, timeout: Option<u64>) {
+    if let Some(timeout_secs) = timeout {
+        env_vars.insert(
+            "PRODIGY_COMMAND_TIMEOUT".to_string(),
+            timeout_secs.to_string(),
+        );
+    }
+}
+
 // ============================================================================
 // WorkflowExecutor Command Execution Methods
 // ============================================================================
@@ -554,13 +564,8 @@ impl WorkflowExecutor {
             return self.handle_dry_run_mode(command_type, step, env, ctx).await;
         }
 
-        // Add timeout to environment variables if configured for the step
-        if let Some(timeout_secs) = step.timeout {
-            env_vars.insert(
-                "PRODIGY_COMMAND_TIMEOUT".to_string(),
-                timeout_secs.to_string(),
-            );
-        }
+        // Add timeout to environment variables if configured
+        add_timeout_to_env_vars(&mut env_vars, step.timeout);
 
         // Dispatch to appropriate command handler
         self.dispatch_command_execution(command_type.clone(), step, env, ctx, env_vars)
