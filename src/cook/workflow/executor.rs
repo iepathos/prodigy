@@ -166,7 +166,14 @@ impl WorkflowExecutor {
         let handler_commands = on_failure_config.handler_commands();
         if !handler_commands.is_empty() {
             result = self
-                .handle_new_style_failure(step, result, on_failure_config, &handler_commands, env, ctx)
+                .handle_new_style_failure(
+                    step,
+                    result,
+                    on_failure_config,
+                    &handler_commands,
+                    env,
+                    ctx,
+                )
                 .await?;
         } else if let Some(handler) = on_failure_config.handler() {
             result = self
@@ -282,8 +289,9 @@ impl WorkflowExecutor {
         // Check if we should retry the original command
         if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
             let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-            if let Some(retry_result) =
-                self.retry_original_command(step, max_retries, env, ctx).await?
+            if let Some(retry_result) = self
+                .retry_original_command(step, max_retries, env, ctx)
+                .await?
             {
                 result = retry_result;
             }
@@ -313,8 +321,9 @@ impl WorkflowExecutor {
         // Check if we should retry the original command
         if failure_handler::should_retry_after_handler(on_failure_config, result.success) {
             let max_retries = failure_handler::get_handler_max_retries(on_failure_config);
-            if let Some(retry_result) =
-                self.retry_original_command(step, max_retries, env, ctx).await?
+            if let Some(retry_result) = self
+                .retry_original_command(step, max_retries, env, ctx)
+                .await?
             {
                 result = retry_result;
             }
