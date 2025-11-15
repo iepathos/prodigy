@@ -624,17 +624,7 @@ impl ExecutionPipeline {
                 crate::config::apply_command_defaults(&mut command);
 
                 // Display step start with description
-                let step_description = format!(
-                    "{}: {}",
-                    command.name,
-                    command
-                        .args
-                        .iter()
-                        .map(|a| a.resolve(&HashMap::new()))
-                        .filter(|s| !s.is_empty())
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                );
+                let step_description = build_step_description(&command.name, &command.args);
                 self.user_interaction.step_start(
                     (step_index + 1) as u32,
                     config.workflow.commands.len() as u32,
@@ -984,6 +974,35 @@ fn should_store_outputs(command_id: &Option<String>) -> bool {
     command_id.is_some()
 }
 
+/// Build a step description from command name and arguments
+///
+/// This pure function constructs a human-readable step description by
+/// combining the command name with resolved arguments, filtering out empty ones.
+///
+/// # Arguments
+/// * `command_name` - The name of the command
+/// * `args` - The command arguments to resolve
+///
+/// # Returns
+/// A formatted string like "command_name: arg1 arg2 arg3"
+fn build_step_description(
+    command_name: &str,
+    args: &[crate::config::command::CommandArg],
+) -> String {
+    let args_str = args
+        .iter()
+        .map(|a| a.resolve(&HashMap::new()))
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if args_str.is_empty() {
+        command_name.to_string()
+    } else {
+        format!("{command_name}: {args_str}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1101,5 +1120,42 @@ mod tests {
         // Even an empty string ID should allow storage
         let command_id = Some("".to_string());
         assert!(should_store_outputs(&command_id));
+    }
+
+    #[test]
+    fn test_build_step_description_no_args() {
+        use crate::config::command::CommandArg;
+        let args: Vec<CommandArg> = vec![];
+
+        let result = build_step_description("test-cmd", &args);
+
+        assert_eq!(result, "test-cmd");
+    }
+
+    #[test]
+    fn test_build_step_description_with_args() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("arg2".to_string()),
+        ];
+
+        let result = build_step_description("test-cmd", &args);
+
+        assert_eq!(result, "test-cmd: arg1 arg2");
+    }
+
+    #[test]
+    fn test_build_step_description_filters_empty() {
+        use crate::config::command::CommandArg;
+        let args = vec![
+            CommandArg::Literal("arg1".to_string()),
+            CommandArg::Literal("".to_string()), // Empty arg
+            CommandArg::Literal("arg2".to_string()),
+        ];
+
+        let result = build_step_description("test-cmd", &args);
+
+        assert_eq!(result, "test-cmd: arg1 arg2");
     }
 }
