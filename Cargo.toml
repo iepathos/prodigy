@@ -1,6 +1,6 @@
 [package]
 name = "prodigy"
-version = "0.2.8"
+version = "0.2.9"
 edition = "2021"
 authors = ["Glen Baker <iepathos@gmail.com>"]
 description = "Turn ad-hoc Claude sessions into reproducible development pipelines with parallel AI agents"
