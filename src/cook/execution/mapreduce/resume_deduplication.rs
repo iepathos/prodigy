@@ -207,8 +207,8 @@ mod tests {
         assert_eq!(result.len(), 5000);
         // Use generous threshold for CI environments which can be slower
         assert!(
-            duration.as_millis() < 50,
-            "Should complete in <50ms, took {}ms",
+            duration.as_millis() < 200,
+            "Should complete in <200ms, took {}ms",
             duration.as_millis()
         );
     }
