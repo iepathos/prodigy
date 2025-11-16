@@ -9,9 +9,7 @@ Find and fix all invalid Mermaid diagrams in the documentation.
 Run the validation script to find invalid diagrams:
 
 ```bash
-python3 .prodigy/scripts/validate-mermaid.py
-# Or use the wrapper script:
-bash .prodigy/scripts/validate-mermaid.sh
+bash .prodigy/scripts/validate-mermaid.sh ../../docs/
 ```
 
 This will check all Mermaid diagrams in the docs directory for:
@@ -32,14 +30,12 @@ Parse the output to get file:line references for each invalid diagram.
 For each invalid diagram found:
 
 1. **Read the file** containing the broken diagram
-2. **Identify the issue**:
-   - If HTML entities: Replace `&#40;` with `(`, `&#41;` with `)`, etc.
-   - If HTML tags: Replace `<br/>` with proper quoted multi-line syntax
-   - If unmatched brackets: Balance the brackets
-   - If disconnected nodes: Connect all paths properly or add terminal nodes
-   - If missing type: Add proper diagram type (flowchart TD, graph LR, etc.)
+2. **Identify the issue type**:
+   - **Syntax errors**: HTML entities, unmatched brackets, missing type
+   - **Readability issues**: Too wide, too complex, poor layout direction
+3. **Apply appropriate fix** based on diagram pattern (see Phase 4 below)
 
-3. **Common Mermaid Syntax Issues**:
+#### Common Mermaid Syntax Issues
 
    **HTML Entities:**
    ```
@@ -85,10 +81,128 @@ For each invalid diagram found:
    Good: A["Text with quote"] --> B
    ```
 
-4. **Apply the fix** using the Edit tool
-5. **Verify the fix** by checking the corrected syntax
+### Phase 4: Readability Pattern Recognition
 
-### Phase 4: Common Diagram Patterns
+When the validation script reports readability issues, identify the diagram pattern and apply the appropriate fix:
+
+#### Pattern 1: Wide Tree Diagram
+
+**Characteristics:**
+- Many parallel branches (>8 leaf nodes)
+- Branches don't reconverge to main flow
+- Example: Decision trees, capability matrices, feature comparisons
+
+**Fix: Convert TD → LR**
+```mermaid
+# Before (TD - too wide)
+graph TD
+    Root --> A
+    Root --> B
+    Root --> C
+    Root --> D
+    Root --> E
+    Root --> F
+    Root --> G
+    Root --> H
+    Root --> I
+
+# After (LR - readable)
+graph LR
+    Root --> A
+    Root --> B
+    Root --> C
+    Root --> D
+    Root --> E
+    Root --> F
+    Root --> G
+    Root --> H
+    Root --> I
+```
+
+#### Pattern 2: Linear Progression with Branches
+
+**Characteristics:**
+- Long vertical spine (main flow has 5+ steps)
+- Small branches (2-5 items) off each step
+- Branches may or may not reconverge
+- Example: Workflows, learning paths, step-by-step guides
+
+**Problem:** Both TD (too wide) and LR (too long) are hard to read
+
+**Fix Option A: Simplify - Remove Detail Nodes**
+```mermaid
+# Before (cluttered with details)
+graph TD
+    Step1 --> Step2
+    Step2 --> Detail1
+    Step2 --> Detail2
+    Step2 --> Detail3
+    Step2 --> Detail4
+    Step2 --> Step3
+    Step3 --> DetailA
+    Step3 --> DetailB
+    Step3 --> Step4
+
+# After (clean progression)
+graph LR
+    Step1["Step 1: Basics"] --> Step2["Step 2: Flags"]
+    Step2 --> Step3["Step 3: Advanced"]
+    Step3 --> Step4["Step 4: Complete"]
+```
+
+**Fix Option B: Use Subgraphs**
+```mermaid
+graph TD
+    Step1[Start] --> GroupA
+
+    subgraph GroupA["Step 2: Search Flags"]
+        Flag1[Case Insensitive]
+        Flag2[Literal Search]
+        Flag3[Word Boundaries]
+    end
+
+    GroupA --> GroupB
+
+    subgraph GroupB["Step 3: Advanced"]
+        Adv1[Regex Patterns]
+        Adv2[Inverted Match]
+    end
+
+    GroupB --> End[Complete]
+```
+
+**Fix Option C: Consider Non-Diagram Alternatives**
+- Numbered list
+- Table with progression
+- Accordion sections
+- Step-by-step text guide
+
+#### Pattern 3: Complex Network
+
+**Characteristics:**
+- Total nodes >20
+- Many interconnections
+- Multiple entry/exit points
+- Example: System architectures, state machines, dependency graphs
+
+**Fix Option A: Split Into Focused Diagrams**
+Break into 2-3 smaller diagrams, each showing one aspect:
+- Diagram 1: High-level overview
+- Diagram 2: Detail view of component A
+- Diagram 3: Detail view of component B
+
+**Fix Option B: Use Subgraphs for Organization**
+Group related nodes into labeled subgraphs to reduce visual complexity
+
+**Fix Option C: Accept Complexity (If Justified)**
+Some diagrams are inherently complex and provide educational value.
+Keep them if:
+- Already using subgraphs effectively
+- No simpler representation exists
+- Complexity is essential to understanding
+- Layout direction (LR/TD) is already optimal
+
+### Phase 5: Common Diagram Examples
 
 **Flowchart Decision Tree:**
 All paths should connect to terminal nodes or loop back. No dead ends.
@@ -158,7 +272,7 @@ graph TB
     Engine2 -.->|Produces| Combo
 ```
 
-### Phase 5: Validation
+### Phase 6: Validation
 
 After fixing all diagrams:
 
@@ -169,7 +283,7 @@ After fixing all diagrams:
 
 2. If any diagrams still fail validation, review and fix them manually
 
-### Phase 6: Commit Changes
+### Phase 7: Commit Changes
 
 After all diagrams are fixed:
 
@@ -203,8 +317,9 @@ All diagrams now pass validation."
 - ❌ Unmatched brackets, braces, or quotes
 - ❌ Missing diagram type declaration
 - ❌ Spaces in node IDs (use underscores or camelCase)
-- ❌ Too many branches from one node (>4) - use subgraphs for clarity
-- ❌ Mixing orthogonal concepts in one flow - separate into subgraphs
+- ❌ Too many branches from one node (>4) without using subgraphs
+- ❌ Converting linear progressions to LR when simplification would work better
+- ❌ Keeping complex detail nodes when high-level overview would suffice
 
 ## Error Handling
 

@@ -167,10 +167,10 @@ For each subsection:
    ```markdown
    # {Subsection Title}
 
-   > Part of the [{Chapter Title}](./index.md) chapter
-
    {Subsection content starts here...}
    ```
+
+   **IMPORTANT:** Do NOT add a "Part of the [Parent](./index.md)" blockquote. This is an anti-pattern that clutters the documentation. mdBook already provides breadcrumb navigation showing the chapter hierarchy.
 
 3. **Fix Internal Links:**
    - Relative links that worked in single file may break
