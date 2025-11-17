@@ -8,7 +8,7 @@ mode: mapreduce
 # Environment variables for parameterization
 env:
   # Project configuration
-  PROJECT_NAME: "Prodigy"
+  PROJECT_NAME: "ripgrep"
   PROJECT_CONFIG: ".prodigy/mkdocs-config.json"
   FEATURES_PATH: ".prodigy/mkdocs-analysis/features.json"
 
@@ -112,10 +112,10 @@ reduce:
   - claude: "/prodigy-validate-feature-consistency --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/feature-consistency.json"
 
   # Mermaid diagram validation - ensure all diagrams have valid syntax
-  - shell: "cd .prodigy/scripts && npm install --silent && node validate-mermaid.js ../../$DOCS_DIR"
+  - shell: "mermaid-sonar $DOCS_DIR --strict"
     on_failure:
       # Fix any invalid Mermaid diagrams found
-      # Pass validation output (JSON on stderr) to Claude for context
+      # Pass validation output to Claude for context
       claude: "/prodigy-fix-mermaid-diagrams --validation-output '${shell.stderr}'"
       commit_required: true
 

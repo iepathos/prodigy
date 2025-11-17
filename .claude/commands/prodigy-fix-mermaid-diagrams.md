@@ -6,10 +6,10 @@ Find and fix all invalid Mermaid diagrams in the documentation.
 
 ### Phase 1: Validate All Diagrams
 
-Run the validation script to find invalid diagrams:
+Run mermaid-sonar to find invalid diagrams:
 
 ```bash
-bash .prodigy/scripts/validate-mermaid.sh ../../docs/
+mermaid-sonar docs/ --strict
 ```
 
 This will check all Mermaid diagrams in the docs directory for:
@@ -18,6 +18,7 @@ This will check all Mermaid diagrams in the docs directory for:
 - HTML entities (e.g., `&#40;` for parentheses)
 - HTML tags (e.g., `<br/>` for line breaks)
 - Disconnected nodes or invalid syntax
+- Readability issues (diagrams too wide or too complex)
 
 ### Phase 2: Extract Invalid Diagram Locations
 
@@ -276,9 +277,9 @@ graph TB
 
 After fixing all diagrams:
 
-1. Run the validation script again to confirm all issues are resolved:
+1. Run mermaid-sonar again to confirm all issues are resolved:
    ```bash
-   python3 .prodigy/scripts/validate-mermaid.py
+   mermaid-sonar docs/ --strict
    ```
 
 2. If any diagrams still fail validation, review and fix them manually
