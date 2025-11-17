@@ -39,15 +39,20 @@ pub enum ExecutionError {
     WorktreeError(String),
     #[error("Agent execution failed: {0}")]
     AgentError(String),
-    #[error("Commit validation failed for agent {agent_id} (item {item_id}): Command '{command}' (step {step_index}) did not create required commits. Branch still at {base_commit}. Worktree: {worktree_path}")]
-    CommitValidationFailed {
-        agent_id: String,
-        item_id: String,
-        step_index: usize,
-        command: String,
-        base_commit: String,
-        worktree_path: String,
-    },
+    #[error("Commit validation failed for agent {0}: {0}")]
+    CommitValidationFailed(Box<CommitValidationError>),
+}
+
+/// Details for commit validation failures
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Command '{command}' (step {step_index}) did not create required commits. Branch still at {base_commit}. Worktree: {worktree_path}")]
+pub struct CommitValidationError {
+    pub agent_id: String,
+    pub item_id: String,
+    pub step_index: usize,
+    pub command: String,
+    pub base_commit: String,
+    pub worktree_path: String,
 }
 
 /// Result type for execution operations
@@ -234,14 +239,16 @@ impl StandardExecutor {
                 match validation_result {
                     CommitValidationResult::NoCommits => {
                         // NO COMMITS CREATED - FAIL VALIDATION
-                        return Err(ExecutionError::CommitValidationFailed {
-                            agent_id: handle.config.id.clone(),
-                            item_id: handle.config.item_id.clone(),
-                            step_index: idx,
-                            command: Self::get_step_display_name(step),
-                            base_commit: before_sha,
-                            worktree_path: handle.worktree_path().to_string_lossy().to_string(),
-                        });
+                        return Err(ExecutionError::CommitValidationFailed(Box::new(
+                            CommitValidationError {
+                                agent_id: handle.config.id.clone(),
+                                item_id: handle.config.item_id.clone(),
+                                step_index: idx,
+                                command: Self::get_step_display_name(step),
+                                base_commit: before_sha,
+                                worktree_path: handle.worktree_path().to_string_lossy().to_string(),
+                            },
+                        )));
                     }
                     CommitValidationResult::Valid { commits } => {
                         // Commits were created - collect metadata
