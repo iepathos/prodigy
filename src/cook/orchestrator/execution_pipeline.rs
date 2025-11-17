@@ -1064,7 +1064,7 @@ fn build_variable_map(
 /// * `variables` - Map of variables for argument resolution
 ///
 /// # Returns
-/// A complete command string with format "/<command_name> <arg1> <arg2> ..."
+/// A complete command string with format "/<command_name> \<arg1\> \<arg2\> ..."
 fn build_command_string(
     command_name: &str,
     args: &[crate::config::command::CommandArg],
