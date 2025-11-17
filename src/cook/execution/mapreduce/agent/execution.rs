@@ -6,8 +6,10 @@
 //! The execution logic uses the pure state machine from state_machine.rs to manage
 //! agent lifecycle transitions (Created → Running → Completed/Failed).
 
+use super::commit_validator::{CommitValidationResult, CommitValidator};
 use super::state_machine::{apply_transition, state_to_result};
 use super::types::{AgentHandle, AgentLifecycleState, AgentResult, AgentTransition};
+use crate::abstractions::git::GitOperations;
 use crate::commands::attributes::AttributeValue;
 use crate::commands::{CommandRegistry, ExecutionContext as CommandExecutionContext};
 use crate::cook::execution::dlq::DeadLetterQueue;
@@ -22,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 /// Error type for execution operations
 #[derive(Debug, thiserror::Error)]
@@ -37,6 +39,15 @@ pub enum ExecutionError {
     WorktreeError(String),
     #[error("Agent execution failed: {0}")]
     AgentError(String),
+    #[error("Commit validation failed for agent {agent_id} (item {item_id}): Command '{command}' (step {step_index}) did not create required commits. Branch still at {base_commit}. Worktree: {worktree_path}")]
+    CommitValidationFailed {
+        agent_id: String,
+        item_id: String,
+        step_index: usize,
+        command: String,
+        base_commit: String,
+        worktree_path: String,
+    },
 }
 
 /// Result type for execution operations
@@ -95,6 +106,8 @@ pub struct ExecutionContext {
     pub command_registry: Arc<CommandRegistry>,
     /// Enhanced progress tracker (for enhanced strategy)
     pub enhanced_progress: Option<Arc<EnhancedProgressTracker>>,
+    /// Git operations for commit validation
+    pub git_operations: Arc<dyn GitOperations>,
 }
 
 /// Standard executor implementation
@@ -112,6 +125,19 @@ impl StandardExecutor {
         }
     }
 
+    /// Get display name for a workflow step
+    fn get_step_display_name(step: &WorkflowStep) -> String {
+        if let Some(name) = &step.name {
+            name.clone()
+        } else if let Some(claude) = &step.claude {
+            format!("claude: {}", claude)
+        } else if let Some(shell) = &step.shell {
+            format!("shell: {}", shell)
+        } else {
+            "unknown command".to_string()
+        }
+    }
+
     /// Execute agent commands
     async fn execute_commands(
         &self,
@@ -121,9 +147,12 @@ impl StandardExecutor {
         context: &ExecutionContext,
     ) -> ExecutionResult<(String, Vec<String>, Vec<String>, Option<String>)> {
         let mut total_output = String::new();
-        let all_commits = Vec::new();
+        let mut all_commits = Vec::new();
         let all_files = Vec::new();
         let mut json_log_location: Option<String> = None;
+
+        // Create commit validator
+        let commit_validator = CommitValidator::new(Arc::clone(&context.git_operations));
 
         // Build interpolation context
         let interp_context = self.build_interpolation_context(item, &handle.config.item_id);
@@ -140,6 +169,20 @@ impl StandardExecutor {
                     handle.commands.len()
                 ));
             }
+
+            // COMMIT VALIDATION: Capture HEAD before command execution
+            let head_before = if step.commit_required {
+                Some(
+                    commit_validator
+                        .get_head(handle.worktree_path())
+                        .await
+                        .map_err(|e| {
+                            ExecutionError::AgentError(format!("Failed to get HEAD before: {}", e))
+                        })?,
+                )
+            } else {
+                None
+            };
 
             // Interpolate the step
             let interpolated_step = self
@@ -170,6 +213,49 @@ impl StandardExecutor {
                     idx + 1,
                     result.exit_code.unwrap_or(-1)
                 )));
+            }
+
+            // COMMIT VALIDATION: Check if commits were created
+            if let Some(before_sha) = head_before {
+                let head_after = commit_validator
+                    .get_head(handle.worktree_path())
+                    .await
+                    .map_err(|e| {
+                        ExecutionError::AgentError(format!("Failed to get HEAD after: {}", e))
+                    })?;
+
+                let validation_result = commit_validator
+                    .verify_commits_created(handle.worktree_path(), &before_sha, &head_after)
+                    .await
+                    .map_err(|e| {
+                        ExecutionError::AgentError(format!("Commit validation failed: {}", e))
+                    })?;
+
+                match validation_result {
+                    CommitValidationResult::NoCommits => {
+                        // NO COMMITS CREATED - FAIL VALIDATION
+                        return Err(ExecutionError::CommitValidationFailed {
+                            agent_id: handle.config.id.clone(),
+                            item_id: handle.config.item_id.clone(),
+                            step_index: idx,
+                            command: Self::get_step_display_name(step),
+                            base_commit: before_sha,
+                            worktree_path: handle.worktree_path().to_string_lossy().to_string(),
+                        });
+                    }
+                    CommitValidationResult::Valid { commits } => {
+                        // Commits were created - collect metadata
+                        for commit in commits {
+                            all_commits.push(commit.sha.clone());
+                        }
+
+                        debug!(
+                            agent_id = %handle.config.id,
+                            commits = ?all_commits,
+                            "Commit validation passed"
+                        );
+                    }
+                }
             }
         }
 
