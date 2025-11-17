@@ -63,6 +63,7 @@ impl WorkflowExecutor {
             dry_run_commands: Vec::new(),
             dry_run_validations: Vec::new(),
             dry_run_potential_handlers: Vec::new(),
+            positional_args: None,
         }
     }
 
@@ -124,6 +125,15 @@ impl WorkflowExecutor {
         Ok(self)
     }
 
+    /// Set positional arguments for workflow execution (Spec 163)
+    ///
+    /// These arguments will be automatically injected as ARG_N environment
+    /// variables, making them available across all workflow phases.
+    pub fn with_positional_args(mut self, args: Vec<String>) -> Self {
+        self.positional_args = Some(args);
+        self
+    }
+
     /// Set the checkpoint manager for workflow resumption
     pub fn with_checkpoint_manager(
         mut self,
@@ -174,6 +184,7 @@ impl WorkflowExecutor {
             dry_run_commands: Vec::new(),
             dry_run_validations: Vec::new(),
             dry_run_potential_handlers: Vec::new(),
+            positional_args: None,
         }
     }
 
@@ -212,6 +223,7 @@ impl WorkflowExecutor {
             dry_run_commands: Vec::new(),
             dry_run_validations: Vec::new(),
             dry_run_potential_handlers: Vec::new(),
+            positional_args: None,
         }
     }
 
