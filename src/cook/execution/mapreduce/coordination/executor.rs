@@ -333,7 +333,9 @@ impl MapReduceCoordinator {
     }
 
     /// Classify failure reason from error message
-    fn classify_failure_reason(error: &MapReduceError) -> crate::cook::execution::mapreduce::event::FailureReason {
+    fn classify_failure_reason(
+        error: &MapReduceError,
+    ) -> crate::cook::execution::mapreduce::event::FailureReason {
         use crate::cook::execution::mapreduce::event::FailureReason;
 
         let error_msg = error.to_string();

@@ -141,7 +141,11 @@ fn test_dlq_classification_from_error_message() {
         let work_item = json!({"test": true});
         let dlq_item = agent_result_to_dlq_item(&result, &work_item, 1);
 
-        assert!(dlq_item.is_some(), "Should create DLQ item for: {}", error_msg);
+        assert!(
+            dlq_item.is_some(),
+            "Should create DLQ item for: {}",
+            error_msg
+        );
         let item = dlq_item.unwrap();
         assert_eq!(
             item.failure_history[0].error_type,
@@ -175,5 +179,8 @@ fn test_successful_agents_not_added_to_dlq() {
     let work_item = json!({"test": true});
     let dlq_item = agent_result_to_dlq_item(&result, &work_item, 1);
 
-    assert!(dlq_item.is_none(), "Successful agents should not create DLQ items");
+    assert!(
+        dlq_item.is_none(),
+        "Successful agents should not create DLQ items"
+    );
 }

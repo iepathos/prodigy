@@ -62,7 +62,9 @@ pub struct FailureDetail {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ErrorType {
     Timeout,
-    CommandFailed { exit_code: i32 },
+    CommandFailed {
+        exit_code: i32,
+    },
     /// Commit validation failed - required commit was not created
     CommitValidationFailed,
     WorktreeError,
