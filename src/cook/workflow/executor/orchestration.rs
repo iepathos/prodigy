@@ -100,9 +100,15 @@ pub async fn validate_mapreduce_dry_run(workflow: &ExtendedWorkflowConfig) -> Re
 ///
 /// Creates the execution environment and workflow context with populated
 /// environment variables from global configuration.
+///
+/// # Spec 163
+///
+/// This function now accepts positional arguments and automatically injects them
+/// as `ARG_N` environment variables to ensure consistency across all workflow phases.
 pub fn prepare_mapreduce_environment(
     env: &ExecutionEnvironment,
     global_env_config: Option<&EnvironmentConfig>,
+    positional_args: Option<&[String]>,
 ) -> Result<(ExecutionEnvironment, WorkflowContext)> {
     use crate::cook::environment::{EnvValue, EnvironmentContextBuilder};
 
@@ -112,10 +118,18 @@ pub fn prepare_mapreduce_environment(
     // SPEC 128: Create immutable environment context for worktree execution
     // This context explicitly specifies the worktree directory and prevents
     // hidden state mutations. All environment configuration is immutable after creation.
-    let _worktree_context = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
+    //
+    // SPEC 163: Inject positional arguments as ARG_N environment variables
+    let mut builder = EnvironmentContextBuilder::new(env.working_dir.to_path_buf())
         .with_config(global_env_config.unwrap_or(&EnvironmentConfig::default()))
-        .context("Failed to create immutable environment context")?
-        .build();
+        .context("Failed to create immutable environment context")?;
+
+    // Inject positional arguments if provided
+    if let Some(args) = positional_args {
+        builder = builder.with_positional_args(args);
+    }
+
+    let _worktree_context = builder.build();
 
     // Note: The immutable context pattern is now available for future refactoring.
     // Currently, the executor still uses ExecutionEnvironment (worktree_env) which is
@@ -136,6 +150,13 @@ pub fn prepare_mapreduce_environment(
             // For Dynamic and Conditional values, we'd need to evaluate them here
             // For now, we only support Static values in MapReduce workflows
         }
+    }
+
+    // SPEC 163: Also inject positional args into workflow context variables
+    // This makes them available for interpolation in workflow commands
+    if let Some(args) = positional_args {
+        use crate::cook::environment::pure::inject_positional_args;
+        inject_positional_args(&mut workflow_context.variables, args);
     }
 
     Ok((worktree_env, workflow_context))

@@ -139,6 +139,8 @@ pub struct WorkflowExecutor {
     dry_run_validations: Vec<String>,
     /// Track potential failure handlers in dry-run
     dry_run_potential_handlers: Vec<String>,
+    /// Positional arguments passed via --args (Spec 163)
+    positional_args: Option<Vec<String>>,
 }
 
 impl WorkflowExecutor {
@@ -1401,9 +1403,11 @@ impl WorkflowExecutor {
         );
 
         // Prepare environment and workflow context with environment variables
+        // SPEC 163: Pass positional args for automatic ARG_N injection
         let (worktree_env, mut workflow_context) = orchestration::prepare_mapreduce_environment(
             env,
             self.global_environment_config.as_ref(),
+            self.positional_args.as_deref(),
         )?;
 
         // Execute setup phase if present, capturing output and generated files

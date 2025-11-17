@@ -263,6 +263,46 @@ impl EnvironmentContextBuilder {
         Ok(self)
     }
 
+    /// Inject positional arguments as ARG_N environment variables
+    ///
+    /// Converts positional arguments passed via `--args` into environment variables
+    /// named `ARG_1`, `ARG_2`, etc. This makes positional arguments available
+    /// consistently across all workflow phases (setup, map, reduce).
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Slice of positional argument strings
+    ///
+    /// # Returns
+    ///
+    /// Builder with ARG_N variables injected
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::path::PathBuf;
+    /// use prodigy::cook::environment::EnvironmentContextBuilder;
+    ///
+    /// let args = vec!["file.txt".to_string(), "output.json".to_string()];
+    /// let context = EnvironmentContextBuilder::new(PathBuf::from("/project"))
+    ///     .with_positional_args(&args)
+    ///     .build();
+    ///
+    /// assert_eq!(context.env_vars().get("ARG_1"), Some(&"file.txt".to_string()));
+    /// assert_eq!(context.env_vars().get("ARG_2"), Some(&"output.json".to_string()));
+    /// ```
+    ///
+    /// # Spec 163
+    ///
+    /// This method implements automatic positional argument propagation as described
+    /// in Specification 163. It ensures that positional arguments are available
+    /// across all workflow phases, particularly for MapReduce agents.
+    pub fn with_positional_args(mut self, args: &[String]) -> Self {
+        use super::pure::inject_positional_args;
+        inject_positional_args(&mut self.env_vars, args);
+        self
+    }
+
     /// Build immutable EnvironmentContext
     ///
     /// Consumes the builder and produces an immutable context.
@@ -419,6 +459,48 @@ mod tests {
                 .filter(|k| *k == "SECRET")
                 .count(),
             1
+        );
+    }
+
+    #[test]
+    fn test_with_positional_args() {
+        let args = vec!["file.txt".to_string(), "output.json".to_string()];
+        let context = EnvironmentContextBuilder::new(PathBuf::from("/test"))
+            .with_positional_args(&args)
+            .build();
+
+        assert_eq!(
+            context.env_vars().get("ARG_1"),
+            Some(&"file.txt".to_string())
+        );
+        assert_eq!(
+            context.env_vars().get("ARG_2"),
+            Some(&"output.json".to_string())
+        );
+    }
+
+    #[test]
+    fn test_with_positional_args_empty() {
+        let args: Vec<String> = vec![];
+        let context = EnvironmentContextBuilder::new(PathBuf::from("/test"))
+            .with_positional_args(&args)
+            .build();
+
+        assert!(context.env_vars().get("ARG_1").is_none());
+    }
+
+    #[test]
+    fn test_with_positional_args_chaining() {
+        let args = vec!["test.txt".to_string()];
+        let context = EnvironmentContextBuilder::new(PathBuf::from("/test"))
+            .with_env("CUSTOM".to_string(), "value".to_string())
+            .with_positional_args(&args)
+            .build();
+
+        assert_eq!(context.env_vars().get("CUSTOM"), Some(&"value".to_string()));
+        assert_eq!(
+            context.env_vars().get("ARG_1"),
+            Some(&"test.txt".to_string())
         );
     }
 }

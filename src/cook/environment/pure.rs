@@ -154,6 +154,53 @@ pub fn build_command_env(
     env
 }
 
+/// Inject positional arguments as ARG_N environment variables (PURE FUNCTION)
+///
+/// Converts positional arguments passed via `--args` into environment variables
+/// named `ARG_1`, `ARG_2`, etc. This makes positional arguments available
+/// consistently across all workflow phases (setup, map, reduce).
+///
+/// # Arguments
+///
+/// * `env_vars` - Mutable map to insert ARG_N variables into
+/// * `args` - Slice of positional argument strings
+///
+/// # Returns
+///
+/// None (modifies env_vars in place)
+///
+/// # Examples
+///
+/// ```
+/// use std::collections::HashMap;
+/// use prodigy::cook::environment::pure::inject_positional_args;
+///
+/// let mut env_vars = HashMap::new();
+/// let args = vec!["file.txt".to_string(), "output.json".to_string()];
+/// inject_positional_args(&mut env_vars, &args);
+///
+/// assert_eq!(env_vars.get("ARG_1"), Some(&"file.txt".to_string()));
+/// assert_eq!(env_vars.get("ARG_2"), Some(&"output.json".to_string()));
+/// ```
+///
+/// # Spec 163
+///
+/// This function implements automatic positional argument propagation as described
+/// in Specification 163. Positional arguments are exported as `ARG_N` variables
+/// to ensure consistency across all workflow phases, especially for MapReduce agents.
+///
+/// # Why This Is Pure
+///
+/// - Predictable transformation of input to environment variables
+/// - No I/O or hidden state
+/// - Deterministic: same args always produce same ARG_N variables
+pub fn inject_positional_args(env_vars: &mut HashMap<String, String>, args: &[String]) {
+    for (index, arg) in args.iter().enumerate() {
+        let var_name = format!("ARG_{}", index + 1);
+        env_vars.insert(var_name, arg.clone());
+    }
+}
+
 /// Interpolate variables in a value (PURE FUNCTION)
 ///
 /// Replaces ${var} and $var patterns with values from the variables map.
@@ -383,5 +430,62 @@ mod tests {
         let result2 = build_command_env(&step, &context, &workflow_vars);
 
         assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_inject_positional_args() {
+        let mut env = HashMap::new();
+        let args = vec!["file.txt".to_string(), "output.json".to_string()];
+        inject_positional_args(&mut env, &args);
+
+        assert_eq!(env.get("ARG_1"), Some(&"file.txt".to_string()));
+        assert_eq!(env.get("ARG_2"), Some(&"output.json".to_string()));
+    }
+
+    #[test]
+    fn test_inject_positional_args_empty() {
+        let mut env = HashMap::new();
+        let args: Vec<String> = vec![];
+        inject_positional_args(&mut env, &args);
+
+        assert!(env.is_empty());
+    }
+
+    #[test]
+    fn test_inject_positional_args_with_special_chars() {
+        let mut env = HashMap::new();
+        let args = vec!["path/with spaces/file.md".to_string()];
+        inject_positional_args(&mut env, &args);
+
+        assert_eq!(
+            env.get("ARG_1"),
+            Some(&"path/with spaces/file.md".to_string())
+        );
+    }
+
+    #[test]
+    fn test_inject_positional_args_preserves_existing() {
+        let mut env = HashMap::new();
+        env.insert("EXISTING".to_string(), "value".to_string());
+
+        let args = vec!["arg1".to_string()];
+        inject_positional_args(&mut env, &args);
+
+        assert_eq!(env.get("EXISTING"), Some(&"value".to_string()));
+        assert_eq!(env.get("ARG_1"), Some(&"arg1".to_string()));
+    }
+
+    #[test]
+    fn test_inject_positional_args_is_pure() {
+        let args = vec!["test".to_string()];
+
+        // Multiple calls should produce same result
+        let mut env1 = HashMap::new();
+        inject_positional_args(&mut env1, &args);
+
+        let mut env2 = HashMap::new();
+        inject_positional_args(&mut env2, &args);
+
+        assert_eq!(env1, env2);
     }
 }
