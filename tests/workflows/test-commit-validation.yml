@@ -1,0 +1,47 @@
+#  Test workflow for MapReduce commit validation (Spec 163)
+#
+# This workflow tests commit_required enforcement with various scenarios:
+# - Agents that create commits (should pass)
+# - Agents that don't create commits (should fail validation)
+# - Mixed scenarios to test DLQ and event tracking
+
+name: test-commit-validation
+mode: mapreduce
+
+# Generate test work items
+setup:
+  - shell: |
+      cat > work-items.json << 'EOF'
+      {
+        "items": [
+          {"id": 1, "should_commit": true, "file": "file1.txt"},
+          {"id": 2, "should_commit": false, "file": "file2.txt"},
+          {"id": 3, "should_commit": true, "file": "file3.txt"}
+        ]
+      }
+      EOF
+
+map:
+  input: "work-items.json"
+  json_path: "$.items[*]"
+  max_parallel: 3
+
+  agent_template:
+    # Conditional file creation based on work item data
+    - shell: |
+        if [ "${item.should_commit}" = "true" ]; then
+          echo "Creating commit for item ${item.id}"
+          echo "Test content for item ${item.id}" > ${item.file}
+          git add ${item.file}
+          git commit -m "Add ${item.file} for item ${item.id}"
+        else
+          echo "Skipping commit for item ${item.id} (should fail validation)"
+          echo "Test content for item ${item.id}" > ${item.file}
+          # Deliberately not committing to test validation
+        fi
+      commit_required: true
+
+reduce:
+  - shell: |
+      echo "Map phase completed"
+      echo "Expected: 2 successful (id 1,3), 1 failed (id 2)"

@@ -63,6 +63,8 @@ pub struct FailureDetail {
 pub enum ErrorType {
     Timeout,
     CommandFailed { exit_code: i32 },
+    /// Commit validation failed - required commit was not created
+    CommitValidationFailed,
     WorktreeError,
     MergeConflict,
     ValidationFailed,

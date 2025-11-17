@@ -77,6 +77,56 @@ commands:
 - `workflows/documentation-drift.yml:19,23,27` - Documentation update commands
 - `workflows/implement-with-tests.yml:27,31` - Test vs implementation distinction
 
+#### MapReduce-Specific Behavior (Spec 163)
+
+In MapReduce workflows, `commit_required: true` is **strictly enforced** with validation to prevent silent data loss. When a command in `agent_template` is marked with `commit_required: true`, Prodigy validates that at least one commit was created in the agent's isolated worktree.
+
+**Validation Behavior**:
+- Before each `commit_required` command executes, the current git HEAD is captured
+- After the command completes, the git HEAD is checked again
+- If no new commits are detected (HEAD unchanged), the agent fails with `CommitValidationFailed` error
+- Failed agents are added to the Dead Letter Queue (DLQ) with `manual_review_required: true`
+
+**MapReduce Example**:
+```yaml
+name: process-items
+mode: mapreduce
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+
+  agent_template:
+    # This command MUST create a commit
+    - shell: |
+        echo "${item.data}" > "${item.file}"
+        git add "${item.file}"
+        git commit -m "Process item ${item.id}"
+      commit_required: true
+```
+
+**Error Message Format**:
+```
+Agent execution failed: Commit required but no commit was created
+
+Worktree: /Users/user/.prodigy/worktrees/repo/agent-1
+Expected behavior: Command should create at least one git commit
+Command: shell: process-item.sh
+```
+
+**Merge Behavior**:
+- Agents with commits: Merged to parent worktree via queue
+- Agents without commits: Worktree cleaned up, merge skipped (logged at INFO level)
+- Agents with validation errors: Worktree cleaned up, added to DLQ
+
+**Event Tracking**:
+- `AgentCompleted` events include `commits: Vec<String>` field with commit SHAs
+- `AgentFailed` events include `failure_reason: CommitValidationFailed` for validation errors
+- Both events include `json_log_location` for debugging
+
+**Troubleshooting**:
+See [MapReduce Troubleshooting Guide](../mapreduce/troubleshooting.md#commit-validation-failures) for common issues and solutions.
+
 ## Output Capture Options
 
 ### capture_output

@@ -332,6 +332,57 @@ impl MapReduceCoordinator {
         }
     }
 
+    /// Classify failure reason from error message
+    fn classify_failure_reason(error: &MapReduceError) -> crate::cook::execution::mapreduce::event::FailureReason {
+        use crate::cook::execution::mapreduce::event::FailureReason;
+
+        let error_msg = error.to_string();
+        let msg_lower = error_msg.to_lowercase();
+
+        if msg_lower.contains("commit required") || msg_lower.contains("commit validation") {
+            // Extract command from error message if possible
+            let command = error_msg
+                .lines()
+                .find(|line| line.contains("Command:"))
+                .and_then(|line| line.split("Command:").nth(1))
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            FailureReason::CommitValidationFailed { command }
+        } else if msg_lower.contains("timeout") || msg_lower.contains("timed out") {
+            FailureReason::Timeout
+        } else if msg_lower.contains("merge") || msg_lower.contains("conflict") {
+            FailureReason::MergeConflict
+        } else if msg_lower.contains("worktree") {
+            FailureReason::WorktreeError
+        } else if let Some(exit_code) = Self::extract_exit_code(&error_msg) {
+            FailureReason::CommandFailed { exit_code }
+        } else {
+            FailureReason::Unknown
+        }
+    }
+
+    /// Extract exit code from error message if present
+    fn extract_exit_code(error_msg: &str) -> Option<i32> {
+        // Try to find patterns like "exit code: 1" or "exited with code 127"
+        let patterns = [
+            regex::Regex::new(r"exit code:?\s*(\d+)").ok()?,
+            regex::Regex::new(r"exited with code\s*(\d+)").ok()?,
+            regex::Regex::new(r"status code:?\s*(\d+)").ok()?,
+        ];
+
+        for pattern in &patterns {
+            if let Some(captures) = pattern.captures(error_msg) {
+                if let Some(code_str) = captures.get(1) {
+                    if let Ok(code) = code_str.as_str().parse::<i32>() {
+                        return Some(code);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     /// Get a displayable name for a workflow step
     #[cfg_attr(test, allow(dead_code))]
     pub(crate) fn get_step_display_name(step: &WorkflowStep) -> String {
@@ -553,6 +604,8 @@ impl MapReduceCoordinator {
                         chrono::Duration::from_std(duration)
                             .unwrap_or(chrono::Duration::seconds(0)),
                         None,
+                        agent_result.commits.clone(),
+                        agent_result.json_log_location.clone(),
                     ))
                     .await
                     .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
@@ -560,11 +613,16 @@ impl MapReduceCoordinator {
                 Ok(agent_result)
             }
             Err(e) => {
+                // Classify failure reason from error message
+                let failure_reason = Self::classify_failure_reason(&e);
+
                 event_logger
                     .log_event(MapReduceEvent::agent_failed(
                         agent_id.clone(),
                         item_id.clone(),
                         e.to_string(),
+                        failure_reason,
+                        None,
                     ))
                     .await
                     .map_err(|e| MapReduceError::ProcessingError(e.to_string()))?;
@@ -995,7 +1053,11 @@ impl MapReduceCoordinator {
                 }
             }
         } else {
-            // No commits, just cleanup the worktree
+            // No commits, skip merge and just cleanup the worktree
+            info!(
+                "Agent {} (item {}) completed with no commits, skipping merge",
+                agent_id, item_id
+            );
             // Note: Cleanup failures are non-critical, log but don't fail the agent
             if let Err(e) = agent_manager.cleanup_agent(handle).await {
                 warn!(

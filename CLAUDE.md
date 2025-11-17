@@ -484,6 +484,105 @@ Prodigy supports parallel execution of work items across multiple Claude agents:
 - Results are aggregated in the reduce phase
 - Failed items can be retried via the DLQ
 
+### Commit Validation Enforcement (Spec 163)
+
+Prodigy strictly enforces commit validation for MapReduce agent commands marked with `commit_required: true` to prevent silent data loss from agents that complete without creating expected commits.
+
+#### How It Works
+
+**Validation Process**:
+1. Before each `commit_required` command executes, git HEAD SHA is captured
+2. Command executes in the agent's isolated worktree
+3. After completion, git HEAD SHA is checked again
+4. If HEAD is unchanged (no new commits), agent fails with `CommitValidationFailed` error
+
+**Error Message Format**:
+```
+Agent execution failed: Commit required but no commit was created
+
+Worktree: /Users/user/.prodigy/worktrees/repo/agent-1
+Expected behavior: Command should create at least one git commit
+Command: shell: process-item.sh
+```
+
+**DLQ Integration**:
+- Failed agents are added to Dead Letter Queue with `error_type: CommitValidationFailed`
+- `manual_review_required` flag is set to `true`
+- Full error context captured including worktree path, command, and JSON log location
+
+**Event Stream Integration**:
+- `AgentCompleted` events include `commits: Vec<String>` with commit SHAs
+- `AgentFailed` events include `failure_reason: CommitValidationFailed`
+- Both events include `json_log_location` for debugging
+
+**Merge Behavior**:
+- Agents with commits: Merged to parent worktree via serialized queue
+- Agents without commits: Worktree cleaned up, merge skipped (logged at INFO level)
+- Validation failures: Agent marked as failed, added to DLQ
+
+#### Example Workflow
+
+```yaml
+name: process-items
+mode: mapreduce
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+
+  agent_template:
+    # This command MUST create a commit
+    - shell: |
+        echo "${item.data}" > "${item.file}"
+        git add "${item.file}"
+        git commit -m "Process item ${item.id}"
+      commit_required: true
+```
+
+#### Troubleshooting
+
+**Common Issue - Missing Commits**:
+```yaml
+# ❌ This will fail validation
+agent_template:
+  - shell: |
+      echo "data" > file.txt
+      # Missing: git add & git commit
+    commit_required: true
+
+# ✓ This will pass validation
+agent_template:
+  - shell: |
+      echo "data" > file.txt
+      git add file.txt
+      git commit -m "Add data"
+    commit_required: true
+```
+
+**Conditional Commits**:
+If agents conditionally create commits, either:
+
+1. Remove `commit_required` flag:
+```yaml
+agent_template:
+  - shell: |
+      if should_process; then
+        create_and_commit_file
+      fi
+    # No commit_required flag
+```
+
+2. Filter items to ensure all agents commit:
+```yaml
+map:
+  filter: "item.needs_commit == true"
+  agent_template:
+    - shell: create_and_commit_file
+      commit_required: true
+```
+
+See [MapReduce Troubleshooting Guide](docs/mapreduce/troubleshooting.md#commit-validation-failures) for more details.
+
 ### MapReduce Checkpoint and Resume (Spec 134)
 
 Prodigy provides comprehensive checkpoint and resume capabilities for MapReduce workflows, ensuring work can be recovered from any point of failure.
