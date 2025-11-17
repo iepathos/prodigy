@@ -3,6 +3,7 @@
 //! This module provides the core functionality for managing agent lifecycle,
 //! execution, and result aggregation in the MapReduce framework.
 
+pub mod commit_validator;
 pub mod execution;
 pub mod lifecycle;
 pub mod lifecycle_with_cleanup;

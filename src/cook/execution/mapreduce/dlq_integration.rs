@@ -124,7 +124,10 @@ fn classify_error(status: &AgentStatus, error_msg: &str) -> ErrorType {
         AgentStatus::Timeout => ErrorType::Timeout,
         AgentStatus::Failed(_) => {
             let msg_lower = error_msg.to_lowercase();
-            if msg_lower.contains("timeout") || msg_lower.contains("timed out") {
+            // Check for commit validation failure first (most specific)
+            if msg_lower.contains("commit required") || msg_lower.contains("commit validation") {
+                ErrorType::CommitValidationFailed
+            } else if msg_lower.contains("timeout") || msg_lower.contains("timed out") {
                 ErrorType::Timeout
             } else if msg_lower.contains("merge") || msg_lower.contains("conflict") {
                 ErrorType::MergeConflict
@@ -203,12 +206,16 @@ fn is_reprocessable(status: &AgentStatus, error_msg: &str) -> bool {
 fn requires_manual_review(error_msg: &str) -> bool {
     let msg_lower = error_msg.to_lowercase();
     // Permission errors and critical failures need manual review
+    // Commit validation failures always require manual review as they indicate
+    // a workflow configuration issue or agent implementation problem
     msg_lower.contains("permission")
         || msg_lower.contains("access denied")
         || msg_lower.contains("critical")
         || msg_lower.contains("fatal")
         || msg_lower.contains("corrupted")
         || msg_lower.contains("validation")
+        || msg_lower.contains("commit required")
+        || msg_lower.contains("commit validation")
 }
 
 #[cfg(test)]

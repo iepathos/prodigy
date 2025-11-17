@@ -7,6 +7,23 @@ use std::path::PathBuf;
 
 use super::agent::types::CleanupStatus;
 
+/// Failure reasons for agent execution
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum FailureReason {
+    /// Agent execution timed out
+    Timeout,
+    /// Command failed with exit code
+    CommandFailed { exit_code: i32 },
+    /// Commit validation failed - required commit was not created
+    CommitValidationFailed { command: String },
+    /// Merge conflict or merge failure
+    MergeConflict,
+    /// Worktree creation or management error
+    WorktreeError,
+    /// Unknown or unclassified failure
+    Unknown,
+}
+
 /// Event logger for MapReduce job tracking
 pub struct EventLogger {
     _project_root: PathBuf,
@@ -59,6 +76,8 @@ pub enum MapReduceEvent {
         duration: Duration,
         timestamp: DateTime<Utc>,
         cleanup_status: Option<CleanupStatus>,
+        commits: Vec<String>,
+        json_log_location: Option<String>,
     },
     /// Agent failed processing
     AgentFailed {
@@ -66,6 +85,8 @@ pub enum MapReduceEvent {
         item_id: String,
         error: String,
         timestamp: DateTime<Utc>,
+        failure_reason: FailureReason,
+        json_log_location: Option<String>,
     },
     /// Reduce phase started
     ReducePhaseStarted { timestamp: DateTime<Utc> },
@@ -106,6 +127,8 @@ impl MapReduceEvent {
         item_id: String,
         duration: Duration,
         cleanup_status: Option<CleanupStatus>,
+        commits: Vec<String>,
+        json_log_location: Option<String>,
     ) -> Self {
         Self::AgentCompleted {
             agent_id,
@@ -113,16 +136,26 @@ impl MapReduceEvent {
             duration,
             timestamp: Utc::now(),
             cleanup_status,
+            commits,
+            json_log_location,
         }
     }
 
     /// Create agent failed event
-    pub fn agent_failed(agent_id: String, item_id: String, error: String) -> Self {
+    pub fn agent_failed(
+        agent_id: String,
+        item_id: String,
+        error: String,
+        failure_reason: FailureReason,
+        json_log_location: Option<String>,
+    ) -> Self {
         Self::AgentFailed {
             agent_id,
             item_id,
             error,
             timestamp: Utc::now(),
+            failure_reason,
+            json_log_location,
         }
     }
 
