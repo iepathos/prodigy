@@ -936,6 +936,29 @@ impl ExecutionPipeline {
             .map(|setup| setup.commands.clone())
             .unwrap_or_default();
 
+        // Interpolate workflow env variables with positional args BEFORE creating phases
+        // This ensures that env vars like "BLOG_POST: $1" get resolved to actual values
+        let interpolated_env = interpolate_workflow_env_with_positional_args(
+            mapreduce_config.env.as_ref(),
+            &config.command.args,
+        )?;
+
+        // Convert interpolated EnvValue map to plain HashMap<String, String> for MapPhase
+        let workflow_env_plain: HashMap<String, String> = interpolated_env
+            .iter()
+            .map(|(k, v)| match v {
+                crate::cook::environment::EnvValue::Static(val) => (k.clone(), val.clone()),
+                _ => (k.clone(), String::new()), // Should not happen with our interpolation
+            })
+            .collect();
+
+        // Create MapPhase with interpolated env
+        let mut map_phase = mapreduce_config.to_map_phase().context(
+            "Failed to resolve MapReduce configuration. Check that environment variables are properly defined."
+        )?;
+        // Override the workflow_env with interpolated values
+        map_phase.workflow_env = workflow_env_plain;
+
         let extended_workflow = ExtendedWorkflowConfig {
             name: mapreduce_config.name.clone(),
             mode: crate::cook::workflow::WorkflowMode::MapReduce,
@@ -943,9 +966,7 @@ impl ExecutionPipeline {
             setup_phase: mapreduce_config.to_setup_phase().context(
                 "Failed to resolve setup phase configuration. Check that environment variables are properly defined."
             )?,
-            map_phase: Some(mapreduce_config.to_map_phase().context(
-                "Failed to resolve MapReduce configuration. Check that environment variables are properly defined."
-            )?),
+            map_phase: Some(map_phase),
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1, // MapReduce runs once
             iterate: false,
@@ -953,13 +974,6 @@ impl ExecutionPipeline {
             environment: None,
             // collect_metrics removed - MMM focuses on orchestration
         };
-
-        // Interpolate workflow env variables with positional args before passing to executor
-        // This ensures that env vars like "BLOG_POST: $1" get resolved to actual values
-        let interpolated_env = interpolate_workflow_env_with_positional_args(
-            mapreduce_config.env.as_ref(),
-            &config.command.args,
-        )?;
 
         // Set global environment configuration if present in MapReduce workflow
         if !interpolated_env.is_empty()
