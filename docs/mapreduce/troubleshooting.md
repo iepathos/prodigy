@@ -268,4 +268,4 @@ git log
 
 - [Command-Level Options](../workflow-basics/command-level-options.md) - Details on `commit_required` flag
 - [MapReduce Event Tracking](./event-tracking.md) - Understanding event streams
-- [Dead Letter Queue](./dead-letter-queue.md) - Managing failed items
+- [Dead Letter Queue](./dead-letter-queue-dlq.md) - Managing failed items

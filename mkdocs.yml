@@ -121,6 +121,7 @@ nav:
       - Event Tracking: mapreduce/event-tracking.md
       - Checkpoint and Resume: mapreduce/checkpoint-and-resume.md
       - Dead Letter Queue (DLQ): mapreduce/dead-letter-queue-dlq.md
+      - Troubleshooting: mapreduce/troubleshooting.md
       - Workflow Format Comparison: mapreduce/workflow-format-comparison.md
     - Command Types: commands.md
     - Variables and Interpolation:
