@@ -192,6 +192,16 @@ pub fn configure_map_phase(
     }
     map_phase.config.input = interpolated_input;
 
+    // Set workflow environment variables from context
+    // This ensures each MapReduce execution gets a fresh copy of environment variables
+    map_phase.workflow_env = context.variables.clone();
+
+    // Log workflow environment setup (debug level)
+    tracing::debug!(
+        workflow_env = ?map_phase.workflow_env,
+        "MapReduce workflow environment configured"
+    );
+
     Ok(map_phase)
 }
 
