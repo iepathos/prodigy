@@ -12,13 +12,13 @@
         <meta name="author" content="Glen Baker">
       
       
-        <link rel="canonical" href="https://entropicdrift.com/variables/troubleshooting-variable-interpolation/">
+        <link rel="canonical" href="https://entropicdrift.com/mapreduce/troubleshooting/">
       
       
-        <link rel="prev" href="../custom-variable-capture/">
+        <link rel="prev" href="../dead-letter-queue-dlq/">
       
       
-        <link rel="next" href="../../environment/">
+        <link rel="next" href="../workflow-format-comparison/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Troubleshooting Variable Interpolation - Prodigy Documentation</title>
+        <title>Troubleshooting - Prodigy Documentation</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#troubleshooting-variable-interpolation" class="md-skip">
+        <a href="#mapreduce-troubleshooting-guide" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Troubleshooting Variable Interpolation
+              Troubleshooting
             
           </span>
         </div>
@@ -993,8 +993,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1038,17 +1040,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../mapreduce/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1072,7 +1072,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1092,7 +1092,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/overview/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -1120,7 +1120,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/work-distribution/" class="md-nav__link">
+      <a href="../work-distribution/" class="md-nav__link">
         
   
   
@@ -1148,7 +1148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/environment-variables-in-configuration/" class="md-nav__link">
+      <a href="../environment-variables-in-configuration/" class="md-nav__link">
         
   
   
@@ -1176,7 +1176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/backoff-strategies/" class="md-nav__link">
+      <a href="../backoff-strategies/" class="md-nav__link">
         
   
   
@@ -1204,7 +1204,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/error-collection-strategies/" class="md-nav__link">
+      <a href="../error-collection-strategies/" class="md-nav__link">
         
   
   
@@ -1232,7 +1232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/setup-phase-advanced/" class="md-nav__link">
+      <a href="../setup-phase-advanced/" class="md-nav__link">
         
   
   
@@ -1260,7 +1260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/global-storage-architecture/" class="md-nav__link">
+      <a href="../global-storage-architecture/" class="md-nav__link">
         
   
   
@@ -1288,7 +1288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/event-tracking/" class="md-nav__link">
+      <a href="../event-tracking/" class="md-nav__link">
         
   
   
@@ -1316,7 +1316,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/checkpoint-and-resume/" class="md-nav__link">
+      <a href="../checkpoint-and-resume/" class="md-nav__link">
         
   
   
@@ -1344,7 +1344,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/dead-letter-queue-dlq/" class="md-nav__link">
+      <a href="../dead-letter-queue-dlq/" class="md-nav__link">
         
   
   
@@ -1369,10 +1369,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../mapreduce/troubleshooting/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1388,6 +1415,209 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#commit-validation-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit Validation Failures
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commit Validation Failures">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-symptoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Symptoms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#root-causes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Root Causes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Root Causes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-missing-git-add-or-git-commit-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Missing git add or git commit Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-conditional-logic-that-skips-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Conditional Logic That Skips Commits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-command-fails-before-reaching-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Command Fails Before Reaching Commit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-empty-commits-nothing-to-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Empty Commits (Nothing to Commit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debugging-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debugging Steps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Debugging Steps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-check-agent-worktree-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Check Agent Worktree State
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-review-claude-json-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Review Claude JSON Log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-check-dlq-for-pattern-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Check DLQ for Pattern Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-test-agent-command-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Test Agent Command Manually
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prevention-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prevention Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1400,7 +1630,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mapreduce/workflow-format-comparison/" class="md-nav__link">
+      <a href="../workflow-format-comparison/" class="md-nav__link">
         
   
   
@@ -1461,8 +1691,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1490,15 +1718,17 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../variables/" class="md-nav__link ">
               
   
   
@@ -1522,7 +1752,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1542,7 +1772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../available-variables/" class="md-nav__link">
+      <a href="../../variables/available-variables/" class="md-nav__link">
         
   
   
@@ -1570,7 +1800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom-variable-capture/" class="md-nav__link">
+      <a href="../../variables/custom-variable-capture/" class="md-nav__link">
         
   
   
@@ -1595,35 +1825,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting Variable Interpolation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../variables/troubleshooting-variable-interpolation/" class="md-nav__link">
         
   
   
@@ -1639,251 +1844,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting-variable-interpolation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting Variable Interpolation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Troubleshooting Variable Interpolation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#issue-variables-not-interpolating" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Variables Not Interpolating
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-variable-empty-or-undefined" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Variable Empty or Undefined
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-phase-specific-variable-not-available" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Phase-Specific Variable Not Available
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-nested-field-access-fails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Nested Field Access Fails
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-git-context-variables-empty" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Git Context Variables Empty
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-format-modifiers-not-working" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Format Modifiers Not Working
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debugging-techniques" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debugging Techniques
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Debugging Techniques">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-use-verbose-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Use Verbose Mode
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-echo-variables-for-debugging" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Echo Variables for Debugging
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-check-claude-json-logs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Check Claude JSON Logs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-verify-variables-in-checkpoint-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Verify Variables in Checkpoint Files
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-use-jq-to-explore-json-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Use jq to Explore JSON Variables
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#common-syntax-issues" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common Syntax Issues
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Syntax Issues">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#issue-special-characters-in-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Special Characters in Variables
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-yaml-string-escaping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: YAML String Escaping
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-combining-variables-with-text" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Combining Variables with Text
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#best-practices-for-avoiding-issues" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Best Practices for Avoiding Issues
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#getting-help" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Getting Help
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -4522,6 +4482,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -4530,22 +4492,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#troubleshooting-variable-interpolation" class="md-nav__link">
+  <a href="#commit-validation-failures" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Troubleshooting Variable Interpolation
+        Commit Validation Failures
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Troubleshooting Variable Interpolation">
+    <nav class="md-nav" aria-label="Commit Validation Failures">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#issue-variables-not-interpolating" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Issue: Variables Not Interpolating
+        Overview
       
     </span>
   </a>
@@ -4553,10 +4515,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#issue-variable-empty-or-undefined" class="md-nav__link">
+  <a href="#common-symptoms" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Issue: Variable Empty or Undefined
+        Common Symptoms
       
     </span>
   </a>
@@ -4564,66 +4526,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#issue-phase-specific-variable-not-available" class="md-nav__link">
+  <a href="#root-causes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Issue: Phase-Specific Variable Not Available
+        Root Causes
       
     </span>
   </a>
   
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-nested-field-access-fails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Nested Field Access Fails
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-git-context-variables-empty" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Git Context Variables Empty
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#issue-format-modifiers-not-working" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Issue: Format Modifiers Not Working
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debugging-techniques" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debugging Techniques
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Debugging Techniques">
+    <nav class="md-nav" aria-label="Root Causes">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-use-verbose-mode" class="md-nav__link">
+  <a href="#1-missing-git-add-or-git-commit-commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Use Verbose Mode
+        1. Missing git add or git commit Commands
       
     </span>
   </a>
@@ -4631,10 +4549,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-echo-variables-for-debugging" class="md-nav__link">
+  <a href="#2-conditional-logic-that-skips-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Echo Variables for Debugging
+        2. Conditional Logic That Skips Commits
       
     </span>
   </a>
@@ -4642,10 +4560,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-check-claude-json-logs" class="md-nav__link">
+  <a href="#3-command-fails-before-reaching-commit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Check Claude JSON Logs
+        3. Command Fails Before Reaching Commit
       
     </span>
   </a>
@@ -4653,21 +4571,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-verify-variables-in-checkpoint-files" class="md-nav__link">
+  <a href="#4-empty-commits-nothing-to-commit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Verify Variables in Checkpoint Files
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-use-jq-to-explore-json-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Use jq to Explore JSON Variables
+        4. Empty Commits (Nothing to Commit)
       
     </span>
   </a>
@@ -4680,22 +4587,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#common-syntax-issues" class="md-nav__link">
+  <a href="#debugging-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Common Syntax Issues
+        Debugging Steps
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Common Syntax Issues">
+    <nav class="md-nav" aria-label="Debugging Steps">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#issue-special-characters-in-variables" class="md-nav__link">
+  <a href="#1-check-agent-worktree-state" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Issue: Special Characters in Variables
+        1. Check Agent Worktree State
       
     </span>
   </a>
@@ -4703,10 +4610,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#issue-yaml-string-escaping" class="md-nav__link">
+  <a href="#2-review-claude-json-log" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Issue: YAML String Escaping
+        2. Review Claude JSON Log
       
     </span>
   </a>
@@ -4714,10 +4621,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#issue-combining-variables-with-text" class="md-nav__link">
+  <a href="#3-check-dlq-for-pattern-analysis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Issue: Combining Variables with Text
+        3. Check DLQ for Pattern Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-test-agent-command-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Test Agent Command Manually
       
     </span>
   </a>
@@ -4730,10 +4648,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#best-practices-for-avoiding-issues" class="md-nav__link">
+  <a href="#prevention-best-practices" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Best Practices for Avoiding Issues
+        Prevention Best Practices
       
     </span>
   </a>
@@ -4741,10 +4659,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#getting-help" class="md-nav__link">
+  <a href="#related-documentation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Getting Help
+        Related Documentation
       
     </span>
   </a>
@@ -4776,333 +4694,235 @@
   
 
 
-  <h1>Troubleshooting Variable Interpolation</h1>
-
-<h2 id="troubleshooting-variable-interpolation">Troubleshooting Variable Interpolation<a class="headerlink" href="#troubleshooting-variable-interpolation" title="Permanent link">&para;</a></h2>
-<p>This guide helps you diagnose and fix common variable interpolation issues in Prodigy workflows.</p>
-<h3 id="issue-variables-not-interpolating">Issue: Variables Not Interpolating<a class="headerlink" href="#issue-variables-not-interpolating" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Literal <code>${var}</code> or <code>$VAR</code> appears in output instead of the value.</p>
-<p><strong>Common Causes:</strong></p>
-<ol>
-<li>
-<p><strong>Variable name typo or case mismatch</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Wrong</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${Item.path}&quot;</span><span class="w">  </span><span class="c1"># Should be lowercase: ${item.path}</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Correct</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${item.path}&quot;</span>
+<h1 id="mapreduce-troubleshooting-guide">MapReduce Troubleshooting Guide<a class="headerlink" href="#mapreduce-troubleshooting-guide" title="Permanent link">&para;</a></h1>
+<h2 id="commit-validation-failures">Commit Validation Failures<a class="headerlink" href="#commit-validation-failures" title="Permanent link">&para;</a></h2>
+<h3 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h3>
+<p>Prodigy enforces commit validation for MapReduce agent commands marked with <code>commit_required: true</code>. This prevents silent data loss from agents that complete without creating the expected commits.</p>
+<h3 id="common-symptoms">Common Symptoms<a class="headerlink" href="#common-symptoms" title="Permanent link">&para;</a></h3>
+<p><strong>Agent Failure Message:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Agent execution failed: Commit required but no commit was created
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Worktree: /path/to/worktree/agent-1
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Expected behavior: Command should create at least one git commit
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>Command: shell: echo &quot;test&quot; &gt; file.txt
 </code></pre></div></p>
-</li>
-<li>
-<p><strong>Variable doesn't exist in current scope</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Wrong - using item variable in reduce phase</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">reduce</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${item.name}&quot;</span><span class="w">  </span><span class="c1"># ${item.*} not available here!</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Correct - access via map.results</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">reduce</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;${map.results}&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">jq</span><span class="nv"> </span><span class="s">-r</span><span class="nv"> </span><span class="s">&#39;.[].item.name&#39;&quot;</span>
+<p><strong>DLQ Entry:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;error_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CommitValidationFailed&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;manual_review_required&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;failure_history&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">&quot;error_message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Commit validation failed&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">&quot;json_log_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/path/to/claude/logs/session-xyz.json&quot;</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p">}]</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
 </code></pre></div></p>
-</li>
-<li>
-<p><strong>Command failed before setting variable</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span><span class="w">  </span><span class="c1"># If this fails...</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;tests&quot;</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${tests}&quot;</span><span class="w">  </span><span class="c1"># ...this might be empty</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Better: Check success first</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="no">if ${tests.success}; then</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="no">echo &quot;Tests: ${tests}&quot;</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="no">else</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="no">echo &quot;Tests failed: ${tests.stderr}&quot;</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="no">fi</span>
-</code></pre></div></p>
-</li>
-</ol>
-<p><strong>Solutions:</strong>
-- Check spelling and case sensitivity
-- Verify variable exists in current phase (see phase availability table)
-- Use verbose mode (<code>-v</code>) to see variable values during execution
-- Echo variables to debug: <code>shell: "echo 'DEBUG: var=${my_var}'"</code></p>
-<h3 id="issue-variable-empty-or-undefined">Issue: Variable Empty or Undefined<a class="headerlink" href="#issue-variable-empty-or-undefined" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Variable interpolates but contains empty string or null.</p>
-<p><strong>Common Causes:</strong></p>
-<ol>
-<li>
-<p><strong>Variable used before being set</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Wrong - using before capture</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${count}&quot;</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;wc</span><span class="nv"> </span><span class="s">-l</span><span class="nv"> </span><span class="s">file.txt&quot;</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;count&quot;</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Correct - capture first, use second</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;wc</span><span class="nv"> </span><span class="s">-l</span><span class="nv"> </span><span class="s">file.txt&quot;</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;count&quot;</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${count}&quot;</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>Command produced no output</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;find</span><span class="nv"> </span><span class="s">.</span><span class="nv"> </span><span class="s">-name</span><span class="nv"> </span><span class="s">&#39;nonexistent.txt&#39;&quot;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;result&quot;</span><span class="w">  </span><span class="c1"># Will be empty if no matches</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${result}&quot;</span><span class="w">  </span><span class="c1"># Empty string</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>Capture not configured</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Wrong - forgot capture_output</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">--version&quot;</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${shell.output}&quot;</span><span class="w">  </span><span class="c1"># Empty unless capture_output: true</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Correct</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">--version&quot;</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># or capture_output: &quot;cargo_version&quot;</span>
-</code></pre></div></p>
-</li>
-</ol>
-<p><strong>Solutions:</strong>
-- Ensure capture_output is set when you need to save output
-- Check command actually produces output
-- Use verbose mode to see when variables are set
-- Provide defaults: <code>${var:-default_value}</code> (shell syntax)</p>
-<h3 id="issue-phase-specific-variable-not-available">Issue: Phase-Specific Variable Not Available<a class="headerlink" href="#issue-phase-specific-variable-not-available" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Error about undefined variable or empty value when using phase-specific variables.</p>
-<p><strong>Common Causes:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Wrong Phase</th>
-<th>Correct Phase</th>
-<th>Fix</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>${item.*}</code></td>
-<td>Reduce, Setup, Merge</td>
-<td>Map only</td>
-<td>Use <code>${map.results}</code> in reduce</td>
-</tr>
-<tr>
-<td><code>${map.*}</code></td>
-<td>Setup, Map, Merge</td>
-<td>Reduce only</td>
-<td>Move logic to reduce phase</td>
-</tr>
-<tr>
-<td><code>${merge.*}</code></td>
-<td>Setup, Map, Reduce</td>
-<td>Merge only</td>
-<td>Only use in merge commands</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Example Problem:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Wrong - can&#39;t use ${item} in reduce</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">reduce</span><span class="p">:</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;process</span><span class="nv"> </span><span class="s">${item.name}&quot;</span><span class="w">  </span><span class="c1"># ERROR!</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># Correct - iterate through map.results</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nt">reduce</span><span class="p">:</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;${map.results}&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">jq</span><span class="nv"> </span><span class="s">-r</span><span class="nv"> </span><span class="s">&#39;.[]</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">.item.name&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">while</span><span class="nv"> </span><span class="s">read</span><span class="nv"> </span><span class="s">name;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">process</span><span class="nv"> </span><span class="s">\&quot;$name\&quot;;</span><span class="nv"> </span><span class="s">done&quot;</span>
-</code></pre></div></p>
-<p><strong>Solutions:</strong>
-- Review phase availability table in main Variables documentation
-- Move variable usage to appropriate phase
-- In reduce, access item data through <code>${map.results}</code>
-- Restructure workflow if necessary</p>
-<h3 id="issue-nested-field-access-fails">Issue: Nested Field Access Fails<a class="headerlink" href="#issue-nested-field-access-fails" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Can't access nested JSON fields like <code>${var.field.nested}</code>.</p>
-<p><strong>Common Causes:</strong></p>
-<ol>
-<li>
-<p><strong>Format not specified as JSON</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Wrong - no format specification</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">metadata</span><span class="nv"> </span><span class="s">--format-version</span><span class="nv"> </span><span class="s">1&quot;</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;metadata&quot;</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${metadata.workspace_root}&quot;</span><span class="w">  </span><span class="c1"># Won&#39;t work!</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># Correct - specify JSON format</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">metadata</span><span class="nv"> </span><span class="s">--format-version</span><span class="nv"> </span><span class="s">1&quot;</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;metadata&quot;</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="nt">capture_format</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;json&quot;</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${metadata.workspace_root}&quot;</span><span class="w">  </span><span class="c1"># Works!</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>Field doesn't exist in JSON</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${item.nonexistent_field}&quot;</span><span class="w">  </span><span class="c1"># Empty if field missing</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>JSON is invalid</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Command produces malformed JSON</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;{incomplete</span><span class="nv"> </span><span class="s">json&#39;&quot;</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data&quot;</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">capture_format</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;json&quot;</span><span class="w">  </span><span class="c1"># Will fail to parse</span>
-</code></pre></div></p>
-</li>
-</ol>
-<p><strong>Solutions:</strong>
-- Always use <code>capture_format: "json"</code> for JSON output
-- Verify JSON structure with <code>jq</code>: <code>echo '${var}' | jq .</code>
-- Check field exists: <code>echo '${var}' | jq -r '.field // "default"'</code>
-- Validate JSON before capture</p>
-<h3 id="issue-git-context-variables-empty">Issue: Git Context Variables Empty<a class="headerlink" href="#issue-git-context-variables-empty" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Git variables like <code>${step.files_added}</code> are empty.</p>
-<p><strong>Common Causes:</strong></p>
-<ol>
-<li>
-<p><strong>No commits created</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;hello&#39;</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">file.txt&quot;</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${step.files_added}&quot;</span><span class="w">  </span><span class="c1"># Empty - no commit yet!</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Correct - ensure command creates commit</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;hello&#39;</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">file.txt&quot;</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Forces commit</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${step.files_added}&quot;</span><span class="w">  </span><span class="c1"># Now has value</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>Not in a git repository</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Git variables require git repo</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${step.files_added}&quot;</span><span class="w">  </span><span class="c1"># Empty if not in git repo</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>No files changed in step</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">check&quot;</span><span class="w">  </span><span class="c1"># Doesn&#39;t modify files</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${step.files_added}&quot;</span><span class="w">  </span><span class="c1"># Empty - no files added</span>
-</code></pre></div></p>
-</li>
-</ol>
-<p><strong>Solutions:</strong>
-- Ensure commands that modify files use <code>commit_required: true</code>
-- Verify you're in a git repository
-- Check that commands actually modify files
-- Use <code>git status</code> to verify changes exist</p>
-<h3 id="issue-format-modifiers-not-working">Issue: Format Modifiers Not Working<a class="headerlink" href="#issue-format-modifiers-not-working" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Format modifiers like <code>:json</code> or <code>:*.rs</code> don't apply.</p>
-<p><strong>Common Causes:</strong></p>
-<ol>
-<li>
-<p><strong>Wrong variable type</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Wrong - not a git context variable</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ls&quot;</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;files&quot;</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${files:json}&quot;</span><span class="w">  </span><span class="c1"># Format modifiers only work on git vars!</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="c1"># Correct - use capture_format instead</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ls&quot;</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="nt">capture_output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;files&quot;</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">  </span><span class="nt">capture_format</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;json&quot;</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>Syntax error</strong>
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Wrong syntax</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${step.files_added:.rs}&quot;</span><span class="w">  </span><span class="c1"># Missing * in glob</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Correct</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${step.files_added:*.rs}&quot;</span>
-</code></pre></div></p>
-</li>
-</ol>
-<p><strong>Solutions:</strong>
-- Format modifiers (<code>:json</code>, <code>:lines</code>, <code>:csv</code>, <code>:*.ext</code>) only work on git context variables
-- For custom captures, use <code>capture_format</code> instead
-- Check glob pattern syntax</p>
-<h3 id="debugging-techniques">Debugging Techniques<a class="headerlink" href="#debugging-techniques" title="Permanent link">&para;</a></h3>
-<h4 id="1-use-verbose-mode">1. Use Verbose Mode<a class="headerlink" href="#1-use-verbose-mode" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Run with verbose flag to see variable resolution</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>prodigy<span class="w"> </span>run<span class="w"> </span>workflow.yml<span class="w"> </span>-v
-</code></pre></div>
-<p>Verbose mode shows:
-- Variable values at each step
-- When variables are captured
-- Interpolated command strings before execution</p>
-<h4 id="2-echo-variables-for-debugging">2. Echo Variables for Debugging<a class="headerlink" href="#2-echo-variables-for-debugging" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;DEBUG:</span><span class="nv"> </span><span class="s">item=${item}&#39;&quot;</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;DEBUG:</span><span class="nv"> </span><span class="s">item.path=${item.path}&#39;&quot;</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;DEBUG:</span><span class="nv"> </span><span class="s">item_index=${item_index}&#39;&quot;</span>
-</code></pre></div>
-<h4 id="3-check-claude-json-logs">3. Check Claude JSON Logs<a class="headerlink" href="#3-check-claude-json-logs" title="Permanent link">&para;</a></h4>
-<p>Claude command logs contain variable interpolation details:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># View most recent Claude command log</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>cat<span class="w"> </span>~/.claude/projects/*/latest.jsonl<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;select(.type == &quot;assistant&quot;)&#39;</span>
-</code></pre></div>
-<h4 id="4-verify-variables-in-checkpoint-files">4. Verify Variables in Checkpoint Files<a class="headerlink" href="#4-verify-variables-in-checkpoint-files" title="Permanent link">&para;</a></h4>
-<p>For resume issues, check checkpoint files:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># View checkpoint variables</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>cat<span class="w"> </span>~/.prodigy/state/*/checkpoints/latest.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.variables
-</code></pre></div>
-<h4 id="5-use-jq-to-explore-json-variables">5. Use jq to Explore JSON Variables<a class="headerlink" href="#5-use-jq-to-explore-json-variables" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Explore structure</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;${map.results}&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">jq</span><span class="nv"> </span><span class="s">.&quot;</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># List available keys</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;${metadata}&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">jq</span><span class="nv"> </span><span class="s">&#39;keys&#39;&quot;</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Pretty print</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">&#39;${item}&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">jq</span><span class="nv"> </span><span class="s">-C</span><span class="nv"> </span><span class="s">.&quot;</span>
-</code></pre></div>
-<h3 id="common-syntax-issues">Common Syntax Issues<a class="headerlink" href="#common-syntax-issues" title="Permanent link">&para;</a></h3>
-<h4 id="issue-special-characters-in-variables">Issue: Special Characters in Variables<a class="headerlink" href="#issue-special-characters-in-variables" title="Permanent link">&para;</a></h4>
-<p><strong>Problem:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Variable contains spaces or special chars</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echo ${item.name}</span><span class="w">  </span><span class="c1"># Breaks if name has spaces!</span>
+<h3 id="root-causes">Root Causes<a class="headerlink" href="#root-causes" title="Permanent link">&para;</a></h3>
+<h4 id="1-missing-git-add-or-git-commit-commands">1. Missing <code>git add</code> or <code>git commit</code> Commands<a class="headerlink" href="#1-missing-git-add-or-git-commit-commands" title="Permanent link">&para;</a></h4>
+<p><strong>Problem:</strong> Agent creates/modifies files but doesn't commit them.</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">      </span><span class="no">echo &quot;content&quot; &gt; file.txt</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="no"># Missing: git add file.txt</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="no"># Missing: git commit -m &quot;message&quot;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div></p>
 <p><strong>Solution:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Always quote variables in shell commands</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">\&quot;${item.name}\&quot;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">      </span><span class="no">echo &quot;content&quot; &gt; file.txt</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="no">git add file.txt</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="no">git commit -m &quot;Add file.txt&quot;</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div></p>
-<h4 id="issue-yaml-string-escaping">Issue: YAML String Escaping<a class="headerlink" href="#issue-yaml-string-escaping" title="Permanent link">&para;</a></h4>
-<p><strong>Problem:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Single quotes prevent interpolation</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;echo</span><span class="nv"> </span><span class="s">${item.name}&#39;</span><span class="w">  </span><span class="c1"># Literal ${item.name} printed!</span>
+<h4 id="2-conditional-logic-that-skips-commits">2. Conditional Logic That Skips Commits<a class="headerlink" href="#2-conditional-logic-that-skips-commits" title="Permanent link">&para;</a></h4>
+<p><strong>Problem:</strong> Agent has conditional logic that sometimes skips commit creation.</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">      </span><span class="no">if [ &quot;${item.type}&quot; = &quot;process&quot; ]; then</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">        </span><span class="no">echo &quot;content&quot; &gt; file.txt</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">        </span><span class="no">git add file.txt</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">        </span><span class="no">git commit -m &quot;Process ${item.id}&quot;</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">      </span><span class="no">else</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">        </span><span class="no">echo &quot;Skipping item ${item.id}&quot;</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">        </span><span class="no"># No commit created for non-process items</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="no">fi</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div></p>
-<p><strong>Solution:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Use double quotes for interpolation</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${item.name}&quot;</span>
-</code></pre></div></p>
-<h4 id="issue-combining-variables-with-text">Issue: Combining Variables with Text<a class="headerlink" href="#issue-combining-variables-with-text" title="Permanent link">&para;</a></h4>
-<p><strong>Problem:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Ambiguous variable name</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">$item_path&quot;</span><span class="w">  </span><span class="c1"># Is it ${item_path} or ${item}_path?</span>
-</code></pre></div></p>
-<p><strong>Solution:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Use ${} syntax to clarify boundaries</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">${item}_path&quot;</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo</span><span class="nv"> </span><span class="s">prefix_${item}_suffix&quot;</span>
-</code></pre></div></p>
-<h3 id="best-practices-for-avoiding-issues">Best Practices for Avoiding Issues<a class="headerlink" href="#best-practices-for-avoiding-issues" title="Permanent link">&para;</a></h3>
+<p><strong>Solution:</strong> Either:</p>
 <ol>
-<li><strong>Always use <code>${VAR}</code> syntax</strong> - More reliable than <code>$VAR</code></li>
-<li><strong>Check phase availability</strong> - Review phase table before using variables</li>
-<li><strong>Quote shell variables</strong> - Use <code>"${var}"</code> in shell commands</li>
-<li><strong>Capture before use</strong> - Set <code>capture_output</code> before referencing</li>
-<li><strong>Specify JSON format</strong> - Use <code>capture_format: "json"</code> for structured data</li>
-<li><strong>Use verbose mode</strong> - Debug with <code>-v</code> flag</li>
-<li><strong>Validate JSON</strong> - Test with <code>jq</code> before using in workflow</li>
-<li><strong>Document assumptions</strong> - Comment expected variable structure</li>
-<li><strong>Provide fallbacks</strong> - Handle empty variables gracefully</li>
-<li><strong>Test incrementally</strong> - Add variables one at a time</li>
+<li>
+<p>Remove <code>commit_required</code> flag for conditional commits:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">      </span><span class="no">if [ &quot;${item.type}&quot; = &quot;process&quot; ]; then</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">        </span><span class="no">echo &quot;content&quot; &gt; file.txt</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">        </span><span class="no">git add file.txt</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">        </span><span class="no">git commit -m &quot;Process ${item.id}&quot;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">      </span><span class="no">fi</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="c1"># No commit_required flag</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>Filter items before map phase to ensure all agents create commits:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">map</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;item.type</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">&#39;process&#39;&quot;</span><span class="w">  </span><span class="c1"># Only process items that need commits</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">        </span><span class="no">echo &quot;content&quot; &gt; file.txt</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="no">git add file.txt</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="no">git commit -m &quot;Process ${item.id}&quot;</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+</li>
 </ol>
-<h3 id="getting-help">Getting Help<a class="headerlink" href="#getting-help" title="Permanent link">&para;</a></h3>
-<p>If you're still stuck after trying these debugging techniques:</p>
+<h4 id="3-command-fails-before-reaching-commit">3. Command Fails Before Reaching Commit<a class="headerlink" href="#3-command-fails-before-reaching-commit" title="Permanent link">&para;</a></h4>
+<p><strong>Problem:</strong> Command fails early, never reaching the commit statement.</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">      </span><span class="no">some-command-that-fails</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="no">git add file.txt</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="no">git commit -m &quot;message&quot;  # Never reached</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+<p><strong>Solution:</strong> Use <code>on_failure</code> handlers or fix the failing command:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">      </span><span class="no">some-command || exit 1</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">on_failure</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">      </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">        </span><span class="no">echo &quot;Command failed, creating fallback commit&quot;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">        </span><span class="no">echo &quot;error&quot; &gt; error.log</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">        </span><span class="no">git add error.log</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="no">git commit -m &quot;Failed to process ${item.id}&quot;</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="no">git add file.txt</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">      </span><span class="no">git commit -m &quot;Process complete&quot;</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+<h4 id="4-empty-commits-nothing-to-commit">4. Empty Commits (Nothing to Commit)<a class="headerlink" href="#4-empty-commits-nothing-to-commit" title="Permanent link">&para;</a></h4>
+<p><strong>Problem:</strong> Agent tries to commit but has no changes staged.</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">      </span><span class="no"># This might not modify anything</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">      </span><span class="no">echo &quot;test&quot; &gt; file.txt</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="no">rm file.txt  # Undo the change</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="no">git add .</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="no">git commit -m &quot;message&quot;  # Fails: nothing to commit</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+<p><strong>Solution:</strong> Use <code>--allow-empty</code> or ensure changes exist:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">      </span><span class="no">echo &quot;test ${item.id}&quot; &gt; &quot;file-${item.id}.txt&quot;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">      </span><span class="no">git add .</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">      </span><span class="no">if git diff --cached --quiet; then</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">        </span><span class="no"># No changes, create empty commit</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">        </span><span class="no">git commit --allow-empty -m &quot;No changes for ${item.id}&quot;</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="no">else</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">        </span><span class="no">git commit -m &quot;Process ${item.id}&quot;</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="no">fi</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+<h3 id="debugging-steps">Debugging Steps<a class="headerlink" href="#debugging-steps" title="Permanent link">&para;</a></h3>
+<h4 id="1-check-agent-worktree-state">1. Check Agent Worktree State<a class="headerlink" href="#1-check-agent-worktree-state" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Navigate to the agent&#39;s worktree (from error message)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">cd</span><span class="w"> </span>/path/to/worktree/agent-1
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Check git status</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>git<span class="w"> </span>status
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Check commit history</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>git<span class="w"> </span>log<span class="w"> </span>--oneline
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># Check for uncommitted changes</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>git<span class="w"> </span>diff
+</code></pre></div>
+<h4 id="2-review-claude-json-log">2. Review Claude JSON Log<a class="headerlink" href="#2-review-claude-json-log" title="Permanent link">&para;</a></h4>
+<p>The error message includes the path to the Claude JSON log file. This contains the complete execution trace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># View the log</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>cat<span class="w"> </span>/path/to/claude/logs/session-xyz.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Extract command execution details</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>cat<span class="w"> </span>/path/to/claude/logs/session-xyz.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.messages[] | select(.content[]?.type == &quot;tool_use&quot;)&#39;</span>
+</code></pre></div>
+<h4 id="3-check-dlq-for-pattern-analysis">3. Check DLQ for Pattern Analysis<a class="headerlink" href="#3-check-dlq-for-pattern-analysis" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># View DLQ items for the job</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>prodigy<span class="w"> </span>dlq<span class="w"> </span>show<span class="w"> </span>&lt;job-id&gt;
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Look for commit validation failures</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>prodigy<span class="w"> </span>dlq<span class="w"> </span>show<span class="w"> </span>&lt;job-id&gt;<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.items[] | select(.failure_history[].error_type == &quot;CommitValidationFailed&quot;)&#39;</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Analyze failure patterns</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>prodigy<span class="w"> </span>dlq<span class="w"> </span>analyze<span class="w"> </span>&lt;job-id&gt;
+</code></pre></div>
+<h4 id="4-test-agent-command-manually">4. Test Agent Command Manually<a class="headerlink" href="#4-test-agent-command-manually" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Create a test worktree</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>mkdir<span class="w"> </span>test-agent
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="nb">cd</span><span class="w"> </span>test-agent
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>git<span class="w"> </span>init
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># Set up test item data</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="nb">export</span><span class="w"> </span>item.id<span class="o">=</span><span class="m">1</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="nb">export</span><span class="w"> </span>item.type<span class="o">=</span>process
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="c1"># Run the agent command manually</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>shell:<span class="w"> </span><span class="p">|</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;content&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>file.txt
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">  </span>git<span class="w"> </span>add<span class="w"> </span>file.txt
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="w">  </span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Test commit&quot;</span>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="c1"># Check if commit was created</span>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>git<span class="w"> </span>log
+</code></pre></div>
+<h3 id="prevention-best-practices">Prevention Best Practices<a class="headerlink" href="#prevention-best-practices" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Check logs</strong>: Review Claude JSON logs for variable resolution</li>
-<li><strong>Inspect checkpoints</strong>: Look at stored variable values</li>
-<li><strong>Simplify workflow</strong>: Remove complexity to isolate issue</li>
-<li><strong>Review examples</strong>: Check working examples in documentation</li>
-<li><strong>Verify phase</strong>: Double-check variable is available in current phase</li>
+<li><strong>Use <code>commit_required</code> Sparingly</strong></li>
+<li>Only mark commands as <code>commit_required</code> when you genuinely expect a commit</li>
+<li>
+<p>For optional commits, use <code>on_failure</code> handlers instead</p>
+</li>
+<li>
+<p><strong>Test Workflows with Dry-Run Mode</strong>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>prodigy<span class="w"> </span>run<span class="w"> </span>workflow.yml<span class="w"> </span>--dry-run
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Use Filters to Ensure Commit Eligibility</strong>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">map</span><span class="p">:</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">filter</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;item.needs_commit</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">true&quot;</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">        </span><span class="no">process-and-commit.sh</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">      </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Add Explicit Validation</strong>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">agent_template</span><span class="p">:</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">      </span><span class="no">process-item.sh</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">      </span><span class="no">git add .</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">      </span><span class="no">git commit -m &quot;Process ${item.id}&quot;</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">      </span><span class="no"># Verify commit was created</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">      </span><span class="no">if ! git log -1 --oneline | grep -q &quot;Process&quot;; then</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">        </span><span class="no">echo &quot;ERROR: Commit validation failed&quot;</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">        </span><span class="no">exit 1</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">      </span><span class="no">fi</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">    </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div></p>
+</li>
 </ol>
-<p><strong>See Also:</strong>
-- <a href="../available-variables/">Available Variables</a> - Full variable reference with phase availability
-- <a href="../custom-variable-capture/">Custom Variable Capture</a> - Capture configuration and formats
-- <a href="../../examples/">Examples</a> - Working examples of variable usage</p>
+<h3 id="related-documentation">Related Documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="../../workflow-basics/command-level-options/">Command-Level Options</a> - Details on <code>commit_required</code> flag</li>
+<li><a href="../event-tracking/">MapReduce Event Tracking</a> - Understanding event streams</li>
+<li><a href="../dead-letter-queue-dlq/">Dead Letter Queue</a> - Managing failed items</li>
+</ul>
 
 
 
