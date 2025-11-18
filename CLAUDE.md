@@ -1,6 +1,6 @@
-# Prodigy Session Documentation for Claude
+# Prodigy Project Documentation
 
-This document explains how Prodigy manages sessions and provides information to Claude during development iterations.
+This document contains Prodigy-specific documentation for Claude. General development guidelines are in `~/.claude/CLAUDE.md`.
 
 ## Overview
 
@@ -8,104 +8,18 @@ Prodigy is a workflow orchestration tool that executes Claude commands through s
 
 ## Error Handling Guidelines (Spec 101)
 
-### Production Code Requirements
+Prodigy follows strict error handling requirements:
 
-**CRITICAL**: Production code must NEVER use `unwrap()` or `panic!()` directly. All error conditions must be handled gracefully using Result types and the `?` operator.
+- **Production code**: Never use `unwrap()` or `panic!()` - use Result types and `?` operator
+- **Test code**: May use `unwrap()` and `panic!()` for test failures
+- **Static patterns**: Compile-time constants (like regex) may use `expect()`
 
-#### Prohibited Patterns in Production Code
-```rust
-// NEVER DO THIS in production code:
-let value = some_option.unwrap();        // Will panic on None
-let result = some_result.unwrap();       // Will panic on Err
-panic!("Something went wrong");          // Explicit panic
-```
+### Error Types by Module
 
-#### Required Patterns for Error Handling
-```rust
-// DO THIS instead:
-let value = some_option.context("Failed to get value")?;
-let result = some_result.context("Operation failed")?;
-return Err(anyhow!("Something went wrong"));
-```
-
-#### Safe Fallback Patterns
-```rust
-// For Options:
-let value = some_option.unwrap_or(default_value);
-let value = some_option.unwrap_or_else(|| compute_default());
-let value = some_option.map_or(default, |v| transform(v));
-
-// For Results:
-let value = some_result.unwrap_or(default_value);
-let value = some_result.unwrap_or_else(|e| {
-    log::warn!("Failed with error: {}, using default", e);
-    default_value
-});
-```
-
-### Test Code Exceptions
-
-Test code MAY use `unwrap()` and `panic!()` as they serve as appropriate test failure mechanisms:
-```rust
-#[test]
-fn test_something() {
-    let result = function_under_test();
-    assert!(result.is_ok());
-    let value = result.unwrap();  // OK in tests - will fail test on error
-}
-```
-
-### Static Compilation Patterns
-
-For compile-time constants like regex patterns that are known to be valid:
-```rust
-// OK - Regex is statically known to be valid
-static PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\d+$").expect("Invalid regex pattern")
-});
-```
-
-### Error Context Best Practices
-
-1. **Always add context** when propagating errors:
-   ```rust
-   file_operation()
-       .context("Failed to perform file operation")?;
-   ```
-
-2. **Include relevant details** in error messages:
-   ```rust
-   read_file(&path)
-       .with_context(|| format!("Failed to read file: {}", path.display()))?;
-   ```
-
-3. **Use appropriate error types** for each module:
-   - Storage operations: `StorageError`
-   - Worktree operations: `WorktreeError`
-   - Command execution: `CommandError`
-   - General operations: `anyhow::Error`
-
-### Troubleshooting Common Issues
-
-#### Issue: "thread 'main' panicked at..."
-**Cause**: An `unwrap()` or `panic!()` in production code
-**Solution**: Find the location in the stack trace and replace with proper error handling
-
-#### Issue: "called `Option::unwrap()` on a `None` value"
-**Cause**: Attempting to unwrap a None Option
-**Solution**: Use `unwrap_or()`, `unwrap_or_else()`, or `?` operator with context
-
-#### Issue: "called `Result::unwrap()` on an `Err` value"
-**Cause**: Attempting to unwrap an Err Result
-**Solution**: Use `?` operator to propagate the error or handle it explicitly
-
-### Validation and Testing
-
-All error handling changes must:
-1. Pass existing tests without modification
-2. Include new tests for error paths
-3. Maintain backward compatibility
-4. Provide clear error messages for debugging
+- Storage operations: `StorageError`
+- Worktree operations: `WorktreeError`
+- Command execution: `CommandError`
+- General operations: `anyhow::Error`
 
 ## Claude Command Observability (Spec 121)
 
