@@ -1213,6 +1213,13 @@ impl MapReduceCoordinator {
     ) -> HashMap<String, String> {
         let mut variables = HashMap::new();
 
+        // Log workflow environment being used (debug level)
+        debug!(
+            item_id = %item_id,
+            workflow_env = ?workflow_env,
+            "Building agent environment from workflow env"
+        );
+
         // Start with workflow environment variables (lowest precedence)
         variables.extend(workflow_env.clone());
 
@@ -1237,6 +1244,13 @@ impl MapReduceCoordinator {
             serde_json::to_string(item).unwrap_or_default(),
         );
         variables.insert("item_id".to_string(), item_id.to_string());
+
+        // Log final variable set for agent (debug level)
+        debug!(
+            item_id = %item_id,
+            variables = ?variables,
+            "Agent environment variables built"
+        );
 
         variables
     }
