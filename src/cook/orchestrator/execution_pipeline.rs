@@ -954,27 +954,21 @@ impl ExecutionPipeline {
             // collect_metrics removed - MMM focuses on orchestration
         };
 
+        // Interpolate workflow env variables with positional args before passing to executor
+        // This ensures that env vars like "BLOG_POST: $1" get resolved to actual values
+        let interpolated_env = interpolate_workflow_env_with_positional_args(
+            mapreduce_config.env.as_ref(),
+            &config.command.args,
+        )?;
+
         // Set global environment configuration if present in MapReduce workflow
-        if mapreduce_config.env.is_some()
+        if !interpolated_env.is_empty()
             || mapreduce_config.secrets.is_some()
             || mapreduce_config.env_files.is_some()
             || mapreduce_config.profiles.is_some()
         {
             let global_env_config = crate::cook::environment::EnvironmentConfig {
-                global_env: mapreduce_config
-                    .env
-                    .as_ref()
-                    .map(|env| {
-                        env.iter()
-                            .map(|(k, v)| {
-                                (
-                                    k.clone(),
-                                    crate::cook::environment::EnvValue::Static(v.clone()),
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                global_env: interpolated_env,
                 secrets: mapreduce_config.secrets.clone().unwrap_or_default(),
                 env_files: mapreduce_config.env_files.clone().unwrap_or_default(),
                 inherit: true,
@@ -989,22 +983,12 @@ impl ExecutionPipeline {
             || config.workflow.env_files.is_some()
             || config.workflow.profiles.is_some()
         {
+            // Interpolate standard workflow env vars too
+            let interpolated_standard_env =
+                interpolate_workflow_env_with_positional_args(config.workflow.env.as_ref(), &config.command.args)?;
+
             let global_env_config = crate::cook::environment::EnvironmentConfig {
-                global_env: config
-                    .workflow
-                    .env
-                    .as_ref()
-                    .map(|env| {
-                        env.iter()
-                            .map(|(k, v)| {
-                                (
-                                    k.clone(),
-                                    crate::cook::environment::EnvValue::Static(v.clone()),
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                global_env: interpolated_standard_env,
                 secrets: config.workflow.secrets.clone().unwrap_or_default(),
                 env_files: config.workflow.env_files.clone().unwrap_or_default(),
                 inherit: true,
@@ -1025,6 +1009,70 @@ impl ExecutionPipeline {
 
         result
     }
+}
+
+/// Interpolate workflow environment variables with positional arguments
+///
+/// Resolves variable references like "$1", "${ARG_1}", etc. in workflow env values
+/// with actual positional argument values. This enables workflows to reference
+/// command-line arguments in their environment variable definitions.
+///
+/// # Arguments
+/// * `workflow_env` - Optional workflow environment variable map from YAML
+/// * `positional_args` - Positional arguments from command line (--args)
+///
+/// # Returns
+/// HashMap of fully interpolated environment variables ready for use
+///
+/// # Example
+/// ```ignore
+/// // Workflow YAML has: env: { BLOG_POST: "$1", OUTPUT: "${ARG_2}" }
+/// // Command: prodigy run workflow.yml --args blog.md output/
+/// // Result: { BLOG_POST: "blog.md", OUTPUT: "output/" }
+/// ```
+fn interpolate_workflow_env_with_positional_args(
+    workflow_env: Option<&HashMap<String, String>>,
+    positional_args: &[String],
+) -> Result<HashMap<String, crate::cook::environment::EnvValue>> {
+    use crate::cook::environment::EnvValue;
+    use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+
+    let Some(env_map) = workflow_env else {
+        return Ok(HashMap::new());
+    };
+
+    // Build context with positional args as ARG_1, ARG_2, etc.
+    let mut arg_vars = HashMap::new();
+    for (index, arg) in positional_args.iter().enumerate() {
+        let arg_name = format!("ARG_{}", index + 1);
+        arg_vars.insert(arg_name, serde_json::Value::String(arg.clone()));
+
+        // Also support $1, $2 notation for compatibility
+        let numbered_arg = format!("{}", index + 1);
+        arg_vars.insert(numbered_arg, serde_json::Value::String(arg.clone()));
+    }
+
+    let interp_context = InterpolationContext {
+        variables: arg_vars,
+        parent: None,
+    };
+
+    let mut interpolation_engine = InterpolationEngine::new(false); // non-strict mode
+    let mut result = HashMap::new();
+
+    // Interpolate each environment variable value
+    for (key, value) in env_map {
+        let interpolated_value = interpolation_engine
+            .interpolate(value, &interp_context)
+            .context(format!(
+                "Failed to interpolate workflow env variable '{}' with value '{}'",
+                key, value
+            ))?;
+
+        result.insert(key.clone(), EnvValue::Static(interpolated_value));
+    }
+
+    Ok(result)
 }
 
 /// Build a variable map from command outputs

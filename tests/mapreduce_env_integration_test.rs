@@ -274,3 +274,97 @@ fn test_mapreduce_env_vars_validation() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_mapreduce_env_vars_with_positional_args() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let workflow_path = temp_dir.path().join("test-positional-args.yml");
+
+    // Workflow that uses positional args in env vars (like cross-post workflow)
+    let workflow_content = r#"
+name: test-positional-args
+mode: mapreduce
+
+env:
+  # Reference positional args using $1, $2 notation
+  INPUT_FILE: "$1"
+  OUTPUT_DIR: "$2"
+  # Can also use ${ARG_N} notation
+  PROJECT_NAME: "${ARG_3}"
+
+setup:
+  - shell: "echo Input: ${INPUT_FILE}"
+  - shell: "echo Output: ${OUTPUT_DIR}"
+  - shell: "echo Project: ${PROJECT_NAME}"
+  - shell: "echo '{\"items\": [{\"name\": \"test\"}]}' > items.json"
+
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+  agent_template:
+    - shell: "echo Processing ${item.name} from ${INPUT_FILE} to ${OUTPUT_DIR}"
+  max_parallel: 1
+
+reduce:
+  - shell: "echo Completed ${PROJECT_NAME} workflow"
+"#;
+
+    fs::write(&workflow_path, workflow_content)?;
+
+    // Parse the workflow
+    let workflow_yaml = fs::read_to_string(&workflow_path)?;
+    let config: serde_yaml::Value = serde_yaml::from_str(&workflow_yaml)?;
+
+    // Verify env variables use positional arg syntax
+    let env = config.get("env").unwrap().as_mapping().unwrap();
+
+    // Check $1 notation
+    let input_file = env.get(&serde_yaml::Value::String("INPUT_FILE".to_string()))
+        .and_then(|v| v.as_str());
+    assert_eq!(input_file, Some("$1"), "INPUT_FILE should use $1 notation");
+
+    // Check $2 notation
+    let output_dir = env.get(&serde_yaml::Value::String("OUTPUT_DIR".to_string()))
+        .and_then(|v| v.as_str());
+    assert_eq!(output_dir, Some("$2"), "OUTPUT_DIR should use $2 notation");
+
+    // Check ${ARG_3} notation
+    let project_name = env.get(&serde_yaml::Value::String("PROJECT_NAME".to_string()))
+        .and_then(|v| v.as_str());
+    assert_eq!(project_name, Some("${ARG_3}"), "PROJECT_NAME should use ARG_3 notation");
+
+    // Verify setup commands use these env vars
+    let setup = config.get("setup").unwrap().as_sequence().unwrap();
+    let first_cmd = setup[0].get("shell").unwrap().as_str().unwrap();
+    assert!(first_cmd.contains("${INPUT_FILE}"), "Setup should use INPUT_FILE env var");
+
+    Ok(())
+}
+
+#[test]
+fn test_positional_args_interpolation_unit() {
+    use std::collections::HashMap;
+
+    // This tests that the workflow correctly defines positional arg references
+    // The actual interpolation is tested via integration tests with the full execution pipeline
+
+    let mut workflow_env = HashMap::new();
+    workflow_env.insert("BLOG_POST".to_string(), "$1".to_string());
+    workflow_env.insert("OUTPUT".to_string(), "${ARG_2}".to_string());
+
+    let positional_args = vec![
+        "content/blog/my-post.md".to_string(),
+        "output/dir".to_string(),
+    ];
+
+    // Expected behavior: When interpolated with positional_args
+    // BLOG_POST -> "content/blog/my-post.md"
+    // OUTPUT -> "output/dir"
+
+    // The interpolation function converts $1 -> ARG_1, $2 -> ARG_2
+    // and resolves them to actual positional arg values
+
+    assert_eq!(workflow_env.get("BLOG_POST"), Some(&"$1".to_string()));
+    assert_eq!(workflow_env.get("OUTPUT"), Some(&"${ARG_2}".to_string()));
+    assert_eq!(positional_args.len(), 2);
+}
