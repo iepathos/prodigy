@@ -242,7 +242,7 @@ impl MapReduceCoordinator {
 
         // Execute setup phase if present
         if let Some(setup_phase) = setup {
-            self.execute_setup_phase(setup_phase, env).await?;
+            self.execute_setup_phase(setup_phase, env, &map_phase.workflow_env).await?;
         }
 
         // Load work items
@@ -391,12 +391,54 @@ impl MapReduceCoordinator {
         CommandExecutor::get_step_display_name(step)
     }
 
+    /// Interpolate a workflow step with environment variables
+    fn interpolate_step_with_env(
+        &self,
+        step: &WorkflowStep,
+        workflow_env: &HashMap<String, String>,
+    ) -> MapReduceResult<WorkflowStep> {
+        use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+
+        // Build interpolation context from workflow env
+        let mut context = InterpolationContext::new();
+        for (key, value) in workflow_env {
+            context.set(key.clone(), serde_json::Value::String(value.clone()));
+        }
+
+        // Create interpolation engine
+        let mut engine = InterpolationEngine::new(false); // non-strict mode
+
+        // Interpolate the step
+        let mut interpolated = step.clone();
+
+        if let Some(shell) = &step.shell {
+            interpolated.shell = Some(engine.interpolate(shell, &context).map_err(|e| {
+                MapReduceError::ProcessingError(format!(
+                    "Failed to interpolate shell command: {}",
+                    e
+                ))
+            })?);
+        }
+
+        if let Some(claude) = &step.claude {
+            interpolated.claude = Some(engine.interpolate(claude, &context).map_err(|e| {
+                MapReduceError::ProcessingError(format!(
+                    "Failed to interpolate claude command: {}",
+                    e
+                ))
+            })?);
+        }
+
+        Ok(interpolated)
+    }
+
     /// Execute the setup phase
     #[cfg_attr(test, allow(dead_code))]
     pub(crate) async fn execute_setup_phase(
         &self,
         setup_phase: SetupPhase,
         env: &ExecutionEnvironment,
+        workflow_env: &HashMap<String, String>,
     ) -> MapReduceResult<()> {
         info!("Executing setup phase");
         info!(
@@ -435,6 +477,11 @@ impl MapReduceCoordinator {
             let mut env_vars = HashMap::new();
             env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
+            // Add workflow environment variables (includes interpolated positional args)
+            for (key, value) in workflow_env {
+                env_vars.insert(key.clone(), value.clone());
+            }
+
             debug!("Environment Variables:");
             for (key, value) in &env_vars {
                 debug!("  {} = {}", key, value);
@@ -442,10 +489,13 @@ impl MapReduceCoordinator {
             debug!("Actual execution directory: {}", env.working_dir.display());
             debug!("==============================");
 
-            // Execute the step
+            // Interpolate the step with workflow environment variables
+            let interpolated_step = self.interpolate_step_with_env(step, workflow_env)?;
+
+            // Execute the interpolated step
             let result = self
                 .command_executor
-                .execute_setup_step(step, env, env_vars)
+                .execute_setup_step(&interpolated_step, env, env_vars)
                 .await
                 .map_err(|e| {
                     MapReduceError::ProcessingError(format!(

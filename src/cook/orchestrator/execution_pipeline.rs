@@ -938,10 +938,20 @@ impl ExecutionPipeline {
 
         // Interpolate workflow env variables with positional args BEFORE creating phases
         // This ensures that env vars like "BLOG_POST: $1" get resolved to actual values
-        let interpolated_env = interpolate_workflow_env_with_positional_args(
+        let mut interpolated_env = interpolate_workflow_env_with_positional_args(
             mapreduce_config.env.as_ref(),
             &config.command.args,
         )?;
+
+        // Also add positional args themselves as environment variables (ARG_1, ARG_2, etc.)
+        // This allows shell commands to use ${ARG_1} or $ARG_1 directly
+        for (index, arg) in config.command.args.iter().enumerate() {
+            let arg_name = format!("ARG_{}", index + 1);
+            interpolated_env.insert(
+                arg_name,
+                crate::cook::environment::EnvValue::Static(arg.clone()),
+            );
+        }
 
         // Convert interpolated EnvValue map to plain HashMap<String, String> for MapPhase
         let workflow_env_plain: HashMap<String, String> = interpolated_env
