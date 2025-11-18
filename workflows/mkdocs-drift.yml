@@ -116,7 +116,7 @@ reduce:
     on_failure:
       # Fix any invalid Mermaid diagrams found
       # Pass validation output to Claude for context
-      claude: "/prodigy-fix-mermaid-diagrams --validation-output '${shell.stderr}'"
+      claude: "/prodigy-fix-mermaid-diagrams '${shell.stderr}'"
       commit_required: true
 
   # Clean up temporary analysis files (keep structure-report.json and validation reports for review)
