@@ -8,7 +8,7 @@ mode: mapreduce
 # Environment variables for parameterization
 env:
   # Project configuration
-  PROJECT_NAME: "ripgrep"
+  PROJECT_NAME: "Prodigy"
   PROJECT_CONFIG: ".prodigy/mkdocs-config.json"
   FEATURES_PATH: ".prodigy/mkdocs-analysis/features.json"
 
