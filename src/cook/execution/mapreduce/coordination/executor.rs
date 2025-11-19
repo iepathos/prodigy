@@ -123,7 +123,12 @@ impl MapReduceCoordinator {
     ) -> Self {
         let result_collector = Arc::new(ResultCollector::new(CollectionStrategy::InMemory));
         let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
-        let event_logger = Arc::new(EventLogger::new(project_root.clone(), job_id.clone(), None));
+        let event_logger = Arc::new(EventLogger::new(
+            project_root.clone(),
+            job_id.clone(),
+            None,
+            verbosity,
+        ));
 
         // Create claude executor using the real implementation
         let command_runner = RealCommandRunner::new();

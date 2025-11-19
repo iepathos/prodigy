@@ -29,22 +29,88 @@ pub struct EventLogger {
     _project_root: PathBuf,
     _job_id: String,
     _session_id: Option<String>,
+    verbosity: u8,
 }
 
 impl EventLogger {
     /// Create a new event logger
-    pub fn new(project_root: PathBuf, job_id: String, session_id: Option<String>) -> Self {
+    pub fn new(
+        project_root: PathBuf,
+        job_id: String,
+        session_id: Option<String>,
+        verbosity: u8,
+    ) -> Self {
         Self {
             _project_root: project_root,
             _job_id: job_id,
             _session_id: session_id,
+            verbosity,
         }
     }
 
-    /// Log an event
+    /// Log an event with verbosity control
     pub async fn log_event(&self, event: MapReduceEvent) -> Result<()> {
-        // For now, just log to tracing
-        tracing::info!("MapReduce event: {:?}", event);
+        // Always log errors regardless of verbosity
+        if matches!(event, MapReduceEvent::AgentFailed { .. }) {
+            tracing::info!("MapReduce event: {:?}", event);
+            return Ok(());
+        }
+
+        // Only log verbose events in verbose mode (verbosity >= 1)
+        if self.verbosity >= 1 {
+            match &event {
+                MapReduceEvent::AgentCompleted {
+                    agent_id,
+                    item_id,
+                    duration,
+                    cleanup_status,
+                    commits,
+                    json_log_location,
+                    ..
+                } => {
+                    // Truncate commit list if it's too long (unless verbosity >= 2)
+                    let commits_display = if commits.len() > 10 && self.verbosity < 2 {
+                        format!(
+                            "[{:?}, {:?}, ... ({} more)]",
+                            commits.first().unwrap_or(&String::new()),
+                            commits.get(1).unwrap_or(&String::new()),
+                            commits.len() - 2
+                        )
+                    } else {
+                        format!("{:?}", commits)
+                    };
+
+                    tracing::info!(
+                        "MapReduce event: AgentCompleted {{ agent_id: {:?}, item_id: {:?}, duration: {:?}, cleanup_status: {:?}, commits: {}, json_log_location: {:?} }}",
+                        agent_id,
+                        item_id,
+                        duration,
+                        cleanup_status,
+                        commits_display,
+                        json_log_location
+                    );
+                }
+                _ => {
+                    tracing::info!("MapReduce event: {:?}", event);
+                }
+            }
+        } else {
+            // In default mode, only log phase-level events
+            match event {
+                MapReduceEvent::MapPhaseStarted { .. }
+                | MapReduceEvent::MapPhaseCompleted { .. }
+                | MapReduceEvent::ReducePhaseStarted { .. }
+                | MapReduceEvent::ReducePhaseCompleted { .. } => {
+                    tracing::info!("MapReduce event: {:?}", event);
+                }
+                // Suppress AgentStarted, AgentCompleted, and AgentFailed in default mode
+                // (AgentFailed is already handled above and always shown)
+                MapReduceEvent::AgentStarted { .. }
+                | MapReduceEvent::AgentCompleted { .. }
+                | MapReduceEvent::AgentFailed { .. } => {}
+            }
+        }
+
         Ok(())
     }
 }
