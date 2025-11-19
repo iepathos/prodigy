@@ -490,7 +490,10 @@ impl MapReduceCoordinator {
             debug!("==============================");
 
             // Interpolate the step with workflow environment variables
+            info!("🔍 DEBUG: Original step shell command: {:?}", step.shell);
+            info!("🔍 DEBUG: Workflow env vars: {:?}", workflow_env);
             let interpolated_step = self.interpolate_step_with_env(step, workflow_env)?;
+            info!("🔍 DEBUG: Interpolated step shell command: {:?}", interpolated_step.shell);
 
             // Execute the interpolated step
             let result = self

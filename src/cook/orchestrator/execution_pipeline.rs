@@ -936,6 +936,13 @@ impl ExecutionPipeline {
             .map(|setup| setup.commands.clone())
             .unwrap_or_default();
 
+        // Use pure functions for environment variable interpolation
+        use crate::cook::execution::mapreduce::env_interpolation::{
+            env_values_to_plain_map,
+            interpolate_workflow_env_with_positional_args,
+            positional_args_as_env_vars,
+        };
+
         // Interpolate workflow env variables with positional args BEFORE creating phases
         // This ensures that env vars like "BLOG_POST: $1" get resolved to actual values
         let mut interpolated_env = interpolate_workflow_env_with_positional_args(
@@ -944,23 +951,11 @@ impl ExecutionPipeline {
         )?;
 
         // Also add positional args themselves as environment variables (ARG_1, ARG_2, etc.)
-        // This allows shell commands to use ${ARG_1} or $ARG_1 directly
-        for (index, arg) in config.command.args.iter().enumerate() {
-            let arg_name = format!("ARG_{}", index + 1);
-            interpolated_env.insert(
-                arg_name,
-                crate::cook::environment::EnvValue::Static(arg.clone()),
-            );
-        }
+        let positional_env = positional_args_as_env_vars(&config.command.args);
+        interpolated_env.extend(positional_env);
 
         // Convert interpolated EnvValue map to plain HashMap<String, String> for MapPhase
-        let workflow_env_plain: HashMap<String, String> = interpolated_env
-            .iter()
-            .map(|(k, v)| match v {
-                crate::cook::environment::EnvValue::Static(val) => (k.clone(), val.clone()),
-                _ => (k.clone(), String::new()), // Should not happen with our interpolation
-            })
-            .collect();
+        let workflow_env_plain = env_values_to_plain_map(&interpolated_env);
 
         // Create MapPhase with interpolated env
         let mut map_phase = mapreduce_config.to_map_phase().context(
@@ -1054,51 +1049,6 @@ impl ExecutionPipeline {
 /// // Command: prodigy run workflow.yml --args blog.md output/
 /// // Result: { BLOG_POST: "blog.md", OUTPUT: "output/" }
 /// ```
-fn interpolate_workflow_env_with_positional_args(
-    workflow_env: Option<&HashMap<String, String>>,
-    positional_args: &[String],
-) -> Result<HashMap<String, crate::cook::environment::EnvValue>> {
-    use crate::cook::environment::EnvValue;
-    use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
-
-    let Some(env_map) = workflow_env else {
-        return Ok(HashMap::new());
-    };
-
-    // Build context with positional args as ARG_1, ARG_2, etc.
-    let mut arg_vars = HashMap::new();
-    for (index, arg) in positional_args.iter().enumerate() {
-        let arg_name = format!("ARG_{}", index + 1);
-        arg_vars.insert(arg_name, serde_json::Value::String(arg.clone()));
-
-        // Also support $1, $2 notation for compatibility
-        let numbered_arg = format!("{}", index + 1);
-        arg_vars.insert(numbered_arg, serde_json::Value::String(arg.clone()));
-    }
-
-    let interp_context = InterpolationContext {
-        variables: arg_vars,
-        parent: None,
-    };
-
-    let mut interpolation_engine = InterpolationEngine::new(false); // non-strict mode
-    let mut result = HashMap::new();
-
-    // Interpolate each environment variable value
-    for (key, value) in env_map {
-        let interpolated_value = interpolation_engine
-            .interpolate(value, &interp_context)
-            .context(format!(
-                "Failed to interpolate workflow env variable '{}' with value '{}'",
-                key, value
-            ))?;
-
-        result.insert(key.clone(), EnvValue::Static(interpolated_value));
-    }
-
-    Ok(result)
-}
-
 /// Build a variable map from command outputs
 ///
 /// This pure function takes command outputs and transforms them into a flat

@@ -17,6 +17,7 @@ pub mod command;
 pub mod coordination;
 pub mod dlq_integration;
 pub mod dry_run;
+pub mod env_interpolation;
 pub mod event;
 pub mod map_phase;
 pub mod merge_queue;
