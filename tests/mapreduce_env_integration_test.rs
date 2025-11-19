@@ -320,19 +320,19 @@ reduce:
 
     // Check $1 notation
     let input_file = env
-        .get(&serde_yaml::Value::String("INPUT_FILE".to_string()))
+        .get(serde_yaml::Value::String("INPUT_FILE".to_string()))
         .and_then(|v| v.as_str());
     assert_eq!(input_file, Some("$1"), "INPUT_FILE should use $1 notation");
 
     // Check $2 notation
     let output_dir = env
-        .get(&serde_yaml::Value::String("OUTPUT_DIR".to_string()))
+        .get(serde_yaml::Value::String("OUTPUT_DIR".to_string()))
         .and_then(|v| v.as_str());
     assert_eq!(output_dir, Some("$2"), "OUTPUT_DIR should use $2 notation");
 
     // Check ${ARG_3} notation
     let project_name = env
-        .get(&serde_yaml::Value::String("PROJECT_NAME".to_string()))
+        .get(serde_yaml::Value::String("PROJECT_NAME".to_string()))
         .and_then(|v| v.as_str());
     assert_eq!(
         project_name,
@@ -362,7 +362,7 @@ fn test_positional_args_interpolation_unit() {
     workflow_env.insert("BLOG_POST".to_string(), "$1".to_string());
     workflow_env.insert("OUTPUT".to_string(), "${ARG_2}".to_string());
 
-    let positional_args = vec![
+    let positional_args = [
         "content/blog/my-post.md".to_string(),
         "output/dir".to_string(),
     ];
