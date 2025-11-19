@@ -679,7 +679,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(
             result.is_ok(),
             "Setup phase should succeed with all passing steps"
@@ -700,7 +702,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(
             result.is_err(),
             "Setup phase should fail when shell command fails"
@@ -733,7 +737,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(
             result.is_err(),
             "Setup phase should fail when command produces stderr"
@@ -760,7 +766,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(result.is_err(), "Setup phase should fail");
 
         let err_msg = result.unwrap_err().to_string();
@@ -785,7 +793,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(
             result.is_err(),
             "Setup phase should fail when Claude command fails"
@@ -824,7 +834,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(
             result.is_err(),
             "Setup phase should fail on first failing step"
@@ -852,7 +864,9 @@ mod execute_setup_phase_tests {
             capture_outputs: HashMap::new(),
         };
 
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         // Should succeed - this test verifies env vars are set
         // (actual verification would require checking the subprocess call)
         assert!(result.is_ok(), "Setup phase should succeed");
@@ -874,7 +888,9 @@ mod execute_setup_phase_tests {
 
         // This test verifies the function runs without panicking
         // Debug logs are checked via tracing (would need tracing subscriber in real test)
-        let result = coordinator.execute_setup_phase(setup, &env, &HashMap::new()).await;
+        let result = coordinator
+            .execute_setup_phase(setup, &env, &HashMap::new())
+            .await;
         assert!(
             result.is_ok(),
             "Setup phase should succeed and log debug context"

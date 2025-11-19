@@ -18,7 +18,7 @@ use std::collections::HashMap;
 ///
 /// # Examples
 /// ```
-/// use std::collections::HashMap;
+/// use prodigy::cook::execution::mapreduce::env_interpolation::build_positional_args_context;
 /// let args = vec!["file.txt".to_string(), "output.txt".to_string()];
 /// let context = build_positional_args_context(&args);
 ///
@@ -31,16 +31,10 @@ pub fn build_positional_args_context(args: &[String]) -> InterpolationContext {
         let position = index + 1;
 
         // Add numbered variable for $1, $2 syntax
-        variables.insert(
-            position.to_string(),
-            Value::String(arg.clone()),
-        );
+        variables.insert(position.to_string(), Value::String(arg.clone()));
 
         // Add named variable for ${ARG_1}, ${ARG_2} syntax
-        variables.insert(
-            format!("ARG_{}", position),
-            Value::String(arg.clone()),
-        );
+        variables.insert(format!("ARG_{}", position), Value::String(arg.clone()));
     }
 
     InterpolationContext {
@@ -53,12 +47,15 @@ pub fn build_positional_args_context(args: &[String]) -> InterpolationContext {
 ///
 /// # Examples
 /// ```
+/// use prodigy::cook::execution::mapreduce::env_interpolation::{build_positional_args_context, interpolate_env_value};
+/// use prodigy::cook::execution::interpolation::InterpolationEngine;
+///
 /// let value = "$1";
 /// let args = vec!["file.txt".to_string()];
 /// let context = build_positional_args_context(&args);
 /// let mut engine = InterpolationEngine::new(false);
 ///
-/// let result = interpolate_env_value(value, &context, &mut engine)?;
+/// let result = interpolate_env_value(value, &context, &mut engine).unwrap();
 /// assert_eq!(result, "file.txt");
 /// ```
 pub fn interpolate_env_value(
@@ -78,16 +75,20 @@ pub fn interpolate_env_value(
 ///
 /// # Examples
 /// ```
+/// use std::collections::HashMap;
+/// use prodigy::cook::execution::mapreduce::env_interpolation::interpolate_workflow_env_with_positional_args;
+///
 /// let mut env = HashMap::new();
 /// env.insert("BLOG_POST".to_string(), "$1".to_string());
 /// env.insert("OUTPUT_DIR".to_string(), "out".to_string());
 ///
 /// let args = vec!["content/blog/my-post.md".to_string()];
-/// let result = interpolate_workflow_env_with_positional_args(Some(&env), &args)?;
+/// let result = interpolate_workflow_env_with_positional_args(Some(&env), &args).unwrap();
 ///
 /// // result contains:
 /// // "BLOG_POST" => "content/blog/my-post.md"
 /// // "OUTPUT_DIR" => "out"
+/// # assert_eq!(result.len(), 2);
 /// ```
 pub fn interpolate_workflow_env_with_positional_args(
     workflow_env: Option<&HashMap<String, String>>,
@@ -106,8 +107,8 @@ pub fn interpolate_workflow_env_with_positional_args(
     // Interpolate each environment variable value
     let mut result = HashMap::new();
     for (key, value) in env_map {
-        let interpolated_value = interpolate_env_value(value, &context, &mut engine)
-            .with_context(|| {
+        let interpolated_value =
+            interpolate_env_value(value, &context, &mut engine).with_context(|| {
                 format!(
                     "Failed to interpolate workflow env variable '{}' with value '{}'",
                     key, value
@@ -127,12 +128,15 @@ pub fn interpolate_workflow_env_with_positional_args(
 ///
 /// # Examples
 /// ```
+/// use prodigy::cook::execution::mapreduce::env_interpolation::positional_args_as_env_vars;
+///
 /// let args = vec!["file.txt".to_string(), "output.txt".to_string()];
 /// let result = positional_args_as_env_vars(&args);
 ///
 /// // result contains:
 /// // "ARG_1" => EnvValue::Static("file.txt")
 /// // "ARG_2" => EnvValue::Static("output.txt")
+/// # assert_eq!(result.len(), 2);
 /// ```
 pub fn positional_args_as_env_vars(positional_args: &[String]) -> HashMap<String, EnvValue> {
     positional_args
@@ -149,6 +153,10 @@ pub fn positional_args_as_env_vars(positional_args: &[String]) -> HashMap<String
 ///
 /// # Examples
 /// ```
+/// use std::collections::HashMap;
+/// use prodigy::cook::environment::EnvValue;
+/// use prodigy::cook::execution::mapreduce::env_interpolation::env_values_to_plain_map;
+///
 /// let mut env_values = HashMap::new();
 /// env_values.insert("KEY".to_string(), EnvValue::Static("value".to_string()));
 ///
@@ -308,10 +316,7 @@ mod tests {
 
     #[test]
     fn test_positional_args_as_env_vars() {
-        let args = vec![
-            "file.txt".to_string(),
-            "output.txt".to_string(),
-        ];
+        let args = vec!["file.txt".to_string(), "output.txt".to_string()];
         let result = positional_args_as_env_vars(&args);
 
         assert_eq!(result.len(), 2);
@@ -344,16 +349,17 @@ mod tests {
         // Setup: workflow env with positional arg references
         let mut workflow_env = HashMap::new();
         workflow_env.insert("BLOG_POST".to_string(), "$1".to_string());
-        workflow_env.insert("SITE_URL".to_string(), "https://entropicdrift.com".to_string());
+        workflow_env.insert(
+            "SITE_URL".to_string(),
+            "https://entropicdrift.com".to_string(),
+        );
         workflow_env.insert("OUTPUT_DIR".to_string(), "cross-posts".to_string());
 
         let args = vec!["content/blog/rethinking-code-quality-analysis.md".to_string()];
 
         // Step 1: Interpolate workflow env
-        let mut interpolated_env = interpolate_workflow_env_with_positional_args(
-            Some(&workflow_env),
-            &args
-        ).unwrap();
+        let mut interpolated_env =
+            interpolate_workflow_env_with_positional_args(Some(&workflow_env), &args).unwrap();
 
         // Step 2: Add positional args as env vars
         let positional_env = positional_args_as_env_vars(&args);

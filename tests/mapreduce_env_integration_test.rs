@@ -319,24 +319,34 @@ reduce:
     let env = config.get("env").unwrap().as_mapping().unwrap();
 
     // Check $1 notation
-    let input_file = env.get(&serde_yaml::Value::String("INPUT_FILE".to_string()))
+    let input_file = env
+        .get(&serde_yaml::Value::String("INPUT_FILE".to_string()))
         .and_then(|v| v.as_str());
     assert_eq!(input_file, Some("$1"), "INPUT_FILE should use $1 notation");
 
     // Check $2 notation
-    let output_dir = env.get(&serde_yaml::Value::String("OUTPUT_DIR".to_string()))
+    let output_dir = env
+        .get(&serde_yaml::Value::String("OUTPUT_DIR".to_string()))
         .and_then(|v| v.as_str());
     assert_eq!(output_dir, Some("$2"), "OUTPUT_DIR should use $2 notation");
 
     // Check ${ARG_3} notation
-    let project_name = env.get(&serde_yaml::Value::String("PROJECT_NAME".to_string()))
+    let project_name = env
+        .get(&serde_yaml::Value::String("PROJECT_NAME".to_string()))
         .and_then(|v| v.as_str());
-    assert_eq!(project_name, Some("${ARG_3}"), "PROJECT_NAME should use ARG_3 notation");
+    assert_eq!(
+        project_name,
+        Some("${ARG_3}"),
+        "PROJECT_NAME should use ARG_3 notation"
+    );
 
     // Verify setup commands use these env vars
     let setup = config.get("setup").unwrap().as_sequence().unwrap();
     let first_cmd = setup[0].get("shell").unwrap().as_str().unwrap();
-    assert!(first_cmd.contains("${INPUT_FILE}"), "Setup should use INPUT_FILE env var");
+    assert!(
+        first_cmd.contains("${INPUT_FILE}"),
+        "Setup should use INPUT_FILE env var"
+    );
 
     Ok(())
 }

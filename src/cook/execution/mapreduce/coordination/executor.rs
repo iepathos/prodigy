@@ -242,7 +242,8 @@ impl MapReduceCoordinator {
 
         // Execute setup phase if present
         if let Some(setup_phase) = setup {
-            self.execute_setup_phase(setup_phase, env, &map_phase.workflow_env).await?;
+            self.execute_setup_phase(setup_phase, env, &map_phase.workflow_env)
+                .await?;
         }
 
         // Load work items
@@ -493,7 +494,10 @@ impl MapReduceCoordinator {
             info!("🔍 DEBUG: Original step shell command: {:?}", step.shell);
             info!("🔍 DEBUG: Workflow env vars: {:?}", workflow_env);
             let interpolated_step = self.interpolate_step_with_env(step, workflow_env)?;
-            info!("🔍 DEBUG: Interpolated step shell command: {:?}", interpolated_step.shell);
+            info!(
+                "🔍 DEBUG: Interpolated step shell command: {:?}",
+                interpolated_step.shell
+            );
 
             // Execute the interpolated step
             let result = self

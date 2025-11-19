@@ -938,8 +938,7 @@ impl ExecutionPipeline {
 
         // Use pure functions for environment variable interpolation
         use crate::cook::execution::mapreduce::env_interpolation::{
-            env_values_to_plain_map,
-            interpolate_workflow_env_with_positional_args,
+            env_values_to_plain_map, interpolate_workflow_env_with_positional_args,
             positional_args_as_env_vars,
         };
 
@@ -1003,8 +1002,10 @@ impl ExecutionPipeline {
             || config.workflow.profiles.is_some()
         {
             // Interpolate standard workflow env vars too
-            let interpolated_standard_env =
-                interpolate_workflow_env_with_positional_args(config.workflow.env.as_ref(), &config.command.args)?;
+            let interpolated_standard_env = interpolate_workflow_env_with_positional_args(
+                config.workflow.env.as_ref(),
+                &config.command.args,
+            )?;
 
             let global_env_config = crate::cook::environment::EnvironmentConfig {
                 global_env: interpolated_standard_env,

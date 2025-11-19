@@ -34,8 +34,8 @@ impl InterpolationEngine {
         // ${variable}, ${variable.path}, ${variable:-default}
         // $VAR (simple unbraced variable name)
         // $1, $2, ... (positional parameters)
-        let variable_regex =
-            Regex::new(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*|\d+)").expect("Invalid regex pattern");
+        let variable_regex = Regex::new(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*|\d+)")
+            .expect("Invalid regex pattern");
 
         Self {
             strict_mode,
