@@ -1,14 +1,137 @@
-//! Pure validation functions
+//! Pure validation functions using stillwater for error accumulation
 //!
 //! These functions validate data structures and business rules without performing any I/O operations.
+//! All validators return `Validation<T, Vec<ValidationError>>` to accumulate all errors before failing.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use stillwater::Validation;
 
 /// File existence check function type (passed as parameter to avoid I/O)
 pub type FileExistsCheck = fn(&Path) -> bool;
 
-/// Validation result with errors and warnings
+/// Validation errors that can be accumulated
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValidationError {
+    PathNotFound(PathBuf),
+    PathInParentDir(PathBuf),
+    PathInTempDir(PathBuf),
+    EnvVarMissing(String),
+    EnvVarEmpty(String),
+    JsonNotObject,
+    JsonFieldMissing(String),
+    JsonFieldNull(String),
+    CommandEmpty,
+    CommandDangerous { cmd: String, pattern: String },
+    CommandSuspicious { cmd: String, reason: String },
+    IterationCountZero,
+    IterationCountExceeded { count: usize, max: usize },
+    IterationCountHigh(usize),
+    MemoryLimitZero,
+    MemoryLimitLow(usize),
+    MemoryLimitHigh(usize),
+    CpuCoresZero,
+    CpuCoresHigh(usize),
+    TimeoutZero,
+    TimeoutLow(usize),
+    TimeoutHigh(usize),
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PathNotFound(p) => write!(f, "Path does not exist: {}", p.display()),
+            Self::PathInParentDir(p) => write!(f, "Path uses parent directory: {}", p.display()),
+            Self::PathInTempDir(p) => write!(f, "Path in temporary directory: {}", p.display()),
+            Self::EnvVarMissing(v) => write!(f, "Missing required environment variable: {}", v),
+            Self::EnvVarEmpty(v) => write!(f, "Sensitive variable '{}' is empty", v),
+            Self::JsonNotObject => write!(f, "JSON is not an object"),
+            Self::JsonFieldMissing(field) => write!(f, "Missing required field: {}", field),
+            Self::JsonFieldNull(field) => write!(f, "Field '{}' is null", field),
+            Self::CommandEmpty => write!(f, "Command is empty"),
+            Self::CommandDangerous { cmd: _, pattern } => {
+                write!(f, "Dangerous command pattern detected: {}", pattern)
+            }
+            Self::CommandSuspicious { cmd: _, reason } => write!(f, "{}", reason),
+            Self::IterationCountZero => write!(f, "Iteration count cannot be zero"),
+            Self::IterationCountExceeded { count, max } => {
+                write!(
+                    f,
+                    "Iteration count {} exceeds maximum allowed {}",
+                    count, max
+                )
+            }
+            Self::IterationCountHigh(count) => {
+                write!(f, "High iteration count ({}) may take a long time", count)
+            }
+            Self::MemoryLimitZero => write!(f, "Memory limit cannot be zero"),
+            Self::MemoryLimitLow(mb) => {
+                write!(
+                    f,
+                    "Memory limit {} MB may be too low for normal operation",
+                    mb
+                )
+            }
+            Self::MemoryLimitHigh(mb) => {
+                write!(
+                    f,
+                    "Memory limit {} MB may exceed available system memory",
+                    mb
+                )
+            }
+            Self::CpuCoresZero => write!(f, "CPU cores cannot be zero"),
+            Self::CpuCoresHigh(cores) => {
+                write!(f, "CPU core count {} may exceed available cores", cores)
+            }
+            Self::TimeoutZero => write!(f, "Timeout cannot be zero"),
+            Self::TimeoutLow(secs) => {
+                write!(
+                    f,
+                    "Timeout {} seconds may be too short for operations to complete",
+                    secs
+                )
+            }
+            Self::TimeoutHigh(secs) => {
+                write!(
+                    f,
+                    "Long timeout {} seconds may cause hanging processes",
+                    secs
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
+/// Classification of validation errors
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorSeverity {
+    Error,
+    Warning,
+}
+
+impl ValidationError {
+    /// Classify error severity
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            Self::PathInParentDir(_)
+            | Self::PathInTempDir(_)
+            | Self::EnvVarEmpty(_)
+            | Self::JsonFieldNull(_)
+            | Self::CommandSuspicious { .. }
+            | Self::IterationCountHigh(_)
+            | Self::MemoryLimitLow(_)
+            | Self::MemoryLimitHigh(_)
+            | Self::CpuCoresHigh(_)
+            | Self::TimeoutLow(_)
+            | Self::TimeoutHigh(_) => ErrorSeverity::Warning,
+            _ => ErrorSeverity::Error,
+        }
+    }
+}
+
+/// Validation result with errors and warnings (backward compatibility)
 #[derive(Debug, Clone, Default)]
 pub struct ValidationResult {
     pub is_valid: bool,
@@ -36,92 +159,128 @@ impl ValidationResult {
     pub fn add_warning(&mut self, warning: String) {
         self.warnings.push(warning);
     }
+
+    /// Convert from stillwater Validation
+    pub fn from_validation<T>(v: Validation<T, Vec<ValidationError>>) -> Self {
+        match v.into_result() {
+            Ok(_) => Self::valid(),
+            Err(errors) => {
+                let mut result = Self::valid();
+                for error in errors {
+                    match error.severity() {
+                        ErrorSeverity::Error => result.add_error(error.to_string()),
+                        ErrorSeverity::Warning => result.add_warning(error.to_string()),
+                    }
+                }
+                result
+            }
+        }
+    }
 }
 
-/// Validate file paths without performing I/O
+/// Validate a single path
+fn validate_path(
+    path: &Path,
+    exists_check: FileExistsCheck,
+) -> Validation<PathBuf, Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    if !exists_check(path) {
+        errors.push(ValidationError::PathNotFound(path.to_path_buf()));
+    }
+
+    // Warnings for suspicious paths
+    if path.starts_with("..") {
+        errors.push(ValidationError::PathInParentDir(path.to_path_buf()));
+    }
+
+    if path.is_absolute() && path.starts_with("/tmp") {
+        errors.push(ValidationError::PathInTempDir(path.to_path_buf()));
+    }
+
+    if errors.is_empty() {
+        Validation::success(path.to_path_buf())
+    } else {
+        Validation::failure(errors)
+    }
+}
+
+/// Validate file paths without performing I/O - accumulates all path errors
 pub fn validate_paths(paths: &[&Path], exists_check: FileExistsCheck) -> ValidationResult {
-    let mut result = ValidationResult::valid();
+    let mut all_errors = Vec::new();
+    let mut all_paths = Vec::new();
 
-    for path in paths {
-        if !exists_check(path) {
-            result.add_error(format!("Path does not exist: {}", path.display()));
-        }
-
-        // Check for suspicious paths
-        if path.starts_with("..") {
-            result.add_warning(format!("Path uses parent directory: {}", path.display()));
-        }
-
-        if path.is_absolute() && path.starts_with("/tmp") {
-            result.add_warning(format!("Path in temporary directory: {}", path.display()));
+    for &path in paths {
+        match validate_path(path, exists_check).into_result() {
+            Ok(p) => all_paths.push(p),
+            Err(errors) => all_errors.extend(errors),
         }
     }
 
-    result
+    let validation = if all_errors.is_empty() {
+        Validation::success(all_paths)
+    } else {
+        Validation::failure(all_errors)
+    };
+
+    ValidationResult::from_validation(validation)
 }
 
-/// Validate environment variables
+/// Validate a single environment variable
+fn validate_env_var(
+    var_name: &str,
+    env_vars: &HashMap<String, String>,
+) -> Validation<(String, String), Vec<ValidationError>> {
+    if let Some(value) = env_vars.get(var_name) {
+        // Check for sensitive variables that shouldn't be empty
+        if (var_name.contains("KEY") || var_name.contains("SECRET") || var_name.contains("TOKEN"))
+            && value.trim().is_empty()
+        {
+            Validation::failure(vec![ValidationError::EnvVarEmpty(var_name.to_string())])
+        } else {
+            Validation::success((var_name.to_string(), value.clone()))
+        }
+    } else {
+        Validation::failure(vec![ValidationError::EnvVarMissing(var_name.to_string())])
+    }
+}
+
+/// Validate environment variables - accumulates all missing/empty var errors
 pub fn validate_environment(
     required_vars: &[&str],
     env_vars: &HashMap<String, String>,
 ) -> ValidationResult {
-    let mut result = ValidationResult::valid();
+    let mut all_errors = Vec::new();
+    let mut all_vars = Vec::new();
 
-    for var in required_vars {
-        if !env_vars.contains_key(*var) {
-            result.add_error(format!("Missing required environment variable: {}", var));
+    // Validate required variables
+    for &var in required_vars {
+        match validate_env_var(var, env_vars).into_result() {
+            Ok(pair) => all_vars.push(pair),
+            Err(errors) => all_errors.extend(errors),
         }
     }
 
-    // Check for sensitive variables that shouldn't be empty
+    // Check all environment variables for empty sensitive values (warnings)
     for (key, value) in env_vars {
         if (key.contains("KEY") || key.contains("SECRET") || key.contains("TOKEN"))
             && value.trim().is_empty()
         {
-            result.add_warning(format!("Sensitive variable '{}' is empty", key));
+            all_errors.push(ValidationError::EnvVarEmpty(key.clone()));
         }
     }
 
-    result
-}
-
-/// Validate JSON structure
-pub fn validate_json_schema(
-    json: &serde_json::Value,
-    required_fields: &[&str],
-) -> ValidationResult {
-    let mut result = ValidationResult::valid();
-
-    if let Some(obj) = json.as_object() {
-        for field in required_fields {
-            if !obj.contains_key(*field) {
-                result.add_error(format!("Missing required field: {}", field));
-            }
-        }
-
-        // Check for null values in non-optional fields
-        for (key, value) in obj {
-            if value.is_null() && !key.contains("optional") {
-                result.add_warning(format!("Field '{}' is null", key));
-            }
-        }
+    let validation = if all_errors.is_empty() {
+        Validation::success(all_vars)
     } else {
-        result.add_error("JSON is not an object".to_string());
-    }
+        Validation::failure(all_errors)
+    };
 
-    result
+    ValidationResult::from_validation(validation)
 }
 
-/// Validate command string
-pub fn validate_command(command: &str) -> ValidationResult {
-    let mut result = ValidationResult::valid();
-
-    if command.trim().is_empty() {
-        result.add_error("Command is empty".to_string());
-        return result;
-    }
-
-    // Check for dangerous commands
+/// Check if command contains dangerous patterns
+fn check_dangerous_patterns(command: &str) -> Validation<(), Vec<ValidationError>> {
     let dangerous_patterns = [
         "rm -rf /",
         "dd if=/dev/zero",
@@ -130,47 +289,160 @@ pub fn validate_command(command: &str) -> ValidationResult {
         "chmod -R 777 /",
     ];
 
-    for pattern in &dangerous_patterns {
-        if command.contains(pattern) {
-            result.add_error(format!("Dangerous command pattern detected: {}", pattern));
-        }
-    }
+    let errors: Vec<ValidationError> = dangerous_patterns
+        .iter()
+        .filter(|&&pattern| command.contains(pattern))
+        .map(|&pattern| ValidationError::CommandDangerous {
+            cmd: command.to_string(),
+            pattern: pattern.to_string(),
+        })
+        .collect();
 
-    // Check for suspicious patterns
+    if errors.is_empty() {
+        Validation::success(())
+    } else {
+        Validation::failure(errors)
+    }
+}
+
+/// Check for suspicious command patterns
+fn check_suspicious_patterns(command: &str) -> Validation<(), Vec<ValidationError>> {
+    let mut warnings = Vec::new();
+
     if command.contains("sudo") && !command.contains("sudo -n") {
-        result.add_warning("Command uses sudo which may require password".to_string());
+        warnings.push(ValidationError::CommandSuspicious {
+            cmd: command.to_string(),
+            reason: "Command uses sudo which may require password".to_string(),
+        });
     }
 
     if command.contains("curl") && command.contains("| sh") {
-        result
-            .add_warning("Command pipes curl output to shell, potential security risk".to_string());
+        warnings.push(ValidationError::CommandSuspicious {
+            cmd: command.to_string(),
+            reason: "Command pipes curl output to shell, potential security risk".to_string(),
+        });
     }
 
-    result
+    if warnings.is_empty() {
+        Validation::success(())
+    } else {
+        Validation::failure(warnings)
+    }
 }
 
-/// Validate iteration count
+/// Validate command string - accumulates all command validation errors
+pub fn validate_command(command: &str) -> ValidationResult {
+    if command.trim().is_empty() {
+        return ValidationResult::from_validation(Validation::<(), Vec<ValidationError>>::failure(vec![
+            ValidationError::CommandEmpty,
+        ]));
+    }
+
+    let mut all_errors = Vec::new();
+
+    // Check for dangerous patterns
+    if let Err(errors) = check_dangerous_patterns(command).into_result() {
+        all_errors.extend(errors);
+    }
+
+    // Check for suspicious patterns
+    if let Err(errors) = check_suspicious_patterns(command).into_result() {
+        all_errors.extend(errors);
+    }
+
+    let validation = if all_errors.is_empty() {
+        Validation::success(())
+    } else {
+        Validation::failure(all_errors)
+    };
+
+    ValidationResult::from_validation(validation)
+}
+
+/// Validate a single required JSON field
+fn validate_json_field(
+    field_name: &str,
+    obj: &serde_json::Map<String, serde_json::Value>,
+) -> Validation<(), Vec<ValidationError>> {
+    if !obj.contains_key(field_name) {
+        Validation::failure(vec![ValidationError::JsonFieldMissing(field_name.to_string())])
+    } else {
+        Validation::success(())
+    }
+}
+
+/// Check for null values in non-optional fields
+fn check_null_fields(
+    obj: &serde_json::Map<String, serde_json::Value>,
+) -> Validation<(), Vec<ValidationError>> {
+    let warnings: Vec<ValidationError> = obj
+        .iter()
+        .filter(|(key, value)| value.is_null() && !key.contains("optional"))
+        .map(|(key, _)| ValidationError::JsonFieldNull(key.clone()))
+        .collect();
+
+    if warnings.is_empty() {
+        Validation::success(())
+    } else {
+        Validation::failure(warnings)
+    }
+}
+
+/// Validate JSON structure - accumulates all field errors
+pub fn validate_json_schema(
+    json: &serde_json::Value,
+    required_fields: &[&str],
+) -> ValidationResult {
+    if let Some(obj) = json.as_object() {
+        let mut all_errors = Vec::new();
+
+        // Check required fields
+        for &field in required_fields {
+            if let Err(errors) = validate_json_field(field, obj).into_result() {
+                all_errors.extend(errors);
+            }
+        }
+
+        // Check for null values
+        if let Err(errors) = check_null_fields(obj).into_result() {
+            all_errors.extend(errors);
+        }
+
+        let validation = if all_errors.is_empty() {
+            Validation::success(())
+        } else {
+            Validation::failure(all_errors)
+        };
+
+        ValidationResult::from_validation(validation)
+    } else {
+        ValidationResult::from_validation(Validation::<(), Vec<ValidationError>>::failure(vec![ValidationError::JsonNotObject]))
+    }
+}
+
+/// Validate iteration count - accumulates all count errors
 pub fn validate_iteration_count(count: usize, max_allowed: usize) -> ValidationResult {
-    let mut result = ValidationResult::valid();
+    let mut errors = Vec::new();
 
     if count == 0 {
-        result.add_error("Iteration count cannot be zero".to_string());
+        errors.push(ValidationError::IterationCountZero);
     } else if count > max_allowed {
-        result.add_error(format!(
-            "Iteration count {} exceeds maximum allowed {}",
-            count, max_allowed
-        ));
+        errors.push(ValidationError::IterationCountExceeded {
+            count,
+            max: max_allowed,
+        });
     } else if count > 50 {
-        result.add_warning(format!(
-            "High iteration count ({}) may take a long time",
-            count
-        ));
+        errors.push(ValidationError::IterationCountHigh(count));
     }
 
-    result
+    ValidationResult::from_validation(if errors.is_empty() {
+        Validation::success(())
+    } else {
+        Validation::failure(errors)
+    })
 }
 
-/// Validate resource limits
+/// Resource limits structure
 #[derive(Debug, Clone)]
 pub struct ResourceLimits {
     pub memory_mb: usize,
@@ -178,37 +450,87 @@ pub struct ResourceLimits {
     pub timeout_seconds: usize,
 }
 
+/// Validate memory limit
+fn validate_memory_limit(memory_mb: usize) -> Validation<usize, Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    if memory_mb == 0 {
+        errors.push(ValidationError::MemoryLimitZero);
+    } else if memory_mb < 128 {
+        errors.push(ValidationError::MemoryLimitLow(memory_mb));
+    } else if memory_mb > 32768 {
+        errors.push(ValidationError::MemoryLimitHigh(memory_mb));
+    }
+
+    if errors.is_empty() {
+        Validation::success(memory_mb)
+    } else {
+        Validation::failure(errors)
+    }
+}
+
+/// Validate CPU cores
+fn validate_cpu_cores(cpu_cores: usize) -> Validation<usize, Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    if cpu_cores == 0 {
+        errors.push(ValidationError::CpuCoresZero);
+    } else if cpu_cores > 64 {
+        errors.push(ValidationError::CpuCoresHigh(cpu_cores));
+    }
+
+    if errors.is_empty() {
+        Validation::success(cpu_cores)
+    } else {
+        Validation::failure(errors)
+    }
+}
+
+/// Validate timeout
+fn validate_timeout(timeout_seconds: usize) -> Validation<usize, Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    if timeout_seconds == 0 {
+        errors.push(ValidationError::TimeoutZero);
+    } else if timeout_seconds < 10 {
+        errors.push(ValidationError::TimeoutLow(timeout_seconds));
+    } else if timeout_seconds > 3600 {
+        errors.push(ValidationError::TimeoutHigh(timeout_seconds));
+    }
+
+    if errors.is_empty() {
+        Validation::success(timeout_seconds)
+    } else {
+        Validation::failure(errors)
+    }
+}
+
+/// Validate resource limits - accumulates all limit errors
 pub fn validate_resource_limits(limits: &ResourceLimits) -> ValidationResult {
-    let mut result = ValidationResult::valid();
+    let mut all_errors = Vec::new();
 
-    // Memory validation
-    if limits.memory_mb == 0 {
-        result.add_error("Memory limit cannot be zero".to_string());
-    } else if limits.memory_mb < 128 {
-        result.add_warning("Memory limit may be too low for normal operation".to_string());
-    } else if limits.memory_mb > 32768 {
-        // 32GB
-        result.add_warning("Memory limit may exceed available system memory".to_string());
+    // Validate memory
+    if let Err(errors) = validate_memory_limit(limits.memory_mb).into_result() {
+        all_errors.extend(errors);
     }
 
-    // CPU validation
-    if limits.cpu_cores == 0 {
-        result.add_error("CPU cores cannot be zero".to_string());
-    } else if limits.cpu_cores > 64 {
-        result.add_warning("CPU core count may exceed available cores".to_string());
+    // Validate CPU
+    if let Err(errors) = validate_cpu_cores(limits.cpu_cores).into_result() {
+        all_errors.extend(errors);
     }
 
-    // Timeout validation
-    if limits.timeout_seconds == 0 {
-        result.add_error("Timeout cannot be zero".to_string());
-    } else if limits.timeout_seconds < 10 {
-        result.add_warning("Timeout may be too short for operations to complete".to_string());
-    } else if limits.timeout_seconds > 3600 {
-        // 1 hour
-        result.add_warning("Long timeout may cause hanging processes".to_string());
+    // Validate timeout
+    if let Err(errors) = validate_timeout(limits.timeout_seconds).into_result() {
+        all_errors.extend(errors);
     }
 
-    result
+    let validation = if all_errors.is_empty() {
+        Validation::success(())
+    } else {
+        Validation::failure(all_errors)
+    };
+
+    ValidationResult::from_validation(validation)
 }
 
 #[cfg(test)]
@@ -236,6 +558,24 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_paths_accumulates_all_errors() {
+        let paths: Vec<&Path> = vec![
+            Path::new("/nonexistent1"),
+            Path::new("/nonexistent2"),
+            Path::new("/nonexistent3"),
+        ];
+
+        let result = validate_paths(&paths, mock_exists_check);
+
+        // Should accumulate ALL errors, not just first
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 3);
+        assert!(result.errors.iter().any(|e| e.contains("nonexistent1")));
+        assert!(result.errors.iter().any(|e| e.contains("nonexistent2")));
+        assert!(result.errors.iter().any(|e| e.contains("nonexistent3")));
+    }
+
+    #[test]
     fn test_validate_environment() {
         let mut env = HashMap::new();
         env.insert("PATH".to_string(), "/usr/bin".to_string());
@@ -247,6 +587,20 @@ mod tests {
         assert!(!result.is_valid);
         assert!(result.errors.iter().any(|e| e.contains("HOME")));
         assert!(result.warnings.iter().any(|w| w.contains("API_KEY")));
+    }
+
+    #[test]
+    fn test_validate_environment_accumulates_all_errors() {
+        let env = HashMap::new();
+        let required = vec!["VAR1", "VAR2", "VAR3"];
+        let result = validate_environment(&required, &env);
+
+        // Should accumulate ALL missing variables
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 3);
+        assert!(result.errors.iter().any(|e| e.contains("VAR1")));
+        assert!(result.errors.iter().any(|e| e.contains("VAR2")));
+        assert!(result.errors.iter().any(|e| e.contains("VAR3")));
     }
 
     #[test]
@@ -263,6 +617,23 @@ mod tests {
         assert!(!result.is_valid);
         assert!(result.errors.iter().any(|e| e.contains("missing")));
         assert!(result.warnings.is_empty()); // optional_field is ignored
+    }
+
+    #[test]
+    fn test_validate_json_accumulates_all_missing_fields() {
+        let json = serde_json::json!({
+            "existing": "value"
+        });
+
+        let required = vec!["field1", "field2", "field3"];
+        let result = validate_json_schema(&json, &required);
+
+        // Should accumulate ALL missing fields
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 3);
+        assert!(result.errors.iter().any(|e| e.contains("field1")));
+        assert!(result.errors.iter().any(|e| e.contains("field2")));
+        assert!(result.errors.iter().any(|e| e.contains("field3")));
     }
 
     #[test]
@@ -284,6 +655,18 @@ mod tests {
         let result = validate_command("curl http://example.com | sh");
         assert!(result.is_valid);
         assert!(!result.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_validate_command_accumulates_all_patterns() {
+        let cmd = "sudo rm -rf / && dd if=/dev/zero";
+        let result = validate_command(cmd);
+
+        // Should find multiple dangerous patterns
+        assert!(!result.is_valid);
+        assert!(result.errors.iter().any(|e| e.contains("rm -rf /")));
+        assert!(result.errors.iter().any(|e| e.contains("dd if=/dev/zero")));
+        assert!(result.warnings.iter().any(|w| w.contains("sudo")));
     }
 
     #[test]
@@ -320,5 +703,31 @@ mod tests {
         let result = validate_resource_limits(&invalid);
         assert!(!result.is_valid);
         assert!(!result.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_validate_resource_limits_accumulates_all_errors() {
+        let limits = ResourceLimits {
+            memory_mb: 0,
+            cpu_cores: 0,
+            timeout_seconds: 0,
+        };
+
+        let result = validate_resource_limits(&limits);
+
+        // Should accumulate ALL resource limit errors
+        assert!(!result.is_valid);
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.contains("Memory limit cannot be zero")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.contains("CPU cores cannot be zero")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.contains("Timeout cannot be zero")));
     }
 }
