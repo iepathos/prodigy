@@ -371,13 +371,204 @@ fn bench_workflow_resume_operation(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_validation_performance(c: &mut Criterion) {
+    use prodigy::core::validation::{
+        validate_command, validate_environment, validate_iteration_count, validate_json_schema,
+        validate_paths, validate_resource_limits, ResourceLimits,
+    };
+    use std::path::Path;
+
+    let mut group = c.benchmark_group("validation_performance");
+    group.warm_up_time(Duration::from_secs(1));
+    group.measurement_time(Duration::from_secs(5));
+
+    // Benchmark: Command validation
+    group.bench_function("validate_single_command", |b| {
+        let command = "cargo test --all";
+        b.iter(|| {
+            let result = validate_command(command);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_dangerous_command", |b| {
+        let command = "sudo rm -rf / && dd if=/dev/zero";
+        b.iter(|| {
+            let result = validate_command(command);
+            black_box(result);
+        });
+    });
+
+    // Benchmark: Environment variable validation
+    group.bench_function("validate_environment_small", |b| {
+        let mut env = HashMap::new();
+        env.insert("PATH".to_string(), "/usr/bin".to_string());
+        env.insert("HOME".to_string(), "/home/user".to_string());
+        let required = vec!["PATH", "HOME"];
+
+        b.iter(|| {
+            let result = validate_environment(&required, &env);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_environment_large", |b| {
+        let mut env = HashMap::new();
+        for i in 0..100 {
+            env.insert(format!("VAR_{}", i), format!("value_{}", i));
+        }
+        let required = vec!["VAR_0", "VAR_50", "VAR_99"];
+
+        b.iter(|| {
+            let result = validate_environment(&required, &env);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_environment_missing_vars", |b| {
+        let env = HashMap::new();
+        let required = vec!["VAR1", "VAR2", "VAR3", "VAR4", "VAR5"];
+
+        b.iter(|| {
+            let result = validate_environment(&required, &env);
+            black_box(result);
+        });
+    });
+
+    // Benchmark: Path validation
+    group.bench_function("validate_paths_small", |b| {
+        let paths: Vec<&Path> = vec![
+            Path::new("/tmp/file1.txt"),
+            Path::new("/tmp/file2.txt"),
+            Path::new("/tmp/file3.txt"),
+        ];
+        let exists_check = |_: &Path| true;
+
+        b.iter(|| {
+            let result = validate_paths(&paths, exists_check);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_paths_large", |b| {
+        // Create owned paths to avoid lifetime issues
+        let path_strings: Vec<String> = (0..100)
+            .map(|i| format!("/tmp/file{}.txt", i))
+            .collect();
+        let paths: Vec<&Path> = path_strings.iter().map(|s| Path::new(s.as_str())).collect();
+        let exists_check = |_: &Path| true;
+
+        b.iter(|| {
+            let result = validate_paths(&paths, exists_check);
+            black_box(result);
+        });
+    });
+
+    // Benchmark: JSON schema validation
+    group.bench_function("validate_json_simple", |b| {
+        let json = json!({
+            "name": "test",
+            "value": 42,
+            "description": "A test object"
+        });
+        let required = vec!["name", "value"];
+
+        b.iter(|| {
+            let result = validate_json_schema(&json, &required);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_json_complex", |b| {
+        let mut obj = serde_json::Map::new();
+        for i in 0..50 {
+            obj.insert(format!("field_{}", i), json!(format!("value_{}", i)));
+        }
+        let json = json!(obj);
+        let required: Vec<&str> = (0..25).map(|i| Box::leak(format!("field_{}", i).into_boxed_str()) as &str).collect();
+
+        b.iter(|| {
+            let result = validate_json_schema(&json, &required);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_json_missing_fields", |b| {
+        let json = json!({
+            "existing": "value"
+        });
+        let required = vec!["field1", "field2", "field3", "field4", "field5"];
+
+        b.iter(|| {
+            let result = validate_json_schema(&json, &required);
+            black_box(result);
+        });
+    });
+
+    // Benchmark: Iteration count validation
+    group.bench_function("validate_iteration_count", |b| {
+        b.iter(|| {
+            let result = validate_iteration_count(50, 100);
+            black_box(result);
+        });
+    });
+
+    // Benchmark: Resource limits validation
+    group.bench_function("validate_resource_limits_valid", |b| {
+        let limits = ResourceLimits {
+            memory_mb: 2048,
+            cpu_cores: 8,
+            timeout_seconds: 300,
+        };
+
+        b.iter(|| {
+            let result = validate_resource_limits(&limits);
+            black_box(result);
+        });
+    });
+
+    group.bench_function("validate_resource_limits_invalid", |b| {
+        let limits = ResourceLimits {
+            memory_mb: 0,
+            cpu_cores: 0,
+            timeout_seconds: 0,
+        };
+
+        b.iter(|| {
+            let result = validate_resource_limits(&limits);
+            black_box(result);
+        });
+    });
+
+    // Benchmark: Error accumulation (multiple validations in sequence)
+    group.bench_function("error_accumulation_multiple_validations", |b| {
+        let command = "sudo rm -rf / && dd if=/dev/zero";
+        let env = HashMap::new();
+        let required = vec!["VAR1", "VAR2", "VAR3"];
+        let json = json!({"existing": "value"});
+        let required_fields = vec!["field1", "field2", "field3"];
+
+        b.iter(|| {
+            // Accumulate errors from multiple validators
+            let cmd_result = validate_command(command);
+            let env_result = validate_environment(&required, &env);
+            let json_result = validate_json_schema(&json, &required_fields);
+
+            black_box((cmd_result, env_result, json_result));
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_workflow_parsing,
     bench_variable_operations,
     bench_workflow_validation,
     bench_real_world_scenarios,
-    bench_workflow_resume_operation
+    bench_workflow_resume_operation,
+    bench_validation_performance
 );
 
 criterion_main!(benches);

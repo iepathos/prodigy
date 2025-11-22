@@ -549,6 +549,258 @@ All path resolution functions:
 - Never panic in production code
 - Handle missing home directory gracefully
 
+## Validation Architecture (Spec 163)
+
+### Overview
+
+Prodigy's validation system is built on the stillwater library's `Validation` type, which provides error accumulation and functional composition patterns. This architecture replaces traditional fail-fast validation with a comprehensive approach that reports all errors at once.
+
+### Core Principles
+
+1. **Error Accumulation**: Collect all validation errors before failing
+2. **Pure Functions**: Validation logic separated from I/O operations
+3. **Composable Validators**: Build complex validators from simple, reusable functions
+4. **Error Classification**: Distinguish between errors (blocking) and warnings (informational)
+
+### Validation Module Structure
+
+The validation module is located in `src/core/validation/` and contains pure validation functions:
+
+```rust
+// Core validation type from stillwater
+use stillwater::Validation;
+
+// All validators return Validation<T, Vec<ValidationError>>
+pub fn validate_command(command: &str) -> ValidationResult {
+    // Accumulates multiple errors in single pass
+}
+
+pub fn validate_paths(
+    paths: &[&Path],
+    exists_check: FileExistsCheck
+) -> ValidationResult {
+    // I/O injected as parameter - pure function
+}
+
+pub fn validate_environment(
+    required_vars: &[&str],
+    env_vars: &HashMap<String, String>
+) -> ValidationResult {
+    // Validates all variables, accumulates all errors
+}
+```
+
+### Error Accumulation Pattern
+
+Traditional validation stops at the first error:
+
+```rust
+// ❌ Fail-fast approach (old pattern)
+fn validate(items: &[Item]) -> Result<()> {
+    for item in items {
+        if item.is_invalid() {
+            return Err(error); // Stops here - user only sees first error
+        }
+    }
+    Ok(())
+}
+```
+
+Stillwater validation accumulates all errors:
+
+```rust
+// ✅ Error accumulation (stillwater pattern)
+fn validate(items: &[Item]) -> ValidationResult {
+    let mut all_errors = Vec::new();
+
+    for item in items {
+        match validate_item(item).into_result() {
+            Ok(_) => {},
+            Err(errors) => all_errors.extend(errors), // Collect all errors
+        }
+    }
+
+    ValidationResult::from_validation(
+        if all_errors.is_empty() {
+            Validation::success(())
+        } else {
+            Validation::failure(all_errors)
+        }
+    )
+}
+```
+
+### Error Types and Severity
+
+All validation errors are defined in the `ValidationError` enum with severity classification:
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValidationError {
+    // Path validation
+    PathNotFound(PathBuf),
+    PathInParentDir(PathBuf),      // Warning
+    PathInTempDir(PathBuf),         // Warning
+
+    // Environment validation
+    EnvVarMissing(String),
+    EnvVarEmpty(String),            // Warning
+
+    // Command validation
+    CommandEmpty,
+    CommandDangerous { cmd: String, pattern: String },
+    CommandSuspicious { cmd: String, reason: String }, // Warning
+
+    // Resource validation
+    IterationCountZero,
+    IterationCountHigh(usize),      // Warning
+    MemoryLimitZero,
+    MemoryLimitLow(usize),          // Warning
+    TimeoutZero,
+}
+
+pub enum ErrorSeverity {
+    Error,   // Blocks execution
+    Warning, // Reported but non-blocking
+}
+```
+
+### Composition Patterns
+
+Validators compose to build complex validation logic:
+
+```rust
+// Small, focused validators
+fn check_dangerous_patterns(cmd: &str) -> Validation<(), Vec<ValidationError>> {
+    // Returns errors for dangerous patterns
+}
+
+fn check_suspicious_patterns(cmd: &str) -> Validation<(), Vec<ValidationError>> {
+    // Returns warnings for suspicious patterns
+}
+
+// Composed validator
+pub fn validate_command(command: &str) -> ValidationResult {
+    let mut all_errors = Vec::new();
+
+    // Compose multiple validators
+    if let Err(errors) = check_dangerous_patterns(command).into_result() {
+        all_errors.extend(errors);
+    }
+
+    if let Err(errors) = check_suspicious_patterns(command).into_result() {
+        all_errors.extend(errors);
+    }
+
+    ValidationResult::from_validation(
+        if all_errors.is_empty() {
+            Validation::success(())
+        } else {
+            Validation::failure(all_errors)
+        }
+    )
+}
+```
+
+### Dependency Injection for I/O
+
+Validators use dependency injection to remain pure:
+
+```rust
+// File existence check passed as parameter
+pub type FileExistsCheck = fn(&Path) -> bool;
+
+pub fn validate_paths(
+    paths: &[&Path],
+    exists_check: FileExistsCheck  // I/O injected here
+) -> ValidationResult {
+    // Pure logic - no filesystem access
+    for path in paths {
+        if !exists_check(path) {
+            errors.push(ValidationError::PathNotFound(path.to_path_buf()));
+        }
+    }
+    // ...
+}
+
+// Shell code provides I/O implementation
+fn validate_workflow_paths(paths: &[&Path]) -> ValidationResult {
+    validate_paths(paths, |p| p.exists()) // I/O at the edge
+}
+
+// Test code provides mock implementation
+#[test]
+fn test_validate_paths() {
+    fn mock_exists(path: &Path) -> bool {
+        path.to_str().unwrap().contains("exists")
+    }
+
+    let result = validate_paths(&paths, mock_exists); // No filesystem access
+    assert_eq!(result.errors.len(), 2);
+}
+```
+
+### Backward Compatibility
+
+The `ValidationResult` type provides backward compatibility with existing code:
+
+```rust
+#[derive(Debug, Clone, Default)]
+pub struct ValidationResult {
+    pub is_valid: bool,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+impl ValidationResult {
+    /// Convert from stillwater Validation
+    pub fn from_validation<T>(v: Validation<T, Vec<ValidationError>>) -> Self {
+        match v.into_result() {
+            Ok(_) => Self::valid(),
+            Err(errors) => {
+                let mut result = Self::valid();
+                for error in errors {
+                    match error.severity() {
+                        ErrorSeverity::Error => result.add_error(error.to_string()),
+                        ErrorSeverity::Warning => result.add_warning(error.to_string()),
+                    }
+                }
+                result
+            }
+        }
+    }
+}
+```
+
+### Benefits
+
+1. **Better User Experience**: Users see ALL validation errors at once
+2. **Improved Testing**: Pure functions with no I/O dependencies
+3. **Composability**: Build complex validators from simple building blocks
+4. **Consistency**: Uniform error types and handling across the codebase
+5. **Performance**: Single-pass validation with no additional overhead
+
+### Performance Characteristics
+
+The stillwater validation migration maintains zero performance regression:
+
+- **No allocation overhead**: Error vectors are allocated once
+- **Single-pass validation**: All errors found in one traversal
+- **Compiler optimization**: Small validators inline effectively
+- **Benchmark verification**: See `benches/execution_benchmarks.rs::bench_validation_performance`
+
+Run validation benchmarks:
+```bash
+cargo bench --bench execution_benchmarks -- validation_performance
+```
+
+### Migration Guide
+
+For detailed migration examples and patterns, see:
+- `docs/stillwater-validation-migration.md` - Before/after code examples
+- `src/core/validation/mod.rs` - Reference implementation
+- `specs/163-stillwater-validation-library.md` - Original specification
+
 ## Testing Strategy
 
 - **Unit Tests**: Each module has comprehensive unit tests
@@ -556,6 +808,7 @@ All path resolution functions:
 - **Migration Tests**: Verify legacy data migration
 - **Mock Implementations**: Testing abstractions for isolated testing
 - **Property-Based Tests**: Verify system invariants across arbitrary inputs using proptest
+- **Validation Tests**: Error accumulation tests verify all errors are reported
 
 ## Future Enhancements
 
