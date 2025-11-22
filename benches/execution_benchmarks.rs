@@ -452,9 +452,7 @@ fn bench_validation_performance(c: &mut Criterion) {
 
     group.bench_function("validate_paths_large", |b| {
         // Create owned paths to avoid lifetime issues
-        let path_strings: Vec<String> = (0..100)
-            .map(|i| format!("/tmp/file{}.txt", i))
-            .collect();
+        let path_strings: Vec<String> = (0..100).map(|i| format!("/tmp/file{}.txt", i)).collect();
         let paths: Vec<&Path> = path_strings.iter().map(|s| Path::new(s.as_str())).collect();
         let exists_check = |_: &Path| true;
 
@@ -485,7 +483,9 @@ fn bench_validation_performance(c: &mut Criterion) {
             obj.insert(format!("field_{}", i), json!(format!("value_{}", i)));
         }
         let json = json!(obj);
-        let required: Vec<&str> = (0..25).map(|i| Box::leak(format!("field_{}", i).into_boxed_str()) as &str).collect();
+        let required: Vec<&str> = (0..25)
+            .map(|i| Box::leak(format!("field_{}", i).into_boxed_str()) as &str)
+            .collect();
 
         b.iter(|| {
             let result = validate_json_schema(&json, &required);

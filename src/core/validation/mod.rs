@@ -333,9 +333,9 @@ fn check_suspicious_patterns(command: &str) -> Validation<(), Vec<ValidationErro
 /// Validate command string - accumulates all command validation errors
 pub fn validate_command(command: &str) -> ValidationResult {
     if command.trim().is_empty() {
-        return ValidationResult::from_validation(Validation::<(), Vec<ValidationError>>::failure(vec![
-            ValidationError::CommandEmpty,
-        ]));
+        return ValidationResult::from_validation(Validation::<(), Vec<ValidationError>>::failure(
+            vec![ValidationError::CommandEmpty],
+        ));
     }
 
     let mut all_errors = Vec::new();
@@ -365,7 +365,9 @@ fn validate_json_field(
     obj: &serde_json::Map<String, serde_json::Value>,
 ) -> Validation<(), Vec<ValidationError>> {
     if !obj.contains_key(field_name) {
-        Validation::failure(vec![ValidationError::JsonFieldMissing(field_name.to_string())])
+        Validation::failure(vec![ValidationError::JsonFieldMissing(
+            field_name.to_string(),
+        )])
     } else {
         Validation::success(())
     }
@@ -416,7 +418,9 @@ pub fn validate_json_schema(
 
         ValidationResult::from_validation(validation)
     } else {
-        ValidationResult::from_validation(Validation::<(), Vec<ValidationError>>::failure(vec![ValidationError::JsonNotObject]))
+        ValidationResult::from_validation(Validation::<(), Vec<ValidationError>>::failure(vec![
+            ValidationError::JsonNotObject,
+        ]))
     }
 }
 
