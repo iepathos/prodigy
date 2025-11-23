@@ -165,16 +165,19 @@ fn test_from_conversion_with_context() {
 
 // Helper functions for tests
 
+#[allow(clippy::result_large_err)]
 fn simulate_layered_operation() -> Result<(), ProdigyError> {
     let _ = read_config_file().map_err(|e| e.context("Failed to process workflow"))?;
     Ok(())
 }
 
+#[allow(clippy::result_large_err)]
 fn read_config_file() -> Result<String, ProdigyError> {
     perform_file_operation().map_err(|e| e.context("Failed to read configuration"))?;
     Ok("config".to_string())
 }
 
+#[allow(clippy::result_large_err)]
 fn perform_file_operation() -> Result<(), ProdigyError> {
     Err(ProdigyError::storage("File operation failed"))
 }
@@ -201,6 +204,7 @@ fn simulate_storage_error() -> ProdigyError {
         .context("Checkpoint operation failed")
 }
 
+#[allow(clippy::result_large_err)]
 fn process_items_with_context(items: Vec<&str>) -> Result<Vec<String>, ProdigyError> {
     items
         .iter()

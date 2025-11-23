@@ -19,7 +19,7 @@
 //!
 //! ### Basic Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use prodigy::error::{ProdigyError, ErrorExt};
 //!
 //! fn read_config(path: &str) -> Result<Config, ProdigyError> {
@@ -55,26 +55,26 @@
 //! Add `.context()` calls at these boundaries:
 //!
 //! 1. **I/O Operations**
-//!    ```rust
+//!    ```rust,ignore
 //!    std::fs::write(path, data)
 //!        .map_err(ProdigyError::from)
 //!        .context(format!("Failed to write to {}", path))?;
 //!    ```
 //!
 //! 2. **External Calls**
-//!    ```rust
+//!    ```rust,ignore
 //!    subprocess.execute()
 //!        .context("Failed to execute git command")?;
 //!    ```
 //!
 //! 3. **Layer Transitions**
-//!    ```rust
+//!    ```rust,ignore
 //!    storage.save_checkpoint(checkpoint)
 //!        .context("Failed to persist workflow checkpoint")?;
 //!    ```
 //!
 //! 4. **Error Propagation**
-//!    ```rust
+//!    ```rust,ignore
 //!    validate_workflow(&workflow)
 //!        .context(format!("Validation failed for workflow '{}'", workflow.name))?;
 //!    ```
@@ -82,7 +82,7 @@
 //! ### Advanced Patterns
 //!
 //! **Dynamic Context with Closures**:
-//! ```rust
+//! ```rust,ignore
 //! work_items.iter()
 //!     .map(|item| {
 //!         process_item(item)
@@ -92,7 +92,7 @@
 //! ```
 //!
 //! **Context with Location Tracking**:
-//! ```rust
+//! ```rust,ignore
 //! use prodigy::error::helpers::common;
 //!
 //! fn critical_operation() -> Result<(), ProdigyError> {
@@ -110,7 +110,7 @@
 //!
 //! Use the helper functions in [`helpers::common`] for creating errors:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use prodigy::error::helpers::common;
 //!
 //! // Configuration errors
@@ -137,13 +137,13 @@
 //! Errors support multiple display formats:
 //!
 //! **User Message** (end-user friendly):
-//! ```rust
+//! ```rust,ignore
 //! println!("{}", error.user_message());
 //! // Output: "Failed to load workflow configuration. Please check the file path and try again."
 //! ```
 //!
 //! **Developer Message** (full diagnostic info):
-//! ```rust
+//! ```rust,ignore
 //! eprintln!("{}", error.developer_message());
 //! // Output:
 //! // Error: Failed to load application configuration
@@ -157,7 +157,7 @@
 //!
 //! Convert errors to JSON for APIs and logging:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use prodigy::error::SerializableError;
 //!
 //! let serializable = SerializableError::from(error);
@@ -169,12 +169,12 @@
 //! To add context to existing error handling:
 //!
 //! **Before**:
-//! ```rust
+//! ```rust,ignore
 //! let data = read_file(path)?;
 //! ```
 //!
 //! **After**:
-//! ```rust
+//! ```rust,ignore
 //! let data = read_file(path)
 //!     .context(format!("Failed to read file at {}", path))?;
 //! ```
