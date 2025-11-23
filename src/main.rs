@@ -39,6 +39,6 @@ async fn main() {
 
     // Handle any errors that occurred during command execution
     if let Err(e) = result {
-        handle_fatal_error(e);
+        handle_fatal_error(e, cli.verbose);
     }
 }

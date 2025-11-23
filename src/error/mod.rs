@@ -1,15 +1,208 @@
+//! # Prodigy Error System
+//!
+//! This module provides a comprehensive error handling system for Prodigy with support for
+//! error context chaining, structured error codes, and user-friendly error messages.
+//!
+//! ## Overview
+//!
+//! The error system is built around [`ProdigyError`], a unified error type that supports:
+//! - **Context Chaining**: Build rich error context through `.context()` calls
+//! - **Error Codes**: Structured error codes for categorization (E1001, E2001, etc.)
+//! - **User Messages**: End-user friendly error descriptions
+//! - **Developer Messages**: Detailed diagnostic information with full context chain
+//! - **Serialization**: Convert errors to JSON for API responses and logging
+//!
+//! ## Context Chaining Pattern
+//!
+//! The core pattern is to add context at **Effect boundaries** - points where your code
+//! transitions between different layers of abstraction or performs I/O operations.
+//!
+//! ### Basic Usage
+//!
+//! ```rust,ignore
+//! use prodigy::error::{ProdigyError, ErrorExt};
+//!
+//! fn read_config(path: &str) -> Result<Config, ProdigyError> {
+//!     // Effect boundary: file I/O
+//!     let content = std::fs::read_to_string(path)
+//!         .map_err(ProdigyError::from)
+//!         .context("Failed to read configuration file")?;
+//!
+//!     // Effect boundary: parsing
+//!     let config: Config = serde_json::from_str(&content)
+//!         .map_err(ProdigyError::from)
+//!         .context("Failed to parse configuration JSON")?;
+//!
+//!     Ok(config)
+//! }
+//!
+//! fn load_application_config() -> Result<Config, ProdigyError> {
+//!     // Effect boundary: calling lower-level function
+//!     read_config("config.json")
+//!         .context("Failed to load application configuration")?
+//! }
+//! ```
+//!
+//! This creates a context chain like:
+//! ```text
+//! Failed to load application configuration
+//!   └─ Failed to read configuration file
+//!      └─ No such file or directory (os error 2)
+//! ```
+//!
+//! ### Effect Boundaries
+//!
+//! Add `.context()` calls at these boundaries:
+//!
+//! 1. **I/O Operations**
+//!    ```rust,ignore
+//!    std::fs::write(path, data)
+//!        .map_err(ProdigyError::from)
+//!        .context(format!("Failed to write to {}", path))?;
+//!    ```
+//!
+//! 2. **External Calls**
+//!    ```rust,ignore
+//!    subprocess.execute()
+//!        .context("Failed to execute git command")?;
+//!    ```
+//!
+//! 3. **Layer Transitions**
+//!    ```rust,ignore
+//!    storage.save_checkpoint(checkpoint)
+//!        .context("Failed to persist workflow checkpoint")?;
+//!    ```
+//!
+//! 4. **Error Propagation**
+//!    ```rust,ignore
+//!    validate_workflow(&workflow)
+//!        .context(format!("Validation failed for workflow '{}'", workflow.name))?;
+//!    ```
+//!
+//! ### Advanced Patterns
+//!
+//! **Dynamic Context with Closures**:
+//! ```rust,ignore
+//! work_items.iter()
+//!     .map(|item| {
+//!         process_item(item)
+//!             .with_context(|| format!("Failed to process item {}", item.id))
+//!     })
+//!     .collect::<Result<Vec<_>, _>>()?;
+//! ```
+//!
+//! **Context with Location Tracking**:
+//! ```rust,ignore
+//! use prodigy::error::helpers::common;
+//!
+//! fn critical_operation() -> Result<(), ProdigyError> {
+//!     do_something()
+//!         .map_err(|e| common::execution_error(
+//!             "Critical operation failed",
+//!             Some(e)
+//!         ))
+//!         .context_with_location("In critical_operation", file!(), line!())?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Error Construction
+//!
+//! Use the helper functions in [`helpers::common`] for creating errors:
+//!
+//! ```rust,ignore
+//! use prodigy::error::helpers::common;
+//!
+//! // Configuration errors
+//! return Err(common::config_error("Invalid timeout value", None));
+//!
+//! // Storage errors with path
+//! return Err(common::storage_error_with_path(
+//!     "Failed to read checkpoint",
+//!     path,
+//!     Some(io_error)
+//! ));
+//!
+//! // Execution errors with command context
+//! return Err(common::execution_error_with_command(
+//!     "Command failed",
+//!     "git commit",
+//!     Some(1),
+//!     None
+//! ));
+//! ```
+//!
+//! ## Displaying Errors
+//!
+//! Errors support multiple display formats:
+//!
+//! **User Message** (end-user friendly):
+//! ```rust,ignore
+//! println!("{}", error.user_message());
+//! // Output: "Failed to load workflow configuration. Please check the file path and try again."
+//! ```
+//!
+//! **Developer Message** (full diagnostic info):
+//! ```rust,ignore
+//! eprintln!("{}", error.developer_message());
+//! // Output:
+//! // Error: Failed to load application configuration
+//! //   Context:
+//! //     - Failed to read configuration file
+//! //     - Failed to open config.json
+//! //   Source: No such file or directory (os error 2)
+//! ```
+//!
+//! ## Serialization
+//!
+//! Convert errors to JSON for APIs and logging:
+//!
+//! ```rust,ignore
+//! use prodigy::error::SerializableError;
+//!
+//! let serializable = SerializableError::from(error);
+//! let json = serde_json::to_string(&serializable)?;
+//! ```
+//!
+//! ## Migration Guide
+//!
+//! To add context to existing error handling:
+//!
+//! **Before**:
+//! ```rust,ignore
+//! let data = read_file(path)?;
+//! ```
+//!
+//! **After**:
+//! ```rust,ignore
+//! let data = read_file(path)
+//!     .context(format!("Failed to read file at {}", path))?;
+//! ```
+//!
+//! See the migration guide in `docs/specs/` for comprehensive examples.
+
 use std::fmt::Display;
 use std::path::PathBuf;
+use std::sync::Arc;
 use thiserror::Error;
 
 pub mod codes;
 pub mod helpers;
+pub mod serialization;
 
 #[cfg(test)]
 mod tests;
 
 pub use codes::{describe_error_code, ErrorCode};
 pub use helpers::{common, ErrorExt};
+pub use serialization::SerializableError;
+
+/// Error context entry
+#[derive(Debug, Clone)]
+pub struct ErrorContext {
+    pub message: String,
+    pub location: Option<&'static str>,
+}
 
 /// The unified error type for the entire Prodigy application
 #[derive(Error, Debug)]
@@ -20,6 +213,8 @@ pub enum ProdigyError {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] Session error: {message}")]
@@ -29,6 +224,8 @@ pub enum ProdigyError {
         session_id: Option<String>,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] Storage error: {message}")]
@@ -38,6 +235,8 @@ pub enum ProdigyError {
         path: Option<PathBuf>,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] Execution error: {message}")]
@@ -48,6 +247,8 @@ pub enum ProdigyError {
         exit_code: Option<i32>,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] Workflow error: {message}")]
@@ -58,6 +259,8 @@ pub enum ProdigyError {
         step: Option<String>,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] Git operation failed: {message}")]
@@ -67,6 +270,8 @@ pub enum ProdigyError {
         operation: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] Validation error: {message}")]
@@ -76,6 +281,8 @@ pub enum ProdigyError {
         field: Option<String>,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 
     #[error("[E{code:04}] {message}")]
@@ -84,6 +291,8 @@ pub enum ProdigyError {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        context: Vec<ErrorContext>,
+        error_source: Option<Arc<ProdigyError>>,
     },
 }
 
@@ -94,6 +303,8 @@ impl ProdigyError {
             code: ErrorCode::CONFIG_GENERIC,
             message: message.into(),
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -103,6 +314,8 @@ impl ProdigyError {
             code,
             message: message.into(),
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -113,6 +326,8 @@ impl ProdigyError {
             message: message.into(),
             session_id: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -127,6 +342,8 @@ impl ProdigyError {
             message: message.into(),
             session_id,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -137,6 +354,8 @@ impl ProdigyError {
             message: message.into(),
             path: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -147,6 +366,8 @@ impl ProdigyError {
             message: message.into(),
             path,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -158,6 +379,8 @@ impl ProdigyError {
             command: None,
             exit_code: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -173,6 +396,8 @@ impl ProdigyError {
             command,
             exit_code: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -184,6 +409,8 @@ impl ProdigyError {
             workflow_name: None,
             step: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -199,6 +426,8 @@ impl ProdigyError {
             workflow_name,
             step: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -209,6 +438,8 @@ impl ProdigyError {
             message: message.into(),
             operation: operation.into(),
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -219,6 +450,8 @@ impl ProdigyError {
             message: message.into(),
             field: None,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -233,6 +466,8 @@ impl ProdigyError {
             message: message.into(),
             field,
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -242,6 +477,8 @@ impl ProdigyError {
             code: ErrorCode::OTHER_GENERIC,
             message: message.into(),
             source: None,
+            context: Vec::new(),
+            error_source: None,
         }
     }
 
@@ -265,7 +502,7 @@ impl ProdigyError {
         self
     }
 
-    /// Add context to the error message
+    /// Add context to the error message (legacy method, kept for compatibility)
     pub fn with_context(mut self, context: impl Display) -> Self {
         match &mut self {
             Self::Config { message, .. }
@@ -280,6 +517,118 @@ impl ProdigyError {
             }
         }
         self
+    }
+
+    /// Add context to error (fluent API, preferred for new code)
+    pub fn context(mut self, message: impl Into<String>) -> Self {
+        let ctx = ErrorContext {
+            message: message.into(),
+            location: None,
+        };
+        match &mut self {
+            Self::Config { context, .. }
+            | Self::Session { context, .. }
+            | Self::Storage { context, .. }
+            | Self::Execution { context, .. }
+            | Self::Workflow { context, .. }
+            | Self::Git { context, .. }
+            | Self::Validation { context, .. }
+            | Self::Other { context, .. } => {
+                context.push(ctx);
+            }
+        }
+        self
+    }
+
+    /// Add context with source location tracking
+    #[track_caller]
+    pub fn context_at(mut self, message: impl Into<String>) -> Self {
+        let location = std::panic::Location::caller();
+        let ctx = ErrorContext {
+            message: message.into(),
+            location: Some(location.file()),
+        };
+        match &mut self {
+            Self::Config { context, .. }
+            | Self::Session { context, .. }
+            | Self::Storage { context, .. }
+            | Self::Execution { context, .. }
+            | Self::Workflow { context, .. }
+            | Self::Git { context, .. }
+            | Self::Validation { context, .. }
+            | Self::Other { context, .. } => {
+                context.push(ctx);
+            }
+        }
+        self
+    }
+
+    /// Chain with another ProdigyError as source
+    pub fn with_error_source(mut self, source: ProdigyError) -> Self {
+        match &mut self {
+            Self::Config { error_source, .. }
+            | Self::Session { error_source, .. }
+            | Self::Storage { error_source, .. }
+            | Self::Execution { error_source, .. }
+            | Self::Workflow { error_source, .. }
+            | Self::Git { error_source, .. }
+            | Self::Validation { error_source, .. }
+            | Self::Other { error_source, .. } => {
+                *error_source = Some(Arc::new(source));
+            }
+        }
+        self
+    }
+
+    /// Get context chain
+    pub fn chain(&self) -> &[ErrorContext] {
+        match self {
+            Self::Config { context, .. }
+            | Self::Session { context, .. }
+            | Self::Storage { context, .. }
+            | Self::Execution { context, .. }
+            | Self::Workflow { context, .. }
+            | Self::Git { context, .. }
+            | Self::Validation { context, .. }
+            | Self::Other { context, .. } => context,
+        }
+    }
+
+    /// Get root error (follows error_source chain)
+    pub fn root_cause(&self) -> &ProdigyError {
+        let mut current = self;
+        loop {
+            match current {
+                Self::Config { error_source, .. }
+                | Self::Session { error_source, .. }
+                | Self::Storage { error_source, .. }
+                | Self::Execution { error_source, .. }
+                | Self::Workflow { error_source, .. }
+                | Self::Git { error_source, .. }
+                | Self::Validation { error_source, .. }
+                | Self::Other { error_source, .. } => {
+                    if let Some(ref src) = error_source {
+                        current = src;
+                    } else {
+                        return current;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Get a reference to the error_source if present
+    pub fn error_source(&self) -> Option<&ProdigyError> {
+        match self {
+            Self::Config { error_source, .. }
+            | Self::Session { error_source, .. }
+            | Self::Storage { error_source, .. }
+            | Self::Execution { error_source, .. }
+            | Self::Workflow { error_source, .. }
+            | Self::Git { error_source, .. }
+            | Self::Validation { error_source, .. }
+            | Self::Other { error_source, .. } => error_source.as_deref(),
+        }
     }
 
     /// Get the exit code for this error
@@ -374,7 +723,27 @@ impl ProdigyError {
 
     /// Get a developer-friendly error message with full chain
     pub fn developer_message(&self) -> String {
-        format!("{:#}", self)
+        let mut msg = format!("{:#}", self);
+
+        // Add context chain if present
+        let context_chain = self.chain();
+        if !context_chain.is_empty() {
+            msg.push_str("\n\nContext chain:");
+            for (i, ctx) in context_chain.iter().enumerate() {
+                msg.push_str(&format!("\n  {}: {}", i, ctx.message));
+                if let Some(loc) = ctx.location {
+                    msg.push_str(&format!(" (at {})", loc));
+                }
+            }
+        }
+
+        // Add error source chain if present
+        if let Some(src) = self.error_source() {
+            msg.push_str("\n\nCaused by:");
+            msg.push_str(&format!("\n  {}", src.developer_message()));
+        }
+
+        msg
     }
 
     /// Check if this is a recoverable error

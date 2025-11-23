@@ -70,16 +70,17 @@ pub fn execute_with_recovery(command: &str) -> Result<String, ProdigyError> {
     }
 }
 
-// Example 6: Adding context to errors
+// Example 6: Adding context to errors (modern pattern with .context())
 pub fn complex_operation(data: &str) -> Result<String, ProdigyError> {
+    // Add context at each effect boundary
     validate_data(data)
-        .map_err(|e| e.with_context("during data validation"))?;
+        .context("Failed to validate data")?;
 
     transform_data(data)
-        .map_err(|e| e.with_context("during data transformation"))?;
+        .context("Failed to transform data")?;
 
     save_data(data)
-        .map_err(|e| e.with_context("during data persistence"))
+        .context("Failed to save data")
 }
 
 // Example 7: Using the macro
@@ -106,6 +107,103 @@ pub fn cli_command_handler() -> anyhow::Result<()> {
         .context("Failed to call external library")?;
 
     Ok(result)
+}
+
+// Example 9: Effect boundary migration - comprehensive example
+pub fn process_workflow_file(workflow_path: &Path) -> Result<(), ProdigyError> {
+    // Effect boundary 1: File I/O
+    let content = std::fs::read_to_string(workflow_path)
+        .map_err(ProdigyError::from)
+        .context(format!("Failed to read workflow file at {}", workflow_path.display()))?;
+
+    // Effect boundary 2: Parsing/deserialization
+    let workflow: WorkflowConfig = serde_json::from_str(&content)
+        .map_err(ProdigyError::from)
+        .context("Failed to parse workflow JSON")?;
+
+    // Effect boundary 3: Validation
+    validate_workflow(&workflow)
+        .context(format!("Validation failed for workflow '{}'", workflow.name))?;
+
+    // Effect boundary 4: External command execution
+    execute_setup_commands(&workflow.setup)
+        .context("Failed to execute setup commands")?;
+
+    // Effect boundary 5: Storage operation
+    save_workflow_state(&workflow)
+        .context("Failed to persist workflow state")?;
+
+    Ok(())
+}
+
+// Example 10: Dynamic context with closures (for loops/iterations)
+pub fn process_multiple_items(items: Vec<WorkItem>) -> Result<Vec<String>, ProdigyError> {
+    items.iter()
+        .map(|item| {
+            process_single_item(item)
+                .with_context(|| format!("Failed to process item {}", item.id))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .context("Failed to process work items batch")
+}
+
+// Example 11: Before/After migration pattern
+mod before_migration {
+    use super::*;
+
+    // BEFORE: No context chaining
+    pub fn deploy_workflow_old(path: &Path) -> Result<(), ProdigyError> {
+        let workflow = std::fs::read_to_string(path)
+            .map_err(ProdigyError::from)?;
+
+        let parsed: WorkflowConfig = serde_json::from_str(&workflow)
+            .map_err(ProdigyError::from)?;
+
+        validate_workflow(&parsed)?;
+        execute_setup_commands(&parsed.setup)?;
+
+        Ok(())
+    }
+}
+
+mod after_migration {
+    use super::*;
+
+    // AFTER: Rich context at each boundary
+    pub fn deploy_workflow_new(path: &Path) -> Result<(), ProdigyError> {
+        // Effect boundary: file I/O
+        let workflow = std::fs::read_to_string(path)
+            .map_err(ProdigyError::from)
+            .context(format!("Failed to read workflow from {}", path.display()))?;
+
+        // Effect boundary: deserialization
+        let parsed: WorkflowConfig = serde_json::from_str(&workflow)
+            .map_err(ProdigyError::from)
+            .context("Failed to parse workflow YAML")?;
+
+        // Effect boundary: validation
+        validate_workflow(&parsed)
+            .context(format!("Validation failed for workflow '{}'", parsed.name))?;
+
+        // Effect boundary: command execution
+        execute_setup_commands(&parsed.setup)
+            .context("Failed during workflow setup phase")?;
+
+        Ok(())
+    }
+}
+
+// Helper types for examples
+#[allow(dead_code)]
+struct WorkflowConfig {
+    name: String,
+    setup: Vec<String>,
+}
+
+#[allow(dead_code)]
+struct WorkItem {
+    id: String,
+    data: String,
 }
 
 // Helper functions for examples
@@ -135,6 +233,22 @@ fn internal_operation() -> Result<(), ProdigyError> {
 
 fn external_library_call() -> anyhow::Result<()> {
     Ok(())
+}
+
+fn validate_workflow(_workflow: &WorkflowConfig) -> Result<(), ProdigyError> {
+    Ok(())
+}
+
+fn execute_setup_commands(_commands: &[String]) -> Result<(), ProdigyError> {
+    Ok(())
+}
+
+fn save_workflow_state(_workflow: &WorkflowConfig) -> Result<(), ProdigyError> {
+    Ok(())
+}
+
+fn process_single_item(_item: &WorkItem) -> Result<String, ProdigyError> {
+    Ok("processed".to_string())
 }
 
 use anyhow::Context;
