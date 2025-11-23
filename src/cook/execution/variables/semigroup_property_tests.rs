@@ -82,7 +82,28 @@ mod property_tests {
                     let left = a.clone().combine(b.clone()).combine(c.clone());
                     let right = a.combine(b.combine(c));
 
-                    prop_assert_eq!(left, right);
+                    // For Sum type, use approximate equality due to floating-point precision
+                    match (&left, &right) {
+                        (AggregateResult::Sum(l), AggregateResult::Sum(r)) => {
+                            // Use relative epsilon tolerance for very small or very large values
+                            let max_val = l.abs().max(r.abs());
+                            let tolerance = if max_val < 1e-100 || max_val > 1e100 {
+                                // For extreme values, use relative tolerance
+                                max_val * 1e-10 + 1e-300
+                            } else {
+                                // For normal values, use absolute tolerance
+                                1e-10
+                            };
+                            prop_assert!(
+                                (l - r).abs() < tolerance || (l.is_nan() && r.is_nan()),
+                                "Sum values differ: left={}, right={}, diff={}",
+                                l, r, (l - r).abs()
+                            );
+                        }
+                        _ => {
+                            prop_assert_eq!(left, right);
+                        }
+                    }
                 }
             }
         };
