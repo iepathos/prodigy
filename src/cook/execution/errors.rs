@@ -156,9 +156,35 @@ pub enum MapReduceError {
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
+    // Multiple work item validation errors
+    #[error("Work item validation failed: {0}")]
+    MultipleWorkItemValidationErrors(MultipleWorkItemValidationErrors),
+
     // Timeout errors
     #[error("Operation timed out")]
     Timeout,
+}
+
+/// Multiple work item validation errors
+#[derive(Debug)]
+pub struct MultipleWorkItemValidationErrors {
+    pub errors: Vec<crate::cook::execution::data_pipeline::WorkItemValidationError>,
+    pub total_items: usize,
+    pub failed_items: usize,
+}
+
+impl std::fmt::Display for MultipleWorkItemValidationErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(
+            f,
+            "Validation failed for {} of {} items:",
+            self.failed_items, self.total_items
+        )?;
+        for error in &self.errors {
+            writeln!(f, "  - {}", error)?;
+        }
+        Ok(())
+    }
 }
 
 /// Resource types that can be exhausted
@@ -363,6 +389,7 @@ impl MapReduceError {
             Self::ProcessingError(_) => "ProcessingError",
             Self::Timeout => "Timeout",
             Self::ValidationFailed { .. } => "ValidationFailed",
+            Self::MultipleWorkItemValidationErrors(_) => "MultipleWorkItemValidationErrors",
         }
         .to_string()
     }
