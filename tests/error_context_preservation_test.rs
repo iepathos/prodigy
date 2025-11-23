@@ -166,14 +166,12 @@ fn test_from_conversion_with_context() {
 // Helper functions for tests
 
 fn simulate_layered_operation() -> Result<(), ProdigyError> {
-    let _ = read_config_file()
-        .map_err(|e| e.context("Failed to process workflow"))?;
+    let _ = read_config_file().map_err(|e| e.context("Failed to process workflow"))?;
     Ok(())
 }
 
 fn read_config_file() -> Result<String, ProdigyError> {
-    perform_file_operation()
-        .map_err(|e| e.context("Failed to read configuration"))?;
+    perform_file_operation().map_err(|e| e.context("Failed to read configuration"))?;
     Ok("config".to_string())
 }
 
@@ -182,8 +180,11 @@ fn perform_file_operation() -> Result<(), ProdigyError> {
 }
 
 fn create_error_with_location() -> ProdigyError {
-    ProdigyError::execution("Test error")
-        .with_context(format!("Operation context at {}:{}", file!(), line!()))
+    ProdigyError::execution("Test error").with_context(format!(
+        "Operation context at {}:{}",
+        file!(),
+        line!()
+    ))
 }
 
 fn simulate_storage_error() -> ProdigyError {
