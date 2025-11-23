@@ -13,14 +13,19 @@
 //! ## Usage
 //!
 //! ```rust
-//! use crate::cook::execution::data_pipeline::validation::validate_all_items;
+//! use prodigy::cook::execution::data_pipeline::validation::validate_all_items;
+//! use serde_json::json;
 //!
-//! let items = vec![/* work items from JSON */];
+//! let items = vec![
+//!     ("item-1".to_string(), json!({"data": "test"})),
+//!     ("item-2".to_string(), json!({"data": "test2"})),
+//! ];
 //! let result = validate_all_items(&items);
 //!
 //! match result {
 //!     stillwater::Validation::Success(valid_items) => {
 //!         // All items are valid
+//!         assert_eq!(valid_items.len(), 2);
 //!     }
 //!     stillwater::Validation::Failure(errors) => {
 //!         // See ALL validation errors at once
