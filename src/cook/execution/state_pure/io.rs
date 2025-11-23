@@ -9,7 +9,6 @@ use crate::cook::execution::mapreduce::AgentResult;
 use anyhow::{Context as AnyhowContext, Result};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use stillwater::Effect;
 
@@ -38,28 +37,41 @@ pub type StateEffect<T> = Effect<T, anyhow::Error, StateEnv>;
 
 /// Save checkpoint (I/O wrapper)
 pub fn save_checkpoint(state: MapReduceJobState) -> StateEffect<()> {
-    Effect::from_async(|env: &StateEnv| async move {
-        let serialized = serde_json::to_string_pretty(&state)
-            .with_context(|| "Failed to serialize job state")?;
+    let state = Arc::new(state);
+    Effect::from_async(move |env: &StateEnv| {
+        let state = Arc::clone(&state);
+        let storage = Arc::clone(&env.storage);
+        let event_log = Arc::clone(&env.event_log);
 
-        env.storage
-            .write_checkpoint(&state.job_id, &serialized)
-            .await?;
+        async move {
+            let serialized = serde_json::to_string_pretty(&*state)
+                .with_context(|| "Failed to serialize job state")?;
 
-        // Log event
-        env.event_log.log_checkpoint_saved(&state.job_id).await?;
+            storage
+                .write_checkpoint(&state.job_id, &serialized)
+                .await?;
 
-        Ok(())
+            // Log event
+            event_log.log_checkpoint_saved(&state.job_id).await?;
+
+            Ok(())
+        }
     })
 }
 
 /// Load checkpoint (I/O)
 pub fn load_checkpoint(job_id: String) -> StateEffect<MapReduceJobState> {
-    Effect::from_async(move |env: &StateEnv| async move {
-        let data = env.storage.read_checkpoint(&job_id).await?;
-        let state: MapReduceJobState =
-            serde_json::from_str(&data).with_context(|| "Failed to deserialize job state")?;
-        Ok(state)
+    let job_id = Arc::new(job_id);
+    Effect::from_async(move |env: &StateEnv| {
+        let job_id = Arc::clone(&job_id);
+        let storage = Arc::clone(&env.storage);
+
+        async move {
+            let data = storage.read_checkpoint(&job_id).await?;
+            let state: MapReduceJobState =
+                serde_json::from_str(&data).with_context(|| "Failed to deserialize job state")?;
+            Ok(state)
+        }
     })
 }
 
@@ -101,14 +113,20 @@ pub fn complete_batch(
 fn transition_to_reduce(state: MapReduceJobState) -> StateEffect<MapReduceJobState> {
     // Pure state update
     let new_state = pure::start_reduce_phase(state);
+    let new_state = Arc::new(new_state);
 
-    let effect = Effect::from_async(move |env: &StateEnv| async move {
-        // Log phase transition
-        env.event_log
-            .log_phase_transition(&new_state.job_id, "reduce")
-            .await?;
+    let effect = Effect::from_async(move |env: &StateEnv| {
+        let new_state = Arc::clone(&new_state);
+        let event_log = Arc::clone(&env.event_log);
 
-        Ok(new_state.clone())
+        async move {
+            // Log phase transition
+            event_log
+                .log_phase_transition(&new_state.job_id, "reduce")
+                .await?;
+
+            Ok((*new_state).clone())
+        }
     });
 
     effect.and_then(|s| save_checkpoint(s.clone()).map(move |_| s))
@@ -254,16 +272,20 @@ mod tests {
     }
 
     fn test_agent_result(item_id: &str, status: AgentStatus) -> AgentResult {
+        use std::time::Duration;
         AgentResult {
             item_id: item_id.to_string(),
-            agent_id: format!("agent-{}", item_id),
             status,
+            output: None,
             commits: vec![],
-            duration: None,
+            files_modified: vec![],
+            duration: Duration::from_secs(10),
+            error: None,
             worktree_path: None,
             branch_name: None,
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         }
     }
 
@@ -364,5 +386,165 @@ mod tests {
         let new_state = mark_complete_with_save(state).run(&env).await.unwrap();
 
         assert!(new_state.is_complete);
+    }
+
+    #[tokio::test]
+    async fn test_mark_setup_complete_with_save() {
+        let env = test_env();
+        let state = test_state();
+
+        let new_state = mark_setup_complete_with_save(state, Some("setup done".to_string()))
+            .run(&env)
+            .await
+            .unwrap();
+
+        assert!(new_state.setup_completed);
+        assert_eq!(new_state.setup_output, Some("setup done".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_update_variables_with_save() {
+        let env = test_env();
+        let state = test_state();
+        let mut vars = HashMap::new();
+        vars.insert("key".to_string(), Value::String("value".to_string()));
+
+        let new_state = update_variables_with_save(state, vars.clone())
+            .run(&env)
+            .await
+            .unwrap();
+
+        assert_eq!(new_state.variables.get("key"), Some(&Value::String("value".to_string())));
+    }
+
+    #[tokio::test]
+    async fn test_set_parent_worktree_with_save() {
+        let env = test_env();
+        let state = test_state();
+
+        let new_state = set_parent_worktree_with_save(state, Some("worktree-1".to_string()))
+            .run(&env)
+            .await
+            .unwrap();
+
+        assert_eq!(new_state.parent_worktree, Some("worktree-1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_complete_batch_empty() {
+        let env = test_env();
+        let state = test_state();
+        let results = vec![];
+
+        let new_state = complete_batch(state, results).run(&env).await.unwrap();
+
+        assert_eq!(new_state.successful_count, 0);
+        assert_eq!(new_state.failed_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_complete_batch_multiple_successes() {
+        let env = test_env();
+        let mut state = test_state();
+        state.work_items = vec![Value::Null, Value::Null];
+        state.pending_items = vec!["item-0".to_string(), "item-1".to_string()];
+        state.total_items = 2;
+
+        let results = vec![
+            test_agent_result("item-0", AgentStatus::Success),
+            test_agent_result("item-1", AgentStatus::Success),
+        ];
+
+        let new_state = complete_batch(state, results).run(&env).await.unwrap();
+
+        assert_eq!(new_state.successful_count, 2);
+        assert_eq!(new_state.failed_count, 0);
+        assert!(new_state.pending_items.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_complete_batch_mixed_results() {
+        let env = test_env();
+        let mut state = test_state();
+        state.work_items = vec![Value::Null, Value::Null];
+        state.pending_items = vec!["item-0".to_string(), "item-1".to_string()];
+        state.total_items = 2;
+
+        let results = vec![
+            test_agent_result("item-0", AgentStatus::Success),
+            test_agent_result("item-1", AgentStatus::Failed("error".to_string())),
+        ];
+
+        let new_state = complete_batch(state, results).run(&env).await.unwrap();
+
+        assert_eq!(new_state.successful_count, 1);
+        assert_eq!(new_state.failed_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_save_and_load_cycle() {
+        let env = test_env();
+        let state = test_state();
+        let job_id = state.job_id.clone();
+
+        // Save
+        save_checkpoint(state.clone()).run(&env).await.unwrap();
+
+        // Load
+        let loaded_state = load_checkpoint(job_id).run(&env).await.unwrap();
+
+        assert_eq!(loaded_state.job_id, state.job_id);
+        assert_eq!(loaded_state.total_items, state.total_items);
+    }
+
+    #[tokio::test]
+    async fn test_load_nonexistent_checkpoint() {
+        let env = test_env();
+
+        let result = load_checkpoint("nonexistent-job".to_string())
+            .run(&env)
+            .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_update_with_agent_result_failed() {
+        let env = test_env();
+        let state = test_state();
+        let result = test_agent_result("item-0", AgentStatus::Failed("test error".to_string()));
+
+        let new_state = update_with_agent_result(state, result)
+            .run(&env)
+            .await
+            .unwrap();
+
+        assert_eq!(new_state.successful_count, 0);
+        assert_eq!(new_state.failed_count, 1);
+        assert!(new_state.failed_agents.contains_key("item-0"));
+    }
+
+    #[tokio::test]
+    async fn test_complete_reduce_phase_with_save_no_output() {
+        let env = test_env();
+        let mut state = test_state();
+        state.reduce_phase_state = Some(super::super::types::ReducePhaseState {
+            started: true,
+            completed: false,
+            executed_commands: vec![],
+            output: None,
+            error: None,
+            started_at: Some(Utc::now()),
+            completed_at: None,
+        });
+
+        let new_state = complete_reduce_phase_with_save(state, None)
+            .run(&env)
+            .await
+            .unwrap();
+
+        assert!(new_state.is_complete);
+        assert!(new_state.reduce_phase_state.as_ref().unwrap().completed);
+        assert!(new_state.reduce_phase_state.as_ref().unwrap().output.is_none());
     }
 }

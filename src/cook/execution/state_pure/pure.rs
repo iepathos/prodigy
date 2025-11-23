@@ -3,7 +3,7 @@
 //! All functions in this module are pure - they take state as input and return new state,
 //! with no mutations or side effects. This makes them easy to test and reason about.
 
-use super::types::{FailureRecord, MapReduceJobState, Phase, ReducePhaseState, WorktreeInfo};
+use super::types::{FailureRecord, MapReduceJobState, ReducePhaseState, WorktreeInfo};
 use crate::cook::execution::mapreduce::{AgentResult, AgentStatus};
 use chrono::Utc;
 use serde_json::Value;
@@ -254,16 +254,20 @@ mod tests {
     }
 
     fn test_agent_result(item_id: &str, status: AgentStatus) -> AgentResult {
+        use std::time::Duration;
         AgentResult {
             item_id: item_id.to_string(),
-            agent_id: format!("agent-{}", item_id),
             status,
+            output: None,
             commits: vec![],
-            duration: None,
+            files_modified: vec![],
+            duration: Duration::from_secs(10),
+            error: None,
             worktree_path: None,
             branch_name: None,
             worktree_session_id: None,
             json_log_location: None,
+            cleanup_status: None,
         }
     }
 
@@ -434,7 +438,10 @@ mod tests {
         );
 
         let retriable = get_retriable_items(&state, 3);
-        assert_eq!(retriable.len(), 0); // item-0 has 2 attempts but max is 3
+        assert_eq!(retriable.len(), 1); // item-0 has 2 attempts, max is 3, so retriable
+
+        let retriable = get_retriable_items(&state, 2);
+        assert_eq!(retriable.len(), 0); // Both items have >= 2 attempts
 
         let retriable = get_retriable_items(&state, 6);
         assert_eq!(retriable.len(), 2); // Both items retriable
@@ -745,5 +752,440 @@ mod tests {
 
         assert_eq!(state.parent_worktree, Some("worktree-123".to_string()));
         assert_eq!(state.checkpoint_version, 1);
+    }
+
+    #[test]
+    fn test_is_job_complete() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 0,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        assert!(!is_job_complete(&state));
+
+        state.is_complete = true;
+        assert!(is_job_complete(&state));
+    }
+
+    #[test]
+    fn test_is_map_phase_complete() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec!["item-0".to_string()],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 1,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        assert!(!is_map_phase_complete(&state));
+
+        state.pending_items.clear();
+        assert!(!is_map_phase_complete(&state));
+
+        state.completed_agents.insert("item-0".to_string());
+        assert!(is_map_phase_complete(&state));
+    }
+
+    #[test]
+    fn test_apply_agent_result_with_timeout() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![Value::Null],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec!["item-0".to_string()],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 1,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        let result = test_agent_result("item-0", AgentStatus::Timeout);
+        state = apply_agent_result(state, result);
+
+        assert_eq!(state.failed_count, 1);
+        assert_eq!(state.successful_count, 0);
+        assert!(state.failed_agents.contains_key("item-0"));
+        assert!(state.pending_items.is_empty());
+    }
+
+    #[test]
+    fn test_apply_multiple_agent_results() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![Value::Null, Value::Null, Value::Null],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![
+                "item-0".to_string(),
+                "item-1".to_string(),
+                "item-2".to_string(),
+            ],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 3,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        state = apply_agent_result(state, test_agent_result("item-0", AgentStatus::Success));
+        state = apply_agent_result(
+            state,
+            test_agent_result("item-1", AgentStatus::Failed("error".to_string())),
+        );
+        state = apply_agent_result(state, test_agent_result("item-2", AgentStatus::Success));
+
+        assert_eq!(state.successful_count, 2);
+        assert_eq!(state.failed_count, 1);
+        assert_eq!(state.completed_agents.len(), 3);
+        assert!(state.pending_items.is_empty());
+    }
+
+    #[test]
+    fn test_checkpoint_version_increments() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![Value::Null],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec!["item-0".to_string()],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 1,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        assert_eq!(state.checkpoint_version, 0);
+
+        state = apply_agent_result(state, test_agent_result("item-0", AgentStatus::Success));
+        assert_eq!(state.checkpoint_version, 1);
+
+        state = mark_complete(state);
+        assert_eq!(state.checkpoint_version, 2);
+    }
+
+    #[test]
+    fn test_reduce_phase_completion() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: Some(ReducePhaseState {
+                started: true,
+                completed: false,
+                executed_commands: vec![],
+                output: None,
+                error: None,
+                started_at: Some(Utc::now()),
+                completed_at: None,
+            }),
+            total_items: 0,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        state = complete_reduce_phase(state, Some("final output".to_string()));
+
+        assert!(state.is_complete);
+        assert!(state.reduce_phase_state.as_ref().unwrap().completed);
+        assert_eq!(
+            state.reduce_phase_state.as_ref().unwrap().output,
+            Some("final output".to_string())
+        );
+        assert!(state
+            .reduce_phase_state
+            .as_ref()
+            .unwrap()
+            .completed_at
+            .is_some());
+    }
+
+    #[test]
+    fn test_update_empty_variables() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 0,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        state = update_variables(state, HashMap::new());
+        assert!(state.variables.is_empty());
+        assert_eq!(state.checkpoint_version, 1);
+    }
+
+    #[test]
+    fn test_mark_setup_complete_with_output() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 0,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        state = mark_setup_complete(state, Some("setup complete".to_string()));
+
+        assert!(state.setup_completed);
+        assert_eq!(state.setup_output, Some("setup complete".to_string()));
+    }
+
+    #[test]
+    fn test_mark_setup_complete_without_output() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec![],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 0,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        state = mark_setup_complete(state, None);
+
+        assert!(state.setup_completed);
+        assert!(state.setup_output.is_none());
+    }
+
+    #[test]
+    fn test_failed_agent_retry_count_increments() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![Value::Null],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec!["item-0".to_string()],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 1,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        // First failure
+        state = apply_agent_result(
+            state,
+            test_agent_result("item-0", AgentStatus::Failed("error 1".to_string())),
+        );
+        assert_eq!(state.failed_agents.get("item-0").unwrap().attempts, 1);
+
+        // Make it pending again for retry
+        state.pending_items.push("item-0".to_string());
+        state.completed_agents.remove("item-0");
+
+        // Second failure
+        state = apply_agent_result(
+            state,
+            test_agent_result("item-0", AgentStatus::Failed("error 2".to_string())),
+        );
+        assert_eq!(state.failed_agents.get("item-0").unwrap().attempts, 2);
+    }
+
+    #[test]
+    fn test_remove_failed_agent_on_success() {
+        let mut state = MapReduceJobState {
+            job_id: "job-1".to_string(),
+            config: test_config(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            work_items: vec![Value::Null],
+            agent_results: HashMap::new(),
+            completed_agents: Default::default(),
+            failed_agents: HashMap::new(),
+            pending_items: vec!["item-0".to_string()],
+            checkpoint_version: 0,
+            checkpoint_format_version: 1,
+            parent_worktree: None,
+            reduce_phase_state: None,
+            total_items: 1,
+            successful_count: 0,
+            failed_count: 0,
+            is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
+            item_retry_counts: HashMap::new(),
+        };
+
+        // First failure
+        state = apply_agent_result(
+            state,
+            test_agent_result("item-0", AgentStatus::Failed("error".to_string())),
+        );
+        assert!(state.failed_agents.contains_key("item-0"));
+
+        // Make it pending again for retry
+        state.pending_items.push("item-0".to_string());
+        state.completed_agents.remove("item-0");
+
+        // Success on retry - should remove from failed_agents
+        state = apply_agent_result(state, test_agent_result("item-0", AgentStatus::Success));
+        assert!(!state.failed_agents.contains_key("item-0"));
+        assert_eq!(state.successful_count, 1);
     }
 }
