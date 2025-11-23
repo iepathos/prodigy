@@ -100,11 +100,62 @@ fn create_failure_detail(result: &AgentResult, error_msg: &str, attempt: u32) ->
         timestamp: Utc::now(),
         error_type: classify_error(&result.status, error_msg),
         error_message: error_msg.to_string(),
+        error_context: extract_error_context(error_msg),
         stack_trace: result.error.clone(),
         agent_id: format!("agent-{}", result.item_id),
         step_failed: "agent_execution".to_string(),
         duration_ms: result.duration.as_millis() as u64,
         json_log_location: result.json_log_location.clone(),
+    }
+}
+
+/// Extract error context from error message formatted by ContextError's Display impl
+///
+/// Stillwater's ContextError Display format includes context trails like:
+/// ```text
+/// Error: base error message
+/// Context:
+///   -> Context message 1
+///   -> Context message 2
+///   -> Context message 3
+/// ```
+///
+/// This function parses that format to extract the context trail.
+fn extract_error_context(error_msg: &str) -> Option<Vec<String>> {
+    // Check if the error message contains a "Context:" section
+    if !error_msg.contains("Context:") {
+        return None;
+    }
+
+    let mut context_lines = Vec::new();
+    let mut in_context_section = false;
+
+    for line in error_msg.lines() {
+        let trimmed = line.trim();
+
+        // Start of context section
+        if trimmed == "Context:" {
+            in_context_section = true;
+            continue;
+        }
+
+        // Context line (starts with "->")
+        if in_context_section && trimmed.starts_with("->") {
+            // Remove the "-> " prefix and collect the context message
+            let context_msg = trimmed.strip_prefix("->").unwrap_or(trimmed).trim();
+            if !context_msg.is_empty() {
+                context_lines.push(context_msg.to_string());
+            }
+        } else if in_context_section && !trimmed.is_empty() {
+            // End of context section (hit a non-empty, non-arrow line)
+            break;
+        }
+    }
+
+    if context_lines.is_empty() {
+        None
+    } else {
+        Some(context_lines)
     }
 }
 
@@ -440,5 +491,75 @@ mod tests {
             dlq_item.failure_history[0].json_log_location,
             Some("/path/to/log.json".to_string())
         );
+    }
+
+    #[test]
+    fn test_extract_error_context_with_context() {
+        let error_msg = r#"Error: Command failed
+Context:
+  -> Executing command 2/5
+  -> Processing work item item-123
+  -> Running MapReduce job job-456"#;
+
+        let context = extract_error_context(error_msg);
+
+        assert!(context.is_some());
+        let context = context.unwrap();
+        assert_eq!(context.len(), 3);
+        assert_eq!(context[0], "Executing command 2/5");
+        assert_eq!(context[1], "Processing work item item-123");
+        assert_eq!(context[2], "Running MapReduce job job-456");
+    }
+
+    #[test]
+    fn test_extract_error_context_without_context() {
+        let error_msg = "Simple error message without context";
+        let context = extract_error_context(error_msg);
+        assert!(context.is_none());
+    }
+
+    #[test]
+    fn test_extract_error_context_empty_context_section() {
+        let error_msg = r#"Error: Command failed
+Context:
+"#;
+        let context = extract_error_context(error_msg);
+        assert!(context.is_none());
+    }
+
+    #[test]
+    fn test_extract_error_context_with_extra_whitespace() {
+        let error_msg = r#"Error: Command failed
+Context:
+  ->    Executing command with spaces
+  ->  Processing item
+"#;
+        let context = extract_error_context(error_msg);
+        assert!(context.is_some());
+        let context = context.unwrap();
+        assert_eq!(context.len(), 2);
+        assert_eq!(context[0], "Executing command with spaces");
+        assert_eq!(context[1], "Processing item");
+    }
+
+    #[test]
+    fn test_dlq_item_with_context_preservation() {
+        let error_msg = r#"Error: Command execution failed
+Context:
+  -> Executing agent command
+  -> Processing work item item-1
+  -> MapReduce map phase"#;
+
+        let result = create_failed_agent_result(error_msg);
+        let work_item = serde_json::json!({"id": 1});
+
+        let dlq_item = agent_result_to_dlq_item(&result, &work_item, 1).unwrap();
+
+        assert!(dlq_item.failure_history[0].error_context.is_some());
+        let context = dlq_item.failure_history[0].error_context.as_ref().unwrap();
+        assert_eq!(context.len(), 3);
+        assert_eq!(context[0], "Executing agent command");
+        assert_eq!(context[1], "Processing work item item-1");
+        assert_eq!(context[2], "MapReduce map phase");
     }
 }

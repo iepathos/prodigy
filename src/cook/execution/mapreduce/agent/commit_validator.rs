@@ -6,7 +6,8 @@
 //! across parallel execution.
 
 use crate::abstractions::git::GitOperations;
-use anyhow::{Context, Result};
+use crate::cook::error::ResultExt;
+use anyhow::Result;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -45,7 +46,8 @@ impl CommitValidator {
             .git_ops
             .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", worktree_path)
             .await
-            .context("Failed to get HEAD")?;
+            .context("Failed to get HEAD")
+            .map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -96,7 +98,8 @@ impl CommitValidator {
                 worktree_path,
             )
             .await
-            .context("Failed to get commits")?;
+            .context("Failed to get commits")
+            .map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
         if !output.status.success() {
             anyhow::bail!(

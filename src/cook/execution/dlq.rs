@@ -49,6 +49,9 @@ pub struct FailureDetail {
     pub timestamp: DateTime<Utc>,
     pub error_type: ErrorType,
     pub error_message: String,
+    /// Full error context trail showing operation stack
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_context: Option<Vec<String>>,
     pub stack_trace: Option<String>,
     pub agent_id: String,
     pub step_failed: String,

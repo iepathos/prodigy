@@ -20,12 +20,13 @@
 //! 4. **Testability**: Execution logic can be tested with mocks
 
 use crate::commands::{AttributeValue, ExecutionContext};
+use crate::cook::error::ResultExt;
 use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::checkpoint;
 use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::cook::workflow::NormalizedWorkflow;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -55,7 +56,8 @@ pub async fn execute_claude_command(
                 command,
                 working_dir.display()
             )
-        })?;
+        })
+        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
     Ok(convert_execution_result(result))
 }
@@ -309,12 +311,14 @@ pub async fn execute_write_file_command(
     // Create parent directories if requested
     if config.create_dirs {
         if let Some(parent) = file_path.parent() {
-            fs::create_dir_all(parent).with_context(|| {
-                format!(
-                    "Failed to create parent directories for {}",
-                    file_path.display()
-                )
-            })?;
+            fs::create_dir_all(parent)
+                .with_context(|| {
+                    format!(
+                        "Failed to create parent directories for {}",
+                        file_path.display()
+                    )
+                })
+                .map_err(|e| anyhow::Error::msg(e.to_string()))?;
         }
     }
 
@@ -326,31 +330,40 @@ pub async fn execute_write_file_command(
         }
         crate::config::command::WriteFileFormat::Json => {
             // Validate and pretty-print JSON
-            let value: serde_json::Value =
-                serde_json::from_str(&config.content).context("Invalid JSON content")?;
-            serde_json::to_string_pretty(&value).context("Failed to format JSON")?
+            let value: serde_json::Value = serde_json::from_str(&config.content)
+                .context("Invalid JSON content")
+                .map_err(|e| anyhow::Error::msg(e.to_string()))?;
+            serde_json::to_string_pretty(&value)
+                .context("Failed to format JSON")
+                .map_err(|e| anyhow::Error::msg(e.to_string()))?
         }
         crate::config::command::WriteFileFormat::Yaml => {
             // Validate and format YAML
-            let value: serde_yaml::Value =
-                serde_yaml::from_str(&config.content).context("Invalid YAML content")?;
-            serde_yaml::to_string(&value).context("Failed to format YAML")?
+            let value: serde_yaml::Value = serde_yaml::from_str(&config.content)
+                .context("Invalid YAML content")
+                .map_err(|e| anyhow::Error::msg(e.to_string()))?;
+            serde_yaml::to_string(&value)
+                .context("Failed to format YAML")
+                .map_err(|e| anyhow::Error::msg(e.to_string()))?
         }
     };
 
     // Write content to file
     fs::write(&file_path, &content_to_write)
-        .with_context(|| format!("Failed to write file: {}", file_path.display()))?;
+        .with_context(|| format!("Failed to write file: {}", file_path.display()))
+        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
 
     // Set file permissions on Unix systems
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let mode = u32::from_str_radix(&config.mode, 8)
-            .with_context(|| format!("Invalid file mode: {}", config.mode))?;
+            .with_context(|| format!("Invalid file mode: {}", config.mode))
+            .map_err(|e| anyhow::Error::msg(e.to_string()))?;
         let permissions = fs::Permissions::from_mode(mode);
         fs::set_permissions(&file_path, permissions)
-            .with_context(|| format!("Failed to set file permissions: {}", file_path.display()))?;
+            .with_context(|| format!("Failed to set file permissions: {}", file_path.display()))
+            .map_err(|e| anyhow::Error::msg(e.to_string()))?;
     }
 
     // Calculate content size for logging
