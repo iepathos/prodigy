@@ -304,7 +304,7 @@ impl ComputedVariable for DateVariable {
     }
 }
 
-/// Parse array indexing notation like "items[0]" into (field, index)
+/// Parse array indexing notation like "items\[0\]" into (field, index)
 /// Returns None for malformed bracket expressions
 fn parse_bracket_notation(part: &str) -> Option<(&str, usize)> {
     let bracket_pos = part.find('[')?;

@@ -1045,7 +1045,7 @@ impl ExecutionPipeline {
 /// HashMap of fully interpolated environment variables ready for use
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// // Workflow YAML has: env: { BLOG_POST: "$1", OUTPUT: "${ARG_2}" }
 /// // Command: prodigy run workflow.yml --args blog.md output/
 /// // Result: { BLOG_POST: "blog.md", OUTPUT: "output/" }
