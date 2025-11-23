@@ -12,6 +12,7 @@ use super::types::{AgentHandle, AgentLifecycleState, AgentResult, AgentTransitio
 use crate::abstractions::git::GitOperations;
 use crate::commands::attributes::AttributeValue;
 use crate::commands::{CommandRegistry, ExecutionContext as CommandExecutionContext};
+use crate::cook::error::ResultExt;
 use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::progress::{AgentProgress, EnhancedProgressTracker};
@@ -181,9 +182,13 @@ impl StandardExecutor {
                     commit_validator
                         .get_head(handle.worktree_path())
                         .await
-                        .map_err(|e| {
-                            ExecutionError::AgentError(format!("Failed to get HEAD before: {}", e))
-                        })?,
+                        .with_context(|| {
+                            format!(
+                                "Getting HEAD before command execution in worktree {}",
+                                handle.worktree_path().display()
+                            )
+                        })
+                        .map_err(|e| ExecutionError::AgentError(e.to_string()))?,
                 )
             } else {
                 None
@@ -225,16 +230,25 @@ impl StandardExecutor {
                 let head_after = commit_validator
                     .get_head(handle.worktree_path())
                     .await
-                    .map_err(|e| {
-                        ExecutionError::AgentError(format!("Failed to get HEAD after: {}", e))
-                    })?;
+                    .with_context(|| {
+                        format!(
+                            "Getting HEAD after command execution in worktree {}",
+                            handle.worktree_path().display()
+                        )
+                    })
+                    .map_err(|e| ExecutionError::AgentError(e.to_string()))?;
 
                 let validation_result = commit_validator
                     .verify_commits_created(handle.worktree_path(), &before_sha, &head_after)
                     .await
-                    .map_err(|e| {
-                        ExecutionError::AgentError(format!("Commit validation failed: {}", e))
-                    })?;
+                    .with_context(|| {
+                        format!(
+                            "Verifying commits created for step {} in worktree {}",
+                            idx + 1,
+                            handle.worktree_path().display()
+                        )
+                    })
+                    .map_err(|e| ExecutionError::AgentError(e.to_string()))?;
 
                 match validation_result {
                     CommitValidationResult::NoCommits => {
@@ -304,6 +318,7 @@ impl StandardExecutor {
             interpolated.name = Some(
                 engine
                     .interpolate(name, context)
+                    .with_context(|| format!("Interpolating step name '{}'", name))
                     .map_err(|e| ExecutionError::InterpolationError(e.to_string()))?,
             );
         }
@@ -312,6 +327,7 @@ impl StandardExecutor {
             interpolated.claude = Some(
                 engine
                     .interpolate(claude, context)
+                    .with_context(|| format!("Interpolating claude command '{}'", claude))
                     .map_err(|e| ExecutionError::InterpolationError(e.to_string()))?,
             );
         }
@@ -320,6 +336,7 @@ impl StandardExecutor {
             interpolated.shell = Some(
                 engine
                     .interpolate(shell, context)
+                    .with_context(|| format!("Interpolating shell command '{}'", shell))
                     .map_err(|e| ExecutionError::InterpolationError(e.to_string()))?,
             );
         }
@@ -340,9 +357,17 @@ impl StandardExecutor {
         state: AgentLifecycleState,
         worktree_path: PathBuf,
     ) -> Result<AgentLifecycleState, ExecutionError> {
-        let transition = AgentTransition::Start { worktree_path };
+        let transition = AgentTransition::Start {
+            worktree_path: worktree_path.clone(),
+        };
         apply_transition(state, transition)
-            .map_err(|e| ExecutionError::AgentError(format!("State transition failed: {}", e)))
+            .with_context(|| {
+                format!(
+                    "Transitioning agent to running state in worktree {}",
+                    worktree_path.display()
+                )
+            })
+            .map_err(|e| ExecutionError::AgentError(e.to_string()))
     }
 
     /// Transition to completed state using state machine
@@ -351,9 +376,18 @@ impl StandardExecutor {
         output: Option<String>,
         commits: Vec<String>,
     ) -> Result<AgentLifecycleState, ExecutionError> {
-        let transition = AgentTransition::Complete { output, commits };
+        let transition = AgentTransition::Complete {
+            output,
+            commits: commits.clone(),
+        };
         apply_transition(state, transition)
-            .map_err(|e| ExecutionError::AgentError(format!("State transition failed: {}", e)))
+            .with_context(|| {
+                format!(
+                    "Transitioning agent to completed state with {} commit(s)",
+                    commits.len()
+                )
+            })
+            .map_err(|e| ExecutionError::AgentError(e.to_string()))
     }
 
     /// Transition to failed state using state machine
@@ -363,11 +397,17 @@ impl StandardExecutor {
         json_log_location: Option<String>,
     ) -> Result<AgentLifecycleState, ExecutionError> {
         let transition = AgentTransition::Fail {
-            error,
-            json_log_location,
+            error: error.clone(),
+            json_log_location: json_log_location.clone(),
         };
         apply_transition(state, transition)
-            .map_err(|e| ExecutionError::AgentError(format!("State transition failed: {}", e)))
+            .with_context(|| {
+                let log_info = json_log_location
+                    .map(|l| format!(" (log: {})", l))
+                    .unwrap_or_default();
+                format!("Transitioning agent to failed state: {}{}", error, log_info)
+            })
+            .map_err(|e| ExecutionError::AgentError(e.to_string()))
     }
 
     /// Execute a single command

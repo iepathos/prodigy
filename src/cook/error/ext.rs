@@ -101,7 +101,7 @@ mod tests {
         }
 
         fn outer() -> ContextResult<(), String> {
-            middle()?.context("outer operation");
+            middle().map_err(|e| e.context("outer operation"))?;
             Ok(())
         }
 
@@ -110,10 +110,13 @@ mod tests {
 
         let error = result.unwrap_err();
         assert_eq!(error.inner(), "base error");
-        assert_eq!(error.context_trail().len(), 1);
+        assert_eq!(error.context_trail().len(), 2);
         assert!(error
             .context_trail()
             .contains(&"middle operation".to_string()));
+        assert!(error
+            .context_trail()
+            .contains(&"outer operation".to_string()));
     }
 
     #[test]
@@ -150,12 +153,12 @@ mod tests {
         }
 
         fn layer3() -> ContextResult<(), String> {
-            layer2()?.context("layer 3 context");
+            layer2().map_err(|e| e.context("layer 3 context"))?;
             Ok(())
         }
 
         fn layer4() -> ContextResult<(), String> {
-            layer3()?.context("layer 4 context");
+            layer3().map_err(|e| e.context("layer 4 context"))?;
             Ok(())
         }
 
@@ -165,10 +168,11 @@ mod tests {
         let error = result.unwrap_err();
         assert_eq!(error.inner(), "root cause");
 
-        // Should have context from all layers except layer4 (error occurs in layer3)
+        // Should have context from all layers
         let trail = error.context_trail();
-        assert_eq!(trail.len(), 2);
+        assert_eq!(trail.len(), 3);
         assert!(trail.contains(&"layer 2 context".to_string()));
         assert!(trail.contains(&"layer 3 context".to_string()));
+        assert!(trail.contains(&"layer 4 context".to_string()));
     }
 }
