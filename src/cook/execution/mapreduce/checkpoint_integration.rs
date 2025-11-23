@@ -93,68 +93,9 @@ impl CheckpointedCoordinator {
 
     /// Initialize checkpoint state for a new job
     async fn initialize_checkpoint_state(&self, map_phase: &MapPhase) -> Result<()> {
-        use crate::cook::execution::mapreduce::checkpoint::{
-            AgentState, CheckpointMetadata, ErrorState, ExecutionState, ResourceState,
-            VariableState,
-        };
-
-        let checkpoint = Checkpoint {
-            metadata: CheckpointMetadata {
-                checkpoint_id: String::new(),
-                job_id: self.job_id.clone(),
-                version: 1,
-                created_at: Utc::now(),
-                phase: PhaseType::Setup,
-                total_work_items: 0, // Will be updated after loading items
-                completed_items: 0,
-                checkpoint_reason: CheckpointReason::Manual,
-                integrity_hash: String::new(),
-            },
-            execution_state: ExecutionState {
-                current_phase: PhaseType::Setup,
-                phase_start_time: Utc::now(),
-                setup_results: None,
-                map_results: None,
-                reduce_results: None,
-                workflow_variables: HashMap::new(),
-            },
-            work_item_state: WorkItemState {
-                pending_items: vec![],
-                in_progress_items: HashMap::new(),
-                completed_items: vec![],
-                failed_items: vec![],
-                current_batch: None,
-            },
-            agent_state: AgentState {
-                active_agents: HashMap::new(),
-                agent_assignments: HashMap::new(),
-                agent_results: HashMap::new(),
-                resource_allocation: HashMap::new(),
-            },
-            variable_state: VariableState {
-                workflow_variables: HashMap::new(),
-                captured_outputs: HashMap::new(),
-                environment_variables: HashMap::new(),
-                item_variables: HashMap::new(),
-            },
-            resource_state: ResourceState {
-                total_agents_allowed: map_phase.config.max_parallel,
-                current_agents_active: 0,
-                worktrees_created: vec![],
-                worktrees_cleaned: vec![],
-                disk_usage_bytes: None,
-            },
-            error_state: ErrorState {
-                error_count: 0,
-                dlq_items: vec![],
-                error_threshold_reached: false,
-                last_error: None,
-            },
-        };
-
+        let checkpoint = create_initial_checkpoint(&self.job_id, map_phase.config.max_parallel);
         *self.current_checkpoint.write().await = Some(checkpoint);
         *self.last_checkpoint_time.write().await = Utc::now();
-
         Ok(())
     }
 
@@ -297,133 +238,104 @@ impl CheckpointedCoordinator {
         reduce: Option<ReducePhase>,
         env: &ExecutionEnvironment,
     ) -> Result<Vec<AgentResult>> {
-        // Load checkpoint
         let resume_state = self
             .checkpoint_manager
             .resume_from_checkpoint(Some(checkpoint_id))
             .await
             .context("Failed to load checkpoint")?;
 
-        // Restore state
         *self.current_checkpoint.write().await = Some(resume_state.checkpoint.clone());
 
-        // Determine what to resume based on phase
         match resume_state.checkpoint.metadata.phase {
-            PhaseType::Setup => {
-                // Resume from setup phase
-                info!("Resuming from setup phase");
-                self.execute_with_checkpoints(setup, map_phase, reduce, env)
+            PhaseType::Setup => self.resume_from_setup(setup, map_phase, reduce, env).await,
+            PhaseType::Map => {
+                self.resume_from_map(resume_state, map_phase, reduce, env)
                     .await
             }
-            PhaseType::Map => {
-                // Resume map phase
-                info!(
-                    "Resuming from map phase with {} pending items",
-                    resume_state.work_items.pending_items.len()
-                );
+            PhaseType::Reduce => self.resume_from_reduce(resume_state, reduce, env).await,
+            PhaseType::Complete => Ok(extract_agent_results(&resume_state.checkpoint)),
+        }
+    }
 
-                // Restore work items to checkpoint
-                if let Some(ref mut checkpoint) = *self.current_checkpoint.write().await {
-                    checkpoint.work_item_state = resume_state.work_items;
-                }
+    /// Resume from setup phase
+    async fn resume_from_setup(
+        &self,
+        setup: Option<SetupPhase>,
+        map_phase: MapPhase,
+        reduce: Option<ReducePhase>,
+        env: &ExecutionEnvironment,
+    ) -> Result<Vec<AgentResult>> {
+        info!("Resuming from setup phase");
+        self.execute_with_checkpoints(setup, map_phase, reduce, env)
+            .await
+    }
 
-                // Continue processing
-                let mut all_results: Vec<AgentResult> = resume_state
-                    .checkpoint
-                    .agent_state
-                    .agent_results
-                    .values()
-                    .cloned()
-                    .collect();
+    /// Resume from map phase
+    async fn resume_from_map(
+        &self,
+        resume_state: crate::cook::execution::mapreduce::checkpoint::ResumeState,
+        map_phase: MapPhase,
+        reduce: Option<ReducePhase>,
+        env: &ExecutionEnvironment,
+    ) -> Result<Vec<AgentResult>> {
+        info!(
+            "Resuming from map phase with {} pending items",
+            resume_state.work_items.pending_items.len()
+        );
 
-                // Process remaining items
-                while let Some(batch) = self.get_next_batch(map_phase.config.max_parallel).await {
-                    let batch_results = self.process_batch(batch, &map_phase, env).await?;
-                    self.update_checkpoint_with_results(&batch_results).await?;
-                    all_results.extend(batch_results);
+        restore_work_items(&self.current_checkpoint, resume_state.work_items).await;
 
-                    if self.should_checkpoint().await {
-                        self.save_checkpoint(CheckpointReason::Interval).await?;
-                        *self.items_since_checkpoint.write().await = 0;
-                    }
-                }
+        let mut all_results = extract_agent_results(&resume_state.checkpoint);
+        self.continue_map_processing(&mut all_results, &map_phase, env)
+            .await?;
 
-                // Execute reduce if needed
-                if let Some(reduce_phase) = reduce {
-                    self.execute_reduce_with_checkpoint(reduce_phase, &all_results, env)
-                        .await?;
-                }
+        execute_reduce_if_needed(self, reduce, &all_results, env).await?;
 
-                Ok(all_results)
-            }
-            PhaseType::Reduce => {
-                // Resume from reduce phase
-                info!("Resuming from reduce phase");
+        Ok(all_results)
+    }
 
-                // Collect results from checkpoint
-                let all_results: Vec<AgentResult> = resume_state
-                    .checkpoint
-                    .agent_state
-                    .agent_results
-                    .values()
-                    .cloned()
-                    .collect();
+    /// Continue processing map phase items
+    async fn continue_map_processing(
+        &self,
+        all_results: &mut Vec<AgentResult>,
+        map_phase: &MapPhase,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        while let Some(batch) = self.get_next_batch(map_phase.config.max_parallel).await {
+            let batch_results = self.process_batch(batch, map_phase, env).await?;
+            self.update_checkpoint_with_results(&batch_results).await?;
+            all_results.extend(batch_results);
 
-                // Execute reduce
-                if let Some(reduce_phase) = reduce {
-                    self.execute_reduce_with_checkpoint(reduce_phase, &all_results, env)
-                        .await?;
-                }
-
-                Ok(all_results)
-            }
-            PhaseType::Complete => {
-                info!("Job already complete");
-                Ok(resume_state
-                    .checkpoint
-                    .agent_state
-                    .agent_results
-                    .values()
-                    .cloned()
-                    .collect())
+            if self.should_checkpoint().await {
+                self.save_checkpoint(CheckpointReason::Interval).await?;
+                *self.items_since_checkpoint.write().await = 0;
             }
         }
+        Ok(())
+    }
+
+    /// Resume from reduce phase
+    async fn resume_from_reduce(
+        &self,
+        resume_state: crate::cook::execution::mapreduce::checkpoint::ResumeState,
+        reduce: Option<ReducePhase>,
+        env: &ExecutionEnvironment,
+    ) -> Result<Vec<AgentResult>> {
+        info!("Resuming from reduce phase");
+        let all_results = extract_agent_results(&resume_state.checkpoint);
+        execute_reduce_if_needed(self, reduce, &all_results, env).await?;
+        Ok(all_results)
     }
 
     /// Get next batch of items to process
     async fn get_next_batch(&self, max_size: usize) -> Option<Vec<WorkItem>> {
         let mut checkpoint = self.current_checkpoint.write().await;
+        let cp = checkpoint.as_mut()?;
 
-        if let Some(ref mut cp) = *checkpoint {
-            let pending_count = cp.work_item_state.pending_items.len();
-            if pending_count == 0 {
-                return None;
-            }
+        let batch = extract_batch_from_pending(&mut cp.work_item_state.pending_items, max_size)?;
+        mark_items_in_progress(&mut cp.work_item_state.in_progress_items, &batch);
 
-            let batch_size = max_size.min(pending_count);
-            let batch: Vec<WorkItem> = cp
-                .work_item_state
-                .pending_items
-                .drain(..batch_size)
-                .collect();
-
-            // Move to in-progress
-            for item in &batch {
-                cp.work_item_state.in_progress_items.insert(
-                    item.id.clone(),
-                    WorkItemProgress {
-                        work_item: item.clone(),
-                        agent_id: format!("agent_{}", item.id),
-                        started_at: Utc::now(),
-                        last_update: Utc::now(),
-                    },
-                );
-            }
-
-            Some(batch)
-        } else {
-            None
-        }
+        Some(batch)
     }
 
     /// Process a batch of work items
@@ -433,80 +345,25 @@ impl CheckpointedCoordinator {
         _map_phase: &MapPhase,
         _env: &ExecutionEnvironment,
     ) -> Result<Vec<AgentResult>> {
-        // Placeholder for actual batch processing
-        // In real implementation, this would call the coordinator's execute methods
-
-        let mut results = Vec::new();
-        for item in batch {
-            // Simulate processing
-            results.push(AgentResult {
-                item_id: item.id.clone(),
-                status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
-                output: Some(format!("Processed {}", item.id)),
-                commits: vec![],
-                duration: Duration::from_secs(1),
-                error: None,
-                worktree_path: None,
-                branch_name: None,
-                worktree_session_id: None,
-                files_modified: vec![],
-                json_log_location: None,
-                cleanup_status: None,
-            });
-
-            *self.items_since_checkpoint.write().await += 1;
-        }
-
+        let results = simulate_batch_processing(batch);
+        *self.items_since_checkpoint.write().await += results.len();
         Ok(results)
     }
 
     /// Update checkpoint with processing results
     async fn update_checkpoint_with_results(&self, results: &[AgentResult]) -> Result<()> {
-        use crate::cook::execution::mapreduce::checkpoint::{CompletedWorkItem, FailedWorkItem};
-
         let mut checkpoint = self.current_checkpoint.write().await;
+        let cp = match checkpoint.as_mut() {
+            Some(cp) => cp,
+            None => return Ok(()),
+        };
 
-        if let Some(ref mut cp) = *checkpoint {
-            for result in results {
-                // Remove from in-progress
-                if let Some(progress) = cp.work_item_state.in_progress_items.remove(&result.item_id)
-                {
-                    // Add to completed or failed
-                    match &result.status {
-                        crate::cook::execution::mapreduce::agent::AgentStatus::Success => {
-                            cp.work_item_state.completed_items.push(CompletedWorkItem {
-                                work_item: progress.work_item,
-                                result: result.clone(),
-                                completed_at: Utc::now(),
-                            });
-                            cp.metadata.completed_items += 1;
-                        }
-                        crate::cook::execution::mapreduce::agent::AgentStatus::Failed(_)
-                        | crate::cook::execution::mapreduce::agent::AgentStatus::Timeout => {
-                            cp.work_item_state.failed_items.push(FailedWorkItem {
-                                work_item: progress.work_item,
-                                error: result.error.clone().unwrap_or_default(),
-                                failed_at: Utc::now(),
-                                retry_count: 0,
-                            });
-                            cp.error_state.error_count += 1;
-                        }
-                        crate::cook::execution::mapreduce::agent::AgentStatus::Pending
-                        | crate::cook::execution::mapreduce::agent::AgentStatus::Running
-                        | crate::cook::execution::mapreduce::agent::AgentStatus::Retrying(_) => {
-                            // These statuses shouldn't happen for completed results, but handle them
-                            // by keeping the item in progress
-                            cp.work_item_state
-                                .in_progress_items
-                                .insert(result.item_id.clone(), progress);
-                        }
-                    }
-
-                    // Store agent result
-                    cp.agent_state
-                        .agent_results
-                        .insert(result.item_id.clone(), result.clone());
-                }
+        for result in results {
+            if let Some(progress) = cp.work_item_state.in_progress_items.remove(&result.item_id) {
+                update_work_item_status(cp, result, progress);
+                cp.agent_state
+                    .agent_results
+                    .insert(result.item_id.clone(), result.clone());
             }
         }
 
@@ -558,6 +415,124 @@ pub fn create_checkpointed_coordinator(
     CheckpointedCoordinator::new(coordinator, checkpoint_path, job_id)
 }
 
+/// Create initial checkpoint for a new job
+///
+/// Pure function that constructs a fresh checkpoint with all state initialized
+/// to empty/default values. Separates checkpoint creation from async I/O.
+///
+/// # Arguments
+/// * `job_id` - Job identifier for the checkpoint
+/// * `max_parallel` - Maximum parallel agents allowed
+///
+/// # Returns
+/// Initialized checkpoint ready for execution
+fn create_initial_checkpoint(job_id: &str, max_parallel: usize) -> Checkpoint {
+    Checkpoint {
+        metadata: create_checkpoint_metadata(job_id),
+        execution_state: create_execution_state(),
+        work_item_state: create_work_item_state(),
+        agent_state: create_agent_state(),
+        variable_state: create_variable_state(),
+        resource_state: create_resource_state(max_parallel),
+        error_state: create_error_state(),
+    }
+}
+
+/// Create checkpoint metadata
+fn create_checkpoint_metadata(
+    job_id: &str,
+) -> crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata {
+    use crate::cook::execution::mapreduce::checkpoint::CheckpointMetadata;
+
+    CheckpointMetadata {
+        checkpoint_id: String::new(),
+        job_id: job_id.to_string(),
+        version: 1,
+        created_at: Utc::now(),
+        phase: PhaseType::Setup,
+        total_work_items: 0,
+        completed_items: 0,
+        checkpoint_reason: CheckpointReason::Manual,
+        integrity_hash: String::new(),
+    }
+}
+
+/// Create execution state
+fn create_execution_state() -> crate::cook::execution::mapreduce::checkpoint::ExecutionState {
+    use crate::cook::execution::mapreduce::checkpoint::ExecutionState;
+
+    ExecutionState {
+        current_phase: PhaseType::Setup,
+        phase_start_time: Utc::now(),
+        setup_results: None,
+        map_results: None,
+        reduce_results: None,
+        workflow_variables: HashMap::new(),
+    }
+}
+
+/// Create work item state
+fn create_work_item_state() -> WorkItemState {
+    WorkItemState {
+        pending_items: vec![],
+        in_progress_items: HashMap::new(),
+        completed_items: vec![],
+        failed_items: vec![],
+        current_batch: None,
+    }
+}
+
+/// Create agent state
+fn create_agent_state() -> crate::cook::execution::mapreduce::checkpoint::AgentState {
+    use crate::cook::execution::mapreduce::checkpoint::AgentState;
+
+    AgentState {
+        active_agents: HashMap::new(),
+        agent_assignments: HashMap::new(),
+        agent_results: HashMap::new(),
+        resource_allocation: HashMap::new(),
+    }
+}
+
+/// Create variable state
+fn create_variable_state() -> crate::cook::execution::mapreduce::checkpoint::VariableState {
+    use crate::cook::execution::mapreduce::checkpoint::VariableState;
+
+    VariableState {
+        workflow_variables: HashMap::new(),
+        captured_outputs: HashMap::new(),
+        environment_variables: HashMap::new(),
+        item_variables: HashMap::new(),
+    }
+}
+
+/// Create resource state
+fn create_resource_state(
+    max_parallel: usize,
+) -> crate::cook::execution::mapreduce::checkpoint::ResourceState {
+    use crate::cook::execution::mapreduce::checkpoint::ResourceState;
+
+    ResourceState {
+        total_agents_allowed: max_parallel,
+        current_agents_active: 0,
+        worktrees_created: vec![],
+        worktrees_cleaned: vec![],
+        disk_usage_bytes: None,
+    }
+}
+
+/// Create error state
+fn create_error_state() -> crate::cook::execution::mapreduce::checkpoint::ErrorState {
+    use crate::cook::execution::mapreduce::checkpoint::ErrorState;
+
+    ErrorState {
+        error_count: 0,
+        dlq_items: vec![],
+        error_threshold_reached: false,
+        last_error: None,
+    }
+}
+
 /// Transform raw JSON values into enumerated WorkItems
 ///
 /// This pure function takes a vector of JSON values and creates WorkItems
@@ -577,6 +552,237 @@ fn create_work_items(items: Vec<Value>) -> Vec<WorkItem> {
             data: item,
         })
         .collect()
+}
+
+/// Extract a batch of items from pending queue
+///
+/// Pure function that drains items from pending queue up to max_size.
+/// Returns None if no items available.
+///
+/// # Arguments
+/// * `pending_items` - Mutable reference to pending items queue
+/// * `max_size` - Maximum batch size
+///
+/// # Returns
+/// Batch of items to process, or None if queue is empty
+fn extract_batch_from_pending(
+    pending_items: &mut Vec<WorkItem>,
+    max_size: usize,
+) -> Option<Vec<WorkItem>> {
+    if pending_items.is_empty() {
+        return None;
+    }
+
+    let batch_size = max_size.min(pending_items.len());
+    Some(pending_items.drain(..batch_size).collect())
+}
+
+/// Mark items as in-progress in the checkpoint
+///
+/// Pure function that creates work item progress entries for a batch.
+/// Mutates the in-progress map to track active items.
+///
+/// # Arguments
+/// * `in_progress_items` - Map of in-progress items
+/// * `batch` - Items to mark as in-progress
+fn mark_items_in_progress(
+    in_progress_items: &mut HashMap<String, WorkItemProgress>,
+    batch: &[WorkItem],
+) {
+    let now = Utc::now();
+    for item in batch {
+        in_progress_items.insert(item.id.clone(), create_work_item_progress(item, &now));
+    }
+}
+
+/// Create work item progress entry
+///
+/// Pure function to construct a WorkItemProgress for a given item.
+///
+/// # Arguments
+/// * `item` - Work item to track
+/// * `now` - Current timestamp
+///
+/// # Returns
+/// WorkItemProgress ready for insertion
+fn create_work_item_progress(item: &WorkItem, now: &DateTime<Utc>) -> WorkItemProgress {
+    WorkItemProgress {
+        work_item: item.clone(),
+        agent_id: format!("agent_{}", item.id),
+        started_at: *now,
+        last_update: *now,
+    }
+}
+
+/// Simulate batch processing (placeholder implementation)
+///
+/// Pure function that simulates processing a batch of work items.
+/// In production, this would be replaced with actual agent execution.
+///
+/// # Arguments
+/// * `batch` - Work items to process
+///
+/// # Returns
+/// Vector of simulated agent results
+fn simulate_batch_processing(batch: Vec<WorkItem>) -> Vec<AgentResult> {
+    batch
+        .into_iter()
+        .map(|item| create_success_result(&item))
+        .collect()
+}
+
+/// Create a success agent result
+///
+/// Pure function to construct a successful AgentResult.
+///
+/// # Arguments
+/// * `item` - Work item that was processed
+///
+/// # Returns
+/// AgentResult indicating success
+fn create_success_result(item: &WorkItem) -> AgentResult {
+    AgentResult {
+        item_id: item.id.clone(),
+        status: crate::cook::execution::mapreduce::agent::AgentStatus::Success,
+        output: Some(format!("Processed {}", item.id)),
+        commits: vec![],
+        duration: Duration::from_secs(1),
+        error: None,
+        worktree_path: None,
+        branch_name: None,
+        worktree_session_id: None,
+        files_modified: vec![],
+        json_log_location: None,
+        cleanup_status: None,
+    }
+}
+
+/// Update work item status based on agent result
+///
+/// Updates checkpoint state by moving item from in-progress to completed or failed.
+///
+/// # Arguments
+/// * `checkpoint` - Checkpoint to update
+/// * `result` - Agent result indicating outcome
+/// * `progress` - In-progress item to finalize
+fn update_work_item_status(
+    checkpoint: &mut Checkpoint,
+    result: &AgentResult,
+    progress: WorkItemProgress,
+) {
+    use crate::cook::execution::mapreduce::agent::AgentStatus;
+
+    match &result.status {
+        AgentStatus::Success => {
+            handle_success_status(checkpoint, result, progress);
+        }
+        AgentStatus::Failed(_) | AgentStatus::Timeout => {
+            handle_failure_status(checkpoint, result, progress);
+        }
+        AgentStatus::Pending | AgentStatus::Running | AgentStatus::Retrying(_) => {
+            // Keep item in progress for non-terminal statuses
+            checkpoint
+                .work_item_state
+                .in_progress_items
+                .insert(result.item_id.clone(), progress);
+        }
+    }
+}
+
+/// Handle successful work item
+fn handle_success_status(
+    checkpoint: &mut Checkpoint,
+    result: &AgentResult,
+    progress: WorkItemProgress,
+) {
+    use crate::cook::execution::mapreduce::checkpoint::CompletedWorkItem;
+
+    checkpoint
+        .work_item_state
+        .completed_items
+        .push(CompletedWorkItem {
+            work_item: progress.work_item,
+            result: result.clone(),
+            completed_at: Utc::now(),
+        });
+    checkpoint.metadata.completed_items += 1;
+}
+
+/// Handle failed work item
+fn handle_failure_status(
+    checkpoint: &mut Checkpoint,
+    result: &AgentResult,
+    progress: WorkItemProgress,
+) {
+    use crate::cook::execution::mapreduce::checkpoint::FailedWorkItem;
+
+    checkpoint
+        .work_item_state
+        .failed_items
+        .push(FailedWorkItem {
+            work_item: progress.work_item,
+            error: result.error.clone().unwrap_or_default(),
+            failed_at: Utc::now(),
+            retry_count: 0,
+        });
+    checkpoint.error_state.error_count += 1;
+}
+
+/// Extract agent results from checkpoint
+///
+/// Pure function to collect all agent results from checkpoint state.
+///
+/// # Arguments
+/// * `checkpoint` - Checkpoint containing agent results
+///
+/// # Returns
+/// Vector of all agent results
+fn extract_agent_results(checkpoint: &Checkpoint) -> Vec<AgentResult> {
+    checkpoint
+        .agent_state
+        .agent_results
+        .values()
+        .cloned()
+        .collect()
+}
+
+/// Restore work items to checkpoint
+///
+/// Async helper to restore work item state during resume.
+///
+/// # Arguments
+/// * `current_checkpoint` - Current checkpoint to update
+/// * `work_items` - Work item state to restore
+async fn restore_work_items(
+    current_checkpoint: &Arc<RwLock<Option<Checkpoint>>>,
+    work_items: WorkItemState,
+) {
+    if let Some(ref mut checkpoint) = *current_checkpoint.write().await {
+        checkpoint.work_item_state = work_items;
+    }
+}
+
+/// Execute reduce phase if provided
+///
+/// Helper to conditionally execute reduce phase.
+///
+/// # Arguments
+/// * `coordinator` - Checkpointed coordinator
+/// * `reduce` - Optional reduce phase
+/// * `results` - Map phase results
+/// * `env` - Execution environment
+async fn execute_reduce_if_needed(
+    coordinator: &CheckpointedCoordinator,
+    reduce: Option<ReducePhase>,
+    results: &[AgentResult],
+    env: &ExecutionEnvironment,
+) -> Result<()> {
+    if let Some(reduce_phase) = reduce {
+        coordinator
+            .execute_reduce_with_checkpoint(reduce_phase, results, env)
+            .await?;
+    }
+    Ok(())
 }
 
 /// Update checkpoint to Map phase
