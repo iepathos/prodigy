@@ -462,6 +462,7 @@ async fn test_resume_with_dlq_recovery() {
                     exit_code: 1,
                 },
                 error_message: "Temporary failure".to_string(),
+                error_context: None,
                 stack_trace: None,
                 agent_id: format!("agent-failed-{}", i),
                 step_failed: "process".to_string(),
