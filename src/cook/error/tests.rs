@@ -43,15 +43,7 @@ mod integration_tests {
 
     #[test]
     fn test_error_context_display() {
-        // Create a ContextError using the ResultExt trait
-        fn create_error() -> ContextResult<(), &'static str> {
-            let base_error: Result<(), &'static str> = Err("File not found");
-            base_error.context("Reading configuration").and_then(|_| {
-                Err(ContextError::new("unreachable").context("Initializing workflow"))
-            })
-        }
-
-        // For now, just test that we can create and format a ContextError
+        // Test that we can create and format a ContextError
         let err = ContextError::new("File not found");
         let display = format!("{}", err);
         assert!(display.contains("File not found"));

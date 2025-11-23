@@ -8,11 +8,11 @@ use stillwater::ContextError;
 ///
 /// # Examples
 ///
-/// ```no_run
-/// use prodigy::cook::error::ResultExt;
+/// ```
+/// use prodigy::cook::error::{ResultExt, ContextResult};
 ///
-/// fn process_file(path: &str) -> Result<String, std::io::Error> {
-///     std::fs::read_to_string(path)
+/// fn process_file(path: &str) -> ContextResult<String, std::io::Error> {
+///     let _content = std::fs::read_to_string(path)
 ///         .context("Reading input file")?;
 ///     Ok("data".to_string())
 /// }
@@ -24,8 +24,13 @@ pub trait ResultExt<T, E> {
     ///
     /// # Examples
     ///
-    /// ```no_run
-    /// use prodigy::cook::error::ResultExt;
+    /// ```
+    /// use prodigy::cook::error::{ResultExt, ContextResult};
+    /// use stillwater::ContextError;
+    ///
+    /// fn do_something() -> Result<(), std::io::Error> {
+    ///     Ok(())
+    /// }
     ///
     /// fn example() -> Result<(), ContextError<std::io::Error>> {
     ///     do_something()
@@ -43,8 +48,13 @@ pub trait ResultExt<T, E> {
     ///
     /// # Examples
     ///
-    /// ```no_run
-    /// use prodigy::cook::error::ResultExt;
+    /// ```
+    /// use prodigy::cook::error::{ResultExt, ContextResult};
+    /// use stillwater::ContextError;
+    ///
+    /// fn do_something_with_id(id: &str) -> Result<(), std::io::Error> {
+    ///     Ok(())
+    /// }
     ///
     /// fn example(id: &str) -> Result<(), ContextError<std::io::Error>> {
     ///     do_something_with_id(id)
@@ -76,7 +86,7 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```
 /// use prodigy::cook::error::ContextResult;
 ///
 /// fn process_item(id: &str) -> ContextResult<String, std::io::Error> {
