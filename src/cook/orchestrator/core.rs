@@ -836,7 +836,6 @@ impl DefaultCookOrchestrator {
         Ok(())
     }
 
-
     /// Execute a structured workflow with outputs
     async fn execute_structured_workflow(
         &self,

@@ -293,7 +293,8 @@ impl MapReduceJobState {
     /// Handle failed or timed-out agent execution
     fn handle_failure(&mut self, status: &AgentStatus, item_id: &str) {
         // Get or create failure record and update it in one operation to avoid borrow issues
-        let failure = self.failed_agents
+        let failure = self
+            .failed_agents
             .entry(item_id.to_string())
             .or_insert_with(|| create_initial_failure_record(item_id));
 
