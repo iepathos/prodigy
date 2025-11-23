@@ -6,268 +6,92 @@ This document contains Prodigy-specific documentation for Claude. General develo
 
 Prodigy is a workflow orchestration tool that executes Claude commands through structured YAML workflows. It manages session state, tracks execution progress, and supports parallel execution through MapReduce patterns.
 
-## Error Handling Guidelines (Spec 101)
+## Error Handling (Spec 101, 168)
 
-Prodigy follows strict error handling requirements:
-
+### Core Rules
 - **Production code**: Never use `unwrap()` or `panic!()` - use Result types and `?` operator
 - **Test code**: May use `unwrap()` and `panic!()` for test failures
 - **Static patterns**: Compile-time constants (like regex) may use `expect()`
 
-### Error Types by Module
-
-- Storage operations: `StorageError`
-- Worktree operations: `WorktreeError`
+### Error Types
+- Storage: `StorageError`
+- Worktree: `WorktreeError`
 - Command execution: `CommandError`
-- General operations: `anyhow::Error`
+- General: `anyhow::Error`
 
-### Error Context Preservation (Spec 168)
+### Context Preservation
+Prodigy uses Stillwater's `ContextError<E>` to preserve operation context through the call stack:
 
-Prodigy uses Stillwater's `ContextError<E>` wrapper to preserve operation context as errors propagate through the call stack. This provides comprehensive debugging information showing the complete operation trail.
-
-**Error Context Architecture:**
-- Errors automatically accumulate context at each layer using `.context()` method
-- Full context trail is preserved and displayed in error messages
-- DLQ items include complete error context for debugging failures
-- Zero runtime overhead in success path
-
-**Usage Example:**
 ```rust
 use prodigy::cook::error::ResultExt;
 
-fn process_work_item(item_id: &str) -> Result<(), ContextError<ProcessError>> {
-    create_worktree(item_id)
-        .with_context(|| format!("Creating worktree for item {}", item_id))?;
-
-    execute_commands(item_id)
-        .context("Executing agent commands")?;
-
-    validate_commits(item_id)
-        .context("Validating commits")?;
-
+fn process_item(id: &str) -> Result<(), ContextError<ProcessError>> {
+    create_worktree(id).with_context(|| format!("Creating worktree for {}", id))?;
+    execute_commands(id).context("Executing commands")?;
     Ok(())
 }
 ```
 
-**Error Display Format:**
-```
-Error: Command failed with exit code 1
-Context:
-  -> Executing agent commands
-  -> Processing work item item-123
-  -> Running MapReduce job process-items
-```
+**Benefits**: Full context trail in error messages, DLQ integration, zero runtime overhead on success path.
 
-**DLQ Integration:**
-Failed MapReduce items include full error context trails in their `FailureDetail` records:
-```rust
-// Error context is stored in DLQ items
-failure_detail.error_context: Option<Vec<String>>
-// Example: ["Processing item item-42", "Executing map phase", "Running MapReduce job"]
-```
+## Claude Observability (Spec 121)
 
-## Claude Command Observability (Spec 121)
-
-### JSON Log Location Tracking
-
-Prodigy captures the location of Claude JSON log files for debugging Claude command execution, especially useful for troubleshooting MapReduce agent failures.
-
-#### What are Claude JSON Logs?
-
-Claude Code creates detailed JSON log files for each command execution containing:
-- Complete message history (user messages and Claude responses)
-- All tool invocations with parameters and results
-- Token usage statistics (input, output, cache tokens)
-- Session metadata (model, tools available, timestamps)
+### JSON Log Tracking
+Claude Code creates detailed JSON logs at `~/.local/state/claude/logs/session-{id}.json` containing:
+- Complete message history and tool invocations
+- Token usage and session metadata
 - Error details and stack traces
 
-These logs are stored in:
-```
-~/.local/state/claude/logs/session-{session_id}.json
-```
+**Access logs:**
+- Verbose mode: `prodigy run workflow.yml -v` shows log path after each command
+- Programmatically: `result.json_log_location()`
+- MapReduce events: `AgentCompleted` and `AgentFailed` include `json_log_location`
+- DLQ items: `FailureDetail` preserves log location
 
-#### Accessing JSON Log Location
-
-**Via Verbose Output (-v flag):**
+**Debug failed agents:**
 ```bash
-prodigy run workflow.yml -v
-```
-With verbose mode, Prodigy displays the JSON log location after each Claude command:
-```
-Executing: claude /my-command
-Claude JSON log: /Users/username/.local/state/claude/logs/session-abc123.json
-✓ Command completed
-```
-
-**Programmatically via ExecutionResult:**
-```rust
-let result = execute_claude_command(&cmd).await?;
-if let Some(log_path) = result.json_log_location() {
-    println!("Debug logs available at: {}", log_path);
-}
-```
-
-**In MapReduce Events:**
-```rust
-// AgentCompleted events include json_log_location
-MapReduceEvent::AgentCompleted {
-    job_id: "job-123".to_string(),
-    agent_id: "agent-1".to_string(),
-    duration: Duration::seconds(30),
-    commits: vec!["abc123".to_string()],
-    json_log_location: Some("/path/to/logs/session-xyz.json".to_string()),
-}
-```
-
-**In Dead Letter Queue (DLQ) Items:**
-```rust
-// Failed items capture json_log_location in FailureDetail
-let dlq_item = DeadLetteredItem {
-    // ... other fields ...
-    failure_history: vec![
-        FailureDetail {
-            // ... error details ...
-            json_log_location: Some("/path/to/logs/session-xyz.json".to_string()),
-        }
-    ],
-};
-```
-
-#### Debugging with JSON Logs
-
-**View complete Claude interaction:**
-```bash
-cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
-```
-
-**Check tool invocations:**
-```bash
-cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[].content[] | select(.type == "tool_use")'
-```
-
-**Analyze token usage:**
-```bash
-cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
-```
-
-**Extract error details:**
-```bash
-cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages[] | select(.role == "assistant") | .content[] | select(.type == "error")'
-```
-
-#### MapReduce Debugging Workflow
-
-When a MapReduce agent fails:
-
-1. **Check DLQ for json_log_location:**
-```bash
+# Get log path from DLQ
 prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+
+# Inspect the log
+cat /path/to/log.json | jq '.messages[-3:]'
 ```
-
-2. **Inspect the Claude JSON log:**
-```bash
-cat /path/from/step1/session-xyz.json | jq
-```
-
-3. **Identify the failing tool or message:**
-```bash
-# Find the last tool use before failure
-cat /path/from/step1/session-xyz.json | jq '.messages[-3:]'
-```
-
-4. **Understand the context:**
-- Review the full conversation history
-- Check what tools were invoked and their results
-- Examine token usage to identify context issues
-- Look for error messages or unexpected responses
-
-#### API Integration
-
-The json_log_location field is available in:
-- `AgentResult` - Captures log path for successful and failed agent executions
-- `MapReduceEvent::AgentCompleted` - Includes log path in event stream
-- `MapReduceEvent::ClaudeMessage` - Associates messages with their log files
-- `FailureDetail` - Preserves log location for DLQ debugging
 
 ## Custom Merge Workflows
 
-Prodigy now supports configurable merge workflows that execute when merging worktree changes back to the main branch. This allows you to customize the merge process with your own validation, conflict resolution, and post-merge steps.
+Define custom merge workflows with validation, testing, and conflict resolution:
 
-### Merge Workflow Configuration
-
-You can define a custom merge workflow in your YAML file using the `merge` block:
-
-```yaml
-# Custom merge workflow
-merge:
-  commands:
-    - shell: "git fetch origin"
-    - shell: "git merge origin/main"  # Merge main into worktree first
-    - shell: "cargo test"              # Run tests
-    - shell: "cargo clippy"            # Run linting
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
-    - shell: "echo 'Successfully merged ${merge.worktree}'"
-  timeout: 600  # 10 minutes timeout for merge operations
-```
-
-### Merge-Specific Variables
-
-The following variables are available in merge workflows:
-- `${merge.worktree}` - Name of the worktree being merged
-- `${merge.source_branch}` - Source branch (worktree branch)
-- `${merge.target_branch}` - Target branch (your original branch, where you started the workflow)
-- `${merge.session_id}` - Session ID for correlation
-
-**Important**: Always pass both `${merge.source_branch}` and `${merge.target_branch}` to the `/prodigy-merge-worktree` command. This ensures the merge targets the branch you were on when you started the workflow, not a hardcoded main/master branch.
-
-### Claude Merge Streaming
-
-The Claude merge command now respects the same verbosity settings as other workflow commands:
-- With `-v` (verbose) or higher, you'll see real-time JSON streaming output from Claude
-- Set `PRODIGY_CLAUDE_CONSOLE_OUTPUT=true` to force streaming output regardless of verbosity
-- This provides full visibility into Claude's merge operations and any tool invocations
-
-### Example Workflows
-
-#### Pre-merge Validation
 ```yaml
 merge:
   commands:
-    - shell: "cargo build --release"
-    - shell: "cargo test --all"
-    - shell: "cargo fmt --check"
+    - shell: "git fetch origin && git merge origin/main"
+    - shell: "cargo test && cargo clippy"
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+  timeout: 600
 ```
 
-#### Conflict Resolution Strategy
-```yaml
-merge:
-  commands:
-    - shell: "git merge origin/main --no-commit"
-    - claude: "/resolve-conflicts"
-    - shell: "git add -A"
-    - shell: "git commit -m 'Merge main and resolve conflicts'"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
-```
+**Available variables:**
+- `${merge.worktree}` - Worktree name
+- `${merge.source_branch}` - Source branch (worktree)
+- `${merge.target_branch}` - Target branch (original branch)
+- `${merge.session_id}` - Session ID
 
-## MapReduce Workflow Syntax
+**Streaming**: Use `-v` flag or set `PRODIGY_CLAUDE_CONSOLE_OUTPUT=true` for real-time output.
 
-Prodigy supports MapReduce workflows for massive parallel processing. The syntax follows the specification in the whitepaper:
+## MapReduce Workflows
 
-### Basic MapReduce Structure
+### Basic Structure
 ```yaml
 name: workflow-name
 mode: mapreduce
 
-# Optional setup phase
 setup:
   - shell: "generate-work-items.sh"
-  - shell: "analyze-codebase --output items.json"
 
-# Map phase: Process items in parallel
 map:
-  input: "items.json"          # JSON file with array of items
-  json_path: "$.items[*]"      # JSONPath to extract items
+  input: "items.json"
+  json_path: "$.items[*]"
+  max_parallel: 10
 
   agent_template:
     - claude: "/process '${item}'"
@@ -275,241 +99,15 @@ map:
       on_failure:
         claude: "/fix-issue '${item}'"
 
-  max_parallel: 10             # Number of concurrent agents
-  filter: "item.score >= 5"    # Optional: filter items
-  sort_by: "item.priority DESC" # Optional: process order
-  max_items: 100               # Optional: limit items per run
-
-# Reduce phase: Aggregate results
 reduce:
   - claude: "/summarize ${map.results}"
-  - shell: "echo 'Processed ${map.successful}/${map.total} items'"
+  - shell: "echo 'Processed ${map.successful}/${map.total}'"
 ```
 
-### Key Syntax Changes from Previous Versions
-- **Agent Template**: No longer uses nested `commands` array - commands are directly under `agent_template`
-- **Reduce Phase**: Commands are directly under `reduce`, not nested under `commands`
-- **Error Handling**: Simplified `on_failure` syntax without `max_attempts` and `fail_workflow`
-- **Removed Parameters**: No longer supports `timeout_per_agent`, `retry_on_failure`, or other deprecated parameters
-
-## Directory Structure
-
-### Local Storage (Legacy)
-```
-.prodigy/
-├── session_state.json         # Current session state and timing
-├── validation-result.json     # Workflow validation results
-├── events/                    # MapReduce event logs (legacy)
-│   └── {job_id}/             # Job-specific events
-│       ├── {timestamp}.json  # Individual event records
-│       └── checkpoint.json   # Job checkpoint for resumption
-└── dlq/                      # Dead Letter Queue for failed items (legacy)
-    └── {job_id}.json         # Failed work items for retry
-```
-
-### Global Storage (Default)
-```
-~/.prodigy/
-├── events/
-│   └── {repo_name}/          # Events grouped by repository
-│       └── {job_id}/         # Job-specific events
-│           └── events-{timestamp}.jsonl  # Event log files
-├── dlq/
-│   └── {repo_name}/          # DLQ grouped by repository
-│       └── {job_id}/         # Job-specific failed items
-├── state/
-│   └── {repo_name}/          # State grouped by repository
-│       └── mapreduce/        # MapReduce job states
-│           └── jobs/
-│               └── {job_id}/ # Job-specific checkpoints
-└── worktrees/
-    └── {repo_name}/          # Git worktrees for sessions
-```
-
-## Session Management
-
-Prodigy uses a unified session management system that tracks all workflow and MapReduce executions through `UnifiedSession` objects stored in `~/.prodigy/sessions/`.
-
-### UnifiedSession Structure
-
-Every workflow execution creates a UnifiedSession file that contains:
-
-```json
-{
-  "id": "session-abc123",
-  "session_type": "Workflow",
-  "status": "Running|Paused|Completed|Failed|Cancelled",
-  "started_at": "2024-01-01T12:00:00Z",
-  "updated_at": "2024-01-01T12:05:00Z",
-  "completed_at": null,
-  "metadata": {
-    "execution_start_time": "2024-01-01T12:00:00Z",
-    "workflow_type": "standard",
-    "total_steps": 5,
-    "current_step": 2
-  },
-  "checkpoints": [],
-  "timings": {
-    "step1": {"secs": 10, "nanos": 0},
-    "step2": {"secs": 15, "nanos": 0}
-  },
-  "error": null,
-  "workflow_data": {
-    "workflow_id": "workflow-1234567890",
-    "workflow_name": "my-workflow",
-    "current_step": 2,
-    "total_steps": 5,
-    "completed_steps": [0, 1],
-    "variables": {},
-    "iterations_completed": 0,
-    "files_changed": 0,
-    "worktree_name": "session-abc123"
-  },
-  "mapreduce_data": null
-}
-```
-
-### Session Lifecycle
-
-1. **Creation**: When a workflow starts, a UnifiedSession is created in `~/.prodigy/sessions/{session-id}.json`
-2. **Active Execution**: Status is set to `Running`, metadata is populated with execution timing
-3. **Interruption**: If interrupted, status changes to `Paused` and checkpoint is created
-4. **Resume**: `prodigy resume` loads the UnifiedSession and continues from the checkpoint
-5. **Completion**: Status changes to `Completed` (or `Failed`), `completed_at` timestamp is set
-
-### Session Metadata
-
-The `metadata` field contains execution timing and progress information:
-- `execution_start_time`: ISO 8601 timestamp when workflow started
-- `workflow_type`: Type of workflow (e.g., "standard", "mapreduce")
-- `total_steps`: Total number of steps in the workflow
-- `current_step`: Index of the currently executing step (0-based)
-
-### Session Checkpoints
-
-UnifiedSession works in conjunction with checkpoints stored in `~/.prodigy/state/{session-id}/checkpoints/`:
-- Each checkpoint captures the full execution state at a point in time
-- Checkpoints are used by the resume system to continue interrupted workflows
-- Session state and checkpoint state remain consistent throughout execution
-
-### Resume with UnifiedSessionManager
-
-The `prodigy resume` command uses the UnifiedSessionManager to:
-1. Load the UnifiedSession file from `~/.prodigy/sessions/`
-2. Verify the session is in a resumable state (Paused status)
-3. Load the corresponding checkpoint from `~/.prodigy/state/`
-4. Continue execution from where it left off
-5. Update the UnifiedSession as execution progresses
-
-### Legacy Session State (`session_state.json`)
-
-**Note**: The legacy `session_state.json` format is deprecated in favor of UnifiedSession. Old workflows may still reference this format:
-```json
-{
-  "session_id": "cook-1234567890",
-  "status": "InProgress|Completed|Failed",
-  "started_at": "2024-01-01T12:00:00Z",
-  "iterations_completed": 2,
-  "files_changed": 5,
-  "worktree_name": "prodigy-session-123",
-  "iteration_timings": [[1, {"secs": 120, "nanos": 0}]],
-  "command_timings": [["claude: /prodigy-lint", {"secs": 60, "nanos": 0}]]
-}
-```
-
-### Environment Variables
-
-When executing Claude commands, Prodigy sets these environment variables:
-- `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
-
-Claude JSON streaming is enabled by default for all Claude commands to ensure workflow auditability. To disable streaming (e.g., in CI/CD environments with storage constraints), set:
-- `PRODIGY_CLAUDE_STREAMING="false"` - Explicitly disables JSON streaming and uses legacy print mode
-
-## Global Storage Architecture
-
-### Overview
-Prodigy uses a global storage architecture by default, storing all events, state, and DLQ data in `~/.prodigy/`. This enables:
-- **Cross-worktree event aggregation**: Multiple worktrees working on the same job share event logs
-- **Persistent state management**: Job checkpoints survive worktree cleanup
-- **Centralized monitoring**: All job data accessible from a single location
-- **Efficient storage**: Deduplication across worktrees
-
-## MapReduce Features
-
-### Parallel Execution
-Prodigy supports parallel execution of work items across multiple Claude agents:
-- Each agent runs in an isolated git worktree
-- Work items are distributed automatically
-- Results are aggregated in the reduce phase
-- Failed items can be retried via the DLQ
-
-### Commit Validation Enforcement (Spec 163)
-
-Prodigy strictly enforces commit validation for MapReduce agent commands marked with `commit_required: true` to prevent silent data loss from agents that complete without creating expected commits.
-
-#### How It Works
-
-**Validation Process**:
-1. Before each `commit_required` command executes, git HEAD SHA is captured
-2. Command executes in the agent's isolated worktree
-3. After completion, git HEAD SHA is checked again
-4. If HEAD is unchanged (no new commits), agent fails with `CommitValidationFailed` error
-
-**Error Message Format**:
-```
-Agent execution failed: Commit required but no commit was created
-
-Worktree: /Users/user/.prodigy/worktrees/repo/agent-1
-Expected behavior: Command should create at least one git commit
-Command: shell: process-item.sh
-```
-
-**DLQ Integration**:
-- Failed agents are added to Dead Letter Queue with `error_type: CommitValidationFailed`
-- `manual_review_required` flag is set to `true`
-- Full error context captured including worktree path, command, and JSON log location
-
-**Event Stream Integration**:
-- `AgentCompleted` events include `commits: Vec<String>` with commit SHAs
-- `AgentFailed` events include `failure_reason: CommitValidationFailed`
-- Both events include `json_log_location` for debugging
-
-**Merge Behavior**:
-- Agents with commits: Merged to parent worktree via serialized queue
-- Agents without commits: Worktree cleaned up, merge skipped (logged at INFO level)
-- Validation failures: Agent marked as failed, added to DLQ
-
-#### Example Workflow
+### Commit Validation (Spec 163)
+Commands with `commit_required: true` enforce commit creation. Agent fails if no commit is made.
 
 ```yaml
-name: process-items
-mode: mapreduce
-
-map:
-  input: "items.json"
-  json_path: "$.items[*]"
-
-  agent_template:
-    # This command MUST create a commit
-    - shell: |
-        echo "${item.data}" > "${item.file}"
-        git add "${item.file}"
-        git commit -m "Process item ${item.id}"
-      commit_required: true
-```
-
-#### Troubleshooting
-
-**Common Issue - Missing Commits**:
-```yaml
-# ❌ This will fail validation
-agent_template:
-  - shell: |
-      echo "data" > file.txt
-      # Missing: git add & git commit
-    commit_required: true
-
-# ✓ This will pass validation
 agent_template:
   - shell: |
       echo "data" > file.txt
@@ -518,676 +116,210 @@ agent_template:
     commit_required: true
 ```
 
-**Conditional Commits**:
-If agents conditionally create commits, either:
+**Validation behavior:**
+- HEAD SHA checked before/after command
+- No new commits → agent fails with `CommitValidationFailed`
+- Failed agents added to DLQ with full context
+- Agents with commits: merged to parent; without commits: cleaned up
 
-1. Remove `commit_required` flag:
-```yaml
-agent_template:
-  - shell: |
-      if should_process; then
-        create_and_commit_file
-      fi
-    # No commit_required flag
-```
+### Checkpoint & Resume (Spec 134)
+Prodigy checkpoints all phases (setup, map, reduce) for recovery:
 
-2. Filter items to ensure all agents commit:
-```yaml
-map:
-  filter: "item.needs_commit == true"
-  agent_template:
-    - shell: create_and_commit_file
-      commit_required: true
-```
-
-See [MapReduce Troubleshooting Guide](docs/mapreduce/troubleshooting.md#commit-validation-failures) for more details.
-
-### MapReduce Checkpoint and Resume (Spec 134)
-
-Prodigy provides comprehensive checkpoint and resume capabilities for MapReduce workflows, ensuring work can be recovered from any point of failure.
-
-#### Checkpoint Behavior
-
-**Setup Phase Checkpointing**:
-- Checkpoint created after successful setup completion
-- Preserves setup output, generated artifacts, and environment state
-- Stored in global storage at `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/setup-checkpoint.json`
-
-**Map Phase Checkpointing**:
-- Checkpoints created after processing configurable number of work items
-- Tracks completed, in-progress, and pending work items
-- Stores agent results and failure details for recovery
-- Resume continues from last successful checkpoint
-
-**Reduce Phase Checkpointing**:
-- Checkpoint created after each reduce command execution
-- Tracks completed steps, step results, variables, and map results
-- Enables resume from any point in reduce phase execution
-- Stored as `reduce-checkpoint-v1-{timestamp}.json`
-
-#### Resume with Session or Job IDs
-
-MapReduce jobs can be resumed using either session IDs or job IDs:
-
+**Resume commands:**
 ```bash
-# Resume using session ID
-prodigy resume session-mapreduce-1234567890
-
-# Resume using job ID
-prodigy resume-job mapreduce-1234567890
-
-# Unified resume command (auto-detects ID type)
-prodigy resume mapreduce-1234567890
+prodigy resume <session-or-job-id>
+prodigy resume-job <job_id>
 ```
 
-**Session-Job Mapping**:
-- Bidirectional mapping stored in `~/.prodigy/state/{repo_name}/mappings/`
-- Maps session IDs to job IDs and vice versa
-- Created when MapReduce workflow starts
-- Enables resume with either identifier
+**State preservation:**
+- Setup: Checkpoint after completion
+- Map: Checkpoint after configurable work items processed
+- Reduce: Checkpoint after each command
+- Variables, outputs, and agent results preserved
 
-#### State Preservation
-
-**Variables and Context**:
-- Workflow variables preserved across resume
-- Captured outputs from setup and reduce phases
-- Environment variables maintained
-- Map results available to reduce phase after resume
-
-**Work Item State**:
-- Completed items: Preserved with full results
-- In-progress items: Moved back to pending on resume
-- Failed items: Tracked with retry counts and error details
-- Pending items: Continue processing from where left off
-
-**Agent State**:
-- Active agent information preserved
-- Resource allocation tracked
-- Worktree paths recorded for cleanup
-
-#### Resume Strategies
-
-Based on checkpoint state and phase, different resume strategies apply:
-
-- **Setup Phase**: Restart setup from beginning (idempotent operations recommended)
-- **Map Phase**: Continue from last checkpoint, re-process in-progress items
-- **Reduce Phase**: Continue from last completed step
-- **Validate and Continue**: Verify checkpoint integrity before resuming
-
-#### Storage Structure
-
-```
-~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/
-├── setup-checkpoint.json           # Setup phase results
-├── map-checkpoint-{timestamp}.json  # Map phase progress
-├── reduce-checkpoint-v1-{timestamp}.json  # Reduce phase progress
-└── job-state.json                  # Overall job state
-```
-
-#### Example Resume Workflow
-
-1. Workflow interrupted during reduce phase
-2. Find job with `prodigy sessions list` or `prodigy resume-job list`
-3. Resume using `prodigy resume <session-or-job-id>`
-4. Prodigy loads latest checkpoint
-5. Reconstructs execution state
-6. Continues from last completed step
+**Storage:** `~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/`
 
 ### Concurrent Resume Protection (Spec 140)
+RAII-based locking prevents multiple resume processes:
+- Exclusive lock acquired automatically before resume
+- Lock released on completion or failure
+- Stale locks (crashed processes) auto-detected and cleaned
+- Lock files: `~/.prodigy/resume_locks/{id}.lock`
 
-Prodigy prevents multiple resume processes from running on the same session/job simultaneously using an RAII-based locking mechanism.
-
-#### Lock Behavior
-
-**Automatic Lock Acquisition**:
-- Resume automatically acquires exclusive lock before starting
-- Lock creation is atomic - fails if another process holds the lock
-- Lock automatically released when resume completes or fails (RAII pattern)
-- Stale locks (from crashed processes) are automatically detected and cleaned up
-
-**Lock Metadata**:
-Lock files contain:
-- Process ID (PID) of the holding process
-- Hostname where the process is running
-- Timestamp when lock was acquired
-- Job/session ID being locked
-
-**Stale Lock Detection**:
-- Platform-specific process existence check (Unix: `kill -0`, Windows: `tasklist`)
-- If holding process is no longer running, lock is automatically removed
-- New resume attempt succeeds after stale lock cleanup
-
-#### Error Messages
-
-If a resume is blocked by an active lock:
-
-```bash
-$ prodigy resume <job_id>
-Error: Resume already in progress for job <job_id>
-Lock held by: PID 12345 on hostname (acquired 2025-01-11 10:30:00 UTC)
-Please wait for the other process to complete, or use --force to override.
-```
-
-#### Lock Storage
+### Worktree Isolation (Spec 127)
+All phases execute in isolated worktrees:
 
 ```
-~/.prodigy/resume_locks/
-├── session-abc123.lock
-├── mapreduce-xyz789.lock
-└── ...
+original_branch → parent worktree (session-xxx)
+                  ├→ Setup executes here
+                  ├→ Agent worktrees (branch from parent, merge back)
+                  ├→ Reduce executes here
+                  └→ User prompt: Merge to {original_branch}?
 ```
 
-Each `.lock` file contains JSON metadata about the lock holder.
+**Benefits:** Main repo untouched, parallel execution, full isolation, user-controlled merge.
 
-#### Troubleshooting Stuck Locks
-
-If a lock persists after a process crash:
-
-1. **Check lock file location**: `~/.prodigy/resume_locks/<job_id>.lock`
-2. **Verify process status**: `ps aux | grep <PID>` (from error message)
-3. **Manual cleanup** (if process is dead): `rm ~/.prodigy/resume_locks/<job_id>.lock`
-4. **Automatic cleanup**: Retry resume - stale locks are auto-detected and removed
-
-**Note**: Under normal conditions, locks are automatically cleaned up. Manual intervention is rarely needed.
-
-#### Safety Guarantees
-
-- **Data Corruption Prevention**: Only one process can modify job state at a time
-- **No Duplicate Work**: Work items cannot be processed by multiple agents concurrently
-- **Consistent State**: Checkpoint updates are serialized
-- **Automatic Cleanup**: RAII pattern ensures locks are released even on errors
-- **Cross-Host Safety**: Hostname in lock prevents conflicts across machines
-
-### Worktree Isolation (Spec 127, Spec 134)
-
-**All MapReduce workflow phases (setup, map, reduce) execute in an isolated git worktree**, ensuring the main repository remains untouched during workflow execution.
-
-#### Execution Flow
-
-```
-original_branch (e.g., master, feature-xyz, develop, etc.)
-    ↓
-parent worktree (session-xxx) ← Single worktree for all MapReduce phases
-    ├→ Setup phase executes here
-    ├→ Agent worktrees branch from parent
-    │  ├→ agent-1 → processes item, merges back to parent
-    │  ├→ agent-2 → processes item, merges back to parent
-    │  └→ agent-N → processes item, merges back to parent
-    ├→ Reduce phase executes here (aggregates agent results)
-    └→ User prompt: Merge to {original_branch}? [Y/n]
-```
-
-**Branch Tracking**: The parent worktree is created from whatever branch the user was on when they started the workflow. This branch is stored as `original_branch` in `WorktreeState` and is used as the merge target. The system uses `get_merge_target()` to retrieve this branch, so merges always go back to where the user started, not hardcoded to "master".
-
-#### Isolation Guarantees
-
-1. **Setup Phase Isolation**
-   - Executes in parent worktree (created by orchestrator)
-   - All setup commands execute in the worktree directory
-   - File modifications occur in worktree, not main repo
-   - Git commits are created in worktree context
-   - Main repository remains clean until final merge
-
-2. **Map Phase Isolation**
-   - Each map agent runs in its own child worktree
-   - Child worktrees branch from the parent worktree (setup results)
-   - Agent changes merge back to parent worktree
-   - No cross-contamination between agents
-   - Independent failure isolation
-
-3. **Reduce Phase Isolation**
-   - Executes in parent worktree (same as setup)
-   - Aggregates results from all map agents
-   - Continues worktree isolation guarantee
-
-#### Benefits
-
-- **Safety**: Main repository never modified during execution
-- **Parallelism**: Multiple agents can work concurrently
-- **Reproducibility**: Clean state for each workflow run
-- **Debugging**: Worktrees preserve full execution history
-- **Recovery**: Failed workflows don't pollute main repo
-- **User Control**: Final merge to original branch requires user confirmation
-
-#### Example Verification
-
-After running a MapReduce workflow, verify main repo is clean:
-
-```bash
-# Check main repo status (should be clean)
-git status
-# Expected: nothing to commit, working tree clean
-
-# Verify worktree has changes
-cd ~/.prodigy/worktrees/prodigy/session-xxx/
-git status
-git log
-# Expected: See setup phase changes and commits
-```
-
-### Cleanup Failure Handling (Spec 136)
-
-MapReduce agent executions gracefully handle cleanup failures to ensure successful agent work is not lost.
-
-#### Behavior
-
-**Agent Success Preserved**:
-- Agent execution status is independent of cleanup status
-- If agent completes successfully but cleanup fails, agent is marked as successful
-- Work results (commits, files) are preserved regardless of cleanup outcome
-
-**Cleanup Status Tracking**:
-- Each `AgentResult` includes an optional `cleanup_status` field
-- Values: `Success`, `Failed(String)`, or `Skipped`
-- `AgentCompleted` events include cleanup status for observability
-
-**Orphaned Worktree Registry**:
-- When cleanup fails, worktree path is registered as orphaned
-- Registry stored in `~/.prodigy/orphaned_worktrees/{repo_name}/{job_id}.json`
-- Includes agent ID, item ID, timestamp, and error message
-
-#### Cleaning Orphaned Worktrees
-
-Use the `prodigy worktree clean-orphaned` command to clean up worktrees that failed cleanup:
-
-```bash
-# List orphaned worktrees
-prodigy worktree clean-orphaned <job_id>
-
-# Dry run to see what would be cleaned
-prodigy worktree clean-orphaned <job_id> --dry-run
-
-# Force cleanup without confirmation
-prodigy worktree clean-orphaned <job_id> --force
-```
-
-**Example Output**:
-```
-Found 2 orphaned worktree(s):
-  - /Users/user/.prodigy/worktrees/prodigy/agent-1 (agent: agent-1, item: item-1, error: permission denied)
-  - /Users/user/.prodigy/worktrees/prodigy/agent-2 (agent: agent-2, item: item-2, error: disk full)
-
-Proceed with cleanup? [y/N]
-```
-
-#### Troubleshooting Cleanup Failures
-
-**Common Causes**:
-- **Permission Denied**: Directory locked by process or insufficient permissions
-- **Disk Full**: Not enough space to perform cleanup operations
-- **Directory Busy**: Files open in editor or process using directory
-- **Git Locks**: Repository locked by concurrent git operation
-
-**Resolution**:
-1. Check for running processes using the worktree: `lsof | grep worktree-path`
-2. Ensure sufficient disk space: `df -h`
-3. Check directory permissions: `ls -ld worktree-path`
-4. Use `prodigy worktree clean-orphaned` to retry cleanup after resolving issue
-
-### Event Tracking
-Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
-- Agent lifecycle events (started, completed, failed)
-- Work item processing status
-- Checkpoint saves for resumption
-- Error details with correlation IDs
-- Cross-worktree event aggregation for parallel jobs
+### Cleanup Handling (Spec 136)
+Agent success independent of cleanup status:
+- Successful agents preserved even if cleanup fails
+- Orphaned worktrees registered: `~/.prodigy/orphaned_worktrees/{repo}/{job_id}.json`
+- Clean orphaned: `prodigy worktree clean-orphaned <job_id>`
 
 ### Dead Letter Queue (DLQ)
-Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for review and retry:
-- Contains the original work item data
-- Includes failure reason and timestamp
-- Supports automatic reprocessing via `prodigy dlq retry`
-- Configurable parallel execution and resource limits
-- Shared across worktrees for centralized failure tracking
+Failed items stored in `~/.prodigy/dlq/{repo}/{job_id}/` with:
+- Original work item data
+- Failure reason, timestamp, error context
+- JSON log location for debugging
 
-#### DLQ Retry
-The `prodigy dlq retry` command allows you to retry failed items:
-
+**Retry failed items:**
 ```bash
-# Retry all failed items for a job
-prodigy dlq retry <job_id>
-
-# Retry with custom parallelism (default: 5)
-prodigy dlq retry <job_id> --max-parallel 10
-
-# Dry run to see what would be retried
-prodigy dlq retry <job_id> --dry-run
+prodigy dlq retry <job_id> [--max-parallel N] [--dry-run]
 ```
 
-Features:
-- Streams items to avoid memory issues with large queues
-- Respects original workflow's max_parallel setting
-- Preserves correlation IDs for tracking
-- Updates DLQ state (removes successful, keeps failed)
-- Supports interruption and resumption
+## Environment Variables (Spec 120)
 
-## Workflow Execution
-
-### Command Types
-Prodigy supports several command types in workflows:
-- `claude:` - Execute Claude commands via Claude Code CLI
-- `shell:` - Run shell commands
-- `goal_seek:` - Run goal-seeking operations with validation
-- `foreach:` - Iterate over lists with nested commands
-
-### Variable Interpolation
-Workflows support variable interpolation:
-- `${item.field}` - Access work item fields in MapReduce
-- `${shell.output}` - Capture command output
-- `${map.results}` - Access map phase results in reduce
-- `$ARG` - Pass arguments from command line
-
-### Environment Variables (Spec 120)
-
-MapReduce workflows support environment variables for parameterization and secrets management. Environment variables can be defined at the workflow level and used throughout all phases.
-
-#### Defining Environment Variables
-
-Environment variables are defined in the `env` block at the workflow root:
+Define variables at workflow root:
 
 ```yaml
-name: workflow-name
-mode: mapreduce
-
 env:
-  # Plain variables
   PROJECT_NAME: "prodigy"
-  VERSION: "1.0.0"
-
-  # Secret variables (masked in logs)
   API_KEY:
     secret: true
     value: "sk-abc123"
-
-  # Profile-specific variables
   DATABASE_URL:
     default: "postgres://localhost/dev"
     prod: "postgres://prod-server/db"
 ```
 
-#### Variable Interpolation Syntax
+**Usage:** `$VAR` or `${VAR}` in all phases (setup, map, reduce, merge)
+**Profiles:** `prodigy run workflow.yml --profile prod`
+**Secrets:** Masked in logs, errors, events, checkpoints
 
-Environment variables can be referenced using two syntaxes:
-- `$VAR` - Simple variable reference (shell-style)
-- `${VAR}` - Bracketed reference for clarity and complex expressions
+## Storage Architecture
 
-```yaml
-setup:
-  - shell: "echo Processing $PROJECT_NAME version $VERSION"
-  - shell: "curl -H 'Authorization: Bearer ${API_KEY}' https://api.example.com"
-
-map:
-  agent_template:
-    - claude: "/process-item '${item.name}' --project $PROJECT_NAME"
-    - shell: "test -f ${item.path}"
-
-reduce:
-  - shell: "echo Completed $PROJECT_NAME workflow"
+### Global Storage (Default)
+```
+~/.prodigy/
+├── events/{repo}/{job_id}/         # Event logs
+├── dlq/{repo}/{job_id}/            # Failed items
+├── state/{repo}/mapreduce/jobs/    # Checkpoints
+├── sessions/                       # Unified sessions
+├── resume_locks/                   # Resume locks
+└── worktrees/{repo}/               # Git worktrees
 ```
 
-#### Secret Masking
+### Session Management
+Sessions stored as `UnifiedSession` in `~/.prodigy/sessions/{id}.json`:
+- Status: Running|Paused|Completed|Failed|Cancelled
+- Metadata: Execution timing, progress, step tracking
+- Checkpoints: Full state snapshots for resume
+- Workflow/MapReduce data: Variables, results, worktree info
 
-Variables marked with `secret: true` are automatically masked in:
-- Command output logs
-- Error messages
-- Event logs
-- Checkpoint files
-
-Example output:
-```
-$ curl -H 'Authorization: Bearer ***' https://api.example.com
-```
-
-#### Profile Support
-
-Profiles allow different values for different environments:
-
-```yaml
-env:
-  API_URL:
-    default: "http://localhost:3000"
-    staging: "https://staging.api.com"
-    prod: "https://api.com"
-```
-
-Activate a profile:
-```bash
-prodigy run workflow.yml --profile prod
-```
-
-#### Usage in All Workflow Phases
-
-Environment variables are available in:
-
-**Setup Phase:**
-```yaml
-setup:
-  - shell: "npm install --prefix $PROJECT_DIR"
-  - shell: "cargo build --manifest-path ${PROJECT_DIR}/Cargo.toml"
-```
-
-**Map Phase:**
-```yaml
-map:
-  agent_template:
-    - claude: "/analyze ${item.file} --config $CONFIG_PATH"
-    - shell: "test -f $PROJECT_DIR/${item.file}"
-```
-
-**Reduce Phase:**
-```yaml
-reduce:
-  - claude: "/summarize ${map.results} --project $PROJECT_NAME"
-  - shell: "cp results.json $OUTPUT_DIR/"
-```
-
-**Merge Phase:**
-```yaml
-merge:
-  commands:
-    - shell: "echo Merging $PROJECT_NAME changes"
-    - claude: "/validate-merge --branch ${merge.source_branch}"
-```
-
-#### Best Practices
-
-1. **Use secrets for sensitive data**: Mark API keys, tokens, and credentials as secrets
-2. **Parameterize project-specific values**: Use env vars instead of hardcoding paths
-3. **Document required variables**: Include comments in workflow files
-4. **Use profiles for environments**: Separate dev, staging, and prod configurations
-5. **Prefer ${VAR} syntax**: More explicit and works in all contexts
-
-### Error Handling
-Commands can specify error handling behavior:
-- `on_failure:` - Commands to run on failure
-- `commit_required:` - Whether a git commit is expected
-
-### Claude Streaming Output Control
-
-Prodigy provides fine-grained control over Claude interaction visibility through verbosity levels:
-
-**Default mode (verbosity = 0):**
-- Clean, minimal output showing only progress and results
-- No Claude JSON streaming output displayed
-- Optimal for production workflows and CI/CD
-
-**Verbose mode (verbosity >= 1, `-v` flag):**
-- Shows Claude streaming JSON output in real-time
-- Enables debugging of Claude interactions
-- Useful for development and troubleshooting
-
-**Environment Override:**
-- Set `PRODIGY_CLAUDE_CONSOLE_OUTPUT=true` to force streaming output regardless of verbosity
-- Useful for debugging specific runs without changing command flags
-
-This design ensures clean output by default while preserving debugging capabilities when needed.
+**Session-Job mapping:** Bidirectional mapping enables resume with either ID.
 
 ## Git Integration
 
-### Worktree Management
-Prodigy uses git worktrees for isolation:
-- Each session gets its own worktree
-- Located in `~/.prodigy/worktrees/{project-name}/`
-- Automatic branch creation and management
-- Clean merge back to parent branch
-
-### Commit Tracking
-All changes are tracked via git commits:
-- Each successful command creates a commit
-- Commit messages include command details
-- Full audit trail of all modifications
-
 ### Branch Tracking (Spec 110)
-Prodigy tracks the original branch when creating worktrees to enable intelligent merge behavior:
+- Worktrees capture original branch at creation
+- Merge targets original branch (not hardcoded main/master)
+- Fallback to default branch if original deleted
+- Branch shown in merge confirmation prompt
 
-**Original Branch Detection**:
-- When creating a worktree, Prodigy captures the current branch as `original_branch`
-- For feature branches: Tracks the exact branch name (e.g., `feature/my-feature`)
-- For detached HEAD: Falls back to repository's default branch (main or master)
-- Stored in worktree state for lifetime of the session
+### Worktree Management
+- Located in `~/.prodigy/worktrees/{project}/`
+- Automatic branch creation and cleanup
+- Commit tracking with full audit trail
 
-**Merge Target Logic**:
-- Default behavior: Merge back to the tracked `original_branch`
-- If original branch was deleted: Fall back to default branch (main/master)
-- Merge target is displayed in the merge confirmation prompt
-- Example: "Merge session-abc123 to feature/my-feature? [y/N]"
+## Workflow Execution
 
-**Special Cases**:
-- **Feature Branch Workflow**: Worktree created from `feature/ui-updates` merges back to `feature/ui-updates`
-- **Detached HEAD**: Worktree tracks default branch (main/master) as fallback
-- **Deleted Branch**: If original branch is deleted, falls back to main/master
-- **Branch Rename**: Uses branch name at worktree creation time
+### Command Types
+- `claude:` - Execute Claude commands
+- `shell:` - Run shell commands
+- `goal_seek:` - Goal-seeking with validation
+- `foreach:` - Iterate with nested commands
 
-**Implementation Details**:
-- `WorktreeManager::create_session()` captures original branch using `git rev-parse --abbrev-ref HEAD`
-- `WorktreeManager::get_merge_target()` determines merge target with fallback logic
-- Merge target is shown in orchestrator's completion prompt for user confirmation
+### Variable Interpolation
+- `${item.field}` - Work item fields
+- `${shell.output}` - Command output
+- `${map.results}` - Map phase results
+- `$ARG` - CLI arguments
 
-## Available Commands
+### Claude Streaming Control
+- **Default (verbosity 0):** Clean output, no streaming
+- **Verbose (`-v`):** Real-time JSON streaming
+- **Override:** `PRODIGY_CLAUDE_CONSOLE_OUTPUT=true`
 
-Prodigy CLI commands:
-- `prodigy run` - Execute a workflow (with `--resume` flag for checkpoint-based resume)
-- `prodigy resume` - Resume an interrupted workflow from checkpoint
-- `prodigy worktree` - Manage git worktrees
-- `prodigy init` - Initialize Claude commands
-- `prodigy resume-job` - Resume MapReduce jobs with enhanced options
-- `prodigy events` - View execution events
-- `prodigy dlq` - Manage and retry failed work items
-- `prodigy checkpoints` - Manage workflow checkpoints
-- `prodigy sessions` - View and manage session state
-- `prodigy logs` - View and manage Claude JSON logs
+### Environment Variables
+- `PRODIGY_AUTOMATION=true` - Signals automated execution
+- `PRODIGY_CLAUDE_STREAMING=false` - Disable JSON streaming
 
 ## Best Practices
 
-1. **Session Hygiene**: Clean up completed worktrees with `prodigy worktree clean`
-2. **Error Recovery**: Check DLQ for failed items after MapReduce jobs
-3. **Workflow Design**: Keep workflows simple and focused
-4. **Testing**: Always include test steps in workflows
-5. **Monitoring**: Use verbosity flags for appropriate detail level:
-   - Default: Clean output for production use
-   - `-v`: Claude streaming output for debugging interactions
-   - `-vv`/`-vvv`: Additional internal logs and tracing
-6. **Documentation**: The book documentation workflow now includes automatic drift detection and gap detection to keep documentation synchronized with code changes. Features are analyzed automatically and documentation is updated to match implementation.
+1. **Session Hygiene**: Clean completed worktrees: `prodigy worktree clean`
+2. **Error Recovery**: Check DLQ after MapReduce: `prodigy dlq show <job_id>`
+3. **Workflow Design**: Keep simple and focused, include test steps
+4. **Monitoring**: Use appropriate verbosity (`-v` for Claude output, `-vv`/`-vvv` for internals)
+5. **Documentation**: Book workflow includes automatic drift/gap detection
 
-## Limitations
+## Common Commands
 
-- No automatic context analysis or generation
-- Each iteration runs independently (memory preserved via checkpoints and state)
-- Context directory feature is planned but not implemented
-- Limited to Claude commands available in `.claude/commands/`
-- Resume functionality requires workflow files to be present
+Use `prodigy --help` for full CLI reference. Key commands:
+- `prodigy run <workflow.yml>` - Execute workflow
+- `prodigy resume <id>` - Resume interrupted workflow
+- `prodigy dlq retry <job_id>` - Retry failed items
+- `prodigy worktree clean` - Clean completed worktrees
+- `prodigy sessions list` - List all sessions
+- `prodigy logs --latest` - View recent Claude logs
 
 ## Troubleshooting
 
-### Session Issues
-- Check `.prodigy/session_state.json` for session status
-- View events in `.prodigy/events/` for detailed logs
-- Use verbosity flags for debugging:
-  - `-v`: Shows Claude streaming output
-  - `-vv`: Adds debug logs
-  - `-vvv`: Adds trace-level logs
-
-### MapReduce Failures
-- Check `.prodigy/dlq/` for failed items
-- Retry failed items with `prodigy dlq retry <job_id>`
-- Resume MapReduce jobs with `prodigy resume-job <job_id>`
-- Review checkpoint in `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
-
-### Worktree Problems
-- List worktrees with `prodigy worktree ls`
-- Clean stuck worktrees with `prodigy worktree clean -f`
-- Check `~/.prodigy/worktrees/` for orphaned directories
-
-### Viewing Claude Execution Logs (Spec 126)
-
-**Every Claude command creates a streaming JSONL log file** at `~/.claude/projects/{worktree-path}/{uuid}.jsonl`. These logs are automatically displayed after each command execution:
-
-```
-✅ Completed | Log: ~/.claude/projects/.../6ded63ac.jsonl
-```
-
-Or for failed commands:
-```
-❌ Failed | Log: ~/.claude/projects/.../6ded63ac.jsonl
-```
-
-#### Watching Logs Live
-
-For long-running Claude commands, watch the log in real-time:
-
+### MapReduce Issues
 ```bash
-# Watch live as Claude executes
-tail -f ~/.claude/projects/.../6ded63ac.jsonl
+# Check failed items
+prodigy dlq show <job_id>
 
-# Pretty-print each line as it's added
-tail -f ~/.claude/projects/.../6ded63ac.jsonl | jq -c '.'
+# Get Claude log from failed agent
+prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+
+# Resume from checkpoint
+prodigy resume <job_id>
+
+# Retry failed items
+prodigy dlq retry <job_id>
 ```
 
-#### Analyzing Completed Logs
-
-After a command completes, analyze the full conversation:
-
+### Worktree Issues
 ```bash
-# View all events (one JSON object per line)
-cat ~/.claude/projects/.../6ded63ac.jsonl
+# List worktrees
+prodigy worktree ls
 
-# Count messages by type
-cat ~/.claude/projects/.../6ded63ac.jsonl | jq -r '.type' | sort | uniq -c
+# Clean orphaned worktrees
+prodigy worktree clean-orphaned <job_id>
 
-# View only user messages
-cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "user")'
-
-# View only assistant responses
-cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.type == "assistant")'
-
-# Extract all tool uses
-cat ~/.claude/projects/.../6ded63ac.jsonl | \
-  jq -c 'select(.type == "assistant") | .content[]? | select(.type == "tool_use")'
-
-# View token usage (usually at end of file)
-cat ~/.claude/projects/.../6ded63ac.jsonl | jq -c 'select(.usage)'
+# Force clean stuck worktrees
+prodigy worktree clean -f
 ```
 
-#### Using the `prodigy logs` Command
+### Debug with Verbosity
+- `-v` - Shows Claude streaming output
+- `-vv` - Adds debug logs
+- `-vvv` - Adds trace-level logs
 
+### View Claude Logs
 ```bash
-# View most recent Claude log
+# Latest log
 prodigy logs --latest
 
-# View most recent log with summary
-prodigy logs --latest --summary
-
-# Tail the latest log (follow mode)
+# Follow live execution
 prodigy logs --latest --tail
 
-# List recent logs
-prodigy logs
+# Analyze completed log
+cat ~/.claude/projects/.../uuid.jsonl | jq -c 'select(.type == "assistant")'
 ```
 
-#### When Workflows Fail
+## Limitations
 
-When a Claude command fails, the log path is displayed prominently in the error output, making it easy to debug the issue without requiring verbose mode.
-
-#### Debugging Failed MapReduce Agents
-
-Failed MapReduce agents include log paths in their DLQ entries for easy debugging.
+- No automatic context generation
+- Iterations run independently (state via checkpoints)
+- Limited to Claude commands in `.claude/commands/`
+- Resume requires workflow files present
