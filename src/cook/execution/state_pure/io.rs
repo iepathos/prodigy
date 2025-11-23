@@ -47,9 +47,7 @@ pub fn save_checkpoint(state: MapReduceJobState) -> StateEffect<()> {
             let serialized = serde_json::to_string_pretty(&*state)
                 .with_context(|| "Failed to serialize job state")?;
 
-            storage
-                .write_checkpoint(&state.job_id, &serialized)
-                .await?;
+            storage.write_checkpoint(&state.job_id, &serialized).await?;
 
             // Log event
             event_log.log_checkpoint_saved(&state.job_id).await?;
@@ -414,7 +412,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(new_state.variables.get("key"), Some(&Value::String("value".to_string())));
+        assert_eq!(
+            new_state.variables.get("key"),
+            Some(&Value::String("value".to_string()))
+        );
     }
 
     #[tokio::test]
@@ -545,6 +546,11 @@ mod tests {
 
         assert!(new_state.is_complete);
         assert!(new_state.reduce_phase_state.as_ref().unwrap().completed);
-        assert!(new_state.reduce_phase_state.as_ref().unwrap().output.is_none());
+        assert!(new_state
+            .reduce_phase_state
+            .as_ref()
+            .unwrap()
+            .output
+            .is_none());
     }
 }
