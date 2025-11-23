@@ -6,10 +6,12 @@
 mod filter;
 mod json_path;
 mod sorter;
+pub mod validation;
 
 pub use filter::{ComparisonOp, FilterExpression, LogicalOp, PathPart};
 pub use json_path::JsonPath;
 pub use sorter::{NullPosition, SortField, SortOrder, Sorter};
+pub use validation::{ValidWorkItem, WorkItemValidationError};
 
 use anyhow::{anyhow, Result};
 use serde_json::Value;
@@ -254,6 +256,79 @@ impl DataPipeline {
         }
 
         Some(current)
+    }
+
+    /// Validate work items using pure validation functions with error accumulation
+    ///
+    /// This function extracts IDs from work items and validates them all at once,
+    /// accumulating all errors rather than stopping at the first error.
+    ///
+    /// # Arguments
+    ///
+    /// * `items` - Work items to validate
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<ValidWorkItem>)` - All items are valid
+    /// * `Err(anyhow::Error)` - One or more items failed validation with ALL errors
+    pub fn validate_work_items(&self, items: &[Value]) -> Result<Vec<validation::ValidWorkItem>> {
+        use stillwater::Validation;
+
+        // Extract (id, data) pairs from work items
+        // For now, we'll generate IDs from item indices if not present
+        let item_pairs: Vec<(String, Value)> = items
+            .iter()
+            .enumerate()
+            .map(|(idx, item)| {
+                let id = item
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| format!("item-{}", idx));
+                (id, item.clone())
+            })
+            .collect();
+
+        // Validate all items with error accumulation
+        let validation_result = validation::validate_all_items(&item_pairs);
+
+        // Convert Validation to Result
+        match validation_result {
+            Validation::Success(valid_items) => Ok(valid_items),
+            Validation::Failure(errors) => {
+                // Count unique failed items
+                let mut failed_indices = std::collections::HashSet::new();
+                for error in &errors {
+                    let item_index = match error {
+                        validation::WorkItemValidationError::EmptyId { item_index }
+                        | validation::WorkItemValidationError::IdTooLong { item_index, .. }
+                        | validation::WorkItemValidationError::InvalidIdCharacters {
+                            item_index,
+                            ..
+                        }
+                        | validation::WorkItemValidationError::InvalidData { item_index, .. }
+                        | validation::WorkItemValidationError::MissingRequiredField {
+                            item_index,
+                            ..
+                        }
+                        | validation::WorkItemValidationError::DuplicateId { item_index, .. } => {
+                            *item_index
+                        }
+                    };
+                    failed_indices.insert(item_index);
+                }
+
+                let failed_count = failed_indices.len();
+                Err(anyhow!(
+                    "{}",
+                    crate::cook::execution::errors::MultipleWorkItemValidationErrors {
+                        errors,
+                        total_items: items.len(),
+                        failed_items: failed_count,
+                    }
+                ))
+            }
+        }
     }
 }
 
@@ -1653,6 +1728,126 @@ mod tests {
             assert_eq!(items[4]["category"], "urgent");
             assert_eq!(items[4]["priority"], 5);
             assert_eq!(items[4]["name"], "Task E");
+        }
+    }
+
+    mod validation_integration {
+        use super::*;
+
+        #[test]
+        fn test_validate_work_items_success() {
+            let pipeline = DataPipeline::default();
+            let items = vec![
+                json!({"id": "item-1", "data": "test1"}),
+                json!({"id": "item-2", "data": "test2"}),
+                json!({"id": "item-3", "data": "test3"}),
+            ];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_ok());
+            let valid_items = result.unwrap();
+            assert_eq!(valid_items.len(), 3);
+            assert_eq!(valid_items[0].id, "item-1");
+            assert_eq!(valid_items[1].id, "item-2");
+            assert_eq!(valid_items[2].id, "item-3");
+        }
+
+        #[test]
+        fn test_validate_work_items_with_generated_ids() {
+            let pipeline = DataPipeline::default();
+            // Items without explicit IDs should get generated IDs
+            let items = vec![
+                json!({"data": "test1"}),
+                json!({"data": "test2"}),
+                json!({"data": "test3"}),
+            ];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_ok());
+            let valid_items = result.unwrap();
+            assert_eq!(valid_items.len(), 3);
+            // Generated IDs follow the pattern "item-{index}"
+            assert_eq!(valid_items[0].id, "item-0");
+            assert_eq!(valid_items[1].id, "item-1");
+            assert_eq!(valid_items[2].id, "item-2");
+        }
+
+        #[test]
+        fn test_validate_work_items_accumulates_errors() {
+            let pipeline = DataPipeline::default();
+            let items = vec![
+                json!({"id": "", "data": "test1"}),           // Empty ID
+                json!({"id": "item-2", "data": "test2"}),     // Valid
+                json!({"id": "x".repeat(300), "data": null}), // ID too long, null data
+            ];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_err());
+
+            let error_msg = result.unwrap_err().to_string();
+            // Should report multiple errors
+            assert!(error_msg.contains("Validation failed"));
+            assert!(error_msg.contains("Item 0")); // Empty ID error
+            assert!(error_msg.contains("Item 2")); // Multiple errors from item 2
+        }
+
+        #[test]
+        fn test_validate_work_items_duplicate_ids() {
+            let pipeline = DataPipeline::default();
+            let items = vec![
+                json!({"id": "item-1", "data": "test1"}),
+                json!({"id": "item-2", "data": "test2"}),
+                json!({"id": "item-1", "data": "test3"}), // Duplicate
+            ];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_err());
+
+            let error_msg = result.unwrap_err().to_string();
+            assert!(error_msg.contains("Duplicate"));
+            assert!(error_msg.contains("item-1"));
+        }
+
+        #[test]
+        fn test_validate_work_items_null_data() {
+            let pipeline = DataPipeline::default();
+            // The item itself is null (not just the data field)
+            let items = vec![Value::Null];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_err());
+
+            let error_msg = result.unwrap_err().to_string();
+            assert!(error_msg.contains("Invalid data"));
+        }
+
+        #[test]
+        fn test_validate_empty_work_items() {
+            let pipeline = DataPipeline::default();
+            let items: Vec<Value> = vec![];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().len(), 0);
+        }
+
+        #[test]
+        fn test_error_reporting_format() {
+            let pipeline = DataPipeline::default();
+            let items = vec![
+                json!({"id": "", "data": "test1"}),
+                json!({"id": "item-2", "data": "test2"}),
+                json!({"id": "x".repeat(300), "data": null}),
+            ];
+
+            let result = pipeline.validate_work_items(&items);
+            assert!(result.is_err());
+
+            let error_msg = result.unwrap_err().to_string();
+            // Should show summary with counts
+            assert!(error_msg.contains("failed for"));
+            assert!(error_msg.contains("of"));
+            assert!(error_msg.contains("items"));
         }
     }
 }
