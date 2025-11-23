@@ -15,6 +15,9 @@
 //! - `commands` - Modular command handler architecture for extensible workflow commands
 //! - `config` - Configuration management for the tool
 //! - `cook` - Core cooking command implementation with mapping support
+//! - `core` - Pure business logic functions without I/O operations
+//! - `effects` - Effect-based operations for composable I/O
+//! - `env` - Environment abstraction layer for dependency injection and testing
 //! - `git` - Granular, testable git operations layer
 //! - `init` - Initialize Prodigy commands in projects
 //! - `scoring` - Unified project health scoring system
@@ -24,7 +27,6 @@
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `unified_session` - Unified session management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
-//! - `core` - Pure business logic functions without I/O operations
 pub mod abstractions;
 // Analytics module removed - no longer needed without postgres
 pub mod app;
@@ -33,6 +35,8 @@ pub mod commands;
 pub mod config;
 pub mod cook;
 pub mod core;
+pub mod effects;
+pub mod env;
 pub mod error;
 pub mod git;
 pub mod init;
