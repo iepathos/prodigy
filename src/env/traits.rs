@@ -61,7 +61,7 @@ pub trait FileEnv: Send + Sync {
 /// fn run_test<E: ProcessEnv>(env: &E) -> Result<(), std::io::Error> {
 ///     let mut cmd = Command::new("cargo");
 ///     cmd.arg("test");
-///     let output = env.run(&cmd)?;
+///     let output = env.run(&mut cmd)?;
 ///     Ok(())
 /// }
 /// ```
