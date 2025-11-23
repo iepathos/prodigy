@@ -102,7 +102,7 @@ pub fn validate_workflow(config: &WorkflowConfig) -> Validation<(), Vec<Workflow
 
     // Validate environment variables
     if let Some(env) = &config.env {
-        for (key, _value) in env {
+        for key in env.keys() {
             if key.is_empty() {
                 errors.push(WorkflowError::InvalidEnvVar(
                     "Environment variable name cannot be empty".to_string(),
@@ -119,7 +119,7 @@ pub fn validate_workflow(config: &WorkflowConfig) -> Validation<(), Vec<Workflow
 
     // Validate secrets
     if let Some(secrets) = &config.secrets {
-        for (key, _secret) in secrets {
+        for key in secrets.keys() {
             if key.is_empty() {
                 errors.push(WorkflowError::InvalidEnvVar(
                     "Secret variable name cannot be empty".to_string(),
