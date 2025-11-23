@@ -322,3 +322,120 @@ fn test_error_recovery_checks() {
     assert!(StorageError::Timeout(Duration::from_secs(5)).is_retryable());
     assert!(!StorageError::NotFound("item".to_string()).is_retryable());
 }
+
+#[test]
+fn test_error_context_chain() {
+    let err = ProdigyError::storage("File not found")
+        .context("Loading configuration")
+        .context("Starting application");
+
+    let chain = err.chain();
+    assert_eq!(chain.len(), 2);
+    assert_eq!(chain[0].message, "Loading configuration");
+    assert_eq!(chain[1].message, "Starting application");
+}
+
+#[test]
+fn test_error_context_empty() {
+    let err = ProdigyError::config("Config error");
+    let chain = err.chain();
+    assert!(chain.is_empty());
+}
+
+#[test]
+fn test_error_source_chain() {
+    let source = ProdigyError::storage("Disk full");
+    let err = ProdigyError::execution("Command failed").with_error_source(source);
+
+    assert!(err.error_source().is_some());
+    let root = err.root_cause();
+    assert!(matches!(root, ProdigyError::Storage { .. }));
+}
+
+#[test]
+fn test_error_root_cause_no_source() {
+    let err = ProdigyError::validation("Invalid input");
+    let root = err.root_cause();
+    // Root cause should be itself when no source
+    assert!(matches!(root, ProdigyError::Validation { .. }));
+}
+
+#[test]
+fn test_error_root_cause_deep_chain() {
+    let err1 = ProdigyError::storage("Disk error");
+    let err2 = ProdigyError::session("Session error").with_error_source(err1);
+    let err3 = ProdigyError::workflow("Workflow error").with_error_source(err2);
+
+    let root = err3.root_cause();
+    assert!(matches!(root, ProdigyError::Storage { .. }));
+}
+
+#[test]
+fn test_context_at_includes_location() {
+    let err = ProdigyError::config("Config error").context_at("Loading file");
+
+    let chain = err.chain();
+    assert_eq!(chain.len(), 1);
+    assert_eq!(chain[0].message, "Loading file");
+    // Location should be set by #[track_caller]
+    assert!(chain[0].location.is_some());
+}
+
+#[test]
+fn test_developer_message_includes_context() {
+    let err = ProdigyError::workflow("Workflow failed")
+        .context("Executing step 1")
+        .context("Running workflow");
+
+    let dev_msg = err.developer_message();
+    assert!(dev_msg.contains("Context chain"));
+    assert!(dev_msg.contains("Executing step 1"));
+    assert!(dev_msg.contains("Running workflow"));
+}
+
+#[test]
+fn test_developer_message_includes_source() {
+    let source = ProdigyError::storage("File not found");
+    let err = ProdigyError::workflow("Workflow failed").with_error_source(source);
+
+    let dev_msg = err.developer_message();
+    assert!(dev_msg.contains("Caused by"));
+}
+
+#[test]
+fn test_combined_context_and_source() {
+    let source = ProdigyError::storage("Disk full").context("Writing file");
+    let err = ProdigyError::execution("Command failed")
+        .context("Running build")
+        .with_error_source(source);
+
+    let chain = err.chain();
+    assert_eq!(chain.len(), 1);
+    assert_eq!(chain[0].message, "Running build");
+
+    let root = err.root_cause();
+    assert!(matches!(root, ProdigyError::Storage { .. }));
+}
+
+#[test]
+fn test_user_message_unchanged() {
+    let err = ProdigyError::config("Config error")
+        .context("Loading file")
+        .context("Starting app");
+
+    // user_message should not include context chain
+    let user_msg = err.user_message();
+    assert!(user_msg.contains("Config error"));
+    // Context is separate from user message
+}
+
+#[test]
+fn test_context_fluent_api() {
+    // Test that context() returns Self for chaining
+    let err = ProdigyError::validation("Invalid input")
+        .context("Step 1")
+        .context("Step 2")
+        .context("Step 3");
+
+    assert_eq!(err.chain().len(), 3);
+}
