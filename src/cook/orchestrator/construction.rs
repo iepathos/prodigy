@@ -191,6 +191,18 @@ pub fn should_skip_commit_validation(
     (!commit_required) || dry_run || (test_mode && skip_validation)
 }
 
+/// Pure function: Determine if we should capture HEAD before command execution
+/// We capture HEAD when:
+/// - commit_required is true AND
+/// - NOT in test mode (test mode uses different validation logic)
+pub fn should_capture_head_before_execution(
+    test_mode: bool,
+    _skip_validation: bool,
+    commit_required: bool,
+) -> bool {
+    commit_required && !test_mode
+}
+
 /// Pure function: Check if commits were created (pure comparison)
 pub fn commits_were_created(head_before: &str, head_after: &str) -> bool {
     head_before != head_after

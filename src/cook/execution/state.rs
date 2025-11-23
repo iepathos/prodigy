@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -204,7 +204,7 @@ async fn write_file_atomically(
 }
 
 /// Parse checkpoint version from filename
-fn parse_checkpoint_version(path: &PathBuf) -> Option<u32> {
+fn parse_checkpoint_version(path: &Path) -> Option<u32> {
     let name = path.file_name()?.to_str()?;
     if !is_checkpoint_file(name) {
         return None;
@@ -225,7 +225,7 @@ fn extract_version_number(name: &str) -> Option<u32> {
 }
 
 /// Sort checkpoints by version (newest first)
-fn sort_checkpoints_by_version(checkpoints: &mut Vec<CheckpointInfo>) {
+fn sort_checkpoints_by_version(checkpoints: &mut [CheckpointInfo]) {
     checkpoints.sort_by(|a, b| b.version.cmp(&a.version));
 }
 
@@ -303,20 +303,6 @@ impl MapReduceJobState {
         failure.last_error = extract_error_message(status);
 
         self.failed_count += 1;
-    }
-
-    /// Get or create a failure record for an item
-    fn get_or_create_failure_record(&mut self, item_id: &str) -> &mut FailureRecord {
-        self.failed_agents
-            .entry(item_id.to_string())
-            .or_insert_with(|| create_initial_failure_record(item_id))
-    }
-
-    /// Update failure record with error details
-    fn update_failure_record(&mut self, failure: &mut FailureRecord, status: &AgentStatus) {
-        failure.attempts += 1;
-        failure.last_attempt = Utc::now();
-        failure.last_error = extract_error_message(status);
     }
 
     /// Store agent result and mark as completed

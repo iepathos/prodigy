@@ -4,10 +4,7 @@
 
 use super::super::step_validation::StepValidationSpec;
 use super::super::validation::{ValidationConfig, ValidationResult};
-use super::{
-    pure, ExecutionFlags, IterationContinuation, StepResult, WorkflowContext, WorkflowExecutor,
-    WorkflowStep,
-};
+use super::{pure, StepResult, WorkflowContext, WorkflowExecutor, WorkflowStep};
 use crate::cook::execution::ExecutionContext;
 use crate::cook::expression::{ExpressionEvaluator, VariableContext};
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -867,40 +864,6 @@ impl WorkflowExecutor {
     // ============================================================================
     // Decision functions
     // ============================================================================
-
-    /// Determine execution flags (delegated to pure module)
-    pub(super) fn determine_execution_flags() -> ExecutionFlags {
-        pure::determine_execution_flags()
-    }
-
-    /// Determine if a step should be skipped (delegated to pure module)
-    pub(super) fn should_skip_step_execution(
-        step_index: usize,
-        completed_steps: &[crate::cook::session::StepResult],
-    ) -> bool {
-        pure::should_skip_step_execution(step_index, completed_steps)
-    }
-
-    /// Determine if workflow should continue based on state (delegated to pure module)
-    pub(super) fn determine_iteration_continuation(
-        workflow: &super::super::ExtendedWorkflowConfig,
-        iteration: u32,
-        max_iterations: u32,
-        any_changes: bool,
-        execution_flags: &ExecutionFlags,
-        is_focus_tracking_test: bool,
-        should_stop_early_in_test: bool,
-    ) -> IterationContinuation {
-        pure::determine_iteration_continuation(
-            workflow,
-            iteration,
-            max_iterations,
-            any_changes,
-            execution_flags,
-            is_focus_tracking_test,
-            should_stop_early_in_test,
-        )
-    }
 
     /// Determine if workflow should fail based on command result (delegated to pure module)
     pub(super) fn should_fail_workflow_for_step(

@@ -83,7 +83,7 @@ static UNBRACED_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 // Re-export pure types for internal use
-use pure::{ExecutionFlags, IterationContinuation};
+use pure::IterationContinuation;
 
 // Re-export core types from types and context modules
 pub use context::WorkflowContext;
@@ -569,24 +569,9 @@ impl WorkflowExecutor {
     }
 
     /// Determine execution flags from environment variables (delegated to pure module)
-    /// Calculate effective max iterations for a workflow (delegated to pure module)
-    fn calculate_effective_max_iterations(workflow: &ExtendedWorkflowConfig, dry_run: bool) -> u32 {
-        pure::calculate_effective_max_iterations(workflow, dry_run)
-    }
-
-    /// Build iteration context variables (delegated to pure module)
-    fn build_iteration_context(iteration: u32) -> HashMap<String, String> {
-        pure::build_iteration_context(iteration)
-    }
-
     /// Get summary of available variables for debugging (delegated to pure module)
     fn get_available_variable_summary(context: &InterpolationContext) -> String {
         pure::get_available_variable_summary(context)
-    }
-
-    /// Validate workflow configuration (delegated to pure module)
-    fn validate_workflow_config(workflow: &ExtendedWorkflowConfig) -> Result<()> {
-        pure::validate_workflow_config(workflow)
     }
 
     /// Determine if a step should be skipped (delegated to pure module)

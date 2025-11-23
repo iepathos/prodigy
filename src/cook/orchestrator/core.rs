@@ -130,6 +130,17 @@ pub struct DefaultCookOrchestrator {
     execution_pipeline: super::execution_pipeline::ExecutionPipeline,
 }
 
+/// Context for commit validation
+struct CommitValidationContext<'a> {
+    env: &'a ExecutionEnvironment,
+    config: &'a CookConfig,
+    command: &'a crate::config::command::Command,
+    final_command: &'a str,
+    test_mode: bool,
+    skip_validation: bool,
+    head_before: Option<String>,
+}
+
 impl DefaultCookOrchestrator {
     /// Create a new orchestrator with dependencies
     #[allow(clippy::too_many_arguments)]
@@ -1242,13 +1253,11 @@ impl DefaultCookOrchestrator {
             .is_some_and(|c| c.skip_commit_validation);
 
         // Capture HEAD before execution if needed
-        let head_before = if super::construction::should_skip_commit_validation(
+        let head_before = if super::construction::should_capture_head_before_execution(
             test_mode,
             skip_validation,
             command.metadata.commit_required,
-            config.command.dry_run,
-        ) && !test_mode
-        {
+        ) {
             Some(self.get_current_head(&env.working_dir).await?)
         } else {
             None
@@ -1265,7 +1274,7 @@ impl DefaultCookOrchestrator {
         }
 
         // Validate commits if required
-        self.validate_commits(
+        self.validate_commits(CommitValidationContext {
             env,
             config,
             command,
@@ -1273,7 +1282,7 @@ impl DefaultCookOrchestrator {
             test_mode,
             skip_validation,
             head_before,
-        )
+        })
         .await
     }
 
@@ -1303,25 +1312,16 @@ impl DefaultCookOrchestrator {
     }
 
     /// Validate commits were created if required
-    async fn validate_commits(
-        &self,
-        env: &ExecutionEnvironment,
-        config: &CookConfig,
-        command: &crate::config::command::Command,
-        final_command: &str,
-        test_mode: bool,
-        skip_validation: bool,
-        head_before: Option<String>,
-    ) -> Result<()> {
-        if test_mode && skip_validation {
+    async fn validate_commits(&self, ctx: CommitValidationContext<'_>) -> Result<()> {
+        if ctx.test_mode && ctx.skip_validation {
             return Ok(());
         }
 
-        if let Some(before) = head_before {
-            self.validate_real_commits(env, config, final_command, &before)
+        if let Some(before) = ctx.head_before {
+            self.validate_real_commits(ctx.env, ctx.config, ctx.final_command, &before)
                 .await
-        } else if test_mode && command.metadata.commit_required && !skip_validation {
-            self.validate_test_mode_commits(final_command)
+        } else if ctx.test_mode && ctx.command.metadata.commit_required && !ctx.skip_validation {
+            self.validate_test_mode_commits(ctx.final_command)
         } else {
             Ok(())
         }

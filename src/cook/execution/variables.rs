@@ -347,7 +347,7 @@ fn process_path_segment<'a>(current: &'a Value, part: &str) -> Option<&'a Value>
 fn extract_json_path(json: &Value, path: &str) -> Option<Value> {
     path.split('.')
         .try_fold(json, |current, part| process_path_segment(current, part))
-        .map(|v| v.clone())
+        .cloned()
 }
 
 /// JSON path extractor
@@ -897,28 +897,6 @@ impl VariableContext {
         } else {
             a.to_string().cmp(&b.to_string())
         }
-    }
-
-    /// Find min or max value from field values
-    fn find_extreme_value<'a, F>(
-        items: &'a [Value],
-        field_name: &str,
-        extract_fn: &dyn Fn(&'a Value, &str) -> Option<&'a Value>,
-        comparator: F,
-    ) -> Option<&'a Value>
-    where
-        F: Fn(&Value, &Value) -> std::cmp::Ordering,
-    {
-        items
-            .iter()
-            .filter_map(|item| extract_fn(item, field_name))
-            .reduce(|acc, val| {
-                if comparator(val, acc) == std::cmp::Ordering::Less {
-                    val
-                } else {
-                    acc
-                }
-            })
     }
 
     /// Find minimum value from a field
