@@ -425,6 +425,159 @@ pub fn determine_no_commit_action(
 }
 
 // ============================================================================
+// Command Type Determination Functions
+// ============================================================================
+
+/// Count how many command fields are specified in a step
+pub fn count_specified_commands(step: &WorkflowStep) -> usize {
+    let mut count = 0;
+    if step.claude.is_some() {
+        count += 1;
+    }
+    if step.shell.is_some() {
+        count += 1;
+    }
+    if step.test.is_some() {
+        count += 1;
+    }
+    if step.handler.is_some() {
+        count += 1;
+    }
+    if step.goal_seek.is_some() {
+        count += 1;
+    }
+    if step.foreach.is_some() {
+        count += 1;
+    }
+    if step.write_file.is_some() {
+        count += 1;
+    }
+    if step.name.is_some() || step.command.is_some() {
+        count += 1;
+    }
+    count
+}
+
+/// Validate that exactly one command type is specified
+pub fn validate_single_command_type(count: usize) -> Result<()> {
+    if count > 1 {
+        return Err(anyhow::anyhow!(
+            "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
+        ));
+    }
+    if count == 0 {
+        return Err(anyhow::anyhow!(
+            "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
+        ));
+    }
+    Ok(())
+}
+
+/// Normalize legacy command format (prepend / if needed)
+pub fn normalize_legacy_command(name: &str) -> String {
+    if name.starts_with('/') {
+        name.to_string()
+    } else {
+        format!("/{name}")
+    }
+}
+
+// ============================================================================
+// Workflow State Construction Functions
+// ============================================================================
+
+/// Build workflow state from execution parameters
+///
+/// Pure function that constructs WorkflowState without performing I/O.
+pub fn build_workflow_state(
+    iteration: usize,
+    step_index: usize,
+    completed_steps: Vec<crate::cook::session::StepResult>,
+    workflow_path: std::path::PathBuf,
+) -> crate::cook::session::WorkflowState {
+    crate::cook::session::WorkflowState {
+        current_iteration: iteration.saturating_sub(1), // Convert to 0-based index
+        current_step: step_index + 1,                   // Next step to execute
+        completed_steps,
+        workflow_path,
+        input_args: Vec::new(),
+        map_patterns: Vec::new(),
+        using_worktree: true, // Always true since worktrees are mandatory (spec 109)
+    }
+}
+
+// ============================================================================
+// Error Message Formatting Functions
+// ============================================================================
+
+/// Check if command name is expected to not create commits
+fn is_analysis_command(command_name: &str) -> bool {
+    matches!(
+        command_name,
+        "prodigy-lint" | "prodigy-code-review" | "prodigy-analyze"
+    )
+}
+
+/// Get context-specific message for why no commits might be expected
+fn get_no_commit_context_message(command_name: &str) -> String {
+    if command_name == "prodigy-lint" {
+        "This may be expected if there were no linting issues to fix.".to_string()
+    } else if command_name == "prodigy-code-review" {
+        "This may be expected if there were no issues found to fix.".to_string()
+    } else if command_name == "prodigy-analyze" {
+        "This may be expected if there were no changes needed.".to_string()
+    } else {
+        String::new()
+    }
+}
+
+/// Extract command name from CommandType for error messages
+pub fn extract_command_name(command_type: &super::CommandType) -> &str {
+    match command_type {
+        super::CommandType::Claude(cmd) | super::CommandType::Legacy(cmd) => cmd
+            .trim_start_matches('/')
+            .split_whitespace()
+            .next()
+            .unwrap_or(""),
+        super::CommandType::Shell(cmd) => cmd,
+        super::CommandType::Test(test_cmd) => &test_cmd.command,
+        super::CommandType::Handler { handler_name, .. } => handler_name,
+        super::CommandType::GoalSeek(config) => &config.goal,
+        super::CommandType::Foreach(_) => "foreach",
+        super::CommandType::WriteFile(config) => &config.path,
+    }
+}
+
+/// Build error message for when no commits were created
+///
+/// Pure function that constructs comprehensive error message with context.
+pub fn build_no_commits_error_message(command_name: &str, step_display: &str) -> String {
+    let mut message = format!("\nWorkflow stopped: No changes were committed by {step_display}\n");
+    message.push_str("\nThe command executed successfully but did not create any git commits.\n");
+
+    if is_analysis_command(command_name) {
+        message.push('\n');
+        message.push_str(&get_no_commit_context_message(command_name));
+        message.push_str("\n\nTo allow this command to proceed without commits, set commit_required: false in your workflow\n");
+    } else {
+        message.push_str("\nPossible reasons:\n");
+        message.push_str("- The specification may already be implemented\n");
+        message
+            .push_str("- The command may have encountered an issue without reporting an error\n");
+        message.push_str("- No changes were needed\n");
+        message.push_str("\nTo investigate:\n");
+        message.push_str("- Check if the spec is already implemented\n");
+        message.push_str("- Review the command output above for any warnings\n");
+        message.push_str("- Run 'git status' to check for uncommitted changes\n");
+    }
+
+    message.push_str(
+        "\nAlternatively, run with PRODIGY_NO_COMMIT_VALIDATION=true to skip all validation.\n",
+    );
+    message
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

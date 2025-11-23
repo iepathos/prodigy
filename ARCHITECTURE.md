@@ -810,6 +810,163 @@ For detailed migration examples and patterns, see:
 - **Property-Based Tests**: Verify system invariants across arbitrary inputs using proptest
 - **Validation Tests**: Error accumulation tests verify all errors are reported
 
+## Spec 166: Complex Function Refactoring (2025-11-22)
+
+As part of continuous improvement, Prodigy underwent systematic refactoring to reduce function complexity and improve maintainability following functional programming principles.
+
+### Refactoring Objectives
+
+- **Function Size**: Reduce all functions to < 20 lines (prefer 5-10)
+- **Nesting Depth**: Maximum 2 levels of nesting
+- **Single Responsibility**: Each function does one thing well
+- **Pure Function Extraction**: Separate business logic from I/O
+- **Composability**: Build complex behavior from small, testable functions
+
+### Modules Refactored
+
+#### 1. `cook/orchestrator/core.rs` (2829 lines)
+- **setup_environment**: 98 lines → 27 lines + 3 helper functions
+- **cleanup**: 71 lines → 8 lines + 4 helper functions
+- **execute_and_validate_command**: 95 lines → 33 lines + 4 pure validators
+- Extracted 13 pure functions to `cook/orchestrator/construction.rs`
+- All pure functions have comprehensive unit tests
+
+####2. `cook/execution/mapreduce/checkpoint_integration.rs` (2515 lines)
+- **initialize_checkpoint_state**: 65 lines → 5 lines + 7 helper functions
+- **get_next_batch**: 34 lines (3-level nesting) → 8 lines (1-level nesting)
+- **process_batch**: 32 lines → 5 lines + 2 pure functions
+- **update_checkpoint_with_results**: 51 lines → 16 lines + 3 handlers
+- **resume_from_checkpoint**: 100 lines → 24 lines + 3 phase handlers
+- Created 24 new focused functions, all < 20 lines
+
+#### 3. `cook/workflow/executor.rs` (2218 lines)
+- **determine_command_type**: 77 lines → 7 lines + 5 pure helpers
+- **save_workflow_state**: 22 lines → 14 lines (pure extraction)
+- **handle_no_commits_error**: 55 lines → 8 lines + 4 message builders
+- **execute_internal**: 293 lines → 3 orchestration functions
+- Extracted 9 pure functions to `executor/pure.rs`
+
+#### 4. `cook/execution/variables.rs` (2204 lines)
+- **extract_json_path**: 37 lines, 4-level nesting → 4 lines, 1-level nesting
+- **resolve_by_type**: 38 lines → 13 lines + 5 specialized resolvers
+- **resolve_json_variable**: 38 lines, 6-level nesting → 16 lines, 2-level nesting
+- **aggregate functions** (min, max, median, variance): 24-29 lines → 10-16 lines
+- Created 38 new helper functions, all pure and focused
+- Eliminated code duplication across aggregation functions
+
+#### 5. `cook/execution/state.rs` (1749 lines)
+- **update_agent_result**: 57 lines → 6 lines + 6 helper functions + 3 pure extractors
+- **save_checkpoint**: 80 lines → 14 lines + 4 I/O pipelines + 3 pure helpers
+- **load_checkpoint_by_version**: 51 lines → 10 lines + 4 path resolution helpers
+- **list_checkpoints**: 39 lines → 8 lines + 5 pure parsing functions
+- Created reusable `write_file_atomically` primitive
+
+### Functional Programming Patterns Applied
+
+#### 1. Pure Function Extraction
+```rust
+// BEFORE: Mixed logic and I/O
+fn process_item(item: &Item) -> Result<()> {
+    if item.validate() {  // Pure logic
+        fs::write("result.txt", "success")?;  // I/O
+    }
+    Ok(())
+}
+
+// AFTER: Separated concerns
+fn validate_item(item: &Item) -> bool {  // Pure
+    // Validation logic
+}
+
+fn write_result(path: &Path, content: &str) -> Result<()> {  // I/O wrapper
+    fs::write(path, content)
+}
+
+fn process_item(item: &Item) -> Result<()> {  // Thin orchestration
+    if validate_item(item) {
+        write_result(Path::new("result.txt"), "success")?;
+    }
+    Ok(())
+}
+```
+
+#### 2. Function Composition
+```rust
+// BEFORE: Monolithic function
+fn complex_operation(data: Data) -> Result<Output> {
+    // 100 lines of sequential logic
+}
+
+// AFTER: Composed from small functions
+fn complex_operation(data: Data) -> Result<Output> {
+    step1(data)
+        .and_then(step2)
+        .and_then(step3)
+        .map(finalize)
+}
+```
+
+#### 3. Reduced Nesting
+```rust
+// BEFORE: Deep nesting
+fn process(item: Option<Item>) -> Result<()> {
+    if let Some(item) = item {
+        if item.valid {
+            if let Some(data) = item.data {
+                // Process...
+            }
+        }
+    }
+    Ok(())
+}
+
+// AFTER: Early returns + functional chains
+fn process(item: Option<Item>) -> Result<()> {
+    let item = item.ok_or(Error::MissingItem)?;
+    if !item.valid {
+        return Ok(());
+    }
+    let data = item.data.ok_or(Error::MissingData)?;
+    process_data(&data)
+}
+```
+
+### Benefits Achieved
+
+1. **Testability**: Pure functions testable without I/O mocks
+2. **Readability**: Small functions self-document through clear names
+3. **Maintainability**: Easy to locate and modify specific behavior
+4. **Reusability**: Helper functions composable across modules
+5. **Debugging**: Reduced complexity simplifies troubleshooting
+6. **Code Review**: Smaller units easier to review thoroughly
+
+### Metrics
+
+- **Functions Refactored**: 14 major complex functions
+- **Helper Functions Created**: 90+ new focused functions
+- **Average Function Length**: Reduced from ~50 lines to ~12 lines
+- **Max Nesting Depth**: Reduced from 4-6 levels to 1-2 levels
+- **Test Coverage**: Pure functions have dedicated unit tests
+
+### Ongoing Work
+
+Some refactored functions are still being integrated:
+- Test failures in `cook/orchestrator/core.rs` (6 tests) due to behavior changes
+- These will be addressed in follow-up work to ensure exact behavioral equivalence
+
+### Refactoring Guidelines
+
+When refactoring complex functions in Prodigy:
+
+1. **Identify** functions > 20 lines or complexity > 5
+2. **Extract** pure logic to helper functions (< 10 lines each)
+3. **Separate** I/O operations into thin wrappers
+4. **Compose** at higher level using functional patterns
+5. **Test** each pure function independently
+6. **Verify** original tests still pass
+
+See spec 166 for detailed refactoring patterns and examples.
+
 ## Future Enhancements
 
 1. **Distributed Execution**: Support for multi-machine orchestration

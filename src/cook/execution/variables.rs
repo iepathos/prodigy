@@ -304,47 +304,50 @@ impl ComputedVariable for DateVariable {
     }
 }
 
+/// Parse array indexing notation like "items[0]" into (field, index)
+/// Returns None for malformed bracket expressions
+fn parse_bracket_notation(part: &str) -> Option<(&str, usize)> {
+    let bracket_pos = part.find('[')?;
+    let close_bracket = part.find(']')?;
+    let field = &part[..bracket_pos];
+    let index_str = &part[bracket_pos + 1..close_bracket];
+    let index = index_str.parse::<usize>().ok()?;
+    Some((field, index))
+}
+
+/// Navigate to a field in JSON value, then apply array index
+fn navigate_field_with_index<'a>(
+    current: &'a Value,
+    field: &str,
+    index: usize,
+) -> Option<&'a Value> {
+    let after_field = if field.is_empty() {
+        current
+    } else {
+        current.get(field)?
+    };
+    after_field.get(index)
+}
+
+/// Process a single path segment and return the next value
+fn process_path_segment<'a>(current: &'a Value, part: &str) -> Option<&'a Value> {
+    if let Some((field, index)) = parse_bracket_notation(part) {
+        navigate_field_with_index(current, field, index)
+    } else if let Ok(index) = part.parse::<usize>() {
+        current.get(index)
+    } else {
+        current.get(part)
+    }
+}
+
 /// Extract a value from JSON using a simple path notation
 /// Supports:
 /// - Simple dot notation: "field.nested.value"
 /// - Array indexing: "items\\[0\\]" or "items.0"
 fn extract_json_path(json: &Value, path: &str) -> Option<Value> {
-    let mut current = json;
-
-    // Split path on dots, but handle array notation
-    let parts: Vec<&str> = path.split('.').collect();
-
-    for part in parts {
-        // Check for array indexing notation like "items[0]"
-        if let Some(bracket_pos) = part.find('[') {
-            if let Some(close_bracket) = part.find(']') {
-                let field = &part[..bracket_pos];
-                let index_str = &part[bracket_pos + 1..close_bracket];
-
-                // Navigate to the field first if field is not empty
-                if !field.is_empty() {
-                    current = current.get(field)?;
-                }
-
-                // Then apply the index
-                if let Ok(index) = index_str.parse::<usize>() {
-                    current = current.get(index)?;
-                } else {
-                    return None;
-                }
-            } else {
-                return None;
-            }
-        } else if let Ok(index) = part.parse::<usize>() {
-            // Handle pure numeric indices (for cases like "items.0")
-            current = current.get(index)?;
-        } else {
-            // Regular field access
-            current = current.get(part)?;
-        }
-    }
-
-    Some(current.clone())
+    path.split('.')
+        .try_fold(json, |current, part| process_path_segment(current, part))
+        .map(|v| v.clone())
 }
 
 /// JSON path extractor
@@ -482,25 +485,34 @@ impl VariableContext {
         self.interpolate_with_depth(template, 0).await
     }
 
+    /// Check if variable expression is a simple identifier (no special chars)
+    fn is_simple_identifier(var_expr: &str) -> bool {
+        !var_expr.contains('.') && !var_expr.contains(':') && !var_expr.contains('[')
+    }
+
+    /// Replace a variable expression in the template with its value
+    fn replace_variable_in_template(template: String, var_expr: &str, value_str: &str) -> String {
+        let with_braces = template.replace(&format!("${{{}}}", var_expr), value_str);
+        if Self::is_simple_identifier(var_expr) {
+            with_braces.replace(&format!("${}", var_expr), value_str)
+        } else {
+            with_braces
+        }
+    }
+
     /// Interpolate with recursion depth tracking
     async fn interpolate_with_depth(&self, template: &str, depth: usize) -> Result<String> {
         if depth > self.max_recursion_depth {
             return Err(anyhow!("Maximum variable recursion depth exceeded"));
         }
 
-        let mut result = template.to_string();
         let variables = self.extract_variables(template);
+        let mut result = template.to_string();
 
         for var_expr in variables {
             let value = self.resolve_variable(&var_expr, depth).await?;
             let value_str = self.value_to_string(&value);
-
-            // Replace both ${var} and $var patterns
-            result = result.replace(&format!("${{{}}}", var_expr), &value_str);
-            // Only replace simple $var if it's a valid identifier
-            if !var_expr.contains('.') && !var_expr.contains(':') && !var_expr.contains('[') {
-                result = result.replace(&format!("${}", var_expr), &value_str);
-            }
+            result = Self::replace_variable_in_template(result, &var_expr, &value_str);
         }
 
         Ok(result)
@@ -536,14 +548,37 @@ impl VariableContext {
         Box::pin(async move { self.resolve_variable_impl(expr, depth).await })
     }
 
+    /// Strip a prefix from expression or return error
+    fn strip_prefix_or_error<'a>(expr: &'a str, prefix: &str, var_type: &str) -> Result<&'a str> {
+        expr.strip_prefix(prefix)
+            .ok_or_else(|| anyhow!("Invalid {} variable format: {}", var_type, expr))
+    }
+
+    /// Resolve environment variable (env.*)
+    fn resolve_env_variable(&self, expr: &str) -> Result<Value> {
+        let var_name = Self::strip_prefix_or_error(expr, "env.", "environment")?;
+        EnvVariable::new(var_name.to_string()).evaluate(self)
+    }
+
+    /// Resolve file variable (file:*)
+    fn resolve_file_variable(&self, expr: &str) -> Result<Value> {
+        let path = Self::strip_prefix_or_error(expr, "file:", "file")?;
+        FileVariable::new(path.to_string()).evaluate(self)
+    }
+
+    /// Resolve command variable (cmd:*)
+    fn resolve_cmd_variable(&self, expr: &str) -> Result<Value> {
+        let command = Self::strip_prefix_or_error(expr, "cmd:", "command")?;
+        CommandVariable::new(command.to_string()).evaluate(self)
+    }
+
+    /// Resolve date variable (date:*)
+    fn resolve_date_variable(&self, expr: &str) -> Result<Value> {
+        let format = Self::strip_prefix_or_error(expr, "date:", "date")?;
+        DateVariable::new(format.to_string()).evaluate(self)
+    }
+
     /// Resolve a variable by dispatching to the appropriate type-specific resolver
-    ///
-    /// Uses a match statement on VariableType to delegate to specialized resolvers.
-    /// Each branch extracts the relevant part of the expression and calls the
-    /// corresponding variable type's evaluate method.
-    ///
-    /// This function replaces the previous large if-else chain, reducing complexity
-    /// and improving maintainability through clean separation of concerns.
     async fn resolve_by_type(
         &self,
         var_type: VariableType,
@@ -551,95 +586,80 @@ impl VariableContext {
         depth: usize,
     ) -> Result<Value> {
         match var_type {
-            VariableType::Environment => {
-                let var_name = expr
-                    .strip_prefix("env.")
-                    .ok_or_else(|| anyhow!("Invalid environment variable format: {}", expr))?;
-                let env_var = EnvVariable::new(var_name.to_string());
-                env_var.evaluate(self)
-            }
-            VariableType::File => {
-                let path = expr
-                    .strip_prefix("file:")
-                    .ok_or_else(|| anyhow!("Invalid file variable format: {}", expr))?;
-                let file_var = FileVariable::new(path.to_string());
-                file_var.evaluate(self)
-            }
-            VariableType::Command => {
-                let command = expr
-                    .strip_prefix("cmd:")
-                    .ok_or_else(|| anyhow!("Invalid command variable format: {}", expr))?;
-                let cmd_var = CommandVariable::new(command.to_string());
-                cmd_var.evaluate(self)
-            }
+            VariableType::Environment => self.resolve_env_variable(expr),
+            VariableType::File => self.resolve_file_variable(expr),
+            VariableType::Command => self.resolve_cmd_variable(expr),
+            VariableType::Date => self.resolve_date_variable(expr),
             VariableType::Json => {
-                let remainder = expr
-                    .strip_prefix("json:")
-                    .ok_or_else(|| anyhow!("Invalid JSON variable format: {}", expr))?;
+                let remainder = Self::strip_prefix_or_error(expr, "json:", "JSON")?;
                 self.resolve_json_variable(remainder, depth).await
-            }
-            VariableType::Date => {
-                let format = expr
-                    .strip_prefix("date:")
-                    .ok_or_else(|| anyhow!("Invalid date variable format: {}", expr))?;
-                let date_var = DateVariable::new(format.to_string());
-                date_var.evaluate(self)
             }
             VariableType::Uuid => UuidVariable.evaluate(self),
             VariableType::Standard => self.lookup_variable(expr),
         }
     }
 
-    /// Resolve a JSON variable expression with path extraction
-    ///
-    /// Supports two formats:
-    /// - Modern: `json:path:from:data_source` - Uses `:from:` separator
-    /// - Legacy: `json:path:data_source` - Uses first `:` as separator
-    ///
-    /// The function:
-    /// 1. Parses the format to extract path and data source
-    /// 2. Recursively resolves the data source variable
-    /// 3. Handles both string JSON and structured data
-    /// 4. Applies JSONPath to extract the desired value
-    ///
-    /// This extraction eliminates the deepest nesting (6 levels) from the main
-    /// resolve function, significantly improving readability.
-    async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value> {
-        // Find the position of ":from:" separator
+    /// Parse JSON variable format into (path, data_source)
+    /// Returns Some for modern format, None for legacy
+    fn parse_json_format(remainder: &str) -> Option<(&str, &str)> {
         let separator = ":from:";
-        if let Some(sep_pos) = remainder.find(separator) {
-            let path = &remainder[..sep_pos];
-            let data_source = &remainder[sep_pos + separator.len()..];
+        let sep_pos = remainder.find(separator)?;
+        let path = &remainder[..sep_pos];
+        let data_source = &remainder[sep_pos + separator.len()..];
+        Some((path, data_source))
+    }
 
-            // Resolve the JSON data variable first
-            let json_value = self.resolve_variable(data_source, depth + 1).await?;
-
-            // Handle both string JSON and already-structured data
-            let json_to_query = if json_value.is_string() {
-                // If it's a string, parse it as JSON
-                let json_str = self.value_to_string(&json_value);
-                serde_json::from_str(&json_str)
-                    .context("Failed to parse JSON string from variable")?
-            } else {
-                // If it's already structured data, use it directly
-                json_value.clone()
-            };
-
-            // Apply JSONPath to extract the value
-            extract_json_path(&json_to_query, path)
-                .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))
+    /// Convert a JSON value to queryable form (parse string or use as-is)
+    fn prepare_json_for_query(&self, json_value: &Value) -> Result<Value> {
+        if json_value.is_string() {
+            let json_str = self.value_to_string(json_value);
+            serde_json::from_str(&json_str).context("Failed to parse JSON string from variable")
         } else {
-            // Legacy format: json:path:data_source (split on first colon)
+            Ok(json_value.clone())
+        }
+    }
+
+    /// Resolve JSON variable using modern :from: syntax
+    async fn resolve_modern_json_format(
+        &self,
+        path: &str,
+        data_source: &str,
+        depth: usize,
+    ) -> Result<Value> {
+        let json_value = self.resolve_variable(data_source, depth + 1).await?;
+        let json_to_query = self.prepare_json_for_query(&json_value)?;
+        extract_json_path(&json_to_query, path)
+            .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))
+    }
+
+    /// Resolve JSON variable using legacy path:source syntax
+    async fn resolve_legacy_json_format(
+        &self,
+        path: &str,
+        data_source: &str,
+        depth: usize,
+    ) -> Result<Value> {
+        let json_value = self.resolve_variable(data_source, depth + 1).await?;
+        let json_str = self.value_to_string(&json_value);
+        JsonPathVariable::new(json_str, path.to_string()).evaluate(self)
+    }
+
+    /// Resolve a JSON variable expression with path extraction
+    /// Supports: `json:path:from:data_source` and `json:path:data_source`
+    async fn resolve_json_variable(&self, remainder: &str, depth: usize) -> Result<Value> {
+        if let Some((path, data_source)) = Self::parse_json_format(remainder) {
+            self.resolve_modern_json_format(path, data_source, depth)
+                .await
+        } else {
             let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-            if parts.len() == 2 {
-                let json_value = self.resolve_variable(parts[1], depth + 1).await?;
-                let json_str = self.value_to_string(&json_value);
-                let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
-                json_var.evaluate(self)
-            } else {
-                Err(anyhow!(
+            match parts.as_slice() {
+                [path, data_source] => {
+                    self.resolve_legacy_json_format(path, data_source, depth)
+                        .await
+                }
+                _ => Err(anyhow!(
                     "Invalid json: expression format. Use json:path:from:data_source"
-                ))
+                )),
             }
         }
     }
@@ -691,39 +711,64 @@ impl VariableContext {
         self.resolve_by_type(var_type, expr, depth).await
     }
 
+    /// Get scope map for a given scope level
+    fn get_scope_map(&self, level: &ScopeLevel) -> &HashMap<String, Variable> {
+        match level {
+            ScopeLevel::Local => &self.scope.local,
+            ScopeLevel::Phase => &self.scope.phase,
+            ScopeLevel::Global => &self.scope.global,
+        }
+    }
+
+    /// Try direct lookup in a scope map
+    fn try_direct_lookup(
+        &self,
+        scope_map: &HashMap<String, Variable>,
+        path: &str,
+    ) -> Option<Value> {
+        scope_map
+            .get(path)
+            .and_then(|var| self.evaluate_variable(var).ok())
+    }
+
+    /// Try nested path lookup (e.g., "map.total" -> get "map" then navigate to "total")
+    fn try_nested_lookup(
+        &self,
+        scope_map: &HashMap<String, Variable>,
+        path: &str,
+    ) -> Option<Value> {
+        let parts: Vec<&str> = path.split('.').collect();
+        let base_var = scope_map.get(parts[0])?;
+        let base_value = self.evaluate_variable(base_var).ok()?;
+        self.resolve_nested_path(&base_value, &parts[1..])
+    }
+
+    /// Try lookup in a single scope (direct or nested)
+    fn try_scope_lookup(&self, scope_level: &ScopeLevel, path: &str) -> Option<Value> {
+        let scope_map = self.get_scope_map(scope_level);
+        self.try_direct_lookup(scope_map, path).or_else(|| {
+            if path.contains('.') {
+                self.try_nested_lookup(scope_map, path)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Look up a variable in scopes
     fn lookup_variable(&self, path: &str) -> Result<Value> {
         // Try each scope in precedence order
         for scope_level in &self.scope.precedence {
-            let scope_map = match scope_level {
-                ScopeLevel::Local => &self.scope.local,
-                ScopeLevel::Phase => &self.scope.phase,
-                ScopeLevel::Global => &self.scope.global,
-            };
-
-            if let Some(var) = scope_map.get(path) {
-                return self.evaluate_variable(var);
-            }
-
-            // Try nested path resolution (e.g., "map.total")
-            if path.contains('.') {
-                let parts: Vec<&str> = path.split('.').collect();
-                if let Some(var) = scope_map.get(parts[0]) {
-                    if let Ok(value) = self.evaluate_variable(var) {
-                        if let Some(nested) = self.resolve_nested_path(&value, &parts[1..]) {
-                            return Ok(nested);
-                        }
-                    }
-                }
+            if let Some(value) = self.try_scope_lookup(scope_level, path) {
+                return Ok(value);
             }
         }
 
         // Check if it's a registered computed variable
-        if let Some(computed) = self.computed.get(path) {
-            return computed.evaluate(self);
-        }
-
-        Err(anyhow!("Variable '{}' not found", path))
+        self.computed
+            .get(path)
+            .map(|computed| computed.evaluate(self))
+            .unwrap_or_else(|| Err(anyhow!("Variable '{}' not found", path)))
     }
 
     /// Evaluate a variable (handle references and aggregates)
@@ -759,36 +804,36 @@ impl VariableContext {
         }
     }
 
+    /// Get the default collection for MapReduce operations
+    fn get_default_collection(&self) -> Value {
+        self.lookup_variable("map.results")
+            .or_else(|_| self.lookup_variable("map"))
+            .unwrap_or(Value::Array(vec![]))
+    }
+
+    /// Count items in an array (with optional filter)
+    fn count_array_items(items: &[Value], _filter: Option<&str>) -> usize {
+        // TODO: Implement filter expression evaluation
+        items.len()
+    }
+
+    /// Count items in an object (check for "results" field or count keys)
+    fn count_object_items(map: &serde_json::Map<String, Value>) -> usize {
+        map.get("results")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.len())
+            .unwrap_or(map.len())
+    }
+
     /// Count items in a collection, optionally filtered
     fn aggregate_count(&self, filter: Option<&str>) -> Result<Value> {
-        // Look for map.results which is the main collection in MapReduce
-        let collection = self
-            .lookup_variable("map.results")
-            .or_else(|_| self.lookup_variable("map"))
-            .unwrap_or(Value::Array(vec![]));
-
-        match &collection {
-            Value::Array(items) => {
-                let count = if let Some(_filter_expr) = filter {
-                    // TODO: Implement filter expression evaluation
-                    // For now, count all items
-                    items.len()
-                } else {
-                    items.len()
-                };
-                Ok(Value::Number(serde_json::Number::from(count)))
-            }
-            Value::Object(map) => {
-                // If it's a map with a "results" field, use that
-                if let Some(Value::Array(items)) = map.get("results") {
-                    Ok(Value::Number(serde_json::Number::from(items.len())))
-                } else {
-                    // Count the number of keys in the object
-                    Ok(Value::Number(serde_json::Number::from(map.len())))
-                }
-            }
-            _ => Ok(Value::Number(serde_json::Number::from(0))),
-        }
+        let collection = self.get_default_collection();
+        let count = match &collection {
+            Value::Array(items) => Self::count_array_items(items, filter),
+            Value::Object(map) => Self::count_object_items(map),
+            _ => 0,
+        };
+        Ok(Value::Number(serde_json::Number::from(count)))
     }
 
     /// Sum numeric values from a field in a collection
@@ -843,6 +888,39 @@ impl VariableContext {
         }
     }
 
+    /// Compare two JSON values (numeric if possible, otherwise string)
+    fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
+        if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
+            a_num
+                .partial_cmp(&b_num)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        } else {
+            a.to_string().cmp(&b.to_string())
+        }
+    }
+
+    /// Find min or max value from field values
+    fn find_extreme_value<'a, F>(
+        items: &'a [Value],
+        field_name: &str,
+        extract_fn: &dyn Fn(&'a Value, &str) -> Option<&'a Value>,
+        comparator: F,
+    ) -> Option<&'a Value>
+    where
+        F: Fn(&Value, &Value) -> std::cmp::Ordering,
+    {
+        items
+            .iter()
+            .filter_map(|item| extract_fn(item, field_name))
+            .reduce(|acc, val| {
+                if comparator(val, acc) == std::cmp::Ordering::Less {
+                    val
+                } else {
+                    acc
+                }
+            })
+    }
+
     /// Find minimum value from a field
     fn aggregate_min(&self, field: &str) -> Result<Value> {
         let collection = self.get_collection_for_field(field)?;
@@ -853,17 +931,7 @@ impl VariableContext {
                 let min_val = items
                     .iter()
                     .filter_map(|item| self.extract_field_value(item, &field_name))
-                    .min_by(|a, b| {
-                        // Compare as numbers if possible, otherwise as strings
-                        if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
-                            a_num
-                                .partial_cmp(&b_num)
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                        } else {
-                            a.to_string().cmp(&b.to_string())
-                        }
-                    });
-
+                    .min_by(|a, b| Self::compare_values(a, b));
                 Ok(min_val.cloned().unwrap_or(Value::Null))
             }
             _ => Ok(Value::Null),
@@ -880,17 +948,7 @@ impl VariableContext {
                 let max_val = items
                     .iter()
                     .filter_map(|item| self.extract_field_value(item, &field_name))
-                    .max_by(|a, b| {
-                        // Compare as numbers if possible, otherwise as strings
-                        if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
-                            a_num
-                                .partial_cmp(&b_num)
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                        } else {
-                            a.to_string().cmp(&b.to_string())
-                        }
-                    });
-
+                    .max_by(|a, b| Self::compare_values(a, b));
                 Ok(max_val.cloned().unwrap_or(Value::Null))
             }
             _ => Ok(Value::Null),
@@ -949,6 +1007,27 @@ impl VariableContext {
         }
     }
 
+    /// Extract numeric field values from items
+    fn extract_numeric_values(&self, items: &[Value], field_name: &str) -> Vec<f64> {
+        items
+            .iter()
+            .filter_map(|item| {
+                self.extract_field_value(item, field_name)
+                    .and_then(|v| v.as_f64())
+            })
+            .collect()
+    }
+
+    /// Calculate median from sorted values
+    fn calculate_median(sorted_values: &[f64]) -> f64 {
+        let len = sorted_values.len();
+        if len.is_multiple_of(2) {
+            (sorted_values[len / 2 - 1] + sorted_values[len / 2]) / 2.0
+        } else {
+            sorted_values[len / 2]
+        }
+    }
+
     /// Calculate median of numeric values
     fn aggregate_median(&self, field: &str) -> Result<Value> {
         let collection = self.get_collection_for_field(field)?;
@@ -956,25 +1035,12 @@ impl VariableContext {
 
         match &collection {
             Value::Array(items) => {
-                let mut values: Vec<f64> = items
-                    .iter()
-                    .filter_map(|item| {
-                        self.extract_field_value(item, &field_name)
-                            .and_then(|v| v.as_f64())
-                    })
-                    .collect();
-
+                let mut values = self.extract_numeric_values(items, &field_name);
                 if values.is_empty() {
                     return Ok(Value::Null);
                 }
-
                 values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                let len = values.len();
-                let median = if len.is_multiple_of(2) {
-                    (values[len / 2 - 1] + values[len / 2]) / 2.0
-                } else {
-                    values[len / 2]
-                };
+                let median = Self::calculate_median(&values);
                 Ok(Value::Number(
                     serde_json::Number::from_f64(median)
                         .unwrap_or_else(|| serde_json::Number::from(0)),
@@ -999,6 +1065,17 @@ impl VariableContext {
         }
     }
 
+    /// Calculate mean of numeric values
+    fn calculate_mean(values: &[f64]) -> f64 {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+
+    /// Calculate sample variance from values and mean
+    fn calculate_sample_variance(values: &[f64], mean: f64) -> f64 {
+        let sum_squared_diffs: f64 = values.iter().map(|v| (v - mean).powi(2)).sum();
+        sum_squared_diffs / (values.len() - 1) as f64
+    }
+
     /// Calculate variance
     fn aggregate_variance(&self, field: &str) -> Result<Value> {
         let collection = self.get_collection_for_field(field)?;
@@ -1006,22 +1083,12 @@ impl VariableContext {
 
         match &collection {
             Value::Array(items) => {
-                let values: Vec<f64> = items
-                    .iter()
-                    .filter_map(|item| {
-                        self.extract_field_value(item, &field_name)
-                            .and_then(|v| v.as_f64())
-                    })
-                    .collect();
-
+                let values = self.extract_numeric_values(items, &field_name);
                 if values.len() < 2 {
                     return Ok(Value::Null);
                 }
-
-                let mean = values.iter().sum::<f64>() / values.len() as f64;
-                let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>()
-                    / (values.len() - 1) as f64;
-
+                let mean = Self::calculate_mean(&values);
+                let variance = Self::calculate_sample_variance(&values, mean);
                 Ok(Value::Number(
                     serde_json::Number::from_f64(variance)
                         .unwrap_or_else(|| serde_json::Number::from(0)),
@@ -1031,6 +1098,22 @@ impl VariableContext {
         }
     }
 
+    /// Collect unique values using HashSet for deduplication
+    fn collect_unique_values(&self, items: &[Value], field_name: &str) -> Result<Vec<Value>> {
+        let mut unique_keys = std::collections::HashSet::new();
+        let mut result = Vec::new();
+
+        for item in items {
+            if let Some(value) = self.extract_field_value(item, field_name) {
+                let key = serde_json::to_string(value)?;
+                if unique_keys.insert(key) {
+                    result.push(value.clone());
+                }
+            }
+        }
+        Ok(result)
+    }
+
     /// Get unique values from a field
     fn aggregate_unique(&self, field: &str) -> Result<Value> {
         let collection = self.get_collection_for_field(field)?;
@@ -1038,19 +1121,8 @@ impl VariableContext {
 
         match &collection {
             Value::Array(items) => {
-                let mut unique_values = std::collections::HashSet::new();
-                let mut result = Vec::new();
-
-                for item in items {
-                    if let Some(value) = self.extract_field_value(item, &field_name) {
-                        let key = serde_json::to_string(value)?;
-                        if unique_values.insert(key) {
-                            result.push(value.clone());
-                        }
-                    }
-                }
-
-                Ok(Value::Array(result))
+                let unique = self.collect_unique_values(items, &field_name)?;
+                Ok(Value::Array(unique))
             }
             _ => Ok(Value::Array(vec![])),
         }
@@ -1165,38 +1237,46 @@ impl VariableContext {
         }
     }
 
-    /// Group items by a key field
-    fn aggregate_group_by(&self, field: &str, key: &str) -> Result<Value> {
-        // For group_by, the field parameter is the collection path itself
-        // not a field within items, so we get the collection directly
-        let collection = if field.contains('.') {
+    /// Get collection for group_by operation (field or default)
+    fn get_groupby_collection(&self, field: &str) -> Value {
+        if field.contains('.') {
             self.lookup_variable(field).unwrap_or(Value::Array(vec![]))
         } else {
-            self.lookup_variable("map.results")
-                .or_else(|_| self.lookup_variable("map"))
-                .unwrap_or(Value::Array(vec![]))
-        };
+            self.get_default_collection()
+        }
+    }
+
+    /// Convert a JSON value to a string key for grouping
+    fn value_to_group_key(value: &Value) -> String {
+        match value {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        }
+    }
+
+    /// Build groups HashMap from items and key field
+    fn build_groups(&self, items: &[Value], key: &str) -> HashMap<String, Vec<Value>> {
+        let mut groups: HashMap<String, Vec<Value>> = HashMap::new();
+        for item in items {
+            if let Some(key_value) = self.extract_field_value(item, key) {
+                let key_str = Self::value_to_group_key(key_value);
+                groups.entry(key_str).or_default().push(item.clone());
+            }
+        }
+        groups
+    }
+
+    /// Group items by a key field
+    fn aggregate_group_by(&self, field: &str, key: &str) -> Result<Value> {
+        let collection = self.get_groupby_collection(field);
 
         match &collection {
             Value::Array(items) => {
-                let mut groups: std::collections::HashMap<String, Vec<Value>> =
-                    std::collections::HashMap::new();
-
-                for item in items {
-                    if let Some(key_value) = self.extract_field_value(item, key) {
-                        let key_str = match key_value {
-                            Value::String(s) => s.clone(),
-                            _ => key_value.to_string(),
-                        };
-                        groups.entry(key_str).or_default().push(item.clone());
-                    }
-                }
-
-                let mut result = serde_json::Map::new();
-                for (k, v) in groups {
-                    result.insert(k, Value::Array(v));
-                }
-
+                let groups = self.build_groups(items, key);
+                let result: serde_json::Map<_, _> = groups
+                    .into_iter()
+                    .map(|(k, v)| (k, Value::Array(v)))
+                    .collect();
                 Ok(Value::Object(result))
             }
             _ => Ok(Value::Object(serde_json::Map::new())),
@@ -1216,6 +1296,28 @@ impl VariableContext {
         Some(current.clone())
     }
 
+    /// Check if all values in array are strings
+    fn is_string_array(arr: &[Value]) -> bool {
+        arr.iter().all(|v| matches!(v, Value::String(_)))
+    }
+
+    /// Convert string array to comma-separated string
+    fn string_array_to_string(arr: &[Value]) -> String {
+        arr.iter()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// Convert array to string (comma-separated for strings, JSON otherwise)
+    fn array_to_string(arr: &[Value]) -> String {
+        if Self::is_string_array(arr) {
+            Self::string_array_to_string(arr)
+        } else {
+            serde_json::to_string(&Value::Array(arr.to_vec())).unwrap_or_default()
+        }
+    }
+
     /// Convert a JSON value to string for interpolation
     fn value_to_string(&self, value: &Value) -> String {
         match value {
@@ -1223,18 +1325,7 @@ impl VariableContext {
             Value::Bool(b) => b.to_string(),
             Value::Number(n) => n.to_string(),
             Value::String(s) => s.clone(),
-            Value::Array(arr) => {
-                // For string arrays, join with commas
-                if arr.iter().all(|v| matches!(v, Value::String(_))) {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                } else {
-                    // For mixed arrays, use JSON representation
-                    serde_json::to_string(value).unwrap_or_default()
-                }
-            }
+            Value::Array(arr) => Self::array_to_string(arr),
             Value::Object(_) => serde_json::to_string(value).unwrap_or_default(),
         }
     }
@@ -1261,45 +1352,58 @@ impl VariableContext {
         child
     }
 
+    /// Export variables from a single scope with prefix
+    fn export_scope(
+        &self,
+        scope_map: &HashMap<String, Variable>,
+        prefix: &str,
+    ) -> HashMap<String, Value> {
+        scope_map
+            .iter()
+            .filter_map(|(key, var)| {
+                self.evaluate_variable(var)
+                    .ok()
+                    .map(|value| (format!("{}.{}", prefix, key), value))
+            })
+            .collect()
+    }
+
     /// Export variables for persistence
     pub fn export(&self) -> HashMap<String, Value> {
         let mut exported = HashMap::new();
-
-        // Export all scopes
-        for (key, var) in &self.scope.global {
-            if let Ok(value) = self.evaluate_variable(var) {
-                exported.insert(format!("global.{}", key), value);
-            }
-        }
-
-        for (key, var) in &self.scope.phase {
-            if let Ok(value) = self.evaluate_variable(var) {
-                exported.insert(format!("phase.{}", key), value);
-            }
-        }
-
-        for (key, var) in &self.scope.local {
-            if let Ok(value) = self.evaluate_variable(var) {
-                exported.insert(format!("local.{}", key), value);
-            }
-        }
-
+        exported.extend(self.export_scope(&self.scope.global, "global"));
+        exported.extend(self.export_scope(&self.scope.phase, "phase"));
+        exported.extend(self.export_scope(&self.scope.local, "local"));
         exported
+    }
+
+    /// Parse scope prefix from variable key
+    fn parse_scope_prefix(key: &str) -> Option<(&str, &str)> {
+        key.strip_prefix("global.")
+            .map(|name| ("global", name))
+            .or_else(|| key.strip_prefix("phase.").map(|name| ("phase", name)))
+            .or_else(|| key.strip_prefix("local.").map(|name| ("local", name)))
+    }
+
+    /// Import a single variable into the appropriate scope
+    fn import_variable(&mut self, key: String, value: Value) {
+        if let Some((scope, var_name)) = Self::parse_scope_prefix(&key) {
+            match scope {
+                "global" => self.set_global(var_name, Variable::Static(value)),
+                "phase" => self.set_phase(var_name, Variable::Static(value)),
+                "local" => self.set_local(var_name, Variable::Static(value)),
+                _ => unreachable!(),
+            }
+        } else {
+            // Default to global scope if no prefix
+            self.set_global(key, Variable::Static(value));
+        }
     }
 
     /// Import variables from persistence
     pub fn import(&mut self, variables: HashMap<String, Value>) {
         for (key, value) in variables {
-            if let Some(var_name) = key.strip_prefix("global.") {
-                self.set_global(var_name, Variable::Static(value));
-            } else if let Some(var_name) = key.strip_prefix("phase.") {
-                self.set_phase(var_name, Variable::Static(value));
-            } else if let Some(var_name) = key.strip_prefix("local.") {
-                self.set_local(var_name, Variable::Static(value));
-            } else {
-                // Default to global scope
-                self.set_global(key, Variable::Static(value));
-            }
+            self.import_variable(key, value);
         }
     }
 }

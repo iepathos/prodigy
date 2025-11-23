@@ -514,95 +514,23 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment> {
-        // For MapReduce or dry-run, generate a session ID; otherwise, use unified session ID
         let mut session_id = Arc::from(self.generate_session_id().as_str());
-        let mut working_dir = Arc::clone(&config.project_path);
-        let mut worktree_name: Option<Arc<str>> = None;
 
-        // Create UnifiedSession for this workflow (skip for MapReduce workflows as they handle their own sessions)
-        if config.mapreduce_config.is_none() && !config.command.dry_run {
-            let unified_session_manager = self
-                .get_unified_session_manager()
-                .await
-                .context("Failed to get unified session manager")?;
-
-            let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
-
-            // Populate metadata with execution information
-            let mut metadata = std::collections::HashMap::new();
-            metadata.insert(
-                "execution_start_time".to_string(),
-                serde_json::json!(chrono::Utc::now().to_rfc3339()),
-            );
-            metadata.insert("workflow_type".to_string(), serde_json::json!("standard"));
-            metadata.insert(
-                "total_steps".to_string(),
-                serde_json::json!(config.workflow.commands.len()),
-            );
-            metadata.insert("current_step".to_string(), serde_json::json!(0));
-
-            let session_config = crate::unified_session::SessionConfig {
-                session_type: crate::unified_session::SessionType::Workflow,
-                workflow_id: Some(workflow_id.clone()),
-                workflow_name: config.workflow.name.clone(),
-                job_id: None,
-                metadata,
-            };
-
-            let unified_session_id = unified_session_manager
-                .create_session(session_config)
-                .await
-                .context("Failed to create unified session")?;
-
-            // Start the session
-            unified_session_manager
-                .start_session(&unified_session_id)
-                .await
-                .context("Failed to start unified session")?;
-
-            log::info!(
-                "Created unified session: {} (workflow_id: {})",
-                unified_session_id,
-                workflow_id
-            );
-
-            // Use the unified session ID as the session ID
-            session_id = Arc::from(unified_session_id.as_str());
+        // Create unified session if needed (pure decision, I/O effect)
+        if super::construction::should_create_unified_session(
+            config.mapreduce_config.is_some(),
+            config.command.dry_run,
+        ) {
+            session_id = Arc::from(self.create_unified_session(config).await?.as_str());
         }
 
-        // Always setup worktree (but not in dry-run mode)
-        if !config.command.dry_run {
-            // Get merge config from workflow or mapreduce config
-            let merge_config = config.workflow.merge.clone().or_else(|| {
-                config
-                    .mapreduce_config
-                    .as_ref()
-                    .and_then(|m| m.merge.clone())
-            });
-
-            // Get workflow environment variables
-            let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-            let worktree_manager = WorktreeManager::with_config(
-                config.project_path.to_path_buf(),
-                self.subprocess.clone(),
-                config.command.verbosity,
-                merge_config,
-                workflow_env,
-            )?;
-            // Pass the unified session ID to the worktree manager
-            let session = worktree_manager.create_session_with_id(&session_id).await?;
-
-            working_dir = Arc::new(session.path.clone());
-            worktree_name = Some(Arc::from(session.name.as_ref()));
-
-            self.user_interaction
-                .display_info(&format!("Created worktree at: {}", working_dir.display()));
+        // Setup worktree (pure decision, I/O effect)
+        let (working_dir, worktree_name) = if !config.command.dry_run {
+            self.create_worktree(config, &session_id).await?
         } else {
-            // In dry-run mode, just note that worktree would be created
-            self.user_interaction
-                .display_info("[DRY RUN] Would create worktree for isolated execution");
-        }
+            self.display_dry_run_message();
+            (Arc::clone(&config.project_path), None)
+        };
 
         Ok(ExecutionEnvironment {
             working_dir,
@@ -737,72 +665,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()> {
-        // Save session state to a separate file to avoid conflicts with StateManager
-        // Use the working directory (which may be a worktree) not the project directory
-        let session_state_path = env.working_dir.join(".prodigy/session_state.json");
-        self.session_manager.save_state(&session_state_path).await?;
+        self.save_session_state(env).await?;
 
-        // Clean up worktree if needed
         if let Some(ref worktree_name) = env.worktree_name {
-            // Skip user prompt in test mode
-            let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
-            let should_merge = if test_mode {
-                // Default to not merging in test mode to avoid complications
-                false
-            } else if config.command.auto_accept {
-                // Auto-accept when -y flag is provided
-                true
-            } else {
-                // Get the merge target branch for the prompt
-                let temp_manager = WorktreeManager::with_config(
-                    env.project_dir.to_path_buf(),
-                    self.subprocess.clone(),
-                    config.command.verbosity,
-                    None,
-                    HashMap::new(),
-                )?;
-                let merge_target = temp_manager
-                    .get_merge_target(worktree_name)
-                    .await
-                    .unwrap_or_else(|_| "master".to_string());
-
-                // Ask user if they want to merge, showing the target branch
-                let prompt = format!("Merge {} to {}", worktree_name, merge_target);
-                self.user_interaction.prompt_yes_no(&prompt).await?
-            };
-
-            if should_merge {
-                // Get merge config from workflow or mapreduce config
-                let merge_config = config.workflow.merge.clone().or_else(|| {
-                    config
-                        .mapreduce_config
-                        .as_ref()
-                        .and_then(|m| m.merge.clone())
-                });
-
-                // Get workflow environment variables
-                let workflow_env = config.workflow.env.clone().unwrap_or_default();
-
-                let worktree_manager = WorktreeManager::with_config(
-                    env.project_dir.to_path_buf(),
-                    self.subprocess.clone(),
-                    config.command.verbosity,
-                    merge_config,
-                    workflow_env,
-                )?;
-
-                // merge_session already handles auto-cleanup internally based on PRODIGY_AUTO_CLEANUP env var
-                // We should not duplicate cleanup here to avoid race conditions
-                worktree_manager.merge_session(worktree_name).await?;
-                self.user_interaction
-                    .display_success("Worktree changes merged successfully!");
-
-                // Note: merge_session already handles cleanup based on auto_cleanup config
-                // It will either:
-                // 1. Auto-cleanup if PRODIGY_AUTO_CLEANUP is true (default)
-                // 2. Display cleanup instructions if auto-cleanup is disabled
-                // We should not duplicate that logic here
-            }
+            self.cleanup_worktree(env, config, worktree_name).await?;
         }
 
         Ok(())
@@ -813,6 +679,153 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 // ProgressReporter trait was part of the analysis module
 
 impl DefaultCookOrchestrator {
+    /// Create unified session (I/O operation)
+    async fn create_unified_session(&self, config: &CookConfig) -> Result<String> {
+        let manager = self
+            .get_unified_session_manager()
+            .await
+            .context("Failed to get unified session manager")?;
+
+        let workflow_id = super::construction::generate_workflow_id();
+        let metadata = super::construction::create_session_metadata(config.workflow.commands.len());
+        let session_config = super::construction::build_session_config(
+            workflow_id.clone(),
+            config.workflow.name.clone(),
+            metadata,
+        );
+
+        let session_id = manager
+            .create_session(session_config)
+            .await
+            .context("Failed to create unified session")?;
+
+        manager
+            .start_session(&session_id)
+            .await
+            .context("Failed to start unified session")?;
+
+        log::info!(
+            "Created unified session: {} (workflow_id: {})",
+            session_id,
+            workflow_id
+        );
+        Ok(session_id.to_string())
+    }
+
+    /// Create worktree (I/O operation)
+    async fn create_worktree(
+        &self,
+        config: &CookConfig,
+        session_id: &str,
+    ) -> Result<(Arc<PathBuf>, Option<Arc<str>>)> {
+        let merge_config =
+            super::construction::extract_merge_config(&config.workflow, &config.mapreduce_config);
+        let workflow_env = super::construction::extract_workflow_env(&config.workflow);
+
+        let manager = WorktreeManager::with_config(
+            config.project_path.to_path_buf(),
+            self.subprocess.clone(),
+            config.command.verbosity,
+            merge_config,
+            workflow_env,
+        )?;
+
+        let session = manager.create_session_with_id(session_id).await?;
+        let working_dir = Arc::new(session.path.clone());
+        let worktree_name = Some(Arc::from(session.name.as_ref()));
+
+        self.user_interaction
+            .display_info(&format!("Created worktree at: {}", working_dir.display()));
+
+        Ok((working_dir, worktree_name))
+    }
+
+    /// Display dry-run message (I/O operation)
+    fn display_dry_run_message(&self) {
+        self.user_interaction
+            .display_info("[DRY RUN] Would create worktree for isolated execution");
+    }
+
+    /// Save session state (I/O operation)
+    async fn save_session_state(&self, env: &ExecutionEnvironment) -> Result<()> {
+        let session_state_path = env.working_dir.join(".prodigy/session_state.json");
+        self.session_manager.save_state(&session_state_path).await
+    }
+
+    /// Cleanup worktree with merge decision (I/O operation with pure decision logic)
+    async fn cleanup_worktree(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        worktree_name: &str,
+    ) -> Result<()> {
+        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
+
+        // Use pure function for merge decision
+        let should_merge =
+            match super::construction::should_merge_worktree(test_mode, config.command.auto_accept)
+            {
+                Some(decision) => decision,
+                None => self.prompt_for_merge(env, worktree_name).await?,
+            };
+
+        if should_merge {
+            self.perform_merge(env, config, worktree_name).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Prompt user for merge decision (I/O operation)
+    async fn prompt_for_merge(
+        &self,
+        env: &ExecutionEnvironment,
+        worktree_name: &str,
+    ) -> Result<bool> {
+        let temp_manager = WorktreeManager::with_config(
+            env.project_dir.to_path_buf(),
+            self.subprocess.clone(),
+            0,
+            None,
+            HashMap::new(),
+        )?;
+
+        let merge_target = temp_manager
+            .get_merge_target(worktree_name)
+            .await
+            .unwrap_or_else(|_| "master".to_string());
+
+        let prompt = format!("Merge {} to {}", worktree_name, merge_target);
+        self.user_interaction.prompt_yes_no(&prompt).await
+    }
+
+    /// Perform worktree merge (I/O operation)
+    async fn perform_merge(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        worktree_name: &str,
+    ) -> Result<()> {
+        let merge_config =
+            super::construction::extract_merge_config(&config.workflow, &config.mapreduce_config);
+        let workflow_env = super::construction::extract_workflow_env(&config.workflow);
+
+        let manager = WorktreeManager::with_config(
+            env.project_dir.to_path_buf(),
+            self.subprocess.clone(),
+            config.command.verbosity,
+            merge_config,
+            workflow_env,
+        )?;
+
+        manager.merge_session(worktree_name).await?;
+        self.user_interaction
+            .display_success("Worktree changes merged successfully!");
+
+        Ok(())
+    }
+
+
     /// Execute a structured workflow with outputs
     async fn execute_structured_workflow(
         &self,
@@ -1222,89 +1235,132 @@ impl DefaultCookOrchestrator {
         input: &str,
         env_vars: HashMap<String, String>,
     ) -> Result<()> {
-        // Handle test mode
         let test_mode = self.test_config.as_ref().is_some_and(|c| c.test_mode);
         let skip_validation = self
             .test_config
             .as_ref()
             .is_some_and(|c| c.skip_commit_validation);
 
-        // Get HEAD before command execution if we need to verify commits
-        let head_before = if !skip_validation && command.metadata.commit_required && !test_mode {
+        // Capture HEAD before execution if needed
+        let head_before = if super::construction::should_skip_commit_validation(
+            test_mode,
+            skip_validation,
+            command.metadata.commit_required,
+            config.command.dry_run,
+        ) && !test_mode
+        {
             Some(self.get_current_head(&env.working_dir).await?)
         } else {
             None
         };
 
-        // Execute the command
+        // Execute command and handle failure
         let result = self
             .claude_executor
             .execute_claude_command(final_command, &env.working_dir, env_vars)
             .await?;
 
         if !result.success {
-            if config.command.fail_fast {
-                return Err(anyhow!(
-                    "Command '{}' failed for input '{}' with exit code {:?}. Error: {}",
-                    command.name,
-                    input,
-                    result.exit_code,
-                    result.stderr
-                ));
-            } else {
-                self.user_interaction.display_warning(&format!(
-                    "Command '{}' failed for input '{}', continuing...",
-                    command.name, input
-                ));
-                return Ok(());
-            }
+            return self.handle_command_failure(config, &command.name, input, &result);
         }
 
-        // In test mode with skip_commit_validation, skip validation entirely
+        // Validate commits if required
+        self.validate_commits(
+            env,
+            config,
+            command,
+            final_command,
+            test_mode,
+            skip_validation,
+            head_before,
+        )
+        .await
+    }
+
+    /// Handle command execution failure (pure decision + I/O)
+    fn handle_command_failure(
+        &self,
+        config: &CookConfig,
+        command_name: &str,
+        input: &str,
+        result: &crate::cook::execution::ExecutionResult,
+    ) -> Result<()> {
+        if config.command.fail_fast {
+            Err(anyhow!(
+                "Command '{}' failed for input '{}' with exit code {:?}. Error: {}",
+                command_name,
+                input,
+                result.exit_code,
+                result.stderr
+            ))
+        } else {
+            self.user_interaction.display_warning(&format!(
+                "Command '{}' failed for input '{}', continuing...",
+                command_name, input
+            ));
+            Ok(())
+        }
+    }
+
+    /// Validate commits were created if required
+    async fn validate_commits(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        command: &crate::config::command::Command,
+        final_command: &str,
+        test_mode: bool,
+        skip_validation: bool,
+        head_before: Option<String>,
+    ) -> Result<()> {
         if test_mode && skip_validation {
-            // Skip validation - return success
             return Ok(());
         }
-        // Check for commits if required
+
         if let Some(before) = head_before {
-            let head_after = self.get_current_head(&env.working_dir).await?;
-            if head_after == before {
-                // No commits were created (skip error in dry-run mode)
-                if config.command.dry_run {
-                    // In dry-run mode, assume the commit would have been created
-                    self.user_interaction.display_info(&format!(
-                        "[DRY RUN] Assuming commit would be created by {}",
-                        final_command
-                    ));
-                } else {
-                    return Err(anyhow!("No changes were committed by {}", final_command));
-                }
-            } else {
-                // Track file changes when commits were made
-                self.session_manager
-                    .update_session(SessionUpdate::AddFilesChanged(1))
-                    .await?;
-            }
+            self.validate_real_commits(env, config, final_command, &before)
+                .await
         } else if test_mode && command.metadata.commit_required && !skip_validation {
-            // In test mode, check if the command simulated no changes and is required to commit
-            if let Some(config) = &self.test_config {
-                let command_name = final_command.trim_start_matches('/');
-                // Extract just the command name, ignoring arguments
-                let command_name = command_name
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or(command_name);
-                if config
-                    .no_changes_commands
-                    .iter()
-                    .any(|cmd| cmd.trim() == command_name)
-                {
-                    // This command was configured to simulate no changes but requires commits
-                    return Err(anyhow!("No changes were committed by {}", final_command));
-                }
+            self.validate_test_mode_commits(final_command)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Validate commits in real mode
+    async fn validate_real_commits(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        final_command: &str,
+        head_before: &str,
+    ) -> Result<()> {
+        let head_after = self.get_current_head(&env.working_dir).await?;
+
+        if super::construction::commits_were_created(head_before, &head_after) {
+            self.session_manager
+                .update_session(SessionUpdate::AddFilesChanged(1))
+                .await
+        } else if config.command.dry_run {
+            self.user_interaction.display_info(&format!(
+                "[DRY RUN] Assuming commit would be created by {}",
+                final_command
+            ));
+            Ok(())
+        } else {
+            Err(anyhow!("No changes were committed by {}", final_command))
+        }
+    }
+
+    /// Validate commits in test mode
+    fn validate_test_mode_commits(&self, final_command: &str) -> Result<()> {
+        if let Some(config) = &self.test_config {
+            let command_name = super::construction::extract_command_name(final_command);
+            if super::construction::is_no_changes_command(command_name, &config.no_changes_commands)
+            {
+                return Err(anyhow!("No changes were committed by {}", final_command));
             }
         }
-
         Ok(())
     }
 

@@ -130,6 +130,105 @@ fn default_format_version() -> u32 {
     1
 }
 
+/// Create an initial failure record for a work item
+fn create_initial_failure_record(item_id: &str) -> FailureRecord {
+    FailureRecord {
+        item_id: item_id.to_string(),
+        attempts: 0,
+        last_error: String::new(),
+        last_attempt: Utc::now(),
+        worktree_info: None,
+    }
+}
+
+/// Extract error message from agent status
+fn extract_error_message(status: &AgentStatus) -> String {
+    match status {
+        AgentStatus::Failed(err) => err.clone(),
+        AgentStatus::Timeout => "Agent execution timed out".to_string(),
+        _ => String::new(),
+    }
+}
+
+/// Extract worktree info from agent result if available
+fn extract_worktree_info(result: &AgentResult) -> Option<WorktreeInfo> {
+    match (&result.worktree_path, &result.branch_name) {
+        (Some(path), Some(name)) => Some(WorktreeInfo {
+            path: path.clone(),
+            name: name.clone(),
+            branch: result.branch_name.clone(),
+            session_id: result.worktree_session_id.clone(),
+        }),
+        _ => None,
+    }
+}
+
+/// Serialize job state to JSON string
+fn serialize_state(state: &MapReduceJobState) -> Result<String> {
+    serde_json::to_string_pretty(state).context("Failed to serialize job state")
+}
+
+/// Create checkpoint metadata information
+fn create_checkpoint_metadata(path: PathBuf, version: u32, size_bytes: usize) -> CheckpointInfo {
+    CheckpointInfo {
+        path,
+        version,
+        created_at: Utc::now(),
+        size_bytes: size_bytes as u64,
+    }
+}
+
+/// Write file atomically using temp file and rename
+async fn write_file_atomically(
+    temp_path: &PathBuf,
+    final_path: &PathBuf,
+    data: &[u8],
+) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
+
+    let mut file = fs::File::create(temp_path)
+        .await
+        .context("Failed to create temporary file")?;
+
+    file.write_all(data).await.context("Failed to write data")?;
+
+    file.sync_data()
+        .await
+        .context("Failed to sync data to disk")?;
+
+    drop(file);
+
+    fs::rename(temp_path, final_path)
+        .await
+        .context("Failed to rename temporary file")
+}
+
+/// Parse checkpoint version from filename
+fn parse_checkpoint_version(path: &PathBuf) -> Option<u32> {
+    let name = path.file_name()?.to_str()?;
+    if !is_checkpoint_file(name) {
+        return None;
+    }
+    extract_version_number(name)
+}
+
+/// Check if filename matches checkpoint pattern
+fn is_checkpoint_file(name: &str) -> bool {
+    name.starts_with("checkpoint-v") && name.ends_with(".json")
+}
+
+/// Extract version number from checkpoint filename
+fn extract_version_number(name: &str) -> Option<u32> {
+    name.strip_prefix("checkpoint-v")
+        .and_then(|s| s.strip_suffix(".json"))
+        .and_then(|s| s.parse::<u32>().ok())
+}
+
+/// Sort checkpoints by version (newest first)
+fn sort_checkpoints_by_version(checkpoints: &mut Vec<CheckpointInfo>) {
+    checkpoints.sort_by(|a, b| b.version.cmp(&a.version));
+}
+
 impl MapReduceJobState {
     /// Create a new job state
     pub fn new(job_id: String, config: MapReduceConfig, work_items: Vec<Value>) -> Self {
@@ -171,57 +270,69 @@ impl MapReduceJobState {
     pub fn update_agent_result(&mut self, result: AgentResult) {
         let item_id = result.item_id.clone();
 
-        // Update counts based on status
-        match &result.status {
-            AgentStatus::Success => {
-                self.successful_count += 1;
-                self.failed_agents.remove(&item_id);
-            }
-            AgentStatus::Failed(_) | AgentStatus::Timeout => {
-                // Update failure record
-                let failure = self
-                    .failed_agents
-                    .entry(item_id.clone())
-                    .or_insert_with(|| FailureRecord {
-                        item_id: item_id.clone(),
-                        attempts: 0,
-                        last_error: String::new(),
-                        last_attempt: Utc::now(),
-                        worktree_info: None,
-                    });
+        self.update_counts_for_status(&result.status, &item_id);
+        self.store_agent_result(item_id.clone(), result);
+        self.finalize_result_update(item_id);
+    }
 
-                failure.attempts += 1;
-                failure.last_attempt = Utc::now();
-
-                if let AgentStatus::Failed(err) = &result.status {
-                    failure.last_error = err.clone();
-                } else if matches!(result.status, AgentStatus::Timeout) {
-                    failure.last_error = "Agent execution timed out".to_string();
-                }
-
-                // Store worktree info for cleanup
-                if let (Some(path), Some(name)) = (&result.worktree_path, &result.branch_name) {
-                    failure.worktree_info = Some(WorktreeInfo {
-                        path: path.clone(),
-                        name: name.clone(),
-                        branch: result.branch_name.clone(),
-                        session_id: result.worktree_session_id.clone(),
-                    });
-                }
-
-                self.failed_count += 1;
-            }
+    /// Update success/failure counts based on agent status
+    fn update_counts_for_status(&mut self, status: &AgentStatus, item_id: &str) {
+        match status {
+            AgentStatus::Success => self.handle_success(item_id),
+            AgentStatus::Failed(_) | AgentStatus::Timeout => self.handle_failure(status, item_id),
             _ => {}
         }
+    }
 
-        // Store the result
+    /// Handle successful agent completion
+    fn handle_success(&mut self, item_id: &str) {
+        self.successful_count += 1;
+        self.failed_agents.remove(item_id);
+    }
+
+    /// Handle failed or timed-out agent execution
+    fn handle_failure(&mut self, status: &AgentStatus, item_id: &str) {
+        // Get or create failure record and update it in one operation to avoid borrow issues
+        let failure = self.failed_agents
+            .entry(item_id.to_string())
+            .or_insert_with(|| create_initial_failure_record(item_id));
+
+        // Update failure record inline
+        failure.attempts += 1;
+        failure.last_attempt = Utc::now();
+        failure.last_error = extract_error_message(status);
+
+        self.failed_count += 1;
+    }
+
+    /// Get or create a failure record for an item
+    fn get_or_create_failure_record(&mut self, item_id: &str) -> &mut FailureRecord {
+        self.failed_agents
+            .entry(item_id.to_string())
+            .or_insert_with(|| create_initial_failure_record(item_id))
+    }
+
+    /// Update failure record with error details
+    fn update_failure_record(&mut self, failure: &mut FailureRecord, status: &AgentStatus) {
+        failure.attempts += 1;
+        failure.last_attempt = Utc::now();
+        failure.last_error = extract_error_message(status);
+    }
+
+    /// Store agent result and mark as completed
+    fn store_agent_result(&mut self, item_id: String, result: AgentResult) {
+        if let Some(worktree_info) = extract_worktree_info(&result) {
+            if let Some(failure) = self.failed_agents.get_mut(&item_id) {
+                failure.worktree_info = Some(worktree_info);
+            }
+        }
         self.agent_results.insert(item_id.clone(), result);
-        self.completed_agents.insert(item_id.clone());
+        self.completed_agents.insert(item_id);
+    }
 
-        // Remove from pending
+    /// Finalize result update (remove from pending, update metadata)
+    fn finalize_result_update(&mut self, item_id: String) {
         self.pending_items.retain(|id| id != &item_id);
-
-        // Update timestamp
         self.updated_at = Utc::now();
         self.checkpoint_version += 1;
     }
@@ -343,83 +454,74 @@ impl CheckpointManager {
     /// Save a checkpoint atomically
     pub async fn save_checkpoint(&self, state: &MapReduceJobState) -> Result<()> {
         let _lock = self.write_lock.write().await;
-
         let start = std::time::Instant::now();
-        let job_dir = self.job_dir(&state.job_id);
 
-        // Ensure job directory exists
-        fs::create_dir_all(&job_dir)
-            .await
-            .context("Failed to create job directory")?;
+        self.ensure_job_directory(&state.job_id).await?;
+        let json = serialize_state(state)?;
 
-        // Serialize state
-        let json = serde_json::to_string_pretty(state).context("Failed to serialize job state")?;
+        self.write_checkpoint_file(&state.job_id, state.checkpoint_version, &json)
+            .await?;
+        self.write_metadata_file(&state.job_id, state.checkpoint_version, json.len())
+            .await?;
 
-        // Write to temporary file first (atomic write pattern)
-        let checkpoint_path = self.checkpoint_path(&state.job_id, state.checkpoint_version);
-        let temp_path = checkpoint_path.with_extension("tmp");
-
-        // Use explicit file operations with sync to ensure durability
-        use tokio::io::AsyncWriteExt;
-        let mut file = fs::File::create(&temp_path)
-            .await
-            .context("Failed to create temporary checkpoint")?;
-        file.write_all(json.as_bytes())
-            .await
-            .context("Failed to write checkpoint data")?;
-        file.sync_data()
-            .await
-            .context("Failed to sync checkpoint to disk")?;
-        drop(file); // Explicitly close before rename
-
-        // Atomically rename temp file to final checkpoint
-        fs::rename(&temp_path, &checkpoint_path)
-            .await
-            .context("Failed to rename checkpoint file")?;
-
-        // Update metadata
-        let metadata = CheckpointInfo {
-            path: checkpoint_path.clone(),
-            version: state.checkpoint_version,
-            created_at: Utc::now(),
-            size_bytes: json.len() as u64,
-        };
-
-        let metadata_json = serde_json::to_string_pretty(&metadata)?;
-        let metadata_temp = self.metadata_path(&state.job_id).with_extension("tmp");
-
-        // Sync metadata file as well
-        let mut metadata_file = fs::File::create(&metadata_temp).await?;
-        metadata_file.write_all(metadata_json.as_bytes()).await?;
-        metadata_file.sync_data().await?;
-        drop(metadata_file); // Explicitly close before rename
-
-        fs::rename(metadata_temp, self.metadata_path(&state.job_id)).await?;
-
-        let duration = start.elapsed();
-
-        // Check if checkpoint took too long
-        if duration.as_millis() > CHECKPOINT_TIMEOUT_MS as u128 {
-            warn!(
-                "Checkpoint for job {} took {}ms (exceeds {}ms limit)",
-                state.job_id,
-                duration.as_millis(),
-                CHECKPOINT_TIMEOUT_MS
-            );
-        } else {
-            debug!(
-                "Saved checkpoint v{} for job {} in {}ms",
-                state.checkpoint_version,
-                state.job_id,
-                duration.as_millis()
-            );
-        }
-
-        // Clean up old checkpoints
+        self.log_checkpoint_timing(&state.job_id, state.checkpoint_version, start.elapsed());
         self.cleanup_old_checkpoints(&state.job_id, MAX_CHECKPOINTS)
             .await?;
 
         Ok(())
+    }
+
+    /// Ensure job directory exists
+    async fn ensure_job_directory(&self, job_id: &str) -> Result<()> {
+        let job_dir = self.job_dir(job_id);
+        fs::create_dir_all(&job_dir)
+            .await
+            .context("Failed to create job directory")
+    }
+
+    /// Write checkpoint file atomically
+    async fn write_checkpoint_file(&self, job_id: &str, version: u32, json: &str) -> Result<()> {
+        let checkpoint_path = self.checkpoint_path(job_id, version);
+        let temp_path = checkpoint_path.with_extension("tmp");
+
+        write_file_atomically(&temp_path, &checkpoint_path, json.as_bytes())
+            .await
+            .context("Failed to write checkpoint file")
+    }
+
+    /// Write metadata file atomically
+    async fn write_metadata_file(
+        &self,
+        job_id: &str,
+        version: u32,
+        size_bytes: usize,
+    ) -> Result<()> {
+        let checkpoint_path = self.checkpoint_path(job_id, version);
+        let metadata = create_checkpoint_metadata(checkpoint_path, version, size_bytes);
+        let metadata_json = serde_json::to_string_pretty(&metadata)?;
+
+        let metadata_path = self.metadata_path(job_id);
+        let temp_path = metadata_path.with_extension("tmp");
+
+        write_file_atomically(&temp_path, &metadata_path, metadata_json.as_bytes())
+            .await
+            .context("Failed to write metadata file")
+    }
+
+    /// Log checkpoint timing information
+    fn log_checkpoint_timing(&self, job_id: &str, version: u32, duration: std::time::Duration) {
+        let duration_ms = duration.as_millis();
+        if duration_ms > CHECKPOINT_TIMEOUT_MS as u128 {
+            warn!(
+                "Checkpoint for job {} took {}ms (exceeds {}ms limit)",
+                job_id, duration_ms, CHECKPOINT_TIMEOUT_MS
+            );
+        } else {
+            debug!(
+                "Saved checkpoint v{} for job {} in {}ms",
+                version, job_id, duration_ms
+            );
+        }
     }
 
     /// Load the latest checkpoint for a job
@@ -433,44 +535,8 @@ impl CheckpointManager {
         job_id: &str,
         version: Option<u32>,
     ) -> Result<MapReduceJobState> {
-        let checkpoint_path = if let Some(v) = version {
-            // Load specific version
-            let path = self.checkpoint_path(job_id, v);
-            if !path.exists() {
-                return Err(anyhow!(
-                    "Checkpoint version {} not found for job {}",
-                    v,
-                    job_id
-                ));
-            }
-            path
-        } else {
-            // Load latest from metadata
-            let metadata_path = self.metadata_path(job_id);
-            if !metadata_path.exists() {
-                return Err(anyhow!("No checkpoint found for job {}", job_id));
-            }
-
-            let metadata_json = fs::read_to_string(&metadata_path)
-                .await
-                .context("Failed to read checkpoint metadata")?;
-
-            let metadata: CheckpointInfo = serde_json::from_str(&metadata_json)
-                .context("Failed to parse checkpoint metadata")?;
-
-            metadata.path
-        };
-
-        // Load the checkpoint file
-        let checkpoint_json = fs::read_to_string(&checkpoint_path)
-            .await
-            .context("Failed to read checkpoint file")?;
-
-        let mut state: MapReduceJobState =
-            serde_json::from_str(&checkpoint_json).context("Failed to parse checkpoint data")?;
-
-        // Apply migrations if needed
-        state = self.migrate_checkpoint(state)?;
+        let checkpoint_path = self.resolve_checkpoint_path(job_id, version).await?;
+        let state = self.load_and_migrate_checkpoint(&checkpoint_path).await?;
 
         info!(
             "Loaded checkpoint v{} for job {} (format v{})",
@@ -478,6 +544,59 @@ impl CheckpointManager {
         );
 
         Ok(state)
+    }
+
+    /// Resolve checkpoint path from version (or latest)
+    async fn resolve_checkpoint_path(&self, job_id: &str, version: Option<u32>) -> Result<PathBuf> {
+        match version {
+            Some(v) => self.get_specific_checkpoint_path(job_id, v),
+            None => self.get_latest_checkpoint_path(job_id).await,
+        }
+    }
+
+    /// Get path for a specific checkpoint version
+    fn get_specific_checkpoint_path(&self, job_id: &str, version: u32) -> Result<PathBuf> {
+        let path = self.checkpoint_path(job_id, version);
+        if !path.exists() {
+            return Err(anyhow!(
+                "Checkpoint version {} not found for job {}",
+                version,
+                job_id
+            ));
+        }
+        Ok(path)
+    }
+
+    /// Get path for the latest checkpoint from metadata
+    async fn get_latest_checkpoint_path(&self, job_id: &str) -> Result<PathBuf> {
+        let metadata_path = self.metadata_path(job_id);
+        if !metadata_path.exists() {
+            return Err(anyhow!("No checkpoint found for job {}", job_id));
+        }
+
+        let metadata_json = fs::read_to_string(&metadata_path)
+            .await
+            .context("Failed to read checkpoint metadata")?;
+
+        let metadata: CheckpointInfo =
+            serde_json::from_str(&metadata_json).context("Failed to parse checkpoint metadata")?;
+
+        Ok(metadata.path)
+    }
+
+    /// Load checkpoint file and apply migrations
+    async fn load_and_migrate_checkpoint(
+        &self,
+        checkpoint_path: &PathBuf,
+    ) -> Result<MapReduceJobState> {
+        let checkpoint_json = fs::read_to_string(checkpoint_path)
+            .await
+            .context("Failed to read checkpoint file")?;
+
+        let state: MapReduceJobState =
+            serde_json::from_str(&checkpoint_json).context("Failed to parse checkpoint data")?;
+
+        self.migrate_checkpoint(state)
     }
 
     /// Migrate checkpoint to current format version
@@ -515,37 +634,38 @@ impl CheckpointManager {
             return Ok(Vec::new());
         }
 
+        let mut checkpoints = self.collect_checkpoint_files(&job_dir).await?;
+        sort_checkpoints_by_version(&mut checkpoints);
+
+        Ok(checkpoints)
+    }
+
+    /// Collect checkpoint files from job directory
+    async fn collect_checkpoint_files(&self, job_dir: &PathBuf) -> Result<Vec<CheckpointInfo>> {
         let mut checkpoints = Vec::new();
-        let mut entries = fs::read_dir(&job_dir).await?;
+        let mut entries = fs::read_dir(job_dir).await?;
 
         while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if let Some(name) = path.file_name() {
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with("checkpoint-v") && name_str.ends_with(".json") {
-                    // Parse version number from filename
-                    if let Some(version_str) = name_str
-                        .strip_prefix("checkpoint-v")
-                        .and_then(|s| s.strip_suffix(".json"))
-                    {
-                        if let Ok(version) = version_str.parse::<u32>() {
-                            let metadata = fs::metadata(&path).await?;
-                            checkpoints.push(CheckpointInfo {
-                                path,
-                                version,
-                                created_at: Utc::now(), // Would need to get actual creation time
-                                size_bytes: metadata.len(),
-                            });
-                        }
-                    }
-                }
+            if let Some(checkpoint_info) = self.try_parse_checkpoint_entry(entry).await {
+                checkpoints.push(checkpoint_info);
             }
         }
 
-        // Sort by version (newest first)
-        checkpoints.sort_by(|a, b| b.version.cmp(&a.version));
-
         Ok(checkpoints)
+    }
+
+    /// Try to parse a directory entry as a checkpoint file
+    async fn try_parse_checkpoint_entry(&self, entry: fs::DirEntry) -> Option<CheckpointInfo> {
+        let path = entry.path();
+        let version = parse_checkpoint_version(&path)?;
+        let metadata = fs::metadata(&path).await.ok()?;
+
+        Some(CheckpointInfo {
+            path,
+            version,
+            created_at: Utc::now(),
+            size_bytes: metadata.len(),
+        })
     }
 
     /// Clean up old checkpoint files, keeping only the most recent ones

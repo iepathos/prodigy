@@ -59,8 +59,7 @@ use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::retry_state::RetryStateManager;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
-    self, create_checkpoint_with_total_steps, CheckpointManager,
-    CompletedStep as CheckpointCompletedStep, ResumeContext,
+    self, CheckpointManager, CompletedStep as CheckpointCompletedStep, ResumeContext,
 };
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
@@ -364,57 +363,18 @@ impl WorkflowExecutor {
 
     /// Determine command type from a workflow step
     pub(crate) fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
-        // Count how many command fields are specified
-        let mut specified_count = 0;
-        if step.claude.is_some() {
-            specified_count += 1;
-        }
-        if step.shell.is_some() {
-            specified_count += 1;
-        }
-        if step.test.is_some() {
-            specified_count += 1;
-        }
-        if step.handler.is_some() {
-            specified_count += 1;
-        }
-        if step.goal_seek.is_some() {
-            specified_count += 1;
-        }
-        if step.foreach.is_some() {
-            specified_count += 1;
-        }
-        if step.write_file.is_some() {
-            specified_count += 1;
-        }
-        if step.name.is_some() || step.command.is_some() {
-            specified_count += 1;
-        }
+        // Use pure function to count and validate
+        let count = pure::count_specified_commands(step);
+        pure::validate_single_command_type(count)?;
 
-        // Ensure only one command type is specified
-        if specified_count > 1 {
-            return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
-            ));
-        }
+        // Determine command type based on which field is set
+        self.extract_command_type(step)
+    }
 
-        if specified_count == 0 {
-            return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
-            ));
-        }
-
-        // Return the appropriate command type
+    /// Extract the command type from a validated step
+    fn extract_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
         if let Some(handler_step) = &step.handler {
-            // Convert serde_json::Value to AttributeValue
-            let mut attributes = HashMap::new();
-            for (key, value) in &handler_step.attributes {
-                attributes.insert(key.clone(), self.json_to_attribute_value(value.clone()));
-            }
-            Ok(CommandType::Handler {
-                handler_name: handler_step.name.clone(),
-                attributes,
-            })
+            self.build_handler_command_type(handler_step)
         } else if let Some(claude_cmd) = &step.claude {
             Ok(CommandType::Claude(claude_cmd.clone()))
         } else if let Some(shell_cmd) = &step.shell {
@@ -428,18 +388,27 @@ impl WorkflowExecutor {
         } else if let Some(write_file_config) = &step.write_file {
             Ok(CommandType::WriteFile(write_file_config.clone()))
         } else if let Some(name) = &step.name {
-            // Legacy support - prepend / if not present
-            let command = if name.starts_with('/') {
-                name.clone()
-            } else {
-                format!("/{name}")
-            };
-            Ok(CommandType::Legacy(command))
+            Ok(CommandType::Legacy(pure::normalize_legacy_command(name)))
         } else if let Some(command) = &step.command {
             Ok(CommandType::Legacy(command.clone()))
         } else {
             Err(anyhow!("No valid command found in step"))
         }
+    }
+
+    /// Build handler command type with converted attributes
+    fn build_handler_command_type(
+        &self,
+        handler_step: &crate::cook::workflow::HandlerStep,
+    ) -> Result<CommandType> {
+        let mut attributes = HashMap::new();
+        for (key, value) in &handler_step.attributes {
+            attributes.insert(key.clone(), self.json_to_attribute_value(value.clone()));
+        }
+        Ok(CommandType::Handler {
+            handler_name: handler_step.name.clone(),
+            attributes,
+        })
     }
 
     /// Get display name for a step
@@ -470,19 +439,18 @@ impl WorkflowExecutor {
         iteration: usize,
         step_index: usize,
     ) -> Result<()> {
-        let workflow_state = crate::cook::session::WorkflowState {
-            current_iteration: iteration.saturating_sub(1), // Convert to 0-based index
-            current_step: step_index + 1,                   // Next step to execute
-            completed_steps: self.completed_steps.clone(),
-            // Use actual workflow path from executor, not hardcoded "workflow.yml"
-            workflow_path: self
-                .workflow_path
-                .clone()
-                .unwrap_or_else(|| env.working_dir.join("workflow.yml")),
-            input_args: Vec::new(),
-            map_patterns: Vec::new(),
-            using_worktree: true, // Always true since worktrees are mandatory (spec 109)
-        };
+        let workflow_path = self
+            .workflow_path
+            .clone()
+            .unwrap_or_else(|| env.working_dir.join("workflow.yml"));
+
+        let workflow_state = pure::build_workflow_state(
+            iteration,
+            step_index,
+            self.completed_steps.clone(),
+            workflow_path,
+        );
+
         self.session_manager
             .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
             .await
@@ -753,6 +721,185 @@ impl WorkflowExecutor {
         execution_result
     }
 
+    /// Execute workflow steps in a single iteration
+    async fn execute_workflow_iteration(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+        execution_flags: &pure::ExecutionFlags,
+    ) -> Result<bool> {
+        let mut any_changes = false;
+
+        for (step_index, step) in workflow.steps.iter().enumerate() {
+            // Check if we should skip this step
+            if pure::should_skip_step_execution(step_index, &self.completed_steps) {
+                let skip_msg = orchestration::format_skip_step(
+                    step_index,
+                    workflow.steps.len(),
+                    &self.get_step_display_name(step),
+                );
+                self.user_interaction.display_info(&skip_msg);
+                continue;
+            }
+
+            // Restore error recovery state if needed
+            self.restore_error_recovery_state(step_index, workflow_context);
+
+            // Execute single step and update changes flag
+            let step_had_commits = self
+                .execute_step_with_tracking(
+                    step,
+                    step_index,
+                    workflow,
+                    env,
+                    workflow_context,
+                    execution_flags,
+                )
+                .await?;
+
+            any_changes = step_had_commits || any_changes;
+        }
+
+        Ok(any_changes)
+    }
+
+    /// Execute a single workflow step with full tracking (internal helper)
+    async fn execute_step_with_tracking(
+        &mut self,
+        step: &WorkflowStep,
+        step_index: usize,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+        workflow_context: &mut WorkflowContext,
+        execution_flags: &pure::ExecutionFlags,
+    ) -> Result<bool> {
+        self.current_step_index = Some(step_index);
+
+        let step_display = self.get_step_display_name(step);
+        let step_msg =
+            orchestration::format_step_progress(step_index, workflow.steps.len(), &step_display);
+        self.user_interaction.display_progress(&step_msg);
+
+        // Get HEAD before command execution if needed
+        let head_before = if !execution_flags.skip_validation
+            && step.commit_required
+            && !execution_flags.test_mode
+        {
+            Some(self.get_current_head(&env.working_dir).await?)
+        } else {
+            None
+        };
+
+        // Start timing
+        self.timing_tracker.start_command(step_display.clone());
+        let command_start = Instant::now();
+        let step_started_at = chrono::Utc::now();
+
+        // Execute the step
+        let step_result = self.execute_step(step, env, workflow_context).await?;
+
+        // Display output
+        self.log_step_output(&step_result);
+
+        // Complete timing
+        let command_duration = command_start.elapsed();
+        let step_completed_at = chrono::Utc::now();
+        if let Some((cmd_name, _)) = self.timing_tracker.complete_command() {
+            self.session_manager
+                .update_session(SessionUpdate::RecordCommandTiming(
+                    cmd_name.clone(),
+                    command_duration,
+                ))
+                .await?;
+        }
+
+        // Track completed steps
+        let completed_step = orchestration::build_session_step_result(
+            step_index,
+            step_display.clone(),
+            step,
+            &step_result,
+            command_duration,
+            step_started_at,
+            step_completed_at,
+        );
+        self.completed_steps.push(completed_step.clone());
+
+        let checkpoint_step = orchestration::build_checkpoint_step(
+            step_index,
+            step_display.clone(),
+            step,
+            &step_result,
+            workflow_context,
+            command_duration,
+            step_completed_at,
+        );
+        self.checkpoint_completed_steps.push(checkpoint_step);
+
+        // Save checkpoint if available
+        self.save_step_checkpoint(workflow, workflow_context, step_index)
+            .await;
+
+        // Save workflow state
+        self.save_workflow_state(env, 1, step_index).await?;
+
+        // Check for commits if required
+        let had_commits = if !self.dry_run {
+            if let Some(before) = head_before {
+                self.handle_commit_verification(
+                    &env.working_dir,
+                    &before,
+                    step,
+                    &step_display,
+                    workflow_context,
+                )
+                .await?
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        Ok(had_commits)
+    }
+
+    /// Save step checkpoint if manager is available
+    async fn save_step_checkpoint(
+        &self,
+        workflow: &ExtendedWorkflowConfig,
+        workflow_context: &WorkflowContext,
+        step_index: usize,
+    ) {
+        if let Some(ref checkpoint_manager) = self.checkpoint_manager {
+            if let Some(ref workflow_id) = self.workflow_id {
+                let workflow_hash =
+                    orchestration::create_workflow_hash(&workflow.name, workflow.steps.len());
+                let normalized_workflow =
+                    orchestration::create_normalized_workflow(&workflow.name, workflow_context);
+
+                let mut checkpoint = checkpoint::create_checkpoint_with_total_steps(
+                    workflow_id.clone(),
+                    &normalized_workflow,
+                    workflow_context,
+                    self.checkpoint_completed_steps.clone(),
+                    step_index + 1,
+                    workflow_hash,
+                    workflow.steps.len(),
+                );
+
+                if let Some(ref path) = self.workflow_path {
+                    checkpoint.workflow_path = Some(path.clone());
+                }
+
+                if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
+                    tracing::warn!("Failed to save checkpoint: {}", e);
+                }
+            }
+        }
+    }
+
     /// Internal execution implementation (private)
     async fn execute_internal(
         &mut self,
@@ -766,17 +913,17 @@ impl WorkflowExecutor {
         }
 
         // Validate workflow configuration
-        Self::validate_workflow_config(workflow)?;
+        pure::validate_workflow_config(workflow)?;
 
         let workflow_start = Instant::now();
-        let execution_flags = Self::determine_execution_flags();
+        let execution_flags = pure::determine_execution_flags();
 
         // Display dry-run mode message
         self.display_dry_run_info(workflow);
 
         // Calculate effective max iterations
         let effective_max_iterations =
-            Self::calculate_effective_max_iterations(workflow, self.dry_run);
+            pure::calculate_effective_max_iterations(workflow, self.dry_run);
 
         // Only show workflow info for non-empty workflows
         if !workflow.steps.is_empty() {
@@ -797,8 +944,6 @@ impl WorkflowExecutor {
         // Clear completed steps at the start of a new workflow
         self.completed_steps.clear();
 
-        // Note: workflow_context is passed in from execute() wrapper
-
         // Start workflow timing in session
         self.session_manager
             .update_session(SessionUpdate::StartWorkflow)
@@ -808,11 +953,10 @@ impl WorkflowExecutor {
             iteration += 1;
 
             // Clear completed steps at the start of each iteration
-            // This ensures steps can be re-executed in subsequent iterations
             self.completed_steps.clear();
 
-            // Update iteration context with pure function
-            let iteration_vars = Self::build_iteration_context(iteration);
+            // Update iteration context
+            let iteration_vars = pure::build_iteration_context(iteration);
             workflow_context.iteration_vars.extend(iteration_vars);
 
             let iteration_msg =
@@ -822,7 +966,7 @@ impl WorkflowExecutor {
             // Start iteration timing
             self.timing_tracker.start_iteration();
 
-            // Update session (skip in dry-run mode to avoid misleading stats)
+            // Update session (skip in dry-run mode)
             if !self.dry_run {
                 self.session_manager
                     .update_session(SessionUpdate::IncrementIteration)
@@ -832,155 +976,15 @@ impl WorkflowExecutor {
                     .await?;
             }
 
-            // Execute workflow steps
-            for (step_index, step) in workflow.steps.iter().enumerate() {
-                // Check if we should skip this step (already completed in previous run)
-                if Self::should_skip_step_execution(step_index, &self.completed_steps) {
-                    let skip_msg = orchestration::format_skip_step(
-                        step_index,
-                        workflow.steps.len(),
-                        &self.get_step_display_name(step),
-                    );
-                    self.user_interaction.display_info(&skip_msg);
-                    continue;
-                }
+            // Execute all workflow steps
+            let iteration_had_changes = self
+                .execute_workflow_iteration(workflow, env, workflow_context, &execution_flags)
+                .await?;
 
-                // Restore error recovery state if needed
-                self.restore_error_recovery_state(step_index, workflow_context);
+            any_changes = iteration_had_changes || any_changes;
 
-                // Store current workflow context for checkpoint tracking
-                // TODO: Convert workflow to NormalizedWorkflow for checkpoint tracking
-                // self.current_workflow = Some(workflow.clone());
-                self.current_step_index = Some(step_index);
-
-                let step_display = self.get_step_display_name(step);
-                let step_msg = orchestration::format_step_progress(
-                    step_index,
-                    workflow.steps.len(),
-                    &step_display,
-                );
-                self.user_interaction.display_progress(&step_msg);
-
-                // Get HEAD before command execution if we need to verify commits
-                let head_before = if !execution_flags.skip_validation
-                    && step.commit_required
-                    && !execution_flags.test_mode
-                {
-                    Some(self.get_current_head(&env.working_dir).await?)
-                } else {
-                    None
-                };
-
-                // Start command timing
-                self.timing_tracker.start_command(step_display.clone());
-                let command_start = Instant::now();
-                let step_started_at = chrono::Utc::now();
-
-                // Execute the step
-                // Note: No with_context() wrapper here - the error from execute_step
-                // already contains detailed information from build_step_error_message
-                let step_result = self.execute_step(step, env, workflow_context).await?;
-
-                // Display subprocess output when verbose logging is enabled
-                self.log_step_output(&step_result);
-
-                // Complete command timing
-                let command_duration = command_start.elapsed();
-                let step_completed_at = chrono::Utc::now();
-                if let Some((cmd_name, _)) = self.timing_tracker.complete_command() {
-                    self.session_manager
-                        .update_session(SessionUpdate::RecordCommandTiming(
-                            cmd_name.clone(),
-                            command_duration,
-                        ))
-                        .await?;
-                }
-
-                // Track the completed step with output
-                let completed_step = orchestration::build_session_step_result(
-                    step_index,
-                    step_display.clone(),
-                    step,
-                    &step_result,
-                    command_duration,
-                    step_started_at,
-                    step_completed_at,
-                );
-                self.completed_steps.push(completed_step.clone());
-
-                // Also track for checkpoint system
-                let checkpoint_step = orchestration::build_checkpoint_step(
-                    step_index,
-                    step_display.clone(),
-                    step,
-                    &step_result,
-                    workflow_context,
-                    command_duration,
-                    step_completed_at,
-                );
-                self.checkpoint_completed_steps.push(checkpoint_step);
-
-                // Save checkpoint if manager is available
-                if let Some(ref checkpoint_manager) = self.checkpoint_manager {
-                    if let Some(ref workflow_id) = self.workflow_id {
-                        // Create a normalized workflow for hashing (simplified)
-                        let workflow_hash = orchestration::create_workflow_hash(
-                            &workflow.name,
-                            workflow.steps.len(),
-                        );
-
-                        // Build normalized workflow
-                        let normalized_workflow = orchestration::create_normalized_workflow(
-                            &workflow.name,
-                            workflow_context,
-                        );
-
-                        // Build checkpoint
-                        let mut checkpoint = create_checkpoint_with_total_steps(
-                            workflow_id.clone(),
-                            &normalized_workflow,
-                            workflow_context,
-                            self.checkpoint_completed_steps.clone(),
-                            step_index + 1,
-                            workflow_hash,
-                            workflow.steps.len(), // Pass the actual total steps count
-                        );
-
-                        // Set workflow path if available
-                        if let Some(ref path) = self.workflow_path {
-                            checkpoint.workflow_path = Some(path.clone());
-                        }
-
-                        // Save checkpoint asynchronously
-                        if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
-                            tracing::warn!("Failed to save checkpoint: {}", e);
-                        }
-                    }
-                }
-
-                // Save workflow state after step execution
-                self.save_workflow_state(env, iteration as usize, step_index)
-                    .await?;
-
-                // Check for commits if required (skip in dry-run mode)
-                if !self.dry_run {
-                    if let Some(before) = head_before {
-                        any_changes = self
-                            .handle_commit_verification(
-                                &env.working_dir,
-                                &before,
-                                step,
-                                &step_display,
-                                workflow_context,
-                            )
-                            .await?
-                            || any_changes;
-                    }
-                }
-            }
-
-            // Determine if we should continue iterations using pure function
-            let continuation = Self::determine_iteration_continuation(
+            // Determine continuation using pure function
+            let continuation = pure::determine_iteration_continuation(
                 workflow,
                 iteration,
                 effective_max_iterations,
@@ -998,10 +1002,7 @@ impl WorkflowExecutor {
                 }
                 IterationContinuation::Continue => true,
                 IterationContinuation::ContinueToMax => iteration < effective_max_iterations,
-                IterationContinuation::AskUser => {
-                    // Check based on metrics or ask user
-                    self.should_continue_iterations(env).await?
-                }
+                IterationContinuation::AskUser => self.should_continue_iterations(env).await?,
             };
 
             // Complete iteration timing
@@ -1010,26 +1011,12 @@ impl WorkflowExecutor {
                     .update_session(SessionUpdate::CompleteIteration)
                     .await?;
 
-                // Display iteration timing
                 self.user_interaction.display_success(&format!(
                     "Iteration {} completed in {}",
                     iteration,
                     format_duration(iteration_duration)
                 ));
             }
-
-            // Analysis between iterations removed in this version
-            // if should_continue && workflow.analyze_between {
-            //     self.user_interaction
-            //         .display_progress("Running analysis between iterations...");
-            //     let analysis = self
-            //         .analysis_coordinator
-            //         .analyze_project(&env.working_dir)
-            //         .await?;
-            //     self.analysis_coordinator
-            //         .save_analysis(&env.working_dir, &analysis)
-            //         .await?;
-            // }
         }
 
         // Metrics collection removed in v0.3.0
@@ -1247,54 +1234,10 @@ impl WorkflowExecutor {
     pub(crate) fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
         let step_display = self.get_step_display_name(step);
         let command_type = self.determine_command_type(step)?;
+        let command_name = pure::extract_command_name(&command_type);
 
-        let command_name = match &command_type {
-            CommandType::Claude(cmd) | CommandType::Legacy(cmd) => cmd
-                .trim_start_matches('/')
-                .split_whitespace()
-                .next()
-                .unwrap_or(""),
-            CommandType::Shell(cmd) => cmd,
-            CommandType::Test(test_cmd) => &test_cmd.command,
-            CommandType::Handler { handler_name, .. } => handler_name,
-            CommandType::GoalSeek(config) => &config.goal,
-            CommandType::Foreach(_) => "foreach",
-            CommandType::WriteFile(config) => &config.path,
-        };
-
-        eprintln!("\nWorkflow stopped: No changes were committed by {step_display}");
-        eprintln!("\nThe command executed successfully but did not create any git commits.");
-
-        // Check if this is a command that might legitimately not create commits
-        if matches!(
-            command_name,
-            "prodigy-lint" | "prodigy-code-review" | "prodigy-analyze"
-        ) {
-            eprintln!(
-                "This may be expected if there were no {} to fix.",
-                if command_name == "prodigy-lint" {
-                    "linting issues"
-                } else if command_name == "prodigy-code-review" {
-                    "issues found"
-                } else {
-                    "changes needed"
-                }
-            );
-            eprintln!("\nTo allow this command to proceed without commits, set commit_required: false in your workflow");
-        } else {
-            eprintln!("Possible reasons:");
-            eprintln!("- The specification may already be implemented");
-            eprintln!("- The command may have encountered an issue without reporting an error");
-            eprintln!("- No changes were needed");
-            eprintln!("\nTo investigate:");
-            eprintln!("- Check if the spec is already implemented");
-            eprintln!("- Review the command output above for any warnings");
-            eprintln!("- Run 'git status' to check for uncommitted changes");
-        }
-
-        eprintln!(
-            "\nAlternatively, run with PRODIGY_NO_COMMIT_VALIDATION=true to skip all validation."
-        );
+        let error_message = pure::build_no_commits_error_message(command_name, &step_display);
+        eprint!("{}", error_message);
 
         Err(anyhow!("No commits created by {}", step_display))
     }
