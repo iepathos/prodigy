@@ -6,6 +6,14 @@
 //! - Computed variables (environment, file, command output)
 //! - Variable scoping and precedence
 //! - Lazy evaluation and caching
+//! - Semigroup-based aggregation
+
+mod semigroup;
+
+#[cfg(test)]
+mod semigroup_property_tests;
+
+pub use semigroup::AggregateResult;
 
 use anyhow::{anyhow, Context, Result};
 use lru::LruCache;
@@ -14,6 +22,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use stillwater::Semigroup;
 use tokio::sync::RwLock;
 use tracing::{debug, trace, warn};
 
@@ -1459,6 +1468,55 @@ impl From<&super::interpolation::InterpolationContext> for VariableContext {
     }
 }
 
+/// Aggregate multiple results using Semigroup composition
+///
+/// This function combines multiple `AggregateResult` values using the
+/// Semigroup `combine` operation, which is guaranteed to be associative.
+///
+/// # Examples
+///
+/// ```ignore
+/// use prodigy::cook::execution::variables::{AggregateResult, aggregate_results};
+///
+/// let results = vec![
+///     AggregateResult::Count(1),
+///     AggregateResult::Count(2),
+///     AggregateResult::Count(3),
+/// ];
+///
+/// let combined = aggregate_results(results).unwrap();
+/// assert_eq!(combined, AggregateResult::Count(6));
+/// ```
+pub fn aggregate_results(results: Vec<AggregateResult>) -> Option<AggregateResult> {
+    results.into_iter().reduce(|a, b| a.combine(b))
+}
+
+/// Aggregate results with an initial value using Semigroup fold
+///
+/// This provides more control than `aggregate_results` by allowing an
+/// initial value to be specified.
+///
+/// # Examples
+///
+/// ```ignore
+/// use prodigy::cook::execution::variables::{AggregateResult, aggregate_with_initial};
+///
+/// let initial = AggregateResult::Count(0);
+/// let results = vec![
+///     AggregateResult::Count(1),
+///     AggregateResult::Count(2),
+/// ];
+///
+/// let combined = aggregate_with_initial(initial, results);
+/// assert_eq!(combined, AggregateResult::Count(3));
+/// ```
+pub fn aggregate_with_initial(
+    initial: AggregateResult,
+    results: Vec<AggregateResult>,
+) -> AggregateResult {
+    results.into_iter().fold(initial, |acc, r| acc.combine(r))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2282,5 +2340,54 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(port_result, "5432");
+    }
+
+    // Semigroup aggregation tests
+
+    #[test]
+    fn test_aggregate_results_count() {
+        let results = vec![
+            AggregateResult::Count(1),
+            AggregateResult::Count(2),
+            AggregateResult::Count(3),
+        ];
+
+        let combined = aggregate_results(results).unwrap();
+        assert_eq!(combined, AggregateResult::Count(6));
+    }
+
+    #[test]
+    fn test_aggregate_results_sum() {
+        let results = vec![
+            AggregateResult::Sum(10.5),
+            AggregateResult::Sum(5.5),
+            AggregateResult::Sum(4.0),
+        ];
+
+        let combined = aggregate_results(results).unwrap();
+        assert_eq!(combined, AggregateResult::Sum(20.0));
+    }
+
+    #[test]
+    fn test_aggregate_with_initial() {
+        let initial = AggregateResult::Count(10);
+        let results = vec![AggregateResult::Count(1), AggregateResult::Count(2)];
+
+        let combined = aggregate_with_initial(initial, results);
+        assert_eq!(combined, AggregateResult::Count(13));
+    }
+
+    #[test]
+    fn test_aggregate_results_empty() {
+        let results: Vec<AggregateResult> = vec![];
+        let combined = aggregate_results(results);
+        assert!(combined.is_none());
+    }
+
+    #[test]
+    fn test_aggregate_results_single() {
+        let results = vec![AggregateResult::Count(42)];
+        let combined = aggregate_results(results).unwrap();
+        assert_eq!(combined, AggregateResult::Count(42));
     }
 }
