@@ -2,8 +2,14 @@
 //!
 //! Provides persistent state management for MapReduce jobs, enabling recovery
 //! from failures and job resumption with minimal data loss.
+//!
+//! Note: This module is being migrated to use pure functions from state_pure.
+//! The imperative methods are now wrappers around pure state transitions.
 
-use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+#[cfg(test)]
+use crate::cook::execution::mapreduce::AgentStatus;
+use crate::cook::execution::mapreduce::{AgentResult, MapReduceConfig};
+use crate::cook::execution::state_pure;
 use crate::cook::workflow::WorkflowStep;
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
@@ -130,38 +136,21 @@ fn default_format_version() -> u32 {
     1
 }
 
-/// Create an initial failure record for a work item
-fn create_initial_failure_record(item_id: &str) -> FailureRecord {
-    FailureRecord {
-        item_id: item_id.to_string(),
-        attempts: 0,
-        last_error: String::new(),
-        last_attempt: Utc::now(),
-        worktree_info: None,
-    }
+/// Convert old MapReduceJobState to state_pure version
+fn to_pure_state(state: &MapReduceJobState) -> state_pure::MapReduceJobState {
+    // Leverage serde for conversion since structures are identical
+    let json = serde_json::to_string(state).expect("Failed to serialize state");
+    serde_json::from_str(&json).expect("Failed to deserialize to pure state")
 }
 
-/// Extract error message from agent status
-fn extract_error_message(status: &AgentStatus) -> String {
-    match status {
-        AgentStatus::Failed(err) => err.clone(),
-        AgentStatus::Timeout => "Agent execution timed out".to_string(),
-        _ => String::new(),
-    }
+/// Convert state_pure MapReduceJobState back to old version
+fn from_pure_state(state: state_pure::MapReduceJobState) -> MapReduceJobState {
+    // Leverage serde for conversion since structures are identical
+    let json = serde_json::to_string(&state).expect("Failed to serialize pure state");
+    serde_json::from_str(&json).expect("Failed to deserialize from pure state")
 }
 
-/// Extract worktree info from agent result if available
-fn extract_worktree_info(result: &AgentResult) -> Option<WorktreeInfo> {
-    match (&result.worktree_path, &result.branch_name) {
-        (Some(path), Some(name)) => Some(WorktreeInfo {
-            path: path.clone(),
-            name: name.clone(),
-            branch: result.branch_name.clone(),
-            session_id: result.worktree_session_id.clone(),
-        }),
-        _ => None,
-    }
-}
+// Note: Helper functions removed - now using pure functions from state_pure module
 
 /// Serialize job state to JSON string
 fn serialize_state(state: &MapReduceJobState) -> Result<String> {
@@ -266,110 +255,47 @@ impl MapReduceJobState {
         }
     }
 
-    /// Update state with a completed agent result
+    /// Update state with a completed agent result (wrapper around pure function)
     pub fn update_agent_result(&mut self, result: AgentResult) {
-        let item_id = result.item_id.clone();
-
-        self.update_counts_for_status(&result.status, &item_id);
-        self.store_agent_result(item_id.clone(), result);
-        self.finalize_result_update(item_id);
+        // Convert to pure state, apply transformation, convert back
+        let pure_state = to_pure_state(self);
+        let new_pure_state = state_pure::apply_agent_result(pure_state, result);
+        *self = from_pure_state(new_pure_state);
     }
 
-    /// Update success/failure counts based on agent status
-    fn update_counts_for_status(&mut self, status: &AgentStatus, item_id: &str) {
-        match status {
-            AgentStatus::Success => self.handle_success(item_id),
-            AgentStatus::Failed(_) | AgentStatus::Timeout => self.handle_failure(status, item_id),
-            _ => {}
-        }
-    }
+    // Note: Deprecated helper methods removed - now using pure functions from state_pure module
 
-    /// Handle successful agent completion
-    fn handle_success(&mut self, item_id: &str) {
-        self.successful_count += 1;
-        self.failed_agents.remove(item_id);
-    }
-
-    /// Handle failed or timed-out agent execution
-    fn handle_failure(&mut self, status: &AgentStatus, item_id: &str) {
-        // Get or create failure record and update it in one operation to avoid borrow issues
-        let failure = self
-            .failed_agents
-            .entry(item_id.to_string())
-            .or_insert_with(|| create_initial_failure_record(item_id));
-
-        // Update failure record inline
-        failure.attempts += 1;
-        failure.last_attempt = Utc::now();
-        failure.last_error = extract_error_message(status);
-
-        self.failed_count += 1;
-    }
-
-    /// Store agent result and mark as completed
-    fn store_agent_result(&mut self, item_id: String, result: AgentResult) {
-        if let Some(worktree_info) = extract_worktree_info(&result) {
-            if let Some(failure) = self.failed_agents.get_mut(&item_id) {
-                failure.worktree_info = Some(worktree_info);
-            }
-        }
-        self.agent_results.insert(item_id.clone(), result);
-        self.completed_agents.insert(item_id);
-    }
-
-    /// Finalize result update (remove from pending, update metadata)
-    fn finalize_result_update(&mut self, item_id: String) {
-        self.pending_items.retain(|id| id != &item_id);
-        self.updated_at = Utc::now();
-        self.checkpoint_version += 1;
-    }
-
-    /// Check if all agents have completed
+    /// Check if all agents have completed (wrapper around pure function)
     pub fn is_map_phase_complete(&self) -> bool {
-        self.pending_items.is_empty() && self.completed_agents.len() == self.total_items
+        let pure_state = to_pure_state(self);
+        state_pure::is_map_phase_complete(&pure_state)
     }
 
-    /// Get items that can be retried
+    /// Get items that can be retried (wrapper around pure function)
     pub fn get_retriable_items(&self, max_retries: u32) -> Vec<String> {
-        self.failed_agents
-            .iter()
-            .filter(|(_, failure)| failure.attempts < max_retries)
-            .map(|(id, _)| id.clone())
-            .collect()
+        let pure_state = to_pure_state(self);
+        state_pure::get_retriable_items(&pure_state, max_retries)
     }
 
-    /// Mark reduce phase as started
+    /// Mark reduce phase as started (wrapper around pure function)
     pub fn start_reduce_phase(&mut self) {
-        self.reduce_phase_state = Some(ReducePhaseState {
-            started: true,
-            completed: false,
-            executed_commands: Vec::new(),
-            output: None,
-            error: None,
-            started_at: Some(Utc::now()),
-            completed_at: None,
-        });
-        self.updated_at = Utc::now();
-        self.checkpoint_version += 1;
+        let pure_state = to_pure_state(self);
+        let new_pure_state = state_pure::start_reduce_phase(pure_state);
+        *self = from_pure_state(new_pure_state);
     }
 
-    /// Mark reduce phase as completed
+    /// Mark reduce phase as completed (wrapper around pure function)
     pub fn complete_reduce_phase(&mut self, output: Option<String>) {
-        if let Some(ref mut state) = self.reduce_phase_state {
-            state.completed = true;
-            state.output = output;
-            state.completed_at = Some(Utc::now());
-        }
-        self.is_complete = true;
-        self.updated_at = Utc::now();
-        self.checkpoint_version += 1;
+        let pure_state = to_pure_state(self);
+        let new_pure_state = state_pure::complete_reduce_phase(pure_state, output);
+        *self = from_pure_state(new_pure_state);
     }
 
-    /// Mark job as complete
+    /// Mark job as complete (wrapper around pure function)
     pub fn mark_complete(&mut self) {
-        self.is_complete = true;
-        self.updated_at = Utc::now();
-        self.checkpoint_version += 1;
+        let pure_state = to_pure_state(self);
+        let new_pure_state = state_pure::mark_complete(pure_state);
+        *self = from_pure_state(new_pure_state);
     }
 
     /// Find a work item by ID
