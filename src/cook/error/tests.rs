@@ -46,9 +46,9 @@ mod integration_tests {
         // Create a ContextError using the ResultExt trait
         fn create_error() -> ContextResult<(), &'static str> {
             let base_error: Result<(), &'static str> = Err("File not found");
-            base_error
-                .context("Reading configuration")
-                .and_then(|_| Err(ContextError::new("unreachable").context("Initializing workflow")))
+            base_error.context("Reading configuration").and_then(|_| {
+                Err(ContextError::new("unreachable").context("Initializing workflow"))
+            })
         }
 
         // For now, just test that we can create and format a ContextError
