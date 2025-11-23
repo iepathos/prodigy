@@ -100,6 +100,7 @@ fn create_failure_detail(result: &AgentResult, error_msg: &str, attempt: u32) ->
         timestamp: Utc::now(),
         error_type: classify_error(&result.status, error_msg),
         error_message: error_msg.to_string(),
+        error_context: None, // TODO: Extract from ContextError when available
         stack_trace: result.error.clone(),
         agent_id: format!("agent-{}", result.item_id),
         step_failed: "agent_execution".to_string(),

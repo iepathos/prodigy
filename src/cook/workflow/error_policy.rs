@@ -544,6 +544,7 @@ impl ErrorPolicyExecutor {
                 timestamp: now,
                 error_type: crate::cook::execution::dlq::ErrorType::Unknown,
                 error_message: error.to_string(),
+                error_context: None,
                 stack_trace: None,
                 agent_id: "map-agent".to_string(),
                 step_failed: "map_phase".to_string(),

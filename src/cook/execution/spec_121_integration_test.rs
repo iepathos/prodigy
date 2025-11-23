@@ -88,6 +88,7 @@ mod spec_121_tests {
             timestamp: Utc::now(),
             error_type: ErrorType::Timeout,
             error_message: "Agent execution failed".to_string(),
+            error_context: None,
             stack_trace: Some("Stack trace here".to_string()),
             agent_id: "agent-1".to_string(),
             step_failed: "claude: /test-command".to_string(),

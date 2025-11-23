@@ -17,6 +17,7 @@ mod tests {
             timestamp: Utc::now(),
             error_type,
             error_message: message.to_string(),
+            error_context: None,
             stack_trace: None,
             agent_id: format!("agent-{}", attempt),
             step_failed: "test-step".to_string(),

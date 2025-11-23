@@ -8,6 +8,7 @@ pub mod commit_tracker;
 pub mod common_strings;
 pub mod coordinators;
 pub mod environment;
+pub mod error;
 pub mod execution;
 pub mod expression;
 pub mod git_ops;

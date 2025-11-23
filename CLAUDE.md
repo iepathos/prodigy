@@ -21,6 +21,51 @@ Prodigy follows strict error handling requirements:
 - Command execution: `CommandError`
 - General operations: `anyhow::Error`
 
+### Error Context Preservation (Spec 168)
+
+Prodigy uses Stillwater's `ContextError<E>` wrapper to preserve operation context as errors propagate through the call stack. This provides comprehensive debugging information showing the complete operation trail.
+
+**Error Context Architecture:**
+- Errors automatically accumulate context at each layer using `.context()` method
+- Full context trail is preserved and displayed in error messages
+- DLQ items include complete error context for debugging failures
+- Zero runtime overhead in success path
+
+**Usage Example:**
+```rust
+use prodigy::cook::error::ResultExt;
+
+fn process_work_item(item_id: &str) -> Result<(), ContextError<ProcessError>> {
+    create_worktree(item_id)
+        .with_context(|| format!("Creating worktree for item {}", item_id))?;
+
+    execute_commands(item_id)
+        .context("Executing agent commands")?;
+
+    validate_commits(item_id)
+        .context("Validating commits")?;
+
+    Ok(())
+}
+```
+
+**Error Display Format:**
+```
+Error: Command failed with exit code 1
+Context:
+  -> Executing agent commands
+  -> Processing work item item-123
+  -> Running MapReduce job process-items
+```
+
+**DLQ Integration:**
+Failed MapReduce items include full error context trails in their `FailureDetail` records:
+```rust
+// Error context is stored in DLQ items
+failure_detail.error_context: Option<Vec<String>>
+// Example: ["Processing item item-42", "Executing map phase", "Running MapReduce job"]
+```
+
 ## Claude Command Observability (Spec 121)
 
 ### JSON Log Location Tracking
