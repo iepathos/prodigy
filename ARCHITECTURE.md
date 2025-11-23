@@ -1217,6 +1217,149 @@ The migration from imperative to pure state transitions is complete. All MapRedu
 
 See spec 169 for complete implementation details and design rationale.
 
+## Effect-Based Orchestrator (Spec 170)
+
+The orchestrator uses Stillwater's Effect pattern for composable, testable workflow execution.
+
+### Architecture Pattern
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Effect-Based Orchestrator                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  Pure Core              Effects               Environment    │
+│  ┌──────────┐          ┌──────────┐          ┌────────────┐ │
+│  │ Classify │  ──────► │ Validate │  ──────► │   I/O      │ │
+│  │ Validate │          │ Setup    │          │ Operations │ │
+│  │ Decide   │          │ Execute  │          └────────────┘ │
+│  └──────────┘          └──────────┘                          │
+│                                                               │
+│  No I/O                 Composed                 Injected    │
+│  Testable               Effects                  Dependencies │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### 1. Pure Core (`src/cook/orchestrator/pure.rs`)
+
+Pure functions for workflow analysis with no I/O:
+
+```rust
+// Workflow classification
+pub fn classify_workflow(config: &WorkflowConfig) -> WorkflowType
+
+// Workflow validation
+pub fn validate_workflow(config: &WorkflowConfig) -> Validation<(), Vec<WorkflowError>>
+
+// Iteration decisions
+pub fn should_continue_iteration(iteration: u32, max: u32, files_changed: usize) -> IterationDecision
+```
+
+**Properties**:
+- Zero I/O operations
+- Deterministic output
+- Easily testable (25+ pure function tests)
+- Composable with Effects
+
+#### 2. Effect Composition (`src/cook/orchestrator/effects.rs`)
+
+Effects wrap I/O operations and compose workflow execution:
+
+```rust
+// Effect type for orchestrator operations
+pub type OrchEffect<T> = Effect<T, anyhow::Error, OrchestratorEnv>
+
+// Workflow validation as Effect
+pub fn validate_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowConfig>
+
+// Setup workflow environment
+pub fn setup_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowSession>
+
+// Execute complete workflow
+pub fn execute_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowResult>
+```
+
+**Effect Composition**:
+```rust
+// Effects compose using and_then_auto and map_auto
+let workflow_effect = validate_workflow(config)
+    .and_then_auto(|validated| setup_workflow(validated))
+    .and_then_auto(|session| execute_steps(session))
+    .map_auto(|result| result.summary());
+```
+
+#### 3. Environment Injection (`src/cook/orchestrator/environment.rs`)
+
+Dependency injection for testability:
+
+```rust
+pub struct OrchestratorEnv {
+    pub session_manager: Arc<dyn SessionManager>,
+    pub command_executor: Arc<dyn CommandExecutor>,
+    pub claude_executor: Arc<dyn ClaudeExecutor>,
+    pub user_interaction: Arc<dyn UserInteraction>,
+    pub git_operations: Arc<dyn GitOperations>,
+    pub subprocess_manager: SubprocessManager,
+}
+```
+
+**Testing Support**:
+- Mock implementations for all traits
+- `OrchestratorEnv::test()` constructor (partial)
+- Pure logic tested without I/O
+- Effect composition verified separately
+
+### Key Benefits
+
+1. **Separation of Concerns**
+   - Pure logic in `pure.rs` (no I/O)
+   - I/O wrapped in Effects
+   - Clear boundaries
+
+2. **Testability**
+   - Pure functions: simple input/output tests
+   - Effects: testable with mocks
+   - No hidden dependencies
+
+3. **Composability**
+   - Effects combine functionally
+   - Reusable workflow components
+   - Type-safe composition
+
+4. **Explicit Dependencies**
+   - All I/O through `OrchestratorEnv`
+   - No hidden global state
+   - Easy to trace data flow
+
+### Test Coverage
+
+- **Pure Functions**: 25+ tests
+- **Data Structures**: 10+ tests
+- **Effect Validation**: Pure validation tests
+- **Total**: 35+ orchestrator tests
+
+### Design Principles
+
+1. **Pure Core**: All business logic in pure functions
+2. **Effect Composition**: I/O operations as composable Effects
+3. **Environment Injection**: Dependencies passed explicitly
+4. **Incremental Migration**: Non-breaking additions to existing code
+
+### Migration Strategy
+
+The Effect-based orchestrator coexists with the existing orchestrator:
+
+1. **Pure functions** extract validation/classification logic
+2. **Effect wrappers** provide composable I/O operations
+3. **Environment injection** enables testing
+4. **Gradual adoption** as features require it
+
+No changes to existing workflow execution until Effects are fully proven.
+
+See spec 170 for complete implementation details and rationale.
+
 ## Future Enhancements
 
 1. **Distributed Execution**: Support for multi-machine orchestration
