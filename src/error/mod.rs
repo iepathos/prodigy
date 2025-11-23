@@ -1,3 +1,186 @@
+//! # Prodigy Error System
+//!
+//! This module provides a comprehensive error handling system for Prodigy with support for
+//! error context chaining, structured error codes, and user-friendly error messages.
+//!
+//! ## Overview
+//!
+//! The error system is built around [`ProdigyError`], a unified error type that supports:
+//! - **Context Chaining**: Build rich error context through `.context()` calls
+//! - **Error Codes**: Structured error codes for categorization (E1001, E2001, etc.)
+//! - **User Messages**: End-user friendly error descriptions
+//! - **Developer Messages**: Detailed diagnostic information with full context chain
+//! - **Serialization**: Convert errors to JSON for API responses and logging
+//!
+//! ## Context Chaining Pattern
+//!
+//! The core pattern is to add context at **Effect boundaries** - points where your code
+//! transitions between different layers of abstraction or performs I/O operations.
+//!
+//! ### Basic Usage
+//!
+//! ```rust
+//! use prodigy::error::{ProdigyError, ErrorExt};
+//!
+//! fn read_config(path: &str) -> Result<Config, ProdigyError> {
+//!     // Effect boundary: file I/O
+//!     let content = std::fs::read_to_string(path)
+//!         .map_err(ProdigyError::from)
+//!         .context("Failed to read configuration file")?;
+//!
+//!     // Effect boundary: parsing
+//!     let config: Config = serde_json::from_str(&content)
+//!         .map_err(ProdigyError::from)
+//!         .context("Failed to parse configuration JSON")?;
+//!
+//!     Ok(config)
+//! }
+//!
+//! fn load_application_config() -> Result<Config, ProdigyError> {
+//!     // Effect boundary: calling lower-level function
+//!     read_config("config.json")
+//!         .context("Failed to load application configuration")?
+//! }
+//! ```
+//!
+//! This creates a context chain like:
+//! ```text
+//! Failed to load application configuration
+//!   └─ Failed to read configuration file
+//!      └─ No such file or directory (os error 2)
+//! ```
+//!
+//! ### Effect Boundaries
+//!
+//! Add `.context()` calls at these boundaries:
+//!
+//! 1. **I/O Operations**
+//!    ```rust
+//!    std::fs::write(path, data)
+//!        .map_err(ProdigyError::from)
+//!        .context(format!("Failed to write to {}", path))?;
+//!    ```
+//!
+//! 2. **External Calls**
+//!    ```rust
+//!    subprocess.execute()
+//!        .context("Failed to execute git command")?;
+//!    ```
+//!
+//! 3. **Layer Transitions**
+//!    ```rust
+//!    storage.save_checkpoint(checkpoint)
+//!        .context("Failed to persist workflow checkpoint")?;
+//!    ```
+//!
+//! 4. **Error Propagation**
+//!    ```rust
+//!    validate_workflow(&workflow)
+//!        .context(format!("Validation failed for workflow '{}'", workflow.name))?;
+//!    ```
+//!
+//! ### Advanced Patterns
+//!
+//! **Dynamic Context with Closures**:
+//! ```rust
+//! work_items.iter()
+//!     .map(|item| {
+//!         process_item(item)
+//!             .with_context(|| format!("Failed to process item {}", item.id))
+//!     })
+//!     .collect::<Result<Vec<_>, _>>()?;
+//! ```
+//!
+//! **Context with Location Tracking**:
+//! ```rust
+//! use prodigy::error::helpers::common;
+//!
+//! fn critical_operation() -> Result<(), ProdigyError> {
+//!     do_something()
+//!         .map_err(|e| common::execution_error(
+//!             "Critical operation failed",
+//!             Some(e)
+//!         ))
+//!         .context_with_location("In critical_operation", file!(), line!())?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Error Construction
+//!
+//! Use the helper functions in [`helpers::common`] for creating errors:
+//!
+//! ```rust
+//! use prodigy::error::helpers::common;
+//!
+//! // Configuration errors
+//! return Err(common::config_error("Invalid timeout value", None));
+//!
+//! // Storage errors with path
+//! return Err(common::storage_error_with_path(
+//!     "Failed to read checkpoint",
+//!     path,
+//!     Some(io_error)
+//! ));
+//!
+//! // Execution errors with command context
+//! return Err(common::execution_error_with_command(
+//!     "Command failed",
+//!     "git commit",
+//!     Some(1),
+//!     None
+//! ));
+//! ```
+//!
+//! ## Displaying Errors
+//!
+//! Errors support multiple display formats:
+//!
+//! **User Message** (end-user friendly):
+//! ```rust
+//! println!("{}", error.user_message());
+//! // Output: "Failed to load workflow configuration. Please check the file path and try again."
+//! ```
+//!
+//! **Developer Message** (full diagnostic info):
+//! ```rust
+//! eprintln!("{}", error.developer_message());
+//! // Output:
+//! // Error: Failed to load application configuration
+//! //   Context:
+//! //     - Failed to read configuration file
+//! //     - Failed to open config.json
+//! //   Source: No such file or directory (os error 2)
+//! ```
+//!
+//! ## Serialization
+//!
+//! Convert errors to JSON for APIs and logging:
+//!
+//! ```rust
+//! use prodigy::error::SerializableError;
+//!
+//! let serializable = SerializableError::from(error);
+//! let json = serde_json::to_string(&serializable)?;
+//! ```
+//!
+//! ## Migration Guide
+//!
+//! To add context to existing error handling:
+//!
+//! **Before**:
+//! ```rust
+//! let data = read_file(path)?;
+//! ```
+//!
+//! **After**:
+//! ```rust
+//! let data = read_file(path)
+//!     .context(format!("Failed to read file at {}", path))?;
+//! ```
+//!
+//! See the migration guide in `docs/specs/` for comprehensive examples.
+
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
