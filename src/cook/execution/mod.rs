@@ -68,6 +68,7 @@ pub mod shell_failure_tests;
 #[cfg(test)]
 pub mod spec_121_integration_test;
 pub mod state;
+pub mod state_pure;
 #[cfg(test)]
 pub mod state_tests;
 pub mod variable_capture;
