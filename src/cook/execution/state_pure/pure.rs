@@ -17,16 +17,7 @@ use std::collections::HashMap;
 ///
 /// # Examples
 ///
-/// ```
-/// use prodigy::cook::execution::state::pure;
-///
-/// let state = MapReduceJobState::new("job-1".to_string(), config, vec![]);
-/// let result = AgentResult { ... };
-///
-/// let new_state = pure::apply_agent_result(state, result);
-///
-/// assert_eq!(new_state.successful_count, 1);
-/// ```
+/// See the unit tests in this module for usage examples.
 pub fn apply_agent_result(mut state: MapReduceJobState, result: AgentResult) -> MapReduceJobState {
     let item_id = result.item_id.clone();
 
