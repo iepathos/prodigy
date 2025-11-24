@@ -1573,6 +1573,7 @@ dependencies = [
  "once_cell",
  "proptest",
  "rand",
+ "rayon",
  "regex",
  "serde",
  "serde_json",
