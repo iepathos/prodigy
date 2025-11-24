@@ -22,12 +22,15 @@ use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::effects::environment::{DefaultShellRunner, ShellRunner};
 use crate::cook::workflow::on_failure::OnFailureConfig;
-use crate::cook::workflow::pure::build_command;
+use crate::cook::workflow::pure::expand_variables;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use super::specialized_commands::{
+    execute_foreach_command, execute_goal_seek_command, execute_write_file_command,
+};
 use super::{CommandType, StepResult, WorkflowContext, WorkflowExecutor, WorkflowStep};
 
 // ============================================================================
@@ -90,180 +93,6 @@ fn convert_runner_output_to_step_result(
     }
 }
 
-/// Execute a goal-seek command
-pub async fn execute_goal_seek_command(
-    config: crate::cook::goal_seek::GoalSeekConfig,
-) -> Result<StepResult> {
-    use crate::cook::goal_seek::{
-        shell_executor::ShellCommandExecutor, GoalSeekEngine, GoalSeekResult,
-    };
-
-    let mut engine = GoalSeekEngine::new(Box::new(ShellCommandExecutor::new()));
-    let result = engine.seek(config.clone()).await?;
-
-    match result {
-        GoalSeekResult::Success {
-            attempts,
-            final_score,
-            ..
-        } => Ok(StepResult {
-            success: true,
-            stdout: format!(
-                "Goal '{}' achieved in {} attempts ({}%)",
-                config.goal, attempts, final_score
-            ),
-            stderr: String::new(),
-            exit_code: Some(0),
-            json_log_location: None,
-        }),
-        GoalSeekResult::MaxAttemptsReached {
-            attempts,
-            best_score,
-            ..
-        } => {
-            if config.fail_on_incomplete.unwrap_or(false) {
-                Err(anyhow!(
-                    "Goal '{}' not achieved after {} attempts (best: {}%)",
-                    config.goal,
-                    attempts,
-                    best_score
-                ))
-            } else {
-                Ok(StepResult {
-                    success: false,
-                    stdout: format!(
-                        "Goal '{}' not achieved after {} attempts (best: {}%)",
-                        config.goal, attempts, best_score
-                    ),
-                    stderr: String::new(),
-                    exit_code: Some(1),
-                    json_log_location: None,
-                })
-            }
-        }
-        GoalSeekResult::Timeout {
-            attempts,
-            best_score,
-            elapsed,
-        } => Err(anyhow!(
-            "Goal '{}' timed out after {} attempts ({:?}). Best: {}%",
-            config.goal,
-            attempts,
-            elapsed,
-            best_score
-        )),
-        GoalSeekResult::Converged {
-            attempts,
-            final_score,
-            reason,
-        } => {
-            let success = final_score >= config.threshold;
-            if !success && config.fail_on_incomplete.unwrap_or(false) {
-                Err(anyhow!(
-                    "Goal '{}' converged but didn't reach threshold ({}%). Reason: {}",
-                    config.goal,
-                    final_score,
-                    reason
-                ))
-            } else {
-                Ok(StepResult {
-                    success,
-                    stdout: format!(
-                        "Goal '{}' converged after {} attempts ({}%). Reason: {}",
-                        config.goal, attempts, final_score, reason
-                    ),
-                    stderr: String::new(),
-                    exit_code: Some(if success { 0 } else { 1 }),
-                    json_log_location: None,
-                })
-            }
-        }
-        GoalSeekResult::Failed { attempts, error } => Err(anyhow!(
-            "Goal '{}' failed after {} attempts: {}",
-            config.goal,
-            attempts,
-            error
-        )),
-    }
-}
-
-/// Execute a foreach command
-pub async fn execute_foreach_command(
-    config: crate::config::command::ForeachConfig,
-) -> Result<StepResult> {
-    let result = crate::cook::execution::foreach::execute_foreach(&config).await?;
-    Ok(StepResult {
-        success: result.failed_items == 0,
-        stdout: format!(
-            "Foreach completed: {} total, {} successful, {} failed",
-            result.total_items, result.successful_items, result.failed_items
-        ),
-        stderr: if result.failed_items > 0 {
-            format!("{} items failed", result.failed_items)
-        } else {
-            String::new()
-        },
-        exit_code: Some(if result.failed_items == 0 { 0 } else { 1 }),
-        json_log_location: None,
-    })
-}
-
-/// Execute a write_file command
-pub async fn execute_write_file_command(
-    config: &crate::config::command::WriteFileConfig,
-    working_dir: &Path,
-) -> Result<StepResult> {
-    use crate::config::command::WriteFileFormat;
-    use crate::cook::error::ResultExt;
-    use std::fs;
-
-    if config.path.contains("..") {
-        return Err(anyhow!(
-            "Invalid path: parent directory traversal not allowed"
-        ));
-    }
-
-    let file_path = working_dir.join(&config.path);
-    if config.create_dirs {
-        if let Some(parent) = file_path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create dirs for {}", file_path.display()))
-                .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-        }
-    }
-
-    let content = match config.format {
-        WriteFileFormat::Text => config.content.clone(),
-        WriteFileFormat::Json => serde_json::to_string_pretty(
-            &serde_json::from_str::<serde_json::Value>(&config.content)
-                .map_err(|e| anyhow!("Invalid JSON: {}", e))?,
-        )?,
-        WriteFileFormat::Yaml => serde_yaml::to_string(
-            &serde_yaml::from_str::<serde_yaml::Value>(&config.content)
-                .map_err(|e| anyhow!("Invalid YAML: {}", e))?,
-        )?,
-    };
-
-    fs::write(&file_path, &content)
-        .with_context(|| format!("Failed to write {}", file_path.display()))
-        .map_err(|e| anyhow::Error::msg(e.to_string()))?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode =
-            u32::from_str_radix(&config.mode, 8).map_err(|e| anyhow!("Invalid mode: {}", e))?;
-        fs::set_permissions(&file_path, fs::Permissions::from_mode(mode))?;
-    }
-
-    Ok(StepResult {
-        success: true,
-        exit_code: Some(0),
-        stdout: format!("Wrote {} bytes to {}", content.len(), config.path),
-        stderr: String::new(),
-        json_log_location: None,
-    })
-}
 
 /// Format command description for logging
 pub fn format_command_description(command_type: &CommandType) -> String {
@@ -415,10 +244,10 @@ impl WorkflowExecutor {
             exec_context = exec_context.with_session_id(session_id.clone());
         }
 
-        // Pure: interpolate attribute values using build_command from pure/ module
+        // Pure: interpolate attribute values using expand_variables from pure/ module
         for (_, value) in attributes.iter_mut() {
             if let AttributeValue::String(s) = value {
-                *s = build_command(s, &ctx.variables);
+                *s = expand_variables(s, &ctx.variables);
             }
         }
 

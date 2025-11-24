@@ -40,6 +40,8 @@ mod orchestration;
 mod pure;
 #[path = "executor/retry_logic.rs"]
 mod retry_logic;
+#[path = "executor/specialized_commands.rs"]
+pub(crate) mod specialized_commands;
 #[path = "executor/step_executor.rs"]
 mod step_executor;
 #[path = "executor/types.rs"]
