@@ -40,29 +40,21 @@ fn bench_count_aggregation(c: &mut Criterion) {
 
     for size in [10, 100, 1000, 10000] {
         // Baseline: Custom implementation
-        group.bench_with_input(
-            BenchmarkId::new("custom", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let counts: Vec<usize> = (0..size).map(|_| 1).collect();
-                    black_box(custom_merge_count(counts))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("custom", size), &size, |b, &size| {
+            b.iter(|| {
+                let counts: Vec<usize> = (0..size).map(|_| 1).collect();
+                black_box(custom_merge_count(counts))
+            });
+        });
 
         // Semigroup: Sequential
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> =
-                        (0..size).map(|_| AggregateResult::Count(1)).collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> =
+                    (0..size).map(|_| AggregateResult::Count(1)).collect();
+                black_box(aggregate_results(results))
+            });
+        });
 
         // Semigroup: Parallel (for large datasets)
         if size >= 1000 {
@@ -88,17 +80,13 @@ fn bench_sum_aggregation(c: &mut Criterion) {
     let mut group = c.benchmark_group("sum_aggregation");
 
     for size in [10, 100, 1000, 10000] {
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> =
-                        (0..size).map(|i| AggregateResult::Sum(i as f64)).collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> =
+                    (0..size).map(|i| AggregateResult::Sum(i as f64)).collect();
+                black_box(aggregate_results(results))
+            });
+        });
     }
 
     group.finish();
@@ -110,32 +98,22 @@ fn bench_collect_aggregation(c: &mut Criterion) {
 
     for size in [10, 100, 1000] {
         // Baseline: Custom implementation
-        group.bench_with_input(
-            BenchmarkId::new("custom", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let collections: Vec<Vec<Value>> = (0..size)
-                        .map(|i| vec![json!(i)])
-                        .collect();
-                    black_box(custom_merge_collect(collections))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("custom", size), &size, |b, &size| {
+            b.iter(|| {
+                let collections: Vec<Vec<Value>> = (0..size).map(|i| vec![json!(i)]).collect();
+                black_box(custom_merge_collect(collections))
+            });
+        });
 
         // Semigroup implementation
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| AggregateResult::Collect(vec![json!(i)]))
-                        .collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> = (0..size)
+                    .map(|i| AggregateResult::Collect(vec![json!(i)]))
+                    .collect();
+                black_box(aggregate_results(results))
+            });
+        });
     }
 
     group.finish();
@@ -147,33 +125,23 @@ fn bench_average_aggregation(c: &mut Criterion) {
 
     for size in [10, 100, 1000, 10000] {
         // Baseline: Custom implementation
-        group.bench_with_input(
-            BenchmarkId::new("custom", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let averages: Vec<(f64, usize)> = (0..size)
-                        .map(|i| (i as f64, 1))
-                        .collect();
-                    black_box(custom_merge_averages(averages))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("custom", size), &size, |b, &size| {
+            b.iter(|| {
+                let averages: Vec<(f64, usize)> = (0..size).map(|i| (i as f64, 1)).collect();
+                black_box(custom_merge_averages(averages))
+            });
+        });
 
         // Semigroup implementation
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| AggregateResult::Average(i as f64, 1))
-                        .collect();
-                    let combined = aggregate_results(results);
-                    black_box(combined.map(|r| r.finalize()))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> = (0..size)
+                    .map(|i| AggregateResult::Average(i as f64, 1))
+                    .collect();
+                let combined = aggregate_results(results);
+                black_box(combined.map(|r| r.finalize()))
+            });
+        });
     }
 
     group.finish();
@@ -184,22 +152,18 @@ fn bench_unique_aggregation(c: &mut Criterion) {
     let mut group = c.benchmark_group("unique_aggregation");
 
     for size in [10, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| {
-                            let mut set = HashSet::new();
-                            set.insert(format!("item_{}", i % (size / 2))); // Some duplicates
-                            AggregateResult::Unique(set)
-                        })
-                        .collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> = (0..size)
+                    .map(|i| {
+                        let mut set = HashSet::new();
+                        set.insert(format!("item_{}", i % (size / 2))); // Some duplicates
+                        AggregateResult::Unique(set)
+                    })
+                    .collect();
+                black_box(aggregate_results(results))
+            });
+        });
     }
 
     group.finish();
@@ -210,22 +174,18 @@ fn bench_merge_aggregation(c: &mut Criterion) {
     let mut group = c.benchmark_group("merge_aggregation");
 
     for size in [10, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| {
-                            let mut map = HashMap::new();
-                            map.insert(format!("key_{}", i), json!(i));
-                            AggregateResult::Merge(map)
-                        })
-                        .collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> = (0..size)
+                    .map(|i| {
+                        let mut map = HashMap::new();
+                        map.insert(format!("key_{}", i), json!(i));
+                        AggregateResult::Merge(map)
+                    })
+                    .collect();
+                black_box(aggregate_results(results))
+            });
+        });
     }
 
     group.finish();
@@ -236,18 +196,14 @@ fn bench_concat_aggregation(c: &mut Criterion) {
     let mut group = c.benchmark_group("concat_aggregation");
 
     for size in [10, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|_| AggregateResult::Concat("x".to_string()))
-                        .collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> = (0..size)
+                    .map(|_| AggregateResult::Concat("x".to_string()))
+                    .collect();
+                black_box(aggregate_results(results))
+            });
+        });
     }
 
     group.finish();
@@ -258,31 +214,21 @@ fn bench_min_max_aggregation(c: &mut Criterion) {
     let mut group = c.benchmark_group("min_max_aggregation");
 
     for size in [10, 100, 1000, 10000] {
-        group.bench_with_input(
-            BenchmarkId::new("min", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| AggregateResult::Min(json!(i)))
-                        .collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("min", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> =
+                    (0..size).map(|i| AggregateResult::Min(json!(i))).collect();
+                black_box(aggregate_results(results))
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("max", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| AggregateResult::Max(json!(i)))
-                        .collect();
-                    black_box(aggregate_results(results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("max", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> =
+                    (0..size).map(|i| AggregateResult::Max(json!(i))).collect();
+                black_box(aggregate_results(results))
+            });
+        });
     }
 
     group.finish();
@@ -293,19 +239,15 @@ fn bench_median_aggregation(c: &mut Criterion) {
     let mut group = c.benchmark_group("median_aggregation");
 
     for size in [10, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::new("semigroup", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let results: Vec<AggregateResult> = (0..size)
-                        .map(|i| AggregateResult::Median(vec![i as f64]))
-                        .collect();
-                    let combined = aggregate_results(results);
-                    black_box(combined.map(|r| r.finalize()))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("semigroup", size), &size, |b, &size| {
+            b.iter(|| {
+                let results: Vec<AggregateResult> = (0..size)
+                    .map(|i| AggregateResult::Median(vec![i as f64]))
+                    .collect();
+                let combined = aggregate_results(results);
+                black_box(combined.map(|r| r.finalize()))
+            });
+        });
     }
 
     group.finish();
@@ -316,18 +258,14 @@ fn bench_aggregate_with_initial(c: &mut Criterion) {
     let mut group = c.benchmark_group("aggregate_with_initial");
 
     for size in [10, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::new("count", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let initial = AggregateResult::Count(100);
-                    let results: Vec<AggregateResult> =
-                        (0..size).map(|_| AggregateResult::Count(1)).collect();
-                    black_box(aggregate_with_initial(initial, results))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("count", size), &size, |b, &size| {
+            b.iter(|| {
+                let initial = AggregateResult::Count(100);
+                let results: Vec<AggregateResult> =
+                    (0..size).map(|_| AggregateResult::Count(1)).collect();
+                black_box(aggregate_with_initial(initial, results))
+            });
+        });
     }
 
     group.finish();
