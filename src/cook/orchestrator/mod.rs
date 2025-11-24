@@ -25,6 +25,9 @@ mod session_ops;
 pub mod workflow_classifier;
 mod workflow_execution;
 
+#[cfg(test)]
+mod core_tests;
+
 // Re-export public types and traits from core
 pub use core::{CookConfig, CookOrchestrator, DefaultCookOrchestrator, ExecutionEnvironment};
 // Re-export builder
