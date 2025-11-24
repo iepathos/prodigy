@@ -69,9 +69,9 @@ pub use error_policy::{
     RetryConfig, WorkflowErrorPolicy,
 };
 pub use executor::{
-    commands::execute_write_file_command, CaptureOutput, CommandType, ExtendedWorkflowConfig,
-    HandlerStep, StepResult, WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl,
-    WorkflowMode, WorkflowStep,
+    specialized_commands::execute_write_file_command, CaptureOutput, CommandType,
+    ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
+    WorkflowExecutor as WorkflowExecutorImpl, WorkflowMode, WorkflowStep,
 };
 pub use git_context::{GitChangeTracker, StepChanges, VariableFormat};
 pub use normalized::{

@@ -3,6 +3,7 @@
 //! This module is being refactored to follow functional programming principles:
 //! - Pure functions separated from I/O operations (pure.rs)
 //! - Command execution separated from orchestration (commands.rs)
+//! - Specialized commands in their own module (specialized_commands.rs)
 //! - Failure handling and retry logic isolated (failure_handler.rs)
 //! - Clear module boundaries with single responsibilities
 //! - Improved testability and composability
@@ -11,6 +12,7 @@ pub mod commands;
 pub mod failure_handler;
 pub mod orchestration;
 pub mod pure;
+pub mod specialized_commands;
 
 // Re-export commonly used items from pure module
 pub use pure::{
@@ -20,9 +22,11 @@ pub use pure::{
 };
 
 // Re-export commonly used items from commands module
-pub use commands::{
-    execute_claude_command, execute_foreach_command, execute_goal_seek_command,
-    execute_shell_command, format_command_description,
+pub use commands::{execute_claude_command, execute_shell_command, format_command_description};
+
+// Re-export specialized command functions
+pub use specialized_commands::{
+    execute_foreach_command, execute_goal_seek_command, execute_write_file_command,
 };
 
 // Re-export commonly used items from failure_handler module
