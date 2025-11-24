@@ -5,6 +5,7 @@
 
 mod checkpoints;
 mod cook_adapter;
+pub mod effects;
 mod filters;
 mod lifecycle;
 mod manager;

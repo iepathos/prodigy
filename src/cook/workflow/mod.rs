@@ -13,6 +13,7 @@ pub mod composer_integration;
 pub mod composition;
 #[cfg(test)]
 mod conditional_tests;
+pub mod effects;
 pub mod error_policy;
 #[cfg(test)]
 mod error_policy_tests;
