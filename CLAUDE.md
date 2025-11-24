@@ -178,11 +178,13 @@ prodigy dlq retry <job_id> [--max-parallel N] [--dry-run]
 
 ## Variable Aggregation (Spec 171)
 
-### Semigroup-Based Aggregation
+### Semigroup-Based Aggregation with Validation
 
-Prodigy uses a semigroup pattern for aggregating variables across parallel agents in MapReduce workflows. This provides a clean, composable abstraction for combining results.
+Prodigy uses a semigroup pattern with homogeneous validation for aggregating variables across parallel agents in MapReduce workflows. This provides a clean, composable abstraction for combining results while preventing type mismatches.
 
-**Core concept**: Each aggregate type implements the `Semigroup` trait with an associative `combine` operation, enabling safe parallel aggregation.
+**Core concept**: Each aggregate type implements the `Semigroup` trait with an associative `combine` operation, enabling safe parallel aggregation. Following Stillwater's "pure core, imperative shell" philosophy, validation happens at boundaries before combining.
+
+**Type Safety**: The `aggregate_map_results` function uses Stillwater's homogeneous validation to ensure all results have the same type before combining. If any type mismatches occur, ALL errors are accumulated and reported (not just the first).
 
 ### Available Aggregations
 
@@ -227,22 +229,35 @@ reduce:
   - shell: "echo 'Unique tags: ${all_tags}'"
 ```
 
-### Helper Functions
+### Helper Functions with Validation
 
-For programmatic aggregation, use the helper functions:
+For programmatic aggregation, use the validation-aware helper functions:
 
 ```rust
 use prodigy::cook::execution::variables::semigroup::{
-    AggregateResult, aggregate_results, aggregate_with_initial
+    AggregateResult, aggregate_map_results, aggregate_with_initial
 };
+use stillwater::Validation;
 
-// Combine multiple results
+// Combine multiple results with validation
 let results = vec![
     AggregateResult::Count(5),
     AggregateResult::Count(3),
     AggregateResult::Count(2),
 ];
-let total = aggregate_results(results).unwrap(); // Count(10)
+
+match aggregate_map_results(results) {
+    Validation::Success(total) => {
+        // All types matched: Count(10)
+        println!("Total: {:?}", total);
+    }
+    Validation::Failure(errors) => {
+        // Type mismatches found - ALL errors reported
+        for error in errors {
+            eprintln!("Error: {}", error);
+        }
+    }
+}
 
 // Combine with initial value (useful for checkpointed aggregation)
 let initial = AggregateResult::Count(10);
@@ -250,7 +265,18 @@ let new_results = vec![
     AggregateResult::Count(5),
     AggregateResult::Count(3),
 ];
-let total = aggregate_with_initial(initial, new_results); // Count(18)
+
+match aggregate_with_initial(initial, new_results) {
+    Validation::Success(total) => {
+        // Count(18)
+        println!("Total: {:?}", total);
+    }
+    Validation::Failure(errors) => {
+        for error in errors {
+            eprintln!("Error: {}", error);
+        }
+    }
+}
 ```
 
 ### Migration Guide
@@ -306,16 +332,18 @@ let final_value = combined_avg.finalize(); // Value::Number(6.0)
 **Key benefits:**
 - **Unified interface**: Single `combine` method for all aggregations
 - **Associativity**: Safe parallel execution and checkpointing
-- **Type safety**: Incompatible types caught at compile/runtime
+- **Type safety**: Validation catches type mismatches before combining
+- **Error accumulation**: ALL errors reported, not just the first
+- **No panics**: Production code never panics on type mismatches
 - **Composability**: Easy to extend with new aggregation types
 - **Clarity**: Separates state tracking (combine) from final computation (finalize)
 
 **Migration steps:**
 1. Identify custom aggregation logic in your code
 2. Find matching `AggregateResult` variant (or add new one if needed)
-3. Replace custom merge functions with `.combine()` calls
-4. Use `.finalize()` to get final computed values
-5. For multiple aggregations, use `aggregate_results()` helper
+3. Replace custom merge functions with `aggregate_map_results()` (with validation)
+4. Handle `Validation::Success` and `Validation::Failure` cases
+5. Use `.finalize()` to get final computed values
 
 ## Environment Variables (Spec 120)
 

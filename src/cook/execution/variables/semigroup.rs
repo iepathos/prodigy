@@ -3,11 +3,21 @@
 //! This module provides the `AggregateResult` type and its `Semigroup` implementation,
 //! enabling consistent combination semantics across all aggregate types.
 //! The `combine` operation is associative, allowing safe parallel aggregation.
+//!
+//! # Validation Pattern
+//!
+//! Following Stillwater's "pure core, imperative shell" philosophy, this module uses
+//! homogeneous validation to prevent type mismatches in aggregation. The `Semigroup`
+//! implementation is kept pure (only handles matching types), while validation
+//! happens at boundaries using `combine_homogeneous`.
 
 use rayon::prelude::*;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use stillwater::Semigroup;
+use stillwater::validation::homogeneous::{
+    combine_homogeneous, DiscriminantName, TypeMismatchError,
+};
+use stillwater::{Semigroup, Validation};
 
 /// Internal representation of aggregate results that can be combined
 ///
@@ -60,6 +70,28 @@ pub enum AggregateResult {
 
     /// Grouped values by key
     GroupBy(HashMap<String, Vec<Value>>),
+}
+
+impl DiscriminantName for AggregateResult {
+    fn discriminant_name(&self) -> &'static str {
+        match self {
+            AggregateResult::Count(_) => "Count",
+            AggregateResult::Sum(_) => "Sum",
+            AggregateResult::Min(_) => "Min",
+            AggregateResult::Max(_) => "Max",
+            AggregateResult::Collect(_) => "Collect",
+            AggregateResult::Average(_, _) => "Average",
+            AggregateResult::Median(_) => "Median",
+            AggregateResult::StdDev(_) => "StdDev",
+            AggregateResult::Variance(_) => "Variance",
+            AggregateResult::Unique(_) => "Unique",
+            AggregateResult::Concat(_) => "Concat",
+            AggregateResult::Merge(_) => "Merge",
+            AggregateResult::Flatten(_) => "Flatten",
+            AggregateResult::Sort(_, _) => "Sort",
+            AggregateResult::GroupBy(_) => "GroupBy",
+        }
+    }
 }
 
 impl Semigroup for AggregateResult {
@@ -153,11 +185,10 @@ impl Semigroup for AggregateResult {
                 GroupBy(a)
             }
 
-            // Incompatible types - this is a programming error
-            (a, b) => panic!(
-                "Cannot combine incompatible aggregate types: {:?} and {:?}",
-                discriminant_name(&a),
-                discriminant_name(&b)
+            // Incompatible types - should be validated before combining
+            _ => unreachable!(
+                "Type mismatch in aggregation. Use `aggregate_map_results` or \
+                 `combine_homogeneous` to validate types before combining."
             ),
         }
     }
@@ -276,25 +307,82 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     }
 }
 
-/// Get a string representation of the discriminant for error messages
-fn discriminant_name(result: &AggregateResult) -> &'static str {
-    match result {
-        AggregateResult::Count(_) => "Count",
-        AggregateResult::Sum(_) => "Sum",
-        AggregateResult::Min(_) => "Min",
-        AggregateResult::Max(_) => "Max",
-        AggregateResult::Collect(_) => "Collect",
-        AggregateResult::Average(_, _) => "Average",
-        AggregateResult::Median(_) => "Median",
-        AggregateResult::StdDev(_) => "StdDev",
-        AggregateResult::Variance(_) => "Variance",
-        AggregateResult::Unique(_) => "Unique",
-        AggregateResult::Concat(_) => "Concat",
-        AggregateResult::Merge(_) => "Merge",
-        AggregateResult::Flatten(_) => "Flatten",
-        AggregateResult::Sort(_, _) => "Sort",
-        AggregateResult::GroupBy(_) => "GroupBy",
+/// Aggregate multiple results with homogeneous validation.
+///
+/// This function validates that all results have the same variant type before
+/// combining them using the Semigroup trait. If any result has a different type,
+/// ALL mismatches are accumulated and returned as errors.
+///
+/// # Example
+///
+/// ```
+/// use prodigy::cook::execution::variables::semigroup::{AggregateResult, aggregate_map_results};
+/// use stillwater::Validation;
+///
+/// let results = vec![
+///     AggregateResult::Count(5),
+///     AggregateResult::Count(3),
+/// ];
+///
+/// match aggregate_map_results(results) {
+///     Validation::Success(combined) => {
+///         // All types matched, aggregation succeeded
+///         assert_eq!(combined, AggregateResult::Count(8));
+///     }
+///     Validation::Failure(errors) => {
+///         // Type mismatches found - ALL errors reported
+///         for error in errors {
+///             eprintln!("Aggregation error: {}", error);
+///         }
+///     }
+/// }
+/// ```
+pub fn aggregate_map_results(
+    results: Vec<AggregateResult>,
+) -> Validation<AggregateResult, Vec<TypeMismatchError>> {
+    if results.is_empty() {
+        // Return a default Count(0) for empty results
+        return Validation::success(AggregateResult::Count(0));
     }
+
+    combine_homogeneous(results, std::mem::discriminant, TypeMismatchError::new)
+}
+
+/// Aggregate results with an initial value, using homogeneous validation.
+///
+/// This is useful for checkpoint-based aggregation where you have an existing
+/// aggregate state and want to combine it with new results.
+///
+/// # Example
+///
+/// ```
+/// use prodigy::cook::execution::variables::semigroup::{AggregateResult, aggregate_with_initial};
+/// use stillwater::Validation;
+///
+/// let initial = AggregateResult::Count(10);
+/// let new_results = vec![
+///     AggregateResult::Count(5),
+///     AggregateResult::Count(3),
+/// ];
+///
+/// match aggregate_with_initial(initial, new_results) {
+///     Validation::Success(combined) => {
+///         assert_eq!(combined, AggregateResult::Count(18));
+///     }
+///     Validation::Failure(errors) => {
+///         for error in errors {
+///             eprintln!("Aggregation error: {}", error);
+///         }
+///     }
+/// }
+/// ```
+pub fn aggregate_with_initial(
+    initial: AggregateResult,
+    results: Vec<AggregateResult>,
+) -> Validation<AggregateResult, Vec<TypeMismatchError>> {
+    let mut all_results = vec![initial];
+    all_results.extend(results);
+    aggregate_map_results(all_results)
 }
 
 /// Aggregate multiple results in parallel using rayon
@@ -577,10 +665,69 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot combine incompatible aggregate types")]
-    fn test_incompatible_types_panic() {
-        let a = AggregateResult::Count(5);
-        let b = AggregateResult::Sum(3.0);
-        let _ = a.combine(b);
+    fn test_homogeneous_aggregation_succeeds() {
+        let results = vec![
+            AggregateResult::Count(5),
+            AggregateResult::Count(3),
+            AggregateResult::Count(2),
+        ];
+
+        let result = aggregate_map_results(results);
+
+        match result {
+            Validation::Success(combined) => {
+                assert_eq!(combined, AggregateResult::Count(10));
+            }
+            Validation::Failure(_) => panic!("Expected success"),
+        }
+    }
+
+    #[test]
+    fn test_heterogeneous_aggregation_returns_all_errors() {
+        let results = vec![
+            AggregateResult::Count(5),
+            AggregateResult::Sum(10.0),       // Error at index 1
+            AggregateResult::Average(6.0, 2), // Error at index 2
+            AggregateResult::Count(3),
+        ];
+
+        let result = aggregate_map_results(results);
+
+        match result {
+            Validation::Failure(errors) => {
+                assert_eq!(errors.len(), 2); // Both errors reported
+                assert!(errors.iter().any(|e| e.index == 1 && e.got == "Sum"));
+                assert!(errors.iter().any(|e| e.index == 2 && e.got == "Average"));
+            }
+            _ => panic!("Expected validation failure"),
+        }
+    }
+
+    #[test]
+    fn test_aggregate_with_initial() {
+        let initial = AggregateResult::Count(10);
+        let results = vec![AggregateResult::Count(5), AggregateResult::Count(3)];
+
+        let result = aggregate_with_initial(initial, results);
+
+        match result {
+            Validation::Success(combined) => {
+                assert_eq!(combined, AggregateResult::Count(18));
+            }
+            _ => panic!("Expected success"),
+        }
+    }
+
+    #[test]
+    fn test_empty_results() {
+        let results: Vec<AggregateResult> = vec![];
+        let result = aggregate_map_results(results);
+
+        match result {
+            Validation::Success(combined) => {
+                assert_eq!(combined, AggregateResult::Count(0));
+            }
+            _ => panic!("Expected success with default Count(0)"),
+        }
     }
 }
