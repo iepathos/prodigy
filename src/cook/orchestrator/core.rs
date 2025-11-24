@@ -15,20 +15,21 @@
 //! - Keeps only I/O coordination logic (~400 LOC)
 
 use crate::abstractions::git::GitOperations;
-use crate::config::{WorkflowCommand, WorkflowConfig};
+use crate::config::WorkflowConfig;
 use crate::core::orchestration::{plan_execution, ExecutionMode, ExecutionPlan};
 use crate::testing::config::TestConfiguration;
 use crate::worktree::WorktreeManager;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::cook::command::CookCommand;
 use crate::cook::execution::{ClaudeExecutor, CommandExecutor};
 use crate::cook::interaction::UserInteraction;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowStep};
+// Re-export WorkflowType from workflow_classifier for backwards compatibility
+pub(crate) use super::workflow_classifier::WorkflowType;
 
 /// Configuration for cook orchestration
 #[derive(Debug, Clone)]
@@ -63,28 +64,6 @@ pub trait CookOrchestrator: Send + Sync {
     async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()>;
 }
 
-/// Classification of workflow types
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum WorkflowType {
-    MapReduce,
-    StructuredWithOutputs,
-    WithArguments,
-    Standard,
-}
-
-impl From<WorkflowType> for crate::cook::session::WorkflowType {
-    fn from(wt: WorkflowType) -> Self {
-        match wt {
-            WorkflowType::MapReduce => crate::cook::session::WorkflowType::MapReduce,
-            WorkflowType::StructuredWithOutputs => {
-                crate::cook::session::WorkflowType::StructuredWithOutputs
-            }
-            WorkflowType::WithArguments => crate::cook::session::WorkflowType::Iterative,
-            WorkflowType::Standard => crate::cook::session::WorkflowType::Standard,
-        }
-    }
-}
-
 /// Execution environment for cook operations
 #[derive(Debug)]
 pub struct ExecutionEnvironment {
@@ -114,7 +93,6 @@ impl Clone for ExecutionEnvironment {
 /// Uses pure planning from `core::orchestration` to drive execution decisions.
 pub struct DefaultCookOrchestrator {
     session_manager: Arc<dyn SessionManager>,
-    unified_session_manager: Arc<Mutex<Option<Arc<crate::unified_session::SessionManager>>>>,
     #[allow(dead_code)]
     command_executor: Arc<dyn CommandExecutor>,
     claude_executor: Arc<dyn ClaudeExecutor>,
@@ -198,7 +176,6 @@ impl DefaultCookOrchestrator {
 
         Self {
             session_manager,
-            unified_session_manager: Arc::new(Mutex::new(None)),
             command_executor,
             claude_executor,
             user_interaction,
@@ -252,60 +229,7 @@ impl DefaultCookOrchestrator {
         super::workflow_classifier::classify_workflow_type(config)
     }
 
-    /// Convert a workflow command to a workflow step
-    fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
-        super::workflow_execution::WorkflowExecutor::convert_command_to_step(cmd)
-    }
-
     // --- I/O Operations (Thin Layer) ---
-
-    async fn get_unified_session_manager(
-        &self,
-    ) -> Result<Arc<crate::unified_session::SessionManager>> {
-        if let Some(m) = self
-            .unified_session_manager
-            .lock()
-            .map_err(|e| anyhow!("Lock: {}", e))?
-            .as_ref()
-        {
-            return Ok(Arc::clone(m));
-        }
-        let storage = crate::storage::GlobalStorage::new().context("Create storage")?;
-        let manager = Arc::new(
-            crate::unified_session::SessionManager::new(storage)
-                .await
-                .context("Create manager")?,
-        );
-        *self
-            .unified_session_manager
-            .lock()
-            .map_err(|e| anyhow!("Lock: {}", e))? = Some(Arc::clone(&manager));
-        Ok(manager)
-    }
-
-    async fn update_unified_session_status(&self, session_id: &str, success: bool) {
-        let Ok(manager) = self.get_unified_session_manager().await else {
-            return;
-        };
-        let id = crate::unified_session::SessionId::from_string(session_id.to_string());
-        if manager.load_session(&id).await.is_ok() {
-            let _ = manager.complete_session(&id, success).await;
-        }
-    }
-
-    async fn create_unified_session(&self, config: &CookConfig) -> Result<String> {
-        let manager = self.get_unified_session_manager().await?;
-        let wf_id = super::construction::generate_workflow_id();
-        let cfg = super::construction::build_session_config(
-            wf_id.clone(),
-            config.workflow.name.clone(),
-            super::construction::create_session_metadata(config.workflow.commands.len()),
-        );
-        let id = manager.create_session(cfg).await?;
-        manager.start_session(&id).await?;
-        log::info!("Created session: {} (workflow: {})", id, wf_id);
-        Ok(id.to_string())
-    }
 
     async fn create_worktree(
         &self,
@@ -427,24 +351,10 @@ impl DefaultCookOrchestrator {
                 .await;
         }
 
-        let steps: Vec<WorkflowStep> = config
-            .workflow
-            .commands
-            .iter()
-            .map(Self::convert_command_to_step)
-            .collect();
-        let extended = ExtendedWorkflowConfig {
-            name: "default".to_string(),
-            mode: crate::cook::workflow::WorkflowMode::Sequential,
-            steps,
-            setup_phase: None,
-            map_phase: None,
-            reduce_phase: None,
-            max_iterations: config.command.max_iterations,
-            iterate: config.command.max_iterations > 1,
-            retry_defaults: None,
-            environment: None,
-        };
+        let extended = super::workflow_execution::build_standard_workflow_config(
+            &config.workflow.commands,
+            config.command.max_iterations,
+        );
 
         let checkpoint_mgr = Arc::new(crate::cook::workflow::CheckpointManager::with_storage(
             crate::cook::workflow::CheckpointStorage::Session {
@@ -459,11 +369,7 @@ impl DefaultCookOrchestrator {
             )
             .with_dry_run(config.command.dry_run);
 
-        if config.workflow.env.is_some()
-            || config.workflow.secrets.is_some()
-            || config.workflow.env_files.is_some()
-            || config.workflow.profiles.is_some()
-        {
+        if super::workflow_execution::has_env_config(&config.workflow) {
             executor = executor.with_environment_config(super::construction::create_env_config(
                 &config.workflow,
             ))?;
@@ -517,7 +423,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         interrupt_handler.abort();
 
         // Update session status
-        self.update_unified_session_status(&env.session_id, execution_result.is_ok())
+        self.session_ops
+            .update_unified_session_status(&env.session_id, execution_result.is_ok())
             .await;
 
         // Finalize
@@ -537,7 +444,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             config.mapreduce_config.is_some(),
             config.command.dry_run,
         ) {
-            session_id = Arc::from(self.create_unified_session(config).await?.as_str());
+            session_id = Arc::from(
+                self.session_ops
+                    .create_unified_session(config)
+                    .await?
+                    .as_str(),
+            );
         }
 
         let (working_dir, worktree_name) = if !config.command.dry_run {

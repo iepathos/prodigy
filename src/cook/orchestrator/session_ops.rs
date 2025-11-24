@@ -9,9 +9,9 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::core::{CookConfig, ExecutionEnvironment};
 use crate::cook::session::{SessionManager, SessionState};
 use crate::worktree::WorktreeManager;
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// Session operations for managing cook sessions
 #[derive(Clone)]
@@ -22,6 +22,7 @@ pub struct SessionOperations {
     user_interaction: Arc<dyn UserInteraction>,
     git_operations: Arc<dyn GitOperations>,
     subprocess: crate::subprocess::SubprocessManager,
+    unified_session_manager: Arc<Mutex<Option<Arc<crate::unified_session::SessionManager>>>>,
 }
 
 impl SessionOperations {
@@ -39,7 +40,59 @@ impl SessionOperations {
             user_interaction,
             git_operations,
             subprocess,
+            unified_session_manager: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Get or create the unified session manager (lazy initialization)
+    pub async fn get_unified_session_manager(
+        &self,
+    ) -> Result<Arc<crate::unified_session::SessionManager>> {
+        if let Some(m) = self
+            .unified_session_manager
+            .lock()
+            .map_err(|e| anyhow!("Lock: {}", e))?
+            .as_ref()
+        {
+            return Ok(Arc::clone(m));
+        }
+        let storage = crate::storage::GlobalStorage::new().context("Create storage")?;
+        let manager = Arc::new(
+            crate::unified_session::SessionManager::new(storage)
+                .await
+                .context("Create manager")?,
+        );
+        *self
+            .unified_session_manager
+            .lock()
+            .map_err(|e| anyhow!("Lock: {}", e))? = Some(Arc::clone(&manager));
+        Ok(manager)
+    }
+
+    /// Update unified session status (success/failure)
+    pub async fn update_unified_session_status(&self, session_id: &str, success: bool) {
+        let Ok(manager) = self.get_unified_session_manager().await else {
+            return;
+        };
+        let id = crate::unified_session::SessionId::from_string(session_id.to_string());
+        if manager.load_session(&id).await.is_ok() {
+            let _ = manager.complete_session(&id, success).await;
+        }
+    }
+
+    /// Create a new unified session
+    pub async fn create_unified_session(&self, config: &CookConfig) -> Result<String> {
+        let manager = self.get_unified_session_manager().await?;
+        let wf_id = super::construction::generate_workflow_id();
+        let cfg = super::construction::build_session_config(
+            wf_id.clone(),
+            config.workflow.name.clone(),
+            super::construction::create_session_metadata(config.workflow.commands.len()),
+        );
+        let id = manager.create_session(cfg).await?;
+        manager.start_session(&id).await?;
+        log::info!("Created session: {} (workflow: {})", id, wf_id);
+        Ok(id.to_string())
     }
 
     /// Generate session ID using unified format

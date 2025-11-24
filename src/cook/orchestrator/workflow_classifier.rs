@@ -5,7 +5,29 @@
 
 use crate::config::command::WorkflowCommand;
 
-use super::core::{CookConfig, WorkflowType};
+use super::core::CookConfig;
+
+/// Classification of workflow types for orchestration decisions
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum WorkflowType {
+    MapReduce,
+    StructuredWithOutputs,
+    WithArguments,
+    Standard,
+}
+
+impl From<WorkflowType> for crate::cook::session::WorkflowType {
+    fn from(wt: WorkflowType) -> Self {
+        match wt {
+            WorkflowType::MapReduce => crate::cook::session::WorkflowType::MapReduce,
+            WorkflowType::StructuredWithOutputs => {
+                crate::cook::session::WorkflowType::StructuredWithOutputs
+            }
+            WorkflowType::WithArguments => crate::cook::session::WorkflowType::Iterative,
+            WorkflowType::Standard => crate::cook::session::WorkflowType::Standard,
+        }
+    }
+}
 
 /// Classify the workflow type based on configuration
 pub(crate) fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
