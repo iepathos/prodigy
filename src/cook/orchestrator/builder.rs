@@ -113,6 +113,6 @@ impl OrchestratorConfigHelpers for DefaultCookOrchestrator {
         &self,
         config: &CookConfig,
     ) -> (PathBuf, Vec<String>, Vec<String>) {
-        self.create_workflow_state_base_internal(config)
+        super::construction::create_workflow_state_base(&config.command)
     }
 }

@@ -25,6 +25,9 @@ mod session_ops;
 pub mod workflow_classifier;
 mod workflow_execution;
 
+#[cfg(test)]
+mod core_tests;
+
 // Re-export public types and traits from core
 pub use core::{CookConfig, CookOrchestrator, DefaultCookOrchestrator, ExecutionEnvironment};
 // Re-export builder
@@ -36,7 +39,9 @@ pub use construction::{
 };
 // Re-export effect-based types
 pub use effects::{
-    execute_workflow, OrchEffect, StepContext, StepResult, WorkflowResult, WorkflowSession,
+    execute_plan_effect, execute_workflow, finalize_session_effect, run_workflow_effect,
+    setup_environment_effect, ExecutionEnvironment as EffectExecutionEnvironment, OrchEffect,
+    StepContext, StepResult, WorkflowResult, WorkflowSession,
 };
 // Re-export environment
 pub use environment::OrchestratorEnv;

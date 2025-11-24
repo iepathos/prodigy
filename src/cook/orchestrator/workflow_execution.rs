@@ -225,3 +225,38 @@ impl WorkflowExecutor {
         super::normalization::convert_command_to_step(cmd)
     }
 }
+
+/// Build an ExtendedWorkflowConfig for standard workflow execution
+///
+/// This pure function converts workflow commands into an ExtendedWorkflowConfig
+/// suitable for execution by the workflow executor.
+pub fn build_standard_workflow_config(
+    commands: &[WorkflowCommand],
+    max_iterations: u32,
+) -> crate::cook::workflow::ExtendedWorkflowConfig {
+    let steps: Vec<WorkflowStep> = commands
+        .iter()
+        .map(WorkflowExecutor::convert_command_to_step)
+        .collect();
+
+    crate::cook::workflow::ExtendedWorkflowConfig {
+        name: "default".to_string(),
+        mode: crate::cook::workflow::WorkflowMode::Sequential,
+        steps,
+        setup_phase: None,
+        map_phase: None,
+        reduce_phase: None,
+        max_iterations,
+        iterate: max_iterations > 1,
+        retry_defaults: None,
+        environment: None,
+    }
+}
+
+/// Check if workflow has environment configuration
+pub fn has_env_config(workflow: &crate::config::WorkflowConfig) -> bool {
+    workflow.env.is_some()
+        || workflow.secrets.is_some()
+        || workflow.env_files.is_some()
+        || workflow.profiles.is_some()
+}
