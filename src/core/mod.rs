@@ -9,6 +9,7 @@
 
 pub mod config;
 pub mod mapreduce;
+pub mod orchestration;
 pub mod session;
 pub mod validation;
 pub mod workflow;
