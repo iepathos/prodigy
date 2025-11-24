@@ -345,6 +345,179 @@ let final_value = combined_avg.finalize(); // Value::Number(6.0)
 4. Handle `Validation::Success` and `Validation::Failure` cases
 5. Use `.finalize()` to get final computed values
 
+## Effect-Based Parallelism (Spec 173)
+
+### Overview
+
+Prodigy uses Stillwater's `Effect` pattern to separate pure business logic from I/O operations in MapReduce execution. This enables:
+- **Testability**: Pure functions can be tested without I/O
+- **Composability**: Effects chain together with `and_then`, `map`
+- **Parallelism**: `par_all` and `par_all_limit` for bounded concurrency
+- **Mock environments**: Test with fake dependencies
+
+### Pure Work Planning
+
+Work assignment planning is pure and deterministic:
+
+```rust
+use prodigy::cook::execution::mapreduce::pure::work_planning::{
+    plan_work_assignments, WorkPlanConfig, FilterExpression
+};
+
+// Pure: no I/O, fully testable
+let config = WorkPlanConfig {
+    filter: Some(FilterExpression::Equals {
+        field: "type".to_string(),
+        value: json!("important"),
+    }),
+    offset: 0,
+    max_items: Some(100),
+};
+
+let assignments = plan_work_assignments(items, &config);
+```
+
+### Dependency Analysis
+
+Command dependencies are analyzed to enable safe parallel execution:
+
+```rust
+use prodigy::cook::execution::mapreduce::pure::dependency_analysis::{
+    analyze_dependencies, Command
+};
+
+// Pure: analyzes read/write sets to detect dependencies
+let commands = vec![
+    Command { reads: set![], writes: set!["A"] },
+    Command { reads: set!["A"], writes: set!["B"] },
+    Command { reads: set!["A"], writes: set!["C"] },
+];
+
+let graph = analyze_dependencies(&commands);
+let batches = graph.parallel_batches();
+
+// Result: [[0], [1, 2]] - command 0 first, then 1 and 2 in parallel
+```
+
+### Effect-Based I/O
+
+All I/O operations are wrapped in Effects:
+
+```rust
+use prodigy::cook::execution::mapreduce::effects::{
+    create_worktree_effect, execute_commands_effect, merge_to_parent_effect
+};
+use stillwater::Effect;
+
+// Compose effects sequentially
+let agent_effect = create_worktree_effect("agent-0", "main")
+    .and_then(|worktree| {
+        execute_commands_effect(&item, &worktree)
+            .map(move |result| (worktree, result))
+    })
+    .and_then(|(worktree, result)| {
+        merge_to_parent_effect(&worktree, "main")
+            .map(move |_| result)
+    });
+
+// Execute with environment
+let result = agent_effect.run_async(&env).await?;
+```
+
+### Parallel Execution
+
+Use `par_all_limit` for bounded parallel execution:
+
+```rust
+let effects: Vec<_> = assignments
+    .into_iter()
+    .map(|assignment| execute_agent_effect(assignment))
+    .collect();
+
+// Execute with concurrency limit
+let results = Effect::par_all_limit(effects, max_parallel)
+    .run_async(&env)
+    .await?;
+```
+
+### Environment Types
+
+Dependencies are provided through environment types:
+
+```rust
+use prodigy::cook::execution::mapreduce::environment::{MapEnv, PhaseEnv};
+
+// Map phase environment
+let env = MapEnv::new(
+    config,
+    worktree_manager,
+    command_executor,
+    agent_template,
+    storage,
+    workflow_env,
+);
+
+// Phase environment (setup/reduce)
+let phase_env = PhaseEnv::new(
+    command_executor,
+    storage,
+    variables,
+    workflow_env,
+);
+```
+
+### Testing with Effects
+
+Pure functions are tested without I/O:
+
+```rust
+#[test]
+fn test_work_planning() {
+    let items = vec![json!({"type": "a"}), json!({"type": "b"})];
+    let config = WorkPlanConfig { /* ... */ };
+
+    let assignments = plan_work_assignments(items, &config);
+
+    assert_eq!(assignments.len(), 1);
+    assert_eq!(assignments[0].item["type"], "a");
+}
+```
+
+Effects are tested with mock environments:
+
+```rust
+#[tokio::test]
+async fn test_agent_execution() {
+    let mock_env = MockMapEnv::default();
+    let effect = execute_agent_effect(assignment);
+
+    let result = effect.run_async(&mock_env).await;
+    assert!(result.is_ok());
+}
+```
+
+### Architecture
+
+The MapReduce implementation follows "pure core, imperative shell":
+
+```
+src/cook/execution/mapreduce/
+├── pure/                       # Pure functions (no I/O)
+│   ├── work_planning.rs        # Work assignment planning
+│   └── dependency_analysis.rs  # Command dependency graphs
+├── effects/                    # I/O effects
+│   ├── worktree.rs            # Worktree operations
+│   ├── commands.rs            # Command execution
+│   └── merge.rs               # Merge operations
+└── environment.rs             # Environment types (MapEnv, PhaseEnv)
+```
+
+**Benefits:**
+- Pure core: Testable, composable, deterministic
+- Effects: Type-safe I/O with error handling
+- Parallelism: Safe bounded concurrency
+- Mocking: Test without actual I/O
+
 ## Environment Variables (Spec 120)
 
 Define variables at workflow root:
