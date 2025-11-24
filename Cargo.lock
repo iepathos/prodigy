@@ -2023,9 +2023,12 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "stillwater"
-version = "0.1.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb736ac8b09dc69de1adc28b6f02c653e262f7546c04c111fe808407aa6d479c"
+checksum = "0e86782dce3d3494a7040ac8926f64cfc09f1208c2f0147d349a2d8f6715dc53"
+dependencies = [
+ "futures",
+]
 
 [[package]]
 name = "strsim"
