@@ -38,6 +38,7 @@ pub mod normalized;
 mod on_failure;
 pub mod progress;
 pub mod progress_config;
+pub mod pure;
 pub mod resume;
 pub mod step_validation;
 #[cfg(test)]
@@ -89,4 +90,10 @@ pub use validation::{
 pub use variables::{
     CaptureFormat, CaptureStreams, CapturedValue, CommandResult, ExecutionInput, StandardVariables,
     VariableContext, VariableStore,
+};
+
+// Pure transformation module re-exports
+pub use pure::{
+    build_command, expand_variables, extract_variable_references, parse_output_variables,
+    OutputPattern,
 };
