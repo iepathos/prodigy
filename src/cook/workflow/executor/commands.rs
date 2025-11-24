@@ -22,7 +22,7 @@ use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::effects::environment::{DefaultShellRunner, ShellRunner};
 use crate::cook::workflow::on_failure::OnFailureConfig;
-use crate::cook::workflow::pure::expand_variables;
+use crate::cook::workflow::pure::build_command;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -92,7 +92,6 @@ fn convert_runner_output_to_step_result(
         json_log_location: output.json_log_location,
     }
 }
-
 
 /// Format command description for logging
 pub fn format_command_description(command_type: &CommandType) -> String {
@@ -244,10 +243,10 @@ impl WorkflowExecutor {
             exec_context = exec_context.with_session_id(session_id.clone());
         }
 
-        // Pure: interpolate attribute values using expand_variables from pure/ module
+        // Pure: interpolate attribute values using build_command from pure/ module
         for (_, value) in attributes.iter_mut() {
             if let AttributeValue::String(s) = value {
-                *s = expand_variables(s, &ctx.variables);
+                *s = build_command(s, &ctx.variables);
             }
         }
 
