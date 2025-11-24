@@ -61,6 +61,9 @@ pub enum MapReduceError {
         conflicts: Vec<String>,
     },
 
+    #[error("Worktree error: {message}")]
+    WorktreeError { message: String },
+
     // Command execution errors
     #[error("Command execution failed: {0}")]
     CommandFailed(Box<CommandFailedError>),
@@ -372,6 +375,7 @@ impl MapReduceError {
             Self::ResourceExhausted(_) => "ResourceExhausted",
             Self::WorktreeCreationFailed { .. } => "WorktreeCreationFailed",
             Self::WorktreeMergeConflict { .. } => "WorktreeMergeConflict",
+            Self::WorktreeError { .. } => "WorktreeError",
             Self::CommandFailed(_) => "CommandFailed",
             Self::ShellSubstitutionFailed { .. } => "ShellSubstitutionFailed",
             Self::CommandExecutionFailed { .. } => "CommandExecutionFailed",

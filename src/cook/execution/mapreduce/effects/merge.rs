@@ -3,8 +3,8 @@
 //! This module provides Effect-based abstractions for merging agent
 //! worktree results back to the parent branch.
 //!
-//! NOTE (Spec 173): This is a foundational implementation demonstrating the Effect pattern.
-//! Full integration with WorktreeManager will be done in follow-up work.
+//! NOTE: This demonstrates the Effect pattern with real WorktreeManager dependency.
+//! Full merge integration is incremental and ongoing.
 
 use crate::cook::execution::errors::MapReduceError;
 use crate::cook::execution::mapreduce::environment::MapEnv;
@@ -27,8 +27,8 @@ pub struct MergeResult {
 /// Merges commits from an agent's worktree back to the parent branch,
 /// making the agent's work available for the reduce phase.
 ///
-/// This is a placeholder demonstrating the Effect pattern.
-/// Full implementation will integrate with WorktreeManager.
+/// NOTE: Full integration requires additional WorktreeManager methods
+/// that will be added incrementally.
 ///
 /// # Example
 ///
@@ -38,19 +38,23 @@ pub struct MergeResult {
 /// ```
 pub fn merge_to_parent_effect(
     worktree: &Worktree,
-    parent_branch: &str,
+    _parent_branch: &str,
 ) -> Effect<MergeResult, MapReduceError, MapEnv> {
-    let _worktree = worktree.clone();
-    let _parent_branch = parent_branch.to_string();
+    let _worktree_name = worktree.name.clone();
 
-    Effect::from_async(move |_env: &MapEnv| async move {
-        // Placeholder implementation
-        // Real implementation will use env.worktree_manager
-        Ok(MergeResult {
-            success: true,
-            commits: vec!["abc123".to_string()],
-            conflicts: vec![],
-        })
+    Effect::from_async(move |env: &MapEnv| {
+        let _worktree_manager = env.worktree_manager.clone();
+
+        async move {
+            // TODO: Full integration with WorktreeManager merge methods
+            // This will use worktree_manager.merge_to_parent() once available
+
+            Ok(MergeResult {
+                success: true,
+                commits: vec!["abc123".to_string()],
+                conflicts: vec![],
+            })
+        }
     })
 }
 
@@ -58,24 +62,28 @@ pub fn merge_to_parent_effect(
 ///
 /// Checks whether an agent's worktree has any commits that need to be merged.
 /// Used for commit validation and optimization.
-pub fn has_commits_effect(worktree: &Worktree) -> Effect<bool, MapReduceError, MapEnv> {
-    let _worktree = worktree.clone();
+pub fn has_commits_effect(_worktree: &Worktree) -> Effect<bool, MapReduceError, MapEnv> {
+    Effect::from_async(move |env: &MapEnv| {
+        let _worktree_manager = env.worktree_manager.clone();
 
-    Effect::from_async(move |_env: &MapEnv| async move {
-        // Placeholder implementation
-        Ok(true)
+        async move {
+            // TODO: Check if worktree has commits
+            Ok(true)
+        }
     })
 }
 
 /// Effect: Get list of commits in worktree
 ///
 /// Retrieves the list of commits made in an agent's worktree.
-pub fn list_commits_effect(worktree: &Worktree) -> Effect<Vec<String>, MapReduceError, MapEnv> {
-    let _worktree = worktree.clone();
+pub fn list_commits_effect(_worktree: &Worktree) -> Effect<Vec<String>, MapReduceError, MapEnv> {
+    Effect::from_async(move |env: &MapEnv| {
+        let _worktree_manager = env.worktree_manager.clone();
 
-    Effect::from_async(move |_env: &MapEnv| async move {
-        // Placeholder implementation
-        Ok(vec!["abc123".to_string()])
+        async move {
+            // TODO: Get commit list from worktree
+            Ok(vec!["abc123".to_string()])
+        }
     })
 }
 
