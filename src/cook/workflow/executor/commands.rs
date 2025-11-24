@@ -20,7 +20,9 @@ use crate::commands::{AttributeValue, ExecutionContext};
 use crate::cook::error::ResultExt;
 use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
 use crate::cook::orchestrator::ExecutionEnvironment;
+use crate::cook::workflow::effects::environment::{DefaultShellRunner, ShellRunner};
 use crate::cook::workflow::on_failure::OnFailureConfig;
+use crate::cook::workflow::pure::build_command;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -61,47 +63,31 @@ fn convert_execution_result(result: ExecutionResult) -> StepResult {
 }
 
 /// Execute a shell command with optional timeout
+///
+/// Delegates to `DefaultShellRunner` from the effects module (spec 174d).
 pub async fn execute_shell_command(
     command: &str,
     working_dir: &Path,
     env_vars: HashMap<String, String>,
     timeout: Option<u64>,
 ) -> Result<StepResult> {
-    use tokio::process::Command;
-    use tokio::time::{timeout as tokio_timeout, Duration};
-
     tracing::info!("Executing shell: {}", command);
+    let runner = DefaultShellRunner::new();
+    let output = runner.run(command, working_dir, env_vars, timeout).await?;
+    Ok(convert_runner_output_to_step_result(output))
+}
 
-    let mut cmd = Command::new("sh");
-    cmd.args(["-c", command]).current_dir(working_dir);
-    for (key, value) in env_vars {
-        cmd.env(key, value);
+/// Convert RunnerOutput from effects module to StepResult
+fn convert_runner_output_to_step_result(
+    output: crate::cook::workflow::effects::environment::RunnerOutput,
+) -> StepResult {
+    StepResult {
+        success: output.success,
+        exit_code: output.exit_code,
+        stdout: output.stdout,
+        stderr: output.stderr,
+        json_log_location: output.json_log_location,
     }
-
-    let output = if let Some(timeout_secs) = timeout {
-        match tokio_timeout(Duration::from_secs(timeout_secs), cmd.output()).await {
-            Ok(result) => result?,
-            Err(_) => {
-                return Ok(StepResult {
-                    success: false,
-                    exit_code: Some(-1),
-                    stdout: String::new(),
-                    stderr: format!("Command timed out after {timeout_secs} seconds"),
-                    json_log_location: None,
-                });
-            }
-        }
-    } else {
-        cmd.output().await?
-    };
-
-    Ok(StepResult {
-        success: output.status.success(),
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        json_log_location: None,
-    })
 }
 
 /// Execute a goal-seek command
@@ -409,6 +395,7 @@ impl WorkflowExecutor {
             .await
     }
 
+    /// Execute handler command using pure interpolation from effects/handler.rs pattern
     async fn execute_handler_command(
         &self,
         handler_name: String,
@@ -428,10 +415,10 @@ impl WorkflowExecutor {
             exec_context = exec_context.with_session_id(session_id.clone());
         }
 
+        // Pure: interpolate attribute values using build_command from pure/ module
         for (_, value) in attributes.iter_mut() {
             if let AttributeValue::String(s) = value {
-                let (interpolated, _) = ctx.interpolate_with_tracking(s);
-                *s = interpolated;
+                *s = build_command(s, &ctx.variables);
             }
         }
 
