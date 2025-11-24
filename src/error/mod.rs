@@ -19,6 +19,9 @@
 //!
 //! ### Basic Usage
 //!
+//! The following examples are illustrative patterns showing how to structure error handling.
+//! They reference hypothetical types (`Config`, `read_file`) to demonstrate the pattern.
+//!
 //! ```rust,ignore
 //! use prodigy::error::{ProdigyError, ErrorExt};
 //!
@@ -93,15 +96,12 @@
 //!
 //! **Context with Location Tracking**:
 //! ```rust,ignore
-//! use prodigy::error::helpers::common;
+//! use prodigy::error::ProdigyError;
 //!
 //! fn critical_operation() -> Result<(), ProdigyError> {
 //!     do_something()
-//!         .map_err(|e| common::execution_error(
-//!             "Critical operation failed",
-//!             Some(e)
-//!         ))
-//!         .context_with_location("In critical_operation", file!(), line!())?;
+//!         .map_err(ProdigyError::from)
+//!         .context_at("In critical_operation")?;
 //!     Ok(())
 //! }
 //! ```
@@ -110,26 +110,28 @@
 //!
 //! Use the helper functions in [`helpers::common`] for creating errors:
 //!
-//! ```rust,ignore
+//! ```
 //! use prodigy::error::helpers::common;
+//! use std::path::PathBuf;
 //!
-//! // Configuration errors
-//! return Err(common::config_error("Invalid timeout value", None));
+//! // Configuration file not found
+//! let err = common::config_not_found("/etc/prodigy/config.yml");
 //!
-//! // Storage errors with path
-//! return Err(common::storage_error_with_path(
-//!     "Failed to read checkpoint",
-//!     path,
-//!     Some(io_error)
-//! ));
+//! // Storage I/O errors
+//! let path = Some(PathBuf::from("/var/lib/prodigy/checkpoint.json"));
+//! let err = common::storage_io_error(path, "read");
 //!
-//! // Execution errors with command context
-//! return Err(common::execution_error_with_command(
-//!     "Command failed",
-//!     "git commit",
-//!     Some(1),
-//!     None
-//! ));
+//! // Command not found
+//! let err = common::command_not_found("git");
+//!
+//! // Execution timeout
+//! let err = common::execution_timeout("long_running_command", 30);
+//!
+//! // Session not found
+//! let err = common::session_not_found("session-123");
+//!
+//! // Workflow validation failed
+//! let err = common::workflow_validation_failed("deploy", "missing required field");
 //! ```
 //!
 //! ## Displaying Errors
@@ -137,36 +139,48 @@
 //! Errors support multiple display formats:
 //!
 //! **User Message** (end-user friendly):
-//! ```rust,ignore
-//! println!("{}", error.user_message());
-//! // Output: "Failed to load workflow configuration. Please check the file path and try again."
+//! ```
+//! use prodigy::error::ProdigyError;
+//!
+//! let error = ProdigyError::config("Invalid configuration file");
+//! let msg = error.user_message();
+//! assert!(msg.contains("Configuration problem"));
 //! ```
 //!
 //! **Developer Message** (full diagnostic info):
-//! ```rust,ignore
-//! eprintln!("{}", error.developer_message());
-//! // Output:
-//! // Error: Failed to load application configuration
-//! //   Context:
-//! //     - Failed to read configuration file
-//! //     - Failed to open config.json
-//! //   Source: No such file or directory (os error 2)
+//! ```
+//! use prodigy::error::ProdigyError;
+//!
+//! let error = ProdigyError::storage("File not found")
+//!     .context("Loading configuration")
+//!     .context("Starting application");
+//!
+//! let dev_msg = error.developer_message();
+//! assert!(dev_msg.contains("File not found"));
+//! assert!(dev_msg.contains("Context chain"));
 //! ```
 //!
 //! ## Serialization
 //!
 //! Convert errors to JSON for APIs and logging:
 //!
-//! ```rust,ignore
-//! use prodigy::error::SerializableError;
+//! ```
+//! use prodigy::error::{ProdigyError, SerializableError};
 //!
-//! let serializable = SerializableError::from(error);
-//! let json = serde_json::to_string(&serializable)?;
+//! let error = ProdigyError::execution("Command failed")
+//!     .context("Running workflow");
+//!
+//! let serializable = SerializableError::from(&error);
+//! assert_eq!(serializable.kind, "Execution");
+//!
+//! // Or use convenience methods
+//! let json_string = error.to_json_string();
+//! assert!(json_string.contains("Execution"));
 //! ```
 //!
 //! ## Migration Guide
 //!
-//! To add context to existing error handling:
+//! To add context to existing error handling (illustrative pattern):
 //!
 //! **Before**:
 //! ```rust,ignore
@@ -178,6 +192,8 @@
 //! let data = read_file(path)
 //!     .context(format!("Failed to read file at {}", path))?;
 //! ```
+//!
+//! For a real example, see the working tests above.
 //!
 //! See the migration guide in `docs/specs/` for comprehensive examples.
 
