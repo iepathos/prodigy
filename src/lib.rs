@@ -11,7 +11,6 @@
 //! ## Modules
 //!
 //! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
-//! - `analytics` - Claude session correlation and analytics
 //! - `commands` - Modular command handler architecture for extensible workflow commands
 //! - `config` - Configuration management for the tool
 //! - `cook` - Core cooking command implementation with mapping support
@@ -20,15 +19,12 @@
 //! - `env` - Environment abstraction layer for dependency injection and testing
 //! - `git` - Granular, testable git operations layer
 //! - `init` - Initialize Prodigy commands in projects
-//! - `scoring` - Unified project health scoring system
-//! - `simple_state` - Minimal state management with JSON persistence
 //! - `storage` - Global storage management for events, DLQ, and job state
 //! - `subprocess` - Unified subprocess abstraction layer for testing
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `unified_session` - Unified session management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
-// Analytics module removed - no longer needed without postgres
 pub mod app;
 pub mod cli;
 pub mod commands;
