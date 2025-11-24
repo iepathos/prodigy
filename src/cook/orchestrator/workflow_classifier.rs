@@ -109,7 +109,6 @@ mod tests {
                 args: vec![],
                 fail_fast: false,
                 auto_accept: false,
-                metrics: false,
                 resume: None,
                 verbosity: 0,
                 quiet: false,

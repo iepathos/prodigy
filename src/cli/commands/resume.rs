@@ -367,7 +367,6 @@ async fn try_resume_regular_workflow(
         args: vec![],
         fail_fast: false,
         auto_accept: false,
-        metrics: false,
         resume: Some(session_id.to_string()), // This is the key - tells orchestrator to resume
         verbosity: 0,
         quiet: false,

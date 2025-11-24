@@ -111,7 +111,6 @@ fn test_legacy_adapter() {
         args: vec!["arg1".to_string(), "arg2".to_string()],
         fail_fast: false,
         auto_accept: false,
-        metrics: false,
         resume: None,
         verbosity: 0,
         quiet: false,

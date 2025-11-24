@@ -19,7 +19,6 @@ mod core;
 pub mod effects;
 pub mod environment;
 mod execution_pipeline;
-mod health_metrics;
 mod normalization;
 pub mod pure;
 mod session_ops;

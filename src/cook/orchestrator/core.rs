@@ -122,8 +122,6 @@ pub struct DefaultCookOrchestrator {
     /// Workflow executor
     #[allow(dead_code)]
     workflow_executor: super::workflow_execution::WorkflowExecutor,
-    /// Health metrics
-    health_metrics: super::health_metrics::HealthMetrics,
     /// Argument processor
     argument_processor: super::argument_processing::ArgumentProcessor,
     /// Execution pipeline
@@ -167,9 +165,6 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
-        let health_metrics =
-            super::health_metrics::HealthMetrics::new(Arc::clone(&user_interaction));
-
         let argument_processor = super::argument_processing::ArgumentProcessor::new(
             Arc::clone(&claude_executor),
             Arc::clone(&session_manager),
@@ -198,7 +193,6 @@ impl DefaultCookOrchestrator {
             test_config: None,
             session_ops,
             workflow_executor,
-            health_metrics,
             argument_processor,
             execution_pipeline,
         }
@@ -230,9 +224,6 @@ impl DefaultCookOrchestrator {
             subprocess.clone(),
         );
 
-        let health_metrics =
-            super::health_metrics::HealthMetrics::new(Arc::clone(&user_interaction));
-
         let argument_processor = super::argument_processing::ArgumentProcessor::new(
             Arc::clone(&claude_executor),
             Arc::clone(&session_manager),
@@ -261,7 +252,6 @@ impl DefaultCookOrchestrator {
             test_config,
             session_ops,
             workflow_executor,
-            health_metrics,
             argument_processor,
             execution_pipeline,
         }
@@ -290,11 +280,6 @@ impl DefaultCookOrchestrator {
         super::construction::create_workflow_state_base(&config.command)
     }
 
-    /// Display health score for the project
-    async fn display_health_score(&self, config: &CookConfig) -> Result<()> {
-        self.health_metrics.display_health_score(config).await
-    }
-
     /// Create a new orchestrator with test configuration
     #[allow(clippy::too_many_arguments)]
     pub fn with_test_config(
@@ -320,9 +305,6 @@ impl DefaultCookOrchestrator {
             Arc::clone(&user_interaction),
             subprocess.clone(),
         );
-
-        let health_metrics =
-            super::health_metrics::HealthMetrics::new(Arc::clone(&user_interaction));
 
         let argument_processor = super::argument_processing::ArgumentProcessor::new(
             Arc::clone(&claude_executor),
@@ -352,7 +334,6 @@ impl DefaultCookOrchestrator {
             test_config: Some(test_config),
             session_ops,
             workflow_executor,
-            health_metrics,
             argument_processor,
             execution_pipeline,
         }
@@ -510,13 +491,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Finalize session with appropriate status
         self.execution_pipeline
-            .finalize_session(
-                &env,
-                &config,
-                execution_result,
-                self.cleanup(&env, &config),
-                self.display_health_score(&config),
-            )
+            .finalize_session(&env, &config, execution_result, self.cleanup(&env, &config))
             .await
     }
 
@@ -1550,7 +1525,6 @@ mod tests {
             args: vec![],
             fail_fast: false,
             auto_accept: false,
-            metrics: false,
             resume: None,
             verbosity: 0,
             quiet: false,
@@ -2059,7 +2033,6 @@ mod tests {
                 args: vec![],
                 fail_fast,
                 auto_accept: false,
-                metrics: false,
                 resume: None,
                 verbosity: 0,
                 quiet: false,
@@ -2098,10 +2071,6 @@ mod tests {
                     subprocess.clone(),
                 );
 
-            let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-            );
-
             let argument_processor =
                 crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
                     claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -2135,7 +2104,6 @@ mod tests {
                 test_config: None,
                 session_ops,
                 workflow_executor,
-                health_metrics,
                 argument_processor,
                 execution_pipeline,
             };
@@ -2346,10 +2314,6 @@ mod tests {
                     subprocess.clone(),
                 );
 
-            let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-            );
-
             let argument_processor =
                 crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
                     claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -2390,7 +2354,6 @@ mod tests {
                 test_config,
                 session_ops,
                 workflow_executor,
-                health_metrics,
                 argument_processor,
                 execution_pipeline,
             };
@@ -2715,10 +2678,6 @@ mod tests {
                     subprocess.clone(),
                 );
 
-            let health_metrics = crate::cook::orchestrator::health_metrics::HealthMetrics::new(
-                user_interaction.clone() as Arc<dyn UserInteraction>,
-            );
-
             let argument_processor =
                 crate::cook::orchestrator::argument_processing::ArgumentProcessor::new(
                     claude_executor.clone() as Arc<dyn ClaudeExecutor>,
@@ -2760,7 +2719,6 @@ mod tests {
                 test_config,
                 session_ops,
                 workflow_executor,
-                health_metrics,
                 argument_processor,
                 execution_pipeline,
             };

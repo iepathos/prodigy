@@ -296,7 +296,6 @@ mod tests {
             map: vec!["map1".to_string()],
             fail_fast: false,
             auto_accept: false,
-            metrics: false,
             resume: None,
             verbosity: 0,
             quiet: false,

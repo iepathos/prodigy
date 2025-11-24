@@ -33,7 +33,6 @@ mod cook_tests {
             args: Vec::new(),
             fail_fast: false,
             auto_accept: false,
-            metrics: false,
             resume: None,
             verbosity: 0,
             quiet: false,

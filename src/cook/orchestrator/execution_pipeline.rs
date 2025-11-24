@@ -282,7 +282,6 @@ impl ExecutionPipeline {
         &self,
         summary: &super::super::session::SessionSummary,
         config: &CookConfig,
-        display_health_fn: impl std::future::Future<Output = Result<()>>,
     ) -> Result<()> {
         // Don't display session stats in dry-run mode
         if !config.command.dry_run {
@@ -290,11 +289,6 @@ impl ExecutionPipeline {
                 "Session complete: {} iterations, {} files changed",
                 summary.iterations, summary.files_changed
             ));
-        }
-
-        // Display health score if metrics flag is set
-        if config.command.metrics {
-            display_health_fn.await?;
         }
 
         Ok(())
@@ -357,7 +351,6 @@ impl ExecutionPipeline {
         config: &CookConfig,
         execution_result: Result<(), anyhow::Error>,
         cleanup_fn: impl std::future::Future<Output = Result<()>>,
-        display_health_fn: impl std::future::Future<Output = Result<()>>,
     ) -> Result<()> {
         // Classify the execution outcome
         let session_status = if execution_result.is_err() {
@@ -376,8 +369,7 @@ impl ExecutionPipeline {
             ExecutionOutcome::Success => {
                 self.handle_session_success().await?;
                 let summary = self.execute_cleanup_and_completion(cleanup_fn).await?;
-                self.display_completion_summary(&summary, config, display_health_fn)
-                    .await?;
+                self.display_completion_summary(&summary, config).await?;
                 Ok(())
             }
             ExecutionOutcome::Interrupted => {

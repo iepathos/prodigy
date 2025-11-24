@@ -57,14 +57,6 @@ pub struct CookCommand {
     #[arg(short = 'y', long = "yes")]
     pub auto_accept: bool,
 
-    /// Enable metrics tracking
-    ///
-    /// Collect and track metrics for code quality, performance, complexity, and progress
-    /// throughout improvement iterations. Metrics are stored in .prodigy/metrics/ for
-    /// historical analysis and trend tracking.
-    #[arg(long)]
-    pub metrics: bool,
-
     /// Resume an interrupted session
     ///
     /// Provide the session ID of an interrupted worktree to resume work from the last checkpoint.

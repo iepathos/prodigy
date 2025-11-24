@@ -52,10 +52,6 @@ pub enum Commands {
         #[arg(short = 'y', long = "yes")]
         auto_accept: bool,
 
-        /// Enable metrics tracking
-        #[arg(long)]
-        metrics: bool,
-
         /// Resume an interrupted session
         #[arg(long, value_name = "SESSION_ID")]
         resume: Option<String>,

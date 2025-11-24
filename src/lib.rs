@@ -41,7 +41,6 @@ pub mod error;
 pub mod git;
 pub mod init;
 pub mod resume_logic;
-pub mod scoring;
 pub mod storage;
 pub mod subprocess;
 pub mod worktree;
