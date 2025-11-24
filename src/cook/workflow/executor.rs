@@ -38,6 +38,8 @@ mod git_support;
 mod orchestration;
 #[path = "executor/pure.rs"]
 mod pure;
+#[path = "executor/retry_logic.rs"]
+mod retry_logic;
 #[path = "executor/step_executor.rs"]
 mod step_executor;
 #[path = "executor/types.rs"]
