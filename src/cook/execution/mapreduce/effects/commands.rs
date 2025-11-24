@@ -7,8 +7,8 @@
 //! Full AgentCommandExecutor integration is incremental and ongoing.
 
 use crate::cook::execution::errors::MapReduceError;
-use crate::cook::execution::mapreduce::environment::MapEnv;
 use crate::cook::execution::mapreduce::effects::worktree::Worktree;
+use crate::cook::execution::mapreduce::environment::MapEnv;
 use serde_json::Value;
 use std::collections::HashMap;
 use stillwater::Effect;
@@ -96,5 +96,4 @@ mod tests {
         assert_eq!(result.output[0], "output");
         assert!(result.success);
     }
-
 }

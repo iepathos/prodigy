@@ -10,7 +10,9 @@
 //! - Testable without actual I/O
 
 use crate::cook::execution::errors::MapReduceError;
-use crate::cook::execution::mapreduce::effects::commands::{execute_commands_effect, CommandResult};
+use crate::cook::execution::mapreduce::effects::commands::{
+    execute_commands_effect, CommandResult,
+};
 use crate::cook::execution::mapreduce::effects::merge::{merge_to_parent_effect, MergeResult};
 use crate::cook::execution::mapreduce::effects::worktree::{create_worktree_effect, Worktree};
 use crate::cook::execution::mapreduce::environment::MapEnv;

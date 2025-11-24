@@ -51,18 +51,30 @@ pub struct PhaseEnv {
     pub workflow_env: HashMap<String, Value>,
 }
 
+/// Parameters for constructing MapEnv
+pub struct MapEnvParams {
+    pub worktree_manager: Arc<WorktreeManager>,
+    pub command_executor: Arc<AgentCommandExecutor>,
+    pub storage: Arc<dyn CheckpointStorage>,
+    pub agent_template: Vec<WorkflowStep>,
+    pub job_id: String,
+    pub max_parallel: usize,
+    pub workflow_env: HashMap<String, Value>,
+    pub config: HashMap<String, Value>,
+}
+
 impl MapEnv {
     /// Create a new map environment
-    pub fn new(
-        worktree_manager: Arc<WorktreeManager>,
-        command_executor: Arc<AgentCommandExecutor>,
-        storage: Arc<dyn CheckpointStorage>,
-        agent_template: Vec<WorkflowStep>,
-        job_id: String,
-        max_parallel: usize,
-        workflow_env: HashMap<String, Value>,
-        config: HashMap<String, Value>,
-    ) -> Self {
+    pub fn new(params: MapEnvParams) -> Self {
+        let worktree_manager = params.worktree_manager;
+        let command_executor = params.command_executor;
+        let storage = params.storage;
+        let agent_template = params.agent_template;
+        let job_id = params.job_id;
+        let max_parallel = params.max_parallel;
+        let workflow_env = params.workflow_env;
+        let config = params.config;
+
         Self {
             worktree_manager,
             command_executor,
