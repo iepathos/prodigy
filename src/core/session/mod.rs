@@ -1,6 +1,22 @@
 //! Pure session state management functions
 //!
-//! These functions handle session state transformations without performing any I/O operations.
+//! This module provides pure functions for session state transformations without
+//! performing any I/O operations. All functions are deterministic and testable.
+//!
+//! # Module Structure
+//!
+//! - [`updates`] - Pure session update functions for `UnifiedSession`
+//! - [`validation`] - State transition validation
+//!
+//! # Design Principles
+//!
+//! - **Immutability**: Input sessions are never mutated; new sessions are returned
+//! - **Purity**: No I/O operations, no side effects
+//! - **Validation**: State transitions are validated before applying
+//! - **Testability**: All functions can be tested without mocking
+
+pub mod updates;
+pub mod validation;
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
