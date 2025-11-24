@@ -87,7 +87,7 @@ mod property_tests {
                         (AggregateResult::Sum(l), AggregateResult::Sum(r)) => {
                             // Use relative epsilon tolerance for very small or very large values
                             let max_val = l.abs().max(r.abs());
-                            let tolerance = if max_val < 1e-100 || max_val > 1e100 {
+                            let tolerance = if !(1e-100..=1e100).contains(&max_val) {
                                 // For extreme values, use relative tolerance
                                 max_val * 1e-10 + 1e-300
                             } else {
