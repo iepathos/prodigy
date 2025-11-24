@@ -1,19 +1,41 @@
 ---
 number: 174
-title: Pure Core Extraction
+title: Pure Core Extraction (PARENT SPEC - SPLIT INTO SUB-SPECS)
 category: foundation
 priority: high
-status: draft
+status: split
 dependencies: [172, 173]
 created: 2025-11-24
+split_date: 2025-11-24
 ---
 
-# Specification 174: Pure Core Extraction
+# Specification 174: Pure Core Extraction (PARENT SPEC)
 
 **Category**: foundation
 **Priority**: high
-**Status**: draft
+**Status**: **SPLIT** - This spec has been divided into smaller, implementable specs
 **Dependencies**: Spec 172 (Stillwater Foundation), Spec 173 (Parallel Execution Effects)
+
+## ⚠️ IMPLEMENTATION NOTE
+
+**This spec is too large to implement in a single session.** It has been split into 8 focused sub-specs:
+
+- **[174a](174a-pure-execution-planning.md)** - Pure Execution Planning Module (Stage 1)
+- **[174b](174b-pure-workflow-transformations.md)** - Pure Workflow Transformations (Stage 2)
+- **[174c](174c-pure-session-updates.md)** - Pure Session Updates (Stage 3)
+- **[174d](174d-effect-modules.md)** - Effect Modules (Stage 4)
+- **[174e](174e-refactor-orchestrator.md)** - Refactor Orchestrator (Stage 5)
+- **[174f](174f-refactor-workflow-executor.md)** - Refactor Workflow Executor (Stage 6)
+- **[174g](174g-comprehensive-testing.md)** - Comprehensive Testing (Stage 7)
+- **[174h](174h-documentation-finalization.md)** - Documentation and Finalization (Stage 8)
+
+**Implementation order**: 174a, 174b, 174c can be done in parallel → 174d → 174e and 174f in parallel → 174g → 174h
+
+**To implement**: Run `/prodigy-implement-spec` on each sub-spec in order.
+
+---
+
+## Original Spec Content (For Reference)
 
 ## Context
 
