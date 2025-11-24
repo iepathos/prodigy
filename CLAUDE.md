@@ -176,6 +176,147 @@ Failed items stored in `~/.prodigy/dlq/{repo}/{job_id}/` with:
 prodigy dlq retry <job_id> [--max-parallel N] [--dry-run]
 ```
 
+## Variable Aggregation (Spec 171)
+
+### Semigroup-Based Aggregation
+
+Prodigy uses a semigroup pattern for aggregating variables across parallel agents in MapReduce workflows. This provides a clean, composable abstraction for combining results.
+
+**Core concept**: Each aggregate type implements the `Semigroup` trait with an associative `combine` operation, enabling safe parallel aggregation.
+
+### Available Aggregations
+
+All aggregations are implemented via `AggregateResult` enum in `src/cook/execution/variables/semigroup.rs`:
+
+- **Count**: Count items (`Count(n)`)
+- **Sum**: Sum numeric values (`Sum(total)`)
+- **Min/Max**: Track minimum/maximum values
+- **Collect**: Collect all values into array
+- **Average**: Calculate average (tracks sum and count internally)
+- **Median**: Calculate median (collects all values, computes on finalize)
+- **StdDev/Variance**: Calculate statistical measures
+- **Unique**: Collect unique values (using HashSet)
+- **Concat**: Concatenate strings
+- **Merge**: Merge objects (first value wins for duplicate keys)
+- **Flatten**: Flatten nested arrays
+- **Sort**: Sort values (ascending or descending)
+- **GroupBy**: Group values by key
+
+### Using Aggregations in Workflows
+
+```yaml
+map:
+  input: "items.json"
+  json_path: "$.items[*]"
+
+  variables:
+    total_count:
+      type: count
+      initial: 0
+
+    total_size:
+      type: sum
+      initial: 0
+
+    all_tags:
+      type: unique
+      initial: []
+
+reduce:
+  - shell: "echo 'Processed ${total_count} items with total size ${total_size}'"
+  - shell: "echo 'Unique tags: ${all_tags}'"
+```
+
+### Helper Functions
+
+For programmatic aggregation, use the helper functions:
+
+```rust
+use prodigy::cook::execution::variables::semigroup::{
+    AggregateResult, aggregate_results, aggregate_with_initial
+};
+
+// Combine multiple results
+let results = vec![
+    AggregateResult::Count(5),
+    AggregateResult::Count(3),
+    AggregateResult::Count(2),
+];
+let total = aggregate_results(results).unwrap(); // Count(10)
+
+// Combine with initial value (useful for checkpointed aggregation)
+let initial = AggregateResult::Count(10);
+let new_results = vec![
+    AggregateResult::Count(5),
+    AggregateResult::Count(3),
+];
+let total = aggregate_with_initial(initial, new_results); // Count(18)
+```
+
+### Migration Guide
+
+**Migrating custom aggregation logic to semigroup pattern:**
+
+#### Before (Custom Logic)
+```rust
+// Old approach: custom merge logic scattered across codebase
+fn merge_counts(a: usize, b: usize) -> usize {
+    a + b
+}
+
+fn merge_collections(mut a: Vec<Value>, b: Vec<Value>) -> Vec<Value> {
+    a.extend(b);
+    a
+}
+
+fn merge_averages(avg_a: f64, count_a: usize, avg_b: f64, count_b: usize) -> (f64, usize) {
+    let sum_a = avg_a * count_a as f64;
+    let sum_b = avg_b * count_b as f64;
+    let total_sum = sum_a + sum_b;
+    let total_count = count_a + count_b;
+    (total_sum / total_count as f64, total_count)
+}
+```
+
+#### After (Semigroup Pattern)
+```rust
+use prodigy::cook::execution::variables::semigroup::{AggregateResult, aggregate_results};
+use stillwater::Semigroup;
+
+// New approach: unified semigroup combine operation
+
+// Count
+let total = AggregateResult::Count(5).combine(AggregateResult::Count(3));
+// Result: Count(8)
+
+// Collections
+let all_values = AggregateResult::Collect(vec![val1])
+    .combine(AggregateResult::Collect(vec![val2]));
+// Result: Collect([val1, val2])
+
+// Averages (semigroup tracks sum and count internally)
+let combined_avg = AggregateResult::Average(10.0, 2)  // avg: 5.0
+    .combine(AggregateResult::Average(20.0, 3));      // avg: 6.67
+// Result: Average(30.0, 5) which finalizes to 6.0
+
+// Finalize to get the final value
+let final_value = combined_avg.finalize(); // Value::Number(6.0)
+```
+
+**Key benefits:**
+- **Unified interface**: Single `combine` method for all aggregations
+- **Associativity**: Safe parallel execution and checkpointing
+- **Type safety**: Incompatible types caught at compile/runtime
+- **Composability**: Easy to extend with new aggregation types
+- **Clarity**: Separates state tracking (combine) from final computation (finalize)
+
+**Migration steps:**
+1. Identify custom aggregation logic in your code
+2. Find matching `AggregateResult` variant (or add new one if needed)
+3. Replace custom merge functions with `.combine()` calls
+4. Use `.finalize()` to get final computed values
+5. For multiple aggregations, use `aggregate_results()` helper
+
 ## Environment Variables (Spec 120)
 
 Define variables at workflow root:

@@ -4,6 +4,7 @@
 //! enabling consistent combination semantics across all aggregate types.
 //! The `combine` operation is associative, allowing safe parallel aggregation.
 
+use rayon::prelude::*;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use stillwater::Semigroup;
@@ -294,6 +295,39 @@ fn discriminant_name(result: &AggregateResult) -> &'static str {
         AggregateResult::Sort(_, _) => "Sort",
         AggregateResult::GroupBy(_) => "GroupBy",
     }
+}
+
+/// Aggregate multiple results in parallel using rayon
+///
+/// This function leverages rayon's parallel iterator to combine aggregate results
+/// concurrently. The semigroup combine operation's associativity guarantees that
+/// parallel aggregation produces the same result as sequential aggregation.
+///
+/// # Arguments
+/// * `results` - Vector of aggregate results to combine in parallel
+///
+/// # Returns
+/// * `Some(AggregateResult)` if the vector is non-empty
+/// * `None` if the vector is empty
+///
+/// # Performance
+/// Parallel aggregation is beneficial for large datasets (typically >1000 items).
+/// For smaller datasets, the overhead of parallelization may outweigh the benefits.
+/// Use `aggregate_results` for small datasets.
+///
+/// # Example
+/// ```
+/// use prodigy::cook::execution::variables::semigroup::{AggregateResult, parallel_aggregate};
+///
+/// let results: Vec<_> = (0..10000)
+///     .map(|_| AggregateResult::Count(1))
+///     .collect();
+///
+/// let combined = parallel_aggregate(results).unwrap();
+/// assert_eq!(combined, AggregateResult::Count(10000));
+/// ```
+pub fn parallel_aggregate(results: Vec<AggregateResult>) -> Option<AggregateResult> {
+    results.into_par_iter().reduce_with(|a, b| a.combine(b))
 }
 
 #[cfg(test)]

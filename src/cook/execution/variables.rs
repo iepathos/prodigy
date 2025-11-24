@@ -8,12 +8,12 @@
 //! - Lazy evaluation and caching
 //! - Semigroup-based aggregation
 
-mod semigroup;
+pub mod semigroup;
 
 #[cfg(test)]
 mod semigroup_property_tests;
 
-pub use semigroup::AggregateResult;
+pub use semigroup::{parallel_aggregate, AggregateResult};
 
 use anyhow::{anyhow, Context, Result};
 use lru::LruCache;
