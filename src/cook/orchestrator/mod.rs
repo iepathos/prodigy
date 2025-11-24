@@ -36,7 +36,9 @@ pub use construction::{
 };
 // Re-export effect-based types
 pub use effects::{
-    execute_workflow, OrchEffect, StepContext, StepResult, WorkflowResult, WorkflowSession,
+    execute_plan_effect, execute_workflow, finalize_session_effect, run_workflow_effect,
+    setup_environment_effect, ExecutionEnvironment as EffectExecutionEnvironment, OrchEffect,
+    StepContext, StepResult, WorkflowResult, WorkflowSession,
 };
 // Re-export environment
 pub use environment::OrchestratorEnv;
