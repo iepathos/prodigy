@@ -518,6 +518,153 @@ src/cook/execution/mapreduce/
 - Parallelism: Safe bounded concurrency
 - Mocking: Test without actual I/O
 
+## Reader Pattern Environment Access (Spec 175)
+
+### Overview
+
+Prodigy provides Reader pattern helpers for clean, type-safe environment access in Effect-based code. These helpers use Stillwater's `Effect::asks` for reading environment values and `Effect::local` for scoped modifications.
+
+### Environment Access Helpers
+
+Access environment values without manual `Effect::asks` boilerplate:
+
+```rust
+use prodigy::cook::execution::mapreduce::environment_helpers::*;
+
+// MapEnv accessors
+let max_parallel = get_max_parallel().run_async(&env).await?;
+let job_id = get_job_id().run_async(&env).await?;
+let config_value = get_config_value("timeout").run_async(&env).await?;
+let storage = get_storage().run_async(&env).await?;
+let worktree_manager = get_worktree_manager().run_async(&env).await?;
+
+// PhaseEnv accessors
+let variable = get_variable("count").run_async(&phase_env).await?;
+let all_variables = get_variables().run_async(&phase_env).await?;
+let workflow_var = get_workflow_env_value("debug").run_async(&phase_env).await?;
+```
+
+### Local Override Utilities
+
+Use `Effect::local` wrappers for scoped environment modifications:
+
+```rust
+use prodigy::cook::execution::mapreduce::environment_helpers::*;
+
+// Override max_parallel for a specific effect
+let effect = with_max_parallel(50, expensive_operation());
+let result = effect.run_async(&env).await?;
+// Original env unchanged - override only applies within effect
+
+// Enable debug mode for an effect
+let debug_effect = with_debug(true, agent_execution());
+
+// Add config values for an effect
+let effect = with_config("timeout", json!(60), long_running_operation());
+
+// Override multiple values
+let effect = with_overrides(
+    |env| MapEnv {
+        max_parallel: 100,
+        job_id: "override-job".to_string(),
+        ..env.clone()
+    },
+    batch_operation(),
+);
+
+// PhaseEnv: Override variables for an effect
+let effect = with_variables(
+    HashMap::from([("count".to_string(), json!(42))]),
+    compute_result(),
+);
+```
+
+### Composing Effects with Environment Access
+
+Combine environment access with effect composition:
+
+```rust
+use prodigy::cook::execution::mapreduce::environment_helpers::*;
+use stillwater::Effect;
+
+// Read config, then execute based on value
+let effect = get_config_value("batch_size")
+    .and_then(|batch_size| {
+        let size = batch_size.unwrap_or(json!(10)).as_u64().unwrap() as usize;
+        process_in_batches(items, size)
+    });
+
+// Use local override for nested operation
+let effect = get_max_parallel()
+    .and_then(|current_max| {
+        let reduced = current_max / 2;
+        with_max_parallel(reduced, memory_intensive_operation())
+    });
+```
+
+### Mock Environment Builders
+
+Test Reader pattern code without production dependencies:
+
+```rust
+use prodigy::cook::execution::mapreduce::mock_environment::*;
+
+#[tokio::test]
+async fn test_agent_with_custom_config() {
+    // Build mock MapEnv
+    let env = MockMapEnvBuilder::new()
+        .with_max_parallel(8)
+        .with_job_id("test-job-123")
+        .with_config("timeout", json!(30))
+        .with_debug()
+        .build();
+
+    // Test Reader pattern effects
+    let max = get_max_parallel().run_async(&env).await.unwrap();
+    assert_eq!(max, 8);
+
+    let job_id = get_job_id().run_async(&env).await.unwrap();
+    assert_eq!(job_id, "test-job-123");
+}
+
+#[tokio::test]
+async fn test_phase_variables() {
+    // Build mock PhaseEnv
+    let env = MockPhaseEnvBuilder::new()
+        .with_variable("count", json!(42))
+        .with_variable("name", json!("test"))
+        .build();
+
+    let count = get_variable("count").run_async(&env).await.unwrap();
+    assert_eq!(count, Some(json!(42)));
+}
+
+// Convenience functions for simple tests
+let env = mock_map_env();                    // Default mock
+let env = mock_map_env_debug();              // With debug enabled
+let env = mock_map_env_with_parallel(10);    // Custom parallelism
+let env = mock_phase_env();                  // Default phase env
+```
+
+### Architecture
+
+```
+src/cook/execution/mapreduce/
+├── environment_helpers.rs    # Reader pattern helpers
+│   ├── get_* functions       # Environment accessors (Effect::asks)
+│   └── with_* functions      # Local override utilities (Effect::local)
+└── mock_environment.rs       # Mock builders for testing
+    ├── MockMapEnvBuilder     # Fluent API for MapEnv
+    └── MockPhaseEnvBuilder   # Fluent API for PhaseEnv
+```
+
+**Key benefits:**
+- **Type safety**: Compile-time environment access verification
+- **Testability**: Mock environments for unit testing
+- **Composability**: Chain with other Effect operations
+- **Scoped overrides**: Local changes don't leak to parent scope
+- **Clean API**: No boilerplate `Effect::asks` calls
+
 ## Environment Variables (Spec 120)
 
 Define variables at workflow root:
