@@ -34,6 +34,6 @@ mod mode_detection;
 mod resource_allocation;
 
 // Re-export main types and functions
-pub use execution_planning::{plan_execution, ExecutionPlan, Phase};
+pub use execution_planning::{plan_execution, ExecutionPlan, Phase, PhaseType};
 pub use mode_detection::{detect_execution_mode, ExecutionMode};
 pub use resource_allocation::{calculate_resources, ResourceRequirements};
