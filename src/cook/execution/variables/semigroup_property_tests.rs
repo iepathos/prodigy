@@ -17,7 +17,9 @@ mod property_tests {
     }
 
     fn arb_sum() -> impl Strategy<Value = AggregateResult> {
-        any::<f64>()
+        // Limit range to avoid extreme floating-point values that cause precision issues
+        // when testing associativity with very large/small numbers
+        (-1e10f64..1e10f64)
             .prop_filter("must be finite", |f| f.is_finite())
             .prop_map(AggregateResult::Sum)
     }
@@ -39,7 +41,8 @@ mod property_tests {
 
     fn arb_average() -> impl Strategy<Value = AggregateResult> {
         (
-            any::<f64>().prop_filter("must be finite", |f| f.is_finite()),
+            // Limit range to avoid extreme floating-point values that cause precision issues
+            (-1e10f64..1e10f64).prop_filter("must be finite", |f| f.is_finite()),
             1usize..100,
         )
             .prop_map(|(sum, count)| AggregateResult::Average(sum, count))
@@ -47,7 +50,8 @@ mod property_tests {
 
     fn arb_median() -> impl Strategy<Value = AggregateResult> {
         prop::collection::vec(
-            any::<f64>().prop_filter("must be finite", |f| f.is_finite()),
+            // Limit range to avoid extreme floating-point values
+            (-1e10f64..1e10f64).prop_filter("must be finite", |f| f.is_finite()),
             0..10,
         )
         .prop_map(AggregateResult::Median)
@@ -85,37 +89,26 @@ mod property_tests {
                     // For Sum and Average types, use approximate equality due to floating-point precision
                     match (&left, &right) {
                         (AggregateResult::Sum(l), AggregateResult::Sum(r)) => {
-                            // Use relative epsilon tolerance for very small or very large values
-                            let max_val = l.abs().max(r.abs());
-                            let tolerance = if !(1e-100..=1e100).contains(&max_val) {
-                                // For extreme values, use relative tolerance
-                                max_val * 1e-10 + 1e-300
-                            } else {
-                                // For normal values, use absolute tolerance
-                                1e-10
-                            };
+                            // Use relative epsilon tolerance for floating-point comparisons
+                            // f64 has about 15-16 significant decimal digits of precision
+                            let max_val = l.abs().max(r.abs()).max(1.0);
+                            let relative_tolerance = max_val * 1e-9; // Allow ~9 digits precision
                             prop_assert!(
-                                (l - r).abs() < tolerance || (l.is_nan() && r.is_nan()),
-                                "Sum values differ: left={}, right={}, diff={}",
-                                l, r, (l - r).abs()
+                                (l - r).abs() < relative_tolerance || (l.is_nan() && r.is_nan()),
+                                "Sum values differ: left={}, right={}, diff={}, tolerance={}",
+                                l, r, (l - r).abs(), relative_tolerance
                             );
                         }
                         (AggregateResult::Average(l_sum, l_count), AggregateResult::Average(r_sum, r_count)) => {
                             // Count must be exactly equal
                             prop_assert_eq!(l_count, r_count, "Average counts differ");
-                            // Sum uses floating-point, needs approximate comparison
-                            let max_val = l_sum.abs().max(r_sum.abs());
-                            let tolerance = if !(1e-100..=1e100).contains(&max_val) {
-                                // For extreme values, use relative tolerance
-                                max_val * 1e-10 + 1e-300
-                            } else {
-                                // For normal values, use absolute tolerance
-                                1e-10
-                            };
+                            // Sum uses floating-point, needs relative tolerance
+                            let max_val = l_sum.abs().max(r_sum.abs()).max(1.0);
+                            let relative_tolerance = max_val * 1e-9; // Allow ~9 digits precision
                             prop_assert!(
-                                (l_sum - r_sum).abs() < tolerance || (l_sum.is_nan() && r_sum.is_nan()),
-                                "Average sums differ: left={}, right={}, diff={}",
-                                l_sum, r_sum, (l_sum - r_sum).abs()
+                                (l_sum - r_sum).abs() < relative_tolerance || (l_sum.is_nan() && r_sum.is_nan()),
+                                "Average sums differ: left={}, right={}, diff={}, tolerance={}",
+                                l_sum, r_sum, (l_sum - r_sum).abs(), relative_tolerance
                             );
                         }
                         _ => {
