@@ -10,7 +10,7 @@ Complete workflow configurations include:
 |---------|------------------|-------------------|
 | **Basic Structure** | `commands: []` | `mode: mapreduce` with `setup`, `map`, `reduce` |
 | **Environment Variables** | `env:`, `secrets:`, `profiles:` | Same + phase-specific overrides |
-| **Command Types** | `claude:`, `shell:`, `goal_seek:`, `foreach:`, `write_file:` | Same + `agent_template` |
+| **Command Types** | `claude:`, `shell:`, `foreach:`, `write_file:`, `validate:` | Same + `agent_template` |
 | **Error Handling** | `on_failure:`, `on_success:`, `retry:` | Same + `error_policy:`, `on_item_failure:` |
 | **Validation** | `validate:` with `threshold`, `on_incomplete` | Per-step validation + gap filling |
 | **Output Capture** | `capture_output:`, `outputs:` | `capture_outputs:` in setup phase |
@@ -27,7 +27,7 @@ This example demonstrates a full standard workflow with all major configuration 
 
 ```yaml
 # Sequential workflow for technical debt analysis and remediation
-# Demonstrates: validation, goal-seeking, error handlers, output capture
+# Demonstrates: validation, error handlers, output capture
 
 # Phase 1: Generate coverage data
 - shell: "just coverage-lcov"
@@ -447,101 +447,70 @@ error_policy:
 
 ---
 
-### 5. Goal-Seeking and Validation Examples
+### 5. Validation with Gap Filling Examples
 
-This example demonstrates iterative refinement with validation and automatic gap filling.
+This example demonstrates validation with automatic gap filling using the `validate:` command with `on_incomplete` handlers.
 
-**Source**: workflows/goal-seeking-examples.yml (lines 1-129)
+**Source**: workflows/implement.yml and workflows/debtmap.yml
 
 ```yaml
-# Example 1: Test Coverage Improvement
-- goal_seek:
-    goal: "Achieve 90% test coverage"
-    claude: "/prodigy-coverage --improve"
-    validate: "cargo tarpaulin --print-summary 2>/dev/null | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
-    threshold: 90
-    max_attempts: 5
-    timeout_seconds: 300
-    fail_on_incomplete: true
+# Example 1: Specification Implementation with Validation
+- claude: "/implement-spec $ARG"
   commit_required: true
-
-# Example 2: Performance Optimization
-- goal_seek:
-    goal: "Optimize algorithm performance to under 100ms"
-    claude: "/optimize-performance --target 100ms"
-    validate: "cargo bench --bench main_bench 2>/dev/null | grep 'time:' | awk '{if ($2 < 100) print \"score: 95\"; else print \"score:\", int(10000/$2)}'"
-    threshold: 90
-    max_attempts: 4
-    timeout_seconds: 600
-  commit_required: true
-
-# Example 3: Code Quality with Custom Validation
-- goal_seek:
-    goal: "Fix all clippy warnings and improve code quality"
-    claude: "/fix-clippy-warnings"
-    validate: |
-      warnings=$(cargo clippy 2>&1 | grep -c warning || echo 0)
-      if [ "$warnings" -eq 0 ]; then
-        echo "score: 100"
-      else
-        score=$((100 - warnings * 5))
-        echo "score: $score"
-      fi
+  validate:
+    claude: "/validate-spec $ARG --output .prodigy/validation-result.json"
+    result_file: ".prodigy/validation-result.json"
     threshold: 95
-    max_attempts: 3
-    fail_on_incomplete: false
+    on_incomplete:
+      claude: "/complete-spec $ARG --gaps ${validation.gaps}"
+      commit_required: true
+      max_attempts: 3
+      fail_workflow: false
+
+# Example 2: Multi-step Validation Pipeline
+- claude: "/implement-feature auth"
   commit_required: true
+  validate:
+    commands:
+      - shell: "cargo test auth"
+      - shell: "cargo clippy -- -D warnings"
+      - claude: "/validate-implementation --output validation.json"
+    result_file: "validation.json"
+    threshold: 90
+    on_incomplete:
+      claude: "/complete-gaps ${validation.gaps}"
+      commit_required: true
+      max_attempts: 2
 
-# Example 4: Multi-stage Goal Seeking
-- name: "Complete feature implementation with quality checks"
-  goal_seek:
-    goal: "Implement user profile feature"
-    claude: "/implement-feature user-profile"
-    validate: "test -f src/features/user_profile.rs && echo 'score: 100' || echo 'score: 0'"
-    threshold: 100
-    max_attempts: 2
-
-- name: "Add comprehensive tests"
-  goal_seek:
-    goal: "Add tests for user profile feature"
-    claude: "/add-tests src/features/user_profile.rs"
-    validate: |
-      test_count=$(grep -c "#\\[test\\]" src/features/user_profile.rs || echo 0)
-      if [ "$test_count" -ge 5 ]; then
-        echo "score: 100"
-      else
-        score=$((test_count * 20))
-        echo "score: $score"
-      fi
-    threshold: 100
-    max_attempts: 3
-
-- name: "Ensure tests pass"
-  goal_seek:
-    goal: "Make all user profile tests pass"
-    claude: "/fix-tests user_profile"
-    validate: "cargo test user_profile 2>&1 | grep -q 'test result: ok' && echo 'score: 100' || echo 'score: 0'"
-    threshold: 100
-    max_attempts: 4
-    fail_on_incomplete: true
+# Example 3: Code Quality Validation
+- claude: "/fix-clippy-warnings"
+  commit_required: true
+  validate:
+    shell: "cargo clippy 2>&1 | grep -c warning | xargs -I {} bash -c 'if [ {} -eq 0 ]; then echo \"score: 100\"; else echo \"score: $((100 - {} * 5))\"; fi'"
+    threshold: 95
+    on_incomplete:
+      claude: "/fix-remaining-warnings"
+      commit_required: true
+      max_attempts: 3
 ```
 
-**Goal-Seeking Configuration** (from src/cook/goal_seek/mod.rs):
-- `goal: String` - Human-readable description of the goal
-- `claude: String` - Claude command to execute for improvement
-- `validate: String` - Shell command that outputs "score: N" (0-100)
-- `threshold: u32` - Minimum score required for success (0-100)
-- `max_attempts: u32` - Maximum refinement iterations
-- `timeout_seconds: u64` - Maximum time for all attempts
-- `fail_on_incomplete: bool` - Fail workflow if threshold not reached
+**Validation Configuration** (from src/cook/workflow/validation.rs):
+- `shell` or `claude`: Command that returns validation score
+- `commands`: Array of commands for multi-step validation
+- `result_file`: JSON file with validation results
+- `threshold`: Minimum score required (0-100)
+- `on_incomplete`: Commands to run if threshold not met
+  - `max_attempts`: Maximum retry attempts
+  - `fail_workflow`: Whether to fail if still incomplete after retries
 
 **Validation Output Format**:
-The validation command must output a single line with the score:
+The validation command should output JSON with a score:
+```json
+{
+  "score": 85,
+  "gaps": ["Missing test for edge case", "Documentation incomplete"]
+}
 ```
-score: 85
-```
-
-The score should be between 0 and 100, where 100 indicates complete success.
 
 ---
 
@@ -703,9 +672,8 @@ For more detailed information on specific features:
 
 - **Workflow Structure**: See [../workflow-basics/full-workflow-structure.md](../workflow-basics/full-workflow-structure.md)
 - **Environment Variables**: See [environment-variables.md](environment-variables.md)
-- **Error Handling**: See [../error-handling.md](../error-handling.md)
+- **Error Handling**: See [../workflow-basics/error-handling.md](../workflow-basics/error-handling.md)
 - **MapReduce Basics**: See [../mapreduce/index.md](../mapreduce/index.md)
 - **Validation**: See [../advanced/implementation-validation.md](../advanced/implementation-validation.md)
-- **Goal Seeking**: See [../advanced/goal-seeking-operations.md](../advanced/goal-seeking-operations.md)
 
 ---

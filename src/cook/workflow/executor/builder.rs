@@ -242,7 +242,6 @@ impl WorkflowExecutor {
                 claude: on_incomplete.claude.clone(),
                 shell: on_incomplete.shell.clone(),
                 test: None,
-                goal_seek: None,
                 foreach: None,
                 write_file: None,
                 command: None,

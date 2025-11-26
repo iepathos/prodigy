@@ -6,7 +6,7 @@ Now that you understand basic workflows, explore these topics:
 
 Continue learning about workflow fundamentals:
 
-- **[Command Types](command-types.md)** - Learn about all available command types (claude, shell, goal_seek, foreach) and when to use each one
+- **[Command Types](command-types.md)** - Learn about all available command types (claude, shell, foreach, validate) and when to use each one
 
 - **[Command-Level Options](command-level-options.md)** - Advanced command configuration including timeout management, output capture, error handling, and conditional execution
 
@@ -18,7 +18,7 @@ Continue learning about workflow fundamentals:
 
 Ready to level up? Explore these advanced features:
 
-- **[Advanced Features](../advanced/index.md)** - Conditional execution, parallel processing with foreach, goal-seeking operations with validation, and complex control flow
+- **[Advanced Features](../advanced/index.md)** - Conditional execution, parallel processing with foreach, validation with gap filling, and complex control flow
 
 - **[Environment Configuration](../environment/index.md)** - Comprehensive guide to environment variables, secrets management, profiles, and per-command overrides
 

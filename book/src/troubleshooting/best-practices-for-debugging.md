@@ -231,12 +231,6 @@ Different workflow types have different debugging considerations:
 - Investigate merge conflicts in parent worktree after agent completion
 - Check work item discovery with `--dry-run` on map phase
 
-**Goal Seek Workflows**:
-- Validate score calculation logic
-- Check convergence criteria (threshold, max iterations)
-- Debug score trends with iteration history
-- Verify goal direction (maximize vs minimize)
-
 **Foreach Workflows**:
 - Test with small item lists first
 - Check parallel execution limits (`max_parallel`)

@@ -1,6 +1,6 @@
 ## Command-Level Options
 
-All command types (`claude:`, `shell:`, `goal_seek:`, `foreach:`) support additional fields for advanced control and orchestration. These options enable timeout management, output capture, error handling, conditional execution, and more.
+All command types (`claude:`, `shell:`, `foreach:`) support additional fields for advanced control and orchestration. These options enable timeout management, output capture, error handling, conditional execution, and more.
 
 ## Core Options
 

@@ -13,21 +13,23 @@ Find the right example for your use case:
 | Use Case | Example | Key Features |
 |----------|---------|--------------|
 | Simple build/test pipeline | Example 1 | Basic commands, error handling |
-| Iterative optimization | Example 2 | Goal seeking, validation feedback |
-| Loop over configurations | Example 3 | Foreach iteration, parallel processing |
-| Parallel code processing | Example 4, 8 | MapReduce, distributed work |
-| Conditional logic | Example 5 | Capture output, when clauses |
-| Multi-step validation | Example 6 | Validation with gap filling |
-| Environment configuration | Example 7 | Env vars, secrets, profiles |
-| Dead Letter Queue (DLQ) | Example 8 | Error handling, retry failed items |
-| Generate config files | Example 9 | write_file with JSON/YAML/text |
-| Advanced git tracking | Example 10 | Git context variables, working_dir |
-| External service resilience | Example 11 | Circuit breakers, fail fast |
-| Retry with backoff | Example 12 | Exponential/linear/custom backoff |
-| Reusable workflows | Example 13 | Composition (preview feature) |
-| Custom merge process | Example 14 | Merge workflows, pre-merge validation |
+| Loop over configurations | Example 2 | Foreach iteration, parallel processing |
+| Parallel code processing | Example 3, 7 | MapReduce, distributed work |
+| Conditional logic | Example 4 | Capture output, when clauses |
+| Multi-step validation | Example 5 | Validation with gap filling |
+| Environment configuration | Example 6 | Env vars, secrets, profiles |
+| Dead Letter Queue (DLQ) | Example 7 | Error handling, retry failed items |
+| Generate config files | Example 8 | write_file with JSON/YAML/text |
+| Advanced git tracking | Example 9 | Git context variables, working_dir |
+| External service resilience | Example 10 | Circuit breakers, fail fast |
+| Retry with backoff | Example 11 | Exponential/linear/custom backoff |
+| Reusable workflows | Example 12 | Composition (preview feature) |
+| Custom merge process | Example 13 | Merge workflows, pre-merge validation |
 
 ## Example 1: Simple Build and Test
+
+!!! example "Basic Workflow"
+    This example shows a simple linear workflow with error handling. The `on_failure` handler automatically invokes Claude to fix failing tests.
 
 ```yaml
 - shell: "cargo build"
@@ -39,52 +41,7 @@ Find the right example for your use case:
 
 ---
 
-## Example 2: Coverage Improvement with Goal Seeking
-
-```yaml
-- goal_seek:
-    goal: "Achieve 80% test coverage"
-    claude: "/improve-coverage"  # Can also use 'shell' for shell commands
-    validate: |
-      coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \([0-9.]*\)%.*/\1/')
-      echo "score: ${coverage%.*}"
-    threshold: 80
-    max_attempts: 5
-    timeout_seconds: 1800  # Optional: 30 minute timeout for entire goal-seeking process
-    fail_on_incomplete: false  # Optional: Continue workflow even if goal not reached
-```
-
-**Source**: GoalSeekConfig from src/cook/goal_seek/mod.rs:14-41, execution engine from src/cook/goal_seek/engine.rs:23-116
-
-**How Goal Seeking Works:**
-
-Goal seeking provides iterative refinement with automatic convergence detection:
-1. Execute the improvement command (Claude or shell)
-2. Run validation script to get a score (0-100)
-3. Pass environment variables to next iteration:
-   - `PRODIGY_VALIDATION_SCORE` - Current score
-   - `PRODIGY_VALIDATION_OUTPUT` - Full validation output
-   - `PRODIGY_VALIDATION_GAPS` - Identified improvement areas
-4. Repeat until threshold reached, max attempts hit, or convergence detected
-5. Auto-stops when no improvement in last 3 attempts (convergence)
-
-**Validation Script Format:**
-```bash
-# Must output "score: N" where N is 0-100
-echo "score: 75"
-# Optional: output "gaps: description" for targeted improvements
-echo "gaps: Missing tests for auth module"
-```
-
-**Goal-Seek vs Validate:**
-- `goal_seek`: Iterative optimization with feedback loop
-- `validate`: One-time completion check (see Example 6)
-
-**Note:** Changes are automatically committed during goal-seeking iterations. Use `commit_required: true` on the outer goal_seek step to control commit behavior.
-
----
-
-## Example 3: Foreach Iteration
+## Example 2: Foreach Iteration
 
 ```yaml
 # Test multiple configurations in sequence
@@ -116,9 +73,13 @@ echo "gaps: Missing tests for auth module"
 
 ---
 
-## Example 4: Parallel Code Review
+## Example 3: Parallel Code Review
+
+!!! example "MapReduce Pattern"
+    This example demonstrates parallel processing using the MapReduce pattern: setup generates work items, map processes them in parallel agents, and reduce aggregates results.
 
 ```yaml
+# Source: Based on examples/mapreduce-json-input.yml and examples/mapreduce-command-input.yml
 name: parallel-code-review
 mode: mapreduce
 
@@ -127,19 +88,55 @@ setup:
   - shell: "jq -R -s -c 'split(\"\n\") | map(select(length > 0) | {path: .})' files.txt > items.json"
 
 map:
-  input: items.json
-  json_path: "$[*]"  # Process all items in root array
+  input: items.json            # (1)!
+  json_path: "$[*]"            # (2)!
   agent_template:
     - claude: "/review-file ${item.path}"
       id: "review"
-      capture_output: "review_result"  # Capture command output for use in later steps
-      capture_format: "json"  # Parse output as JSON (see Example 5 for all format options)
+      capture_output: "review_result"
+      capture_format: "json"
     - shell: "cargo check ${item.path}"
-  max_parallel: 5
+  max_parallel: 5              # (3)!
 
 reduce:
   - claude: "/summarize-reviews ${map.results}"
+
+1. JSON file produced by setup phase containing work items
+2. JSONPath expression to extract items from the JSON structure
+3. Number of concurrent agents processing work items in parallel
 ```
+
+```mermaid
+graph TD
+    Start[Start Workflow] --> Setup[Setup Phase<br/>Generate items.json]
+    Setup --> Map[Map Phase<br/>Parallel Processing]
+
+    Map --> A1[Agent 1<br/>Review file 1]
+    Map --> A2[Agent 2<br/>Review file 2]
+    Map --> A3[Agent 3<br/>Review file 3]
+    Map --> A4[Agent 4<br/>Review file 4]
+    Map --> A5[Agent 5<br/>Review file 5]
+
+    A1 --> Merge[Aggregate Results]
+    A2 --> Merge
+    A3 --> Merge
+    A4 --> Merge
+    A5 --> Merge
+
+    Merge --> Reduce[Reduce Phase<br/>Summarize Reviews]
+    Reduce --> End[Complete]
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style A1 fill:#e8f5e9
+    style A2 fill:#e8f5e9
+    style A3 fill:#e8f5e9
+    style A4 fill:#e8f5e9
+    style A5 fill:#e8f5e9
+```
+
+**Figure**: MapReduce execution flow showing setup, parallel map agents, and reduce aggregation.
 
 **Note:** JSONPath `"$[*]"` matches all items in the root array. Since the setup phase creates an array of `{path: ...}` objects, each map agent receives an `item` object with `item.path` available for use in commands.
 
@@ -151,7 +148,7 @@ reduce:
 
 ---
 
-## Example 5: Conditional Deployment
+## Example 4: Conditional Deployment
 
 ```yaml
 - shell: "cargo test --quiet && echo true || echo false"
@@ -189,9 +186,13 @@ reduce:
 
 ---
 
-## Example 6: Multi-Step Validation
+## Example 5: Multi-Step Validation
+
+!!! note "Iterative Validation"
+    Use `validate` for completion checks with targeted gap filling. The `threshold` setting and `on_incomplete` handlers provide iterative refinement.
 
 ```yaml
+# Source: Validation pattern from src/cook/goal_seek/mod.rs and features.json
 - claude: "/implement-feature auth"
   commit_required: true
   validate:
@@ -207,9 +208,51 @@ reduce:
       max_attempts: 2
 ```
 
+**Validation Lifecycle Explanation:**
+
+The validation system follows this flow:
+1. **Execute validation commands** - Run tests, linting, and custom validation scripts
+2. **Parse result file** - Read `validation.json` to extract score and gaps
+3. **Check threshold** - Compare score against threshold (90 in this example)
+4. **Populate `validation.gaps`** - If score < threshold, extract gaps from result file
+5. **Execute `on_incomplete`** - Pass gaps to Claude for targeted fixes
+
+**Result File Format:**
+
+The validation result file (`validation.json`) should contain:
+```json
+{
+  "score": 75,
+  "gaps": [
+    "Missing tests for login endpoint",
+    "No error handling for invalid tokens",
+    "Documentation incomplete for auth module"
+  ]
+}
+```
+
+The `${validation.gaps}` variable is populated from the `gaps` array in the result file. If the result file doesn't contain a `gaps` field, validation will fail with an error.
+
+**Alternative: Shell Script Validation**
+
+You can also use shell scripts that output structured data:
+```yaml
+validate:
+  commands:
+    - shell: |
+        # Run tests and extract missing coverage
+        cargo tarpaulin --output-format json > coverage.json
+        # Parse coverage and create validation result
+        jq '{score: .coverage, gaps: .uncovered_files}' coverage.json > validation.json
+  result_file: "validation.json"
+  threshold: 80
+```
+
+**Note:** Validation provides iterative completion checking with gap filling. Use it when you want to verify completeness and have Claude fill specific gaps.
+
 ---
 
-## Example 7: Environment-Aware Workflow
+## Example 6: Environment-Aware Workflow
 
 ```yaml
 # Global environment variables (including secrets with masking)
@@ -308,9 +351,13 @@ The modern `env`-based approach is recommended for consistency, but legacy workf
 
 ---
 
-## Example 8: Complex MapReduce with Error Handling
+## Example 7: Complex MapReduce with Error Handling
+
+!!! warning "Resource Management"
+    Setting `max_parallel` too high can exhaust system resources (CPU, memory, file handles). Start with 5-10 concurrent agents and monitor resource usage before increasing.
 
 ```yaml
+# Source: Combines patterns from src/config/mapreduce.rs and workflows/debtmap-reduce.yml
 name: tech-debt-elimination
 mode: mapreduce
 
@@ -318,18 +365,18 @@ setup:
   - shell: "debtmap analyze . --output debt.json"
 
 map:
-  input: debt.json
-  json_path: "$.items[*]"
-  filter: "item.severity == 'critical'"
-  sort_by: "item.priority DESC"
-  max_items: 20
-  max_parallel: 5
-  distinct: "item.id"  # Deduplication: Prevents processing duplicate items based on this field
+  input: debt.json                          # (1)!
+  json_path: "$.items[*]"                   # (2)!
+  filter: "item.severity == 'critical'"     # (3)!
+  sort_by: "item.priority DESC"             # (4)!
+  max_items: 20                             # (5)!
+  max_parallel: 5                           # (6)!
+  distinct: "item.id"                       # (7)!
 
   # Timeout configuration (optional - default is 600 seconds / 10 minutes)
   timeout_config:
-    agent_timeout_secs: 600  # Maximum time per agent execution
-    cleanup_grace_period_secs: 30  # Time allowed for cleanup after timeout
+    agent_timeout_secs: 600                 # (8)!
+    cleanup_grace_period_secs: 30           # (9)!
 
   agent_template:
     - claude: "/fix-debt-item '${item.description}'"
@@ -343,11 +390,49 @@ reduce:
   - claude: "/compare-debt-reports --before debt.json --after debt-after.json"
 
 error_policy:
-  on_item_failure: dlq  # Default: dlq (failed items to Dead Letter Queue)
-  continue_on_failure: true  # Default: true (continue despite failures)
-  max_failures: 5  # Optional: stop after N failures
-  failure_threshold: 0.3  # Optional: stop if >30% fail
-  error_collection: aggregate  # Default: aggregate (Options: aggregate, immediate, batched:{size})
+  on_item_failure: dlq                      # (10)!
+  continue_on_failure: true                 # (11)!
+  max_failures: 5                           # (12)!
+  failure_threshold: 0.3                    # (13)!
+  error_collection: aggregate               # (14)!
+
+1. JSON file containing work items from setup phase
+2. JSONPath to extract work items from the JSON structure
+3. Only process items matching this condition (severity == 'critical')
+4. Process high-priority items first
+5. Limit to first 20 items (after filtering and sorting)
+6. Run up to 5 agents concurrently
+7. Prevent duplicate processing based on item.id field
+8. Maximum time per agent (10 minutes default)
+9. Extra time allowed for cleanup operations after timeout
+10. Send failed items to Dead Letter Queue for retry
+11. Continue processing remaining items when one fails
+12. Stop workflow after 5 total failures
+13. Stop workflow if >30% of items fail
+14. Aggregate errors and report at end
+```
+
+**on_failure Syntax Note**: The `on_failure` field accepts a **single command** (either `shell:` or `claude:`), not an array of commands. The command structure is:
+```yaml
+on_failure:
+  claude: "/fix-command"
+  # or
+  shell: "echo 'Fixing...'"
+  max_attempts: 3       # Optional: retry the on_failure handler
+  commit_required: true # Optional: require commit after fixing
+```
+
+For multiple failure recovery steps, nest handlers:
+```yaml
+# Source: Pattern from workflows/implement-with-tests.yml:36-39
+- shell: "cargo test"
+  on_failure:
+    claude: "/fix-tests"
+    commit_required: true
+    on_failure:
+      # Nested handler for second-level failure
+      claude: "/fix-tests --deep-analysis"
+      commit_required: true
 ```
 
 **Note:** The entire `error_policy` block is optional with sensible defaults. If not specified, failed items go to the Dead Letter Queue (`on_item_failure: dlq`), workflow continues despite failures (`continue_on_failure: true`), and errors are aggregated at the end (`error_collection: aggregate`). Use `max_failures` or `failure_threshold` to fail fast if too many items fail.
@@ -377,6 +462,9 @@ prodigy resume mapreduce-1234567890
 
 **Source**: Session-job mapping implementation from MapReduce checkpoint and resume (Spec 134)
 
+!!! tip "Dead Letter Queue (DLQ) for Failed Items"
+    Failed work items are automatically sent to the DLQ for retry. Use `prodigy dlq retry <job_id>` to reprocess failed items with the same agent configuration, or `prodigy dlq show <job_id>` to inspect failure details.
+
 **Debugging Failed Agents:**
 When agents fail, DLQ entries include a `json_log_location` field pointing to the Claude JSON log file for debugging:
 ```bash
@@ -390,7 +478,7 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 
 ---
 
-## Example 9: Generating Configuration Files
+## Example 8: Generating Configuration Files
 
 ```yaml
 # Generate a JSON configuration file
@@ -437,7 +525,7 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 
 ---
 
-## Example 10: Advanced Features
+## Example 9: Advanced Features
 
 ```yaml
 # Nested error handling with retry configuration
@@ -580,7 +668,7 @@ Note: Agent execution status is independent of cleanup status. If an agent compl
 
 ---
 
-## Example 11: Circuit Breaker for Resilient Error Handling
+## Example 10: Circuit Breaker for Resilient Error Handling
 
 ```yaml
 name: api-processing-with-circuit-breaker
@@ -617,12 +705,31 @@ reduce:
 
 **Circuit Breaker State Transitions:**
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: Initial State
+    Closed --> Open: failure_threshold<br/>consecutive failures
+    Open --> HalfOpen: timeout expires
+    HalfOpen --> Closed: success_threshold<br/>successes
+    HalfOpen --> Open: any failure in<br/>half_open_requests
+
+    note right of Closed
+        Requests flow normally
+        Track failure count
+    end note
+
+    note right of Open
+        Reject all requests
+        Wait for timeout
+    end note
+
+    note right of HalfOpen
+        Allow limited test requests
+        Evaluate recovery
+    end note
 ```
-Closed → Open (after failure_threshold consecutive failures)
-Open → HalfOpen (after timeout expires)
-HalfOpen → Closed (after success_threshold successes)
-HalfOpen → Open (if any half_open_request fails)
-```
+
+**Figure**: Circuit breaker state machine showing transitions based on failure and success thresholds.
 
 **When to Use Circuit Breakers:**
 - External API calls that may become unavailable
@@ -642,11 +749,11 @@ HalfOpen → Open (if any half_open_request fails)
 - `timeout: 30s` - Typical recovery time for transient issues
 - `half_open_requests: 3` - Minimal testing before full recovery
 
-**See Also**: [Error Handling Guide](error-handling.md) for comprehensive error handling patterns
+**See Also**: [Error Handling Guide](workflow-basics/error-handling.md) for comprehensive error handling patterns
 
 ---
 
-## Example 12: Retry Configuration with Backoff Strategies
+## Example 11: Retry Configuration with Backoff Strategies
 
 ```yaml
 name: resilient-deployment
@@ -676,64 +783,85 @@ error_policy:
 
 **Backoff Strategy Variants:**
 
-**1. Exponential (Default)** - Delay doubles each retry:
-```yaml
-backoff:
-  exponential:
-    initial: 1s         # First retry after 1s
-    multiplier: 2.0     # Second after 2s, third after 4s, fourth after 8s
-```
+=== "Exponential (Default)"
+    Delay doubles each retry - best for most scenarios:
+    ```yaml
+    backoff:
+      exponential:
+        initial: 1s         # First retry after 1s
+        multiplier: 2.0     # Second after 2s, third after 4s, fourth after 8s
+    ```
+    **Use when**: Fast backoff needed, transient errors expected
 
-**2. Linear** - Delay increases by fixed increment:
-```yaml
-backoff:
-  linear:
-    initial: 1s         # First retry after 1s
-    increment: 2s       # Second after 3s, third after 5s, fourth after 7s
-```
+=== "Linear"
+    Delay increases by fixed increment - steady load reduction:
+    ```yaml
+    backoff:
+      linear:
+        initial: 1s         # First retry after 1s
+        increment: 2s       # Second after 3s, third after 5s, fourth after 7s
+    ```
+    **Use when**: Gradual backoff preferred, predictable retry timing
 
-**3. Fibonacci** - Delay follows Fibonacci sequence:
-```yaml
-backoff:
-  fibonacci:
-    initial: 1s         # Delays: 1s, 1s, 2s, 3s, 5s, 8s, 13s...
-```
+=== "Fibonacci"
+    Delay follows Fibonacci sequence - gradual then aggressive:
+    ```yaml
+    backoff:
+      fibonacci:
+        initial: 1s         # Delays: 1s, 1s, 2s, 3s, 5s, 8s, 13s...
+    ```
+    **Use when**: Balance between exponential and linear
 
-**4. Fixed** - Same delay for all retries:
-```yaml
-backoff:
-  fixed:
-    delay: 5s           # All retries wait exactly 5s
-```
+=== "Fixed"
+    Same delay for all retries - consistent timing:
+    ```yaml
+    backoff:
+      fixed:
+        delay: 5s           # All retries wait exactly 5s
+    ```
+    **Use when**: Rate limiting, polling operations
 
-**5. Custom** - Specify exact delays:
-```yaml
-backoff:
-  custom:
-    delays: [1s, 5s, 15s, 30s, 60s]
-```
+=== "Custom"
+    Specify exact delays - full control:
+    ```yaml
+    backoff:
+      custom:
+        delays: [1s, 5s, 15s, 30s, 60s]
+    ```
+    **Use when**: Complex SLA requirements, specific retry patterns
 
 **Advanced Retry Configuration:**
 
 ```yaml
 - shell: "curl https://api.example.com/data"
   retry_config:
-    max_attempts: 5
+    max_attempts: 5                         # (1)!
     backoff:
       exponential:
-        initial: 1s
-        multiplier: 2.0
-    initial_delay: 1s           # Base delay before backoff
-    max_delay: 60s              # Cap maximum delay
-    jitter: true                # Add randomness to prevent thundering herd
-    jitter_factor: 0.3          # ±30% random variance
-    retry_budget: 300s          # Total retry time budget (5 minutes)
-    retry_on:                   # Only retry specific error types
-      - network                 # Network errors
-      - timeout                 # Timeout errors
-      - server_error            # HTTP 5xx errors
-      - rate_limit              # Rate limiting errors
-    on_failure: continue        # What to do after all retries fail
+        initial: 1s                         # (2)!
+        multiplier: 2.0                     # (3)!
+    initial_delay: 1s                       # (4)!
+    max_delay: 60s                          # (5)!
+    jitter: true                            # (6)!
+    jitter_factor: 0.3                      # (7)!
+    retry_budget: 300s                      # (8)!
+    retry_on:                               # (9)!
+      - network
+      - timeout
+      - server_error
+      - rate_limit
+    on_failure: continue                    # (10)!
+
+1. Maximum number of retry attempts before giving up
+2. Starting delay for exponential backoff (1s, 2s, 4s, 8s, ...)
+3. Multiplier for exponential growth (2.0 = double each retry)
+4. Base delay added before backoff calculation
+5. Maximum delay cap to prevent excessive waiting
+6. Add randomness to prevent thundering herd problem
+7. Random variance range (0.3 = ±30% of calculated delay)
+8. Total time budget for all retries (5 minutes)
+9. Only retry on specific error types (fail fast on others)
+10. Action after all retries exhausted (continue, fail, dlq)
 ```
 
 **Source**: Test examples from src/cook/retry_v2.rs:582-659, backoff calculation from retry_v2.rs:283-305
@@ -757,7 +885,7 @@ backoff:
 
 ---
 
-## Example 13: Workflow Composition (Preview Feature)
+## Example 12: Workflow Composition (Preview Feature)
 
 > **Note**: Workflow composition features are partially implemented. Core composition logic exists but CLI integration is pending (Spec 131-133). This example shows the planned syntax.
 
@@ -831,7 +959,7 @@ workflow:
 
 ---
 
-## Example 14: Custom Merge Workflows
+## Example 13: Custom Merge Workflows
 
 MapReduce workflows execute in isolated git worktrees. When the workflow completes, you can define a custom merge workflow to control how changes are merged back to your original branch.
 
@@ -928,6 +1056,26 @@ merge:
 - Always pass **both** `${merge.source_branch}` and `${merge.target_branch}` to `/prodigy-merge-worktree`
 - This ensures the merge targets your original branch, not a hardcoded main/master
 - Without a custom merge workflow, you'll be prompted interactively to merge
+
+**Handling Merge Failures:**
+If merge validation fails (e.g., tests fail, linting fails), the `on_failure` handlers will attempt to fix the issues. If fixes cannot be applied automatically, the merge workflow will fail, and changes remain in the worktree for manual review:
+
+```yaml
+# Source: Pattern from workflows/mapreduce-env-example.yml:83-94
+- shell: "cargo test --all"
+  on_failure:
+    claude: "/fix-failing-tests before merge"
+    commit_required: true
+    max_attempts: 2
+    # If tests still fail after 2 attempts, workflow stops
+    # Changes remain in worktree at ~/.prodigy/worktrees/{repo_name}/{session_id}/
+```
+
+**Recovery from Failed Merge:**
+1. Navigate to the worktree: `cd ~/.prodigy/worktrees/{repo_name}/{session_id}/`
+2. Fix issues manually and commit changes
+3. Resume the merge workflow: `prodigy resume {session_id}`
+4. Or manually merge: `git checkout {target_branch} && git merge {source_branch}`
 
 **Simplified Format:**
 If you don't need timeout configuration, you can use the simplified format:

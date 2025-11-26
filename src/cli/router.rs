@@ -75,28 +75,6 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
             path,
         }) => run_resume_workflow(session_id, force, from_checkpoint, path).await,
         Some(Commands::Checkpoints { command }) => run_checkpoints_command(command, verbose).await,
-        Some(Commands::GoalSeek {
-            goal,
-            command,
-            validate,
-            threshold,
-            max_attempts,
-            timeout,
-            fail_on_incomplete,
-            path,
-        }) => {
-            run_goal_seek(GoalSeekParams {
-                goal,
-                command,
-                validate,
-                threshold,
-                max_attempts,
-                timeout,
-                fail_on_incomplete,
-                path,
-            })
-            .await
-        }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         Some(Commands::Init {
             force,

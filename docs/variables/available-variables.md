@@ -564,7 +564,7 @@ Variables for workflow validation and completion tracking:
 | `${validation.gaps}` | Array of missing requirements | `echo '${validation.gaps}'` |
 | `${validation.status}` | Status: complete/incomplete/failed | `if [ "${validation.status}" = "complete" ]` |
 
-**Available in:** Goal seek and validation phases
+**Available in:** Validation phases
 
 ### Variable Interpolation Syntax
 

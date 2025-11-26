@@ -142,7 +142,7 @@ impl MockSubprocessManager {
     }
 }
 
-/// Mock command executor for goal-seek testing
+/// Mock command executor for testing
 pub struct CommandExecutorMock {
     responses: Arc<Mutex<HashMap<String, ExecutionResult>>>,
 }

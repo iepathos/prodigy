@@ -48,7 +48,6 @@ pub enum StepCommand {
         command: Arc<str>,
         on_failure: Option<Arc<TestDebugConfig>>,
     },
-    GoalSeek(Arc<crate::cook::goal_seek::GoalSeekConfig>),
     Foreach(Arc<crate::config::command::ForeachConfig>),
     Handler(HandlerConfig),
     Simple(Arc<str>),
@@ -140,8 +139,6 @@ impl NormalizedWorkflow {
                         command: Arc::from(test.command.as_str()),
                         on_failure: test.on_failure.as_ref().map(|f| Arc::new(f.clone())),
                     }
-                } else if let Some(goal_seek) = &step.goal_seek {
-                    StepCommand::GoalSeek(Arc::new(goal_seek.clone()))
                 } else if let Some(foreach) = &step.foreach {
                     StepCommand::Foreach(Arc::new(foreach.clone()))
                 } else {
@@ -258,7 +255,6 @@ impl NormalizedWorkflow {
             claude: cmd.claude.clone(),
             shell: cmd.shell.clone(),
             test: cmd.test.clone(),
-            goal_seek: cmd.goal_seek.clone(),
             foreach: cmd.foreach.clone(),
             write_file: None,
             command: None,
@@ -338,9 +334,9 @@ impl NormalizedWorkflow {
         // Validate step before transformation
         self.validate_step(step)?;
 
-        let (claude, shell, test, goal_seek, foreach) = match &step.command {
-            StepCommand::Claude(cmd) => (Some(cmd.to_string()), None, None, None, None),
-            StepCommand::Shell(cmd) => (None, Some(cmd.to_string()), None, None, None),
+        let (claude, shell, test, foreach) = match &step.command {
+            StepCommand::Claude(cmd) => (Some(cmd.to_string()), None, None, None),
+            StepCommand::Shell(cmd) => (None, Some(cmd.to_string()), None, None),
             StepCommand::Test {
                 command,
                 on_failure,
@@ -352,10 +348,8 @@ impl NormalizedWorkflow {
                     on_failure: on_failure.as_ref().map(|f| (**f).clone()),
                 }),
                 None,
-                None,
             ),
-            StepCommand::GoalSeek(config) => (None, None, None, Some((**config).clone()), None),
-            StepCommand::Foreach(config) => (None, None, None, None, Some((**config).clone())),
+            StepCommand::Foreach(config) => (None, None, None, Some((**config).clone())),
             StepCommand::Handler(handler) => {
                 // For handler steps, use the handler field
                 return Ok(WorkflowStep {
@@ -363,7 +357,6 @@ impl NormalizedWorkflow {
                     claude: None,
                     shell: None,
                     test: None,
-                    goal_seek: None,
                     foreach: None,
                     write_file: None,
                     command: None,
@@ -411,7 +404,6 @@ impl NormalizedWorkflow {
                     claude: None,
                     shell: None,
                     test: None,
-                    goal_seek: None,
                     foreach: None,
                     write_file: None,
                     command: Some(cmd.to_string()),
@@ -455,7 +447,6 @@ impl NormalizedWorkflow {
             claude,
             shell,
             test,
-            goal_seek,
             foreach,
             write_file: None,
             command: None,
@@ -609,7 +600,6 @@ mod tests {
             shell: None,
             analyze: None,
             test: None,
-            goal_seek: None,
             foreach: None,
             write_file: None,
             id: Some("test-step".to_string()),

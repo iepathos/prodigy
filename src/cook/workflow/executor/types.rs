@@ -57,7 +57,6 @@ impl CaptureOutput {
                     CommandType::Shell(_) => "shell.output".to_string(),
                     CommandType::Handler { .. } => "handler.output".to_string(),
                     CommandType::Test(_) => "test.output".to_string(),
-                    CommandType::GoalSeek(_) => "goal_seek.output".to_string(),
                     CommandType::Foreach(_) => "foreach.output".to_string(),
                     CommandType::WriteFile(_) => "write_file.output".to_string(),
                 })
@@ -105,8 +104,6 @@ pub enum CommandType {
     Shell(String),
     /// Test command with retry logic
     Test(crate::config::command::TestCommand),
-    /// Goal-seeking command with iterative refinement
-    GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
     /// Foreach command for parallel iteration
     Foreach(crate::config::command::ForeachConfig),
     /// Write file command with formatting and validation

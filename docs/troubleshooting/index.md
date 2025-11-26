@@ -204,41 +204,6 @@ foreach:
 
 See [Common Error Messages](common-error-messages.md#template-not-found) for specific composition error details.
 
-### Goal seek not converging
-
-**Symptoms:** "Max attempts reached", "Timeout", "Converged" with low score, validate command fails
-
-**Causes:**
-- Validate command not returning valid score (0-100)
-- Threshold too high for achievable goal
-- Max attempts too low
-- Claude/shell command not making effective progress
-- Score calculation logic incorrect
-
-**Solutions:**
-- Test validate command independently: `bash -c "your-validate-command"`
-- Ensure validate returns numeric score 0-100 on stdout
-- Lower threshold if goal is unrealistic: `threshold: 80` instead of `threshold: 95`
-- Increase max_attempts for complex refinements: `max_attempts: 10`
-- Review attempt history to see if scores are improving
-- Check timeout_seconds isn't too restrictive
-- Verify goal description is clear and actionable for Claude
-- Add verbose logging to validate command for debugging
-
-Example goal_seek configuration:
-```yaml
-# Source: workflows/implement-goal.yml
-goal_seek:
-  goal: "Improve test coverage to 80%"
-  claude: "/improve-coverage"
-  validate: "cargo tarpaulin --output-format json | jq '.coverage'"
-  threshold: 80
-  max_attempts: 5
-  timeout_seconds: 600
-```
-
-**Source**: src/cook/goal_seek/mod.rs:13-76, src/cook/goal_seek/engine.rs
-
 ### Validate command failures
 
 **Symptoms:** "Schema validation failed", "Threshold not met", "Gap-filling failed", validate command error

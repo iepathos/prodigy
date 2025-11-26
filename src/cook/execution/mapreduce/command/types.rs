@@ -43,9 +43,6 @@ pub fn collect_command_types(step: &WorkflowStep) -> Vec<CommandType> {
     if let Some(test) = &step.test {
         commands.push(CommandType::Test(test.clone()));
     }
-    if let Some(goal_seek) = &step.goal_seek {
-        commands.push(CommandType::GoalSeek(goal_seek.clone()));
-    }
     if let Some(foreach) = &step.foreach {
         commands.push(CommandType::Foreach(foreach.clone()));
     }

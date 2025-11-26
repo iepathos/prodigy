@@ -297,4 +297,3 @@ See also:
 - [Timeout Configuration](timeout-configuration.md)
 - [Implementation Validation](implementation-validation.md)
 - [Parallel Iteration with Foreach](parallel-iteration-with-foreach.md)
-- [Goal-Seeking Operations](goal-seeking-operations.md)

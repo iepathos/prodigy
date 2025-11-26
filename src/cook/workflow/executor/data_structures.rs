@@ -50,10 +50,6 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<crate::config::command::TestCommand>,
 
-    /// Goal-seeking configuration for iterative refinement
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
-
     /// Foreach configuration for parallel iteration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foreach: Option<crate::config::command::ForeachConfig>,

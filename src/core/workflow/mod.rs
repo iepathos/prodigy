@@ -62,7 +62,6 @@ pub enum CommandType {
     Shell,
     Claude,
     Test,
-    GoalSeek,
     Foreach,
 }
 
@@ -76,8 +75,6 @@ pub fn parse_command_type(command: &str) -> Option<CommandType> {
         Some(CommandType::Claude)
     } else if trimmed.starts_with("test:") {
         Some(CommandType::Test)
-    } else if trimmed.starts_with("goal_seek:") {
-        Some(CommandType::GoalSeek)
     } else if trimmed.starts_with("foreach:") {
         Some(CommandType::Foreach)
     } else {
@@ -89,7 +86,7 @@ pub fn parse_command_type(command: &str) -> Option<CommandType> {
 pub fn extract_command_content(command: &str) -> String {
     let trimmed = command.trim();
 
-    for prefix in &["shell:", "claude:", "test:", "goal_seek:", "foreach:"] {
+    for prefix in &["shell:", "claude:", "test:", "foreach:"] {
         if let Some(content) = trimmed.strip_prefix(prefix) {
             return content.trim().to_string();
         }

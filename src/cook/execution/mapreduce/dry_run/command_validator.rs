@@ -67,8 +67,6 @@ impl CommandValidator {
             CommandType::Claude
         } else if command.shell.is_some() {
             CommandType::Shell
-        } else if command.goal_seek.is_some() {
-            CommandType::GoalSeek
         } else if command.foreach.is_some() {
             CommandType::Foreach
         } else {
@@ -119,11 +117,6 @@ impl CommandValidator {
             }
         }
 
-        if command.goal_seek.is_some() {
-            command_count += 1;
-            // Goal seek validation would go here
-        }
-
         if command.foreach.is_some() {
             command_count += 1;
             // Foreach validation would go here
@@ -132,7 +125,7 @@ impl CommandValidator {
         // Check that exactly one command type is specified
         if command_count == 0 {
             issues.push(ValidationIssue::Error(
-                "Command must specify one of: claude, shell, goal_seek, or foreach".to_string(),
+                "Command must specify one of: claude, shell, or foreach".to_string(),
             ));
             *valid = false;
         } else if command_count > 1 {
@@ -183,14 +176,6 @@ impl CommandValidator {
 
         if let Some(cmd) = &command.shell {
             variables.extend(self.extract_from_string(cmd));
-        }
-
-        // Extract from other command types as needed
-        if let Some(goal_seek) = &command.goal_seek {
-            if let Some(claude) = &goal_seek.claude {
-                variables.extend(self.extract_from_string(claude));
-            }
-            variables.extend(self.extract_from_string(&goal_seek.validate));
         }
 
         variables
@@ -313,9 +298,6 @@ impl CommandValidator {
             } else {
                 Duration::from_secs(10)
             }
-        } else if command.goal_seek.is_some() {
-            // Goal seek can take multiple iterations
-            Duration::from_secs(180)
         } else if command.foreach.is_some() {
             // Foreach depends on iterations
             Duration::from_secs(120)
