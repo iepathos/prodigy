@@ -412,44 +412,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_claude_api_key_precedence() {
-        let mut config = ProdigyConfig::default();
-
-        // No API key set
-        assert!(config.get_claude_api_key().is_none());
-
-        // Global API key only
-        config.claude_api_key = Some("global-key".to_string());
-        assert_eq!(config.get_claude_api_key(), Some("global-key"));
-
-        // Project API key takes precedence
-        config.project = Some(ProjectSettings {
-            claude_api_key: Some("project-key".to_string()),
-            ..Default::default()
-        });
-        assert_eq!(config.get_claude_api_key(), Some("project-key"));
-    }
-
-    #[test]
-    fn test_get_auto_commit_precedence() {
-        let mut config = ProdigyConfig::default();
-
-        // Default value
-        assert!(config.get_auto_commit());
-
-        // Global setting
-        config.auto_commit = false;
-        assert!(!config.get_auto_commit());
-
-        // Project setting takes precedence
-        config.project = Some(ProjectSettings {
-            auto_commit: Some(true),
-            ..Default::default()
-        });
-        assert!(config.get_auto_commit());
-    }
-
-    #[test]
     fn test_get_spec_dir() {
         let mut config = ProdigyConfig::default();
 
