@@ -158,7 +158,6 @@ nav:
       - Timeout Configuration: advanced/timeout-configuration.md
       - Implementation Validation: advanced/implementation-validation.md
       - Parallel Iteration with Foreach: advanced/parallel-iteration-with-foreach.md
-      - Goal-Seeking Operations: advanced/goal-seeking-operations.md
       - Composition: advanced/composition.md
       - Git Integration: advanced/git-integration.md
       - Observability: advanced/observability.md

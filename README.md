@@ -18,7 +18,6 @@
 - [Quick Start](#quick-start)
   - [Your First Workflow](#your-first-workflow)
   - [Parallel Execution Example](#parallel-execution-example)
-  - [Goal-Seeking Example](#goal-seeking-example)
 - [Usage](#usage)
   - [Basic Commands](#basic-commands)
   - [Advanced Workflows](#advanced-workflows)
@@ -26,7 +25,6 @@
 - [Examples](#examples)
   - [Automated Testing Pipeline](#example-1-automated-testing-pipeline)
   - [Parallel Code Analysis](#example-2-parallel-code-analysis)
-  - [Goal-Seeking Optimization](#example-3-goal-seeking-optimization)
 - [Documentation](#documentation)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -39,7 +37,6 @@
 + ⚡ **Parallel Execution** - Run multiple Claude agents simultaneously with MapReduce
 + 🔄 **Automatic Retry** - Smart retry strategies with exponential backoff and circuit breakers
 + 💾 **Full State Management** - Checkpoint and resume interrupted workflows exactly where they left off
-+ 🎯 **Goal-Seeking** - Iterative refinement until specifications are met
 + 🌳 **Git Integration** - Automatic worktree isolation for every workflow execution with commit tracking
 + 🛡️ **Error Recovery** - Comprehensive failure handling with on-failure handlers
 + 📊 **Analytics** - Cost tracking, performance metrics, and optimization recommendations
@@ -121,20 +118,6 @@ Run with:
 prodigy run add-documentation.yml
 ```
 
-### Goal-Seeking Example
-
-Iteratively improve code until all tests pass:
-
-```yaml
-name: achieve-full-coverage
-steps:
-  - goal_seek:
-      goal: "Achieve 100% test coverage"
-      command: "claude: /improve-test-coverage"
-      validate: "cargo tarpaulin --print-summary | grep '100.00%'"
-      max_attempts: 5
-```
-
 ## Usage
 
 ### Basic Commands
@@ -151,9 +134,6 @@ prodigy batch "*.py" --command "claude: /add-types" --parallel 5
 
 # Resume an interrupted workflow
 prodigy resume workflow-123
-
-# Goal-seeking operation
-prodigy goal-seek --goal "Fix all linting errors" --command "claude: /fix-lint"
 
 # View analytics and costs
 prodigy analytics --session abc123
@@ -663,28 +643,6 @@ reduce:
   - shell: "echo 'Analyzed ${map.total} files, ${map.successful} successful'"
 ```
 
-### Example 3: Goal-Seeking Optimization
-
-Iteratively improve performance until benchmarks pass:
-
-```yaml
-name: performance-optimization
-steps:
-  - goal_seek:
-      goal: "Reduce benchmark time below 100ms"
-      command: "claude: /optimize-performance benches/main.rs"
-      validate: |
-        cargo bench --bench main |
-        grep "time:" |
-        awk '{print ($2 < 100) ? "score: 100" : "score: " int(100 - $2)}'
-      threshold: 100
-      max_attempts: 10
-      timeout: 1800
-
-  - shell: "cargo bench --bench main > benchmark-results.txt"
-  - claude: "/document-optimization benchmark-results.txt"
-```
-
 ## Documentation
 
 📚 **Full documentation is available at [https://iepathos.github.io/prodigy](https://iepathos.github.io/prodigy)**
@@ -721,7 +679,6 @@ mdbook serve book --open
 | `prodigy exec <command>` | Run a single command |
 | `prodigy batch <pattern>` | Process files in parallel |
 | `prodigy resume <id>` | Resume interrupted workflow |
-| `prodigy goal-seek` | Run goal-seeking operation |
 | `prodigy analytics` | View session analytics |
 | `prodigy worktree` | Manage git worktrees |
 | `prodigy init` | Initialize Prodigy in project |

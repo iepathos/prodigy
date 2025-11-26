@@ -90,11 +90,10 @@ steps:
       parallel: 10
       do:
         - shell: "process ${item}"
-  - goal_seek:
-      goal: "All tests pass"
-      command: "cargo test"
-      validate: "cargo test"
-      threshold: 100
+  - shell: "cargo test"
+    retry:
+      attempts: 5
+      backoff: exponential
 "#;
             b.iter(|| {
                 let workflow: WorkflowConfig = serde_yaml::from_str(yaml).unwrap();

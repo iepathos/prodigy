@@ -319,8 +319,8 @@ fn test_gap_detection_normalizes_topic_names() -> Result<()> {
             capabilities: vec!["shell".to_string(), "claude".to_string()],
         },
         MockFeature {
-            category: "goal_seeking".to_string(),
-            description: "Goal seeking operations".to_string(),
+            category: "error_handling".to_string(),
+            description: "Error handling operations".to_string(),
             capabilities: vec!["validation".to_string()],
         },
     ];
@@ -334,10 +334,10 @@ fn test_gap_detection_normalizes_topic_names() -> Result<()> {
             topics: vec!["Shell commands".to_string(), "Claude commands".to_string()],
         },
         MockChapter {
-            id: "goal-seek".to_string(),
-            title: "Goal Seeking".to_string(),
-            file: "goal-seek.md".to_string(),
-            topics: vec!["Goal validation".to_string()],
+            id: "error-handling".to_string(),
+            title: "Error Handling".to_string(),
+            file: "error-handling.md".to_string(),
+            topics: vec!["Error validation".to_string()],
         },
     ];
 
