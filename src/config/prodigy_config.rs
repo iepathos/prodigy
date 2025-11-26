@@ -372,8 +372,10 @@ storage:
         assert!(matches!(result, Validation::Success(_)));
 
         // Invalid max_concurrent_specs (0 is out of range 1..=100)
-        let mut invalid_config = ProdigyConfig::default();
-        invalid_config.max_concurrent_specs = 0;
+        let invalid_config = ProdigyConfig {
+            max_concurrent_specs: 0,
+            ..Default::default()
+        };
         let result = invalid_config.validate();
         assert!(matches!(result, Validation::Failure(_)));
     }
