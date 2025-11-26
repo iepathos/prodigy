@@ -913,13 +913,6 @@ impl ExecutionPipeline {
             mapreduce_config.name
         ));
 
-        // Set environment variables for MapReduce execution
-        // This ensures auto-merge works when -y flag is provided
-        if config.command.auto_accept {
-            std::env::set_var("PRODIGY_AUTO_MERGE", "true");
-            std::env::set_var("PRODIGY_AUTO_CONFIRM", "true");
-        }
-
         // Convert MapReduce config to ExtendedWorkflowConfig
         // Extract setup commands if they exist
         let setup_steps = mapreduce_config
@@ -929,6 +922,7 @@ impl ExecutionPipeline {
             .unwrap_or_default();
 
         // Use pure functions for environment variable interpolation
+        use crate::cook::environment::EnvValue;
         use crate::cook::execution::mapreduce::env_interpolation::{
             env_values_to_plain_map, interpolate_workflow_env_with_positional_args,
             positional_args_as_env_vars,
@@ -944,6 +938,20 @@ impl ExecutionPipeline {
         // Also add positional args themselves as environment variables (ARG_1, ARG_2, etc.)
         let positional_env = positional_args_as_env_vars(&config.command.args);
         interpolated_env.extend(positional_env);
+
+        // Add auto-merge/auto-confirm flags to workflow environment if -y flag is provided.
+        // This passes the flags through the workflow environment instead of using global
+        // env mutation, ensuring child processes receive these values via their env map.
+        if config.command.auto_accept {
+            interpolated_env.insert(
+                "PRODIGY_AUTO_MERGE".to_string(),
+                EnvValue::Static("true".to_string()),
+            );
+            interpolated_env.insert(
+                "PRODIGY_AUTO_CONFIRM".to_string(),
+                EnvValue::Static("true".to_string()),
+            );
+        }
 
         // Convert interpolated EnvValue map to plain HashMap<String, String> for MapPhase
         let workflow_env_plain = env_values_to_plain_map(&interpolated_env);
@@ -1011,15 +1019,7 @@ impl ExecutionPipeline {
         }
 
         // Execute the MapReduce workflow
-        let result = executor.execute(&extended_workflow, env).await;
-
-        // Clean up environment variables
-        if config.command.auto_accept {
-            std::env::remove_var("PRODIGY_AUTO_MERGE");
-            std::env::remove_var("PRODIGY_AUTO_CONFIRM");
-        }
-
-        result
+        executor.execute(&extended_workflow, env).await
     }
 }
 

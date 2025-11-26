@@ -217,33 +217,10 @@ async fn test_metadata_sessions_exclude_cleaned_up() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_auto_merge_environment_variable() -> Result<()> {
-    // Test that auto-merge detection works with environment variables
-
-    // Set the environment variable
-    std::env::set_var("PRODIGY_AUTO_MERGE", "true");
-
-    // The should_auto_merge function should return true when environment variable is set
-    // For now, just verify the environment variable is set correctly
-    assert_eq!(
-        std::env::var("PRODIGY_AUTO_MERGE").unwrap_or_default(),
-        "true"
-    );
-
-    // Also test the alternative variable
-    std::env::set_var("PRODIGY_AUTO_CONFIRM", "true");
-    assert_eq!(
-        std::env::var("PRODIGY_AUTO_CONFIRM").unwrap_or_default(),
-        "true"
-    );
-
-    // Clean up
-    std::env::remove_var("PRODIGY_AUTO_MERGE");
-    std::env::remove_var("PRODIGY_AUTO_CONFIRM");
-
-    Ok(())
-}
+// Note: test_auto_merge_environment_variable was removed as it only tested
+// that std::env::set_var/var work, not any actual worktree logic.
+// Auto-merge behavior based on PRODIGY_AUTO_MERGE env var should be tested
+// through integration tests or by passing config via ExecutionContext.
 
 #[tokio::test]
 async fn test_mapreduce_branch_patterns() -> Result<()> {

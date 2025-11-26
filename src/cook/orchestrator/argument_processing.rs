@@ -168,9 +168,6 @@ impl ArgumentProcessor {
             git_tracker: None,
         };
 
-        // Set the ARG environment variable so the executor can pick it up
-        std::env::set_var("PRODIGY_ARG", input);
-
         // Create workflow executor with checkpoint support using session storage
         let checkpoint_storage = crate::cook::workflow::CheckpointStorage::Session {
             session_id: env.session_id.to_string(),
@@ -195,36 +192,41 @@ impl ArgumentProcessor {
             );
         }
 
-        // Set global environment configuration if present in workflow
-        if config.workflow.env.is_some()
-            || config.workflow.secrets.is_some()
-            || config.workflow.env_files.is_some()
-            || config.workflow.profiles.is_some()
-        {
-            let global_env_config = crate::cook::environment::EnvironmentConfig {
-                global_env: config
-                    .workflow
-                    .env
-                    .as_ref()
-                    .map(|env| {
-                        env.iter()
-                            .map(|(k, v)| {
-                                (
-                                    k.clone(),
-                                    crate::cook::environment::EnvValue::Static(v.clone()),
-                                )
-                            })
-                            .collect()
+        // Build global environment configuration.
+        // Always include PRODIGY_ARG so commands can access the current input.
+        // This passes the arg through the workflow environment instead of using
+        // global env mutation, ensuring thread-safety and test isolation.
+        let mut global_env: HashMap<String, crate::cook::environment::EnvValue> = config
+            .workflow
+            .env
+            .as_ref()
+            .map(|env| {
+                env.iter()
+                    .map(|(k, v)| {
+                        (
+                            k.clone(),
+                            crate::cook::environment::EnvValue::Static(v.clone()),
+                        )
                     })
-                    .unwrap_or_default(),
-                secrets: config.workflow.secrets.clone().unwrap_or_default(),
-                env_files: config.workflow.env_files.clone().unwrap_or_default(),
-                inherit: true,
-                profiles: config.workflow.profiles.clone().unwrap_or_default(),
-                active_profile: None,
-            };
-            executor = executor.with_environment_config(global_env_config)?;
-        }
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Add PRODIGY_ARG to the workflow environment
+        global_env.insert(
+            "PRODIGY_ARG".to_string(),
+            crate::cook::environment::EnvValue::Static(input.to_string()),
+        );
+
+        let global_env_config = crate::cook::environment::EnvironmentConfig {
+            global_env,
+            secrets: config.workflow.secrets.clone().unwrap_or_default(),
+            env_files: config.workflow.env_files.clone().unwrap_or_default(),
+            inherit: true,
+            profiles: config.workflow.profiles.clone().unwrap_or_default(),
+            active_profile: None,
+        };
+        executor = executor.with_environment_config(global_env_config)?;
 
         // Execute the workflow through the executor to ensure validation is handled
         executor.execute(&extended_workflow, env).await?;

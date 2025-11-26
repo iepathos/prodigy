@@ -1,5 +1,6 @@
 //! Storage configuration types and utilities
 
+use premortem::{ConfigEnv, RealEnv};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -241,11 +242,35 @@ impl Default for StorageConfig {
 }
 
 impl StorageConfig {
-    /// Create configuration from environment variables
+    /// Create configuration from environment variables (production).
+    ///
+    /// This uses the real system environment. For testing, use
+    /// [`from_env_with`](Self::from_env_with) with a `MockEnv`.
     pub fn from_env() -> crate::LibResult<Self> {
+        Self::from_env_with(&RealEnv)
+    }
+
+    /// Create configuration from environment variables (testable).
+    ///
+    /// Accepts any `ConfigEnv` implementation, allowing tests to use
+    /// `MockEnv` instead of manipulating global environment variables.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use premortem::MockEnv;
+    /// use prodigy::storage::config::StorageConfig;
+    ///
+    /// let env = MockEnv::new()
+    ///     .with_env("PRODIGY_STORAGE_TYPE", "memory");
+    ///
+    /// let config = StorageConfig::from_env_with(&env).unwrap();
+    /// assert_eq!(config.backend, BackendType::Memory);
+    /// ```
+    pub fn from_env_with<E: ConfigEnv>(env: &E) -> crate::LibResult<Self> {
         // Check for backend type - now only File or Memory supported
-        let backend = std::env::var("PRODIGY_STORAGE_TYPE")
-            .ok()
+        let backend = env
+            .get_env("PRODIGY_STORAGE_TYPE")
             .and_then(|s| match s.to_lowercase().as_str() {
                 "file" => Some(BackendType::File),
                 "memory" => Some(BackendType::Memory),
@@ -255,11 +280,12 @@ impl StorageConfig {
 
         let backend_config = match backend {
             BackendType::File => BackendConfig::File(FileConfig {
-                base_dir: std::env::var("PRODIGY_STORAGE_BASE_PATH")
-                    .or_else(|_| std::env::var("PRODIGY_STORAGE_DIR"))
-                    .or_else(|_| std::env::var("PRODIGY_STORAGE_PATH"))
+                base_dir: env
+                    .get_env("PRODIGY_STORAGE_BASE_PATH")
+                    .or_else(|| env.get_env("PRODIGY_STORAGE_DIR"))
+                    .or_else(|| env.get_env("PRODIGY_STORAGE_PATH"))
                     .map(PathBuf::from)
-                    .unwrap_or_else(|_| {
+                    .unwrap_or_else(|| {
                         directories::BaseDirs::new()
                             .map(|dirs| dirs.home_dir().join(".prodigy"))
                             .unwrap_or_else(|| PathBuf::from("/tmp").join(".prodigy"))
@@ -288,8 +314,7 @@ impl StorageConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
-    use std::env;
+    use premortem::MockEnv;
     use std::time::Duration;
 
     #[test]
@@ -370,13 +395,11 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_storage_config_from_env_defaults() {
-        // Clear relevant env vars
-        env::remove_var("PRODIGY_STORAGE_TYPE");
-        env::remove_var("PRODIGY_STORAGE_BASE_PATH");
+        // Empty MockEnv simulates no env vars being set
+        let env = MockEnv::new();
 
-        let config = StorageConfig::from_env().unwrap();
+        let config = StorageConfig::from_env_with(&env).unwrap();
 
         assert_eq!(config.backend, BackendType::File);
         assert!(config.enable_locking);
@@ -392,12 +415,12 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_storage_config_from_env_file_type() {
-        env::set_var("PRODIGY_STORAGE_TYPE", "file");
-        env::set_var("PRODIGY_STORAGE_BASE_PATH", "/custom/path");
+        let env = MockEnv::new()
+            .with_env("PRODIGY_STORAGE_TYPE", "file")
+            .with_env("PRODIGY_STORAGE_BASE_PATH", "/custom/path");
 
-        let config = StorageConfig::from_env().unwrap();
+        let config = StorageConfig::from_env_with(&env).unwrap();
 
         assert_eq!(config.backend, BackendType::File);
 
@@ -406,18 +429,14 @@ mod tests {
         } else {
             panic!("Expected FileConfig");
         }
-
-        // Cleanup
-        env::remove_var("PRODIGY_STORAGE_TYPE");
-        env::remove_var("PRODIGY_STORAGE_BASE_PATH");
+        // No cleanup needed - MockEnv is dropped automatically
     }
 
     #[test]
-    #[serial]
     fn test_storage_config_from_env_memory_type() {
-        env::set_var("PRODIGY_STORAGE_TYPE", "memory");
+        let env = MockEnv::new().with_env("PRODIGY_STORAGE_TYPE", "memory");
 
-        let config = StorageConfig::from_env().unwrap();
+        let config = StorageConfig::from_env_with(&env).unwrap();
 
         assert_eq!(config.backend, BackendType::Memory);
 
@@ -426,24 +445,19 @@ mod tests {
         } else {
             panic!("Expected MemoryConfig");
         }
-
-        // Cleanup
-        env::remove_var("PRODIGY_STORAGE_TYPE");
+        // No cleanup needed - MockEnv is dropped automatically
     }
 
     #[test]
-    #[serial]
     fn test_storage_config_from_env_invalid_type() {
-        env::set_var("PRODIGY_STORAGE_TYPE", "invalid");
+        let env = MockEnv::new().with_env("PRODIGY_STORAGE_TYPE", "invalid");
 
-        let result = StorageConfig::from_env();
+        let result = StorageConfig::from_env_with(&env);
         // Invalid types should default to File backend
         assert!(result.is_ok());
         let config = result.unwrap();
         assert_eq!(config.backend, BackendType::File);
-
-        // Cleanup
-        env::remove_var("PRODIGY_STORAGE_TYPE");
+        // No cleanup needed - MockEnv is dropped automatically
     }
 
     #[test]
