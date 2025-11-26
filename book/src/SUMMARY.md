@@ -48,6 +48,7 @@
   - [Environment Variables](configuration/environment-variables.md)
   - [Complete Configuration Examples](configuration/complete-configuration-examples.md)
   - [Default Values Reference](configuration/default-values-reference.md)
+  - [Debugging Configuration](configuration/debugging-configuration.md)
   - [Best Practices](configuration/best-practices.md)
   - [Troubleshooting](configuration/troubleshooting.md)
   - [Migration Guide: TOML to YAML](configuration/migration-guide-toml-to-yaml.md)

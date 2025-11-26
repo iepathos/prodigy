@@ -5,6 +5,7 @@
 
 pub mod argument_parsing_tests;
 pub mod batch_command_tests;
+pub mod config_trace_tests;
 pub mod configuration_tests;
 pub mod cook_command_tests;
 pub mod dlq_command_tests;

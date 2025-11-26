@@ -332,6 +332,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: TemplateCommand,
     },
+    /// View and trace configuration values
+    #[command(name = "config")]
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -899,5 +905,41 @@ pub enum TemplateCommand {
         /// Template directory path (defaults to ./templates)
         #[arg(default_value = "templates")]
         path: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ConfigCommands {
+    /// Trace where configuration values come from
+    Trace {
+        /// Configuration path to trace (e.g., "log_level", "project.name")
+        #[arg()]
+        path: Option<String>,
+
+        /// Show all configuration values with sources
+        #[arg(long)]
+        all: bool,
+
+        /// Show only values that were overridden
+        #[arg(long)]
+        overrides: bool,
+
+        /// Detect and show potential configuration issues
+        #[arg(long)]
+        diagnose: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show effective configuration values
+    Show {
+        /// Configuration path to show (e.g., "log_level", "project.name")
+        #[arg()]
+        path: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }

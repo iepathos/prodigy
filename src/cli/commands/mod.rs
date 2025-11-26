@@ -5,6 +5,7 @@
 
 pub mod checkpoints;
 pub mod clean;
+pub mod config;
 pub mod dlq;
 pub mod events;
 pub mod exec;
@@ -17,6 +18,7 @@ pub mod worktree;
 
 // Re-export command execution functions
 pub use checkpoints::run_checkpoints_command;
+pub use config::run_config_command;
 pub use dlq::run_dlq_command;
 pub use events::run_events_command;
 pub use exec::{run_batch_command, run_exec_command};
