@@ -255,20 +255,6 @@ mod migration_tests {
         assert!(config.workflow.commands.is_empty());
     }
 
-    #[test]
-    fn test_feature_flag_controls() {
-        // Test that feature flags can control execution path
-
-        // Check if USE_UNIFIED_PATH environment variable can be read
-        std::env::set_var("USE_UNIFIED_PATH", "1");
-        assert_eq!(std::env::var("USE_UNIFIED_PATH"), Ok("1".to_string()));
-        std::env::remove_var("USE_UNIFIED_PATH");
-
-        // Check workflow type specific flags
-        std::env::set_var("USE_UNIFIED_PATH", "1");
-        std::env::set_var("WORKFLOW_TYPE", "standard");
-        assert_eq!(std::env::var("WORKFLOW_TYPE"), Ok("standard".to_string()));
-        std::env::remove_var("USE_UNIFIED_PATH");
-        std::env::remove_var("WORKFLOW_TYPE");
-    }
+    // Note: test_feature_flag_controls was removed as it only tested that
+    // std::env::set_var and std::env::var work, not any actual feature flag behavior.
 }

@@ -303,10 +303,6 @@ mod tests {
     use super::*;
     use crate::config::command::{Command, WorkflowCommand};
     use crate::config::command_parser::parse_command_string;
-    use std::sync::Mutex;
-
-    // Shared mutex for environment variable tests to prevent race conditions
-    static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_simple_workflow_config_parsing() {
@@ -582,59 +578,10 @@ commands:
         assert_eq!(result, Some("test-key-123"));
     }
 
-    #[test]
-    fn test_get_claude_api_key_from_env() {
-        let _guard = ENV_TEST_MUTEX.lock().unwrap();
-
-        // Save original env value
-        let original = std::env::var("PRODIGY_CLAUDE_API_KEY").ok();
-
-        unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", "env-key-456") };
-        let mut config = Config::default();
-        config.merge_env_vars();
-
-        let result = config.get_claude_api_key();
-        assert_eq!(result, Some("env-key-456"));
-
-        // Restore original
-        unsafe { std::env::remove_var("PRODIGY_CLAUDE_API_KEY") };
-        if let Some(val) = original {
-            unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", val) };
-        }
-    }
-
-    #[test]
-    fn test_get_claude_api_key_config_precedence_over_env() {
-        let _guard = ENV_TEST_MUTEX.lock().unwrap();
-
-        // Save original env value
-        let original = std::env::var("PRODIGY_CLAUDE_API_KEY").ok();
-
-        unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", "env-key") };
-        let mut config = Config::default();
-        config.merge_env_vars();
-
-        // Now set config value - it should take precedence
-        config.project = Some(ProjectConfig {
-            name: "test".to_string(),
-            description: None,
-            version: None,
-            spec_dir: None,
-            claude_api_key: Some("config-key".to_string()),
-            auto_commit: None,
-            variables: None,
-        });
-
-        // Project config takes precedence over env
-        let result = config.get_claude_api_key();
-        assert_eq!(result, Some("config-key"));
-
-        // Restore original
-        unsafe { std::env::remove_var("PRODIGY_CLAUDE_API_KEY") };
-        if let Some(val) = original {
-            unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", val) };
-        }
-    }
+    // Note: Legacy tests for merge_env_vars have been removed.
+    // Environment variable handling is now tested through the new ProdigyConfig
+    // system in src/config/builder.rs using MockEnv for proper test isolation.
+    // See: test_legacy_env_vars_*, test_load_with_env_override, etc.
 
     #[test]
     fn test_get_auto_commit_precedence() {
@@ -678,126 +625,6 @@ commands:
             variables: None,
         });
         assert_eq!(config.get_spec_dir(), PathBuf::from("custom/specs"));
-    }
-
-    #[test]
-    fn test_merge_env_vars() {
-        // Use the shared mutex to ensure test isolation
-        let _guard = ENV_TEST_MUTEX.lock().unwrap();
-
-        // Save original env values
-        let original_api_key = std::env::var("PRODIGY_CLAUDE_API_KEY").ok();
-        let original_log_level = std::env::var("PRODIGY_LOG_LEVEL").ok();
-        let original_editor = std::env::var("PRODIGY_EDITOR").ok();
-        let original_auto_commit = std::env::var("PRODIGY_AUTO_COMMIT").ok();
-
-        let mut config = Config::new();
-
-        // Test environment variables override defaults
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", "env-api-key") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("PRODIGY_LOG_LEVEL", "debug") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("PRODIGY_EDITOR", "vim") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("PRODIGY_AUTO_COMMIT", "false") };
-
-        config.merge_env_vars();
-
-        assert_eq!(
-            config.global.claude_api_key,
-            Some("env-api-key".to_string())
-        );
-        assert_eq!(config.global.log_level, Some("debug".to_string()));
-        assert_eq!(config.global.default_editor, Some("vim".to_string()));
-        assert_eq!(config.global.auto_commit, Some(false));
-
-        // Clean up
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_CLAUDE_API_KEY") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_LOG_LEVEL") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_AUTO_COMMIT") };
-
-        // Restore original values if they existed
-        if let Some(val) = original_api_key {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", val) };
-        }
-        if let Some(val) = original_log_level {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("PRODIGY_LOG_LEVEL", val) };
-        }
-        if let Some(val) = original_editor {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("PRODIGY_EDITOR", val) };
-        }
-        if let Some(val) = original_auto_commit {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("PRODIGY_AUTO_COMMIT", val) };
-        }
-    }
-
-    #[test]
-    fn test_merge_env_vars_editor_fallback() {
-        // Use the shared mutex to ensure test isolation
-        let _guard = ENV_TEST_MUTEX.lock().unwrap();
-
-        // Save original env values
-        let original_editor = std::env::var("EDITOR").ok();
-        let original_prodigy_editor = std::env::var("PRODIGY_EDITOR").ok();
-
-        // Test 1: EDITOR fallback when PRODIGY_EDITOR is not set
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("EDITOR") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("EDITOR", "nano") };
-
-        let mut config = Config::new();
-        config.merge_env_vars();
-        assert_eq!(
-            config.global.default_editor,
-            Some("nano".to_string()),
-            "EDITOR fallback should work when PRODIGY_EDITOR is not set"
-        );
-
-        // Test 2: PRODIGY_EDITOR takes precedence over EDITOR
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("EDITOR", "nano") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("PRODIGY_EDITOR", "emacs") };
-
-        let mut config2 = Config::new();
-        config2.merge_env_vars();
-        assert_eq!(
-            config2.global.default_editor,
-            Some("emacs".to_string()),
-            "PRODIGY_EDITOR should take precedence over EDITOR"
-        );
-
-        // Clean up - remove our test env vars
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("EDITOR") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
-
-        // Restore original values if they existed
-        if let Some(val) = original_editor {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("EDITOR", val) };
-        }
-        if let Some(val) = original_prodigy_editor {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("PRODIGY_EDITOR", val) };
-        }
     }
 
     #[test]

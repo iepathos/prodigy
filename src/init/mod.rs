@@ -948,12 +948,12 @@ mod tests {
     #[test]
     fn test_get_user_confirmation_test_env() {
         // Verify behavior in test environment
-        // Should skip interactive prompt and return true
-        std::env::set_var("RUST_TEST_THREADS", "1");
+        // When running tests, cfg!(test) is true, so get_user_confirmation
+        // should skip interactive prompts and return true without needing
+        // to set RUST_TEST_THREADS explicitly.
         let result = get_user_confirmation();
         assert!(result.is_ok());
         assert!(result.unwrap());
-        std::env::remove_var("RUST_TEST_THREADS");
     }
 
     #[test]

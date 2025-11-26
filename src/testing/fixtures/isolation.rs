@@ -9,12 +9,28 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::TempDir;
 
-/// Environment variable isolation fixture
+/// Environment variable isolation fixture (DEPRECATED)
 ///
-/// Automatically saves and restores environment variables when dropped.
-/// This ensures that environment variable changes don't leak between tests.
+/// **DEPRECATED**: Use `premortem::MockEnv` instead for thread-safe testing.
+/// This fixture uses `std::env::set_var` which modifies global state and is not
+/// thread-safe. Tests using this fixture should run with `#[serial]` or be
+/// migrated to use `MockEnv`.
 ///
-/// # Example
+/// # Migration to MockEnv
+///
+/// ```ignore
+/// // Old approach (not thread-safe)
+/// let mut env = TestEnv::new();
+/// env.set("PRODIGY_AUTO_MERGE", "true");
+/// let config = StorageConfig::from_env()?;
+///
+/// // New approach (thread-safe)
+/// use premortem::MockEnv;
+/// let env = MockEnv::new().with_env("PRODIGY_AUTO_MERGE", "true");
+/// let config = StorageConfig::from_env_with(&env)?;
+/// ```
+///
+/// # Example (deprecated usage)
 ///
 /// ```
 /// use prodigy::testing::fixtures::isolation::TestEnv;
@@ -30,10 +46,15 @@ use tempfile::TempDir;
 /// # Ok(())
 /// # }
 /// ```
+#[deprecated(
+    since = "0.8.0",
+    note = "Use premortem::MockEnv for thread-safe environment testing"
+)]
 pub struct TestEnv {
     saved_vars: HashMap<String, Option<String>>,
 }
 
+#[allow(deprecated)]
 impl TestEnv {
     /// Create a new environment isolation fixture
     pub fn new() -> Self {
@@ -62,12 +83,14 @@ impl TestEnv {
     }
 }
 
+#[allow(deprecated)]
 impl Default for TestEnv {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[allow(deprecated)]
 impl Drop for TestEnv {
     fn drop(&mut self) {
         // Restore all environment variables
@@ -296,11 +319,13 @@ impl TestGitRepo {
 /// # }
 /// ```
 pub struct IsolatedTestContext {
+    #[allow(deprecated)]
     pub env: TestEnv,
     pub working_dir: TestWorkingDir,
     pub git_repo: Option<TestGitRepo>,
 }
 
+#[allow(deprecated)]
 impl IsolatedTestContext {
     /// Create a new isolated test context
     pub fn new() -> Result<Self> {
@@ -319,6 +344,7 @@ impl IsolatedTestContext {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 
