@@ -40,6 +40,7 @@ pub mod timeout;
 mod timeout_test;
 pub mod types;
 pub mod utils;
+pub mod validation;
 
 // Re-export commonly used types for convenience
 pub use agent::{AgentLifecycleManager, AgentResult, AgentResultAggregator, AgentStatus};

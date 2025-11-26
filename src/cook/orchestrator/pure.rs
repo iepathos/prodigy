@@ -2,8 +2,29 @@
 //!
 //! This module contains pure functions for workflow classification, validation,
 //! and decision logic. All functions are testable without any I/O setup.
+//!
+//! ## Validation Patterns (Spec 176)
+//!
+//! This module uses Stillwater's `Validation` applicative functor for error accumulation.
+//! Instead of fail-fast validation that stops at the first error, all errors are
+//! collected and reported together, providing better user experience.
+//!
+//! ### Error Accumulation Example
+//!
+//! ```rust
+//! use prodigy::cook::orchestrator::pure::{validate_workflow, WorkflowError};
+//! use stillwater::Validation;
+//!
+//! // Validation accumulates ALL errors:
+//! // - Empty commands? Error 1
+//! // - Invalid env var? Error 2
+//! // - Invalid secret? Error 3
+//! // All reported in one pass!
+//! ```
 
+use crate::config::mapreduce::MergeWorkflow;
 use crate::config::WorkflowConfig;
+use crate::cook::environment::SecretValue;
 use stillwater::Validation;
 
 /// Workflow type classification
@@ -21,26 +42,76 @@ pub enum WorkflowType {
     Empty,
 }
 
-/// Workflow validation errors
+/// Workflow validation errors with detailed context
+///
+/// These errors provide actionable information for users to fix their workflows.
+/// All errors include context about what was being validated and why it failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WorkflowError {
     /// Workflow has no steps
     NoSteps,
-    /// Invalid environment variable configuration
-    InvalidEnvVar(String),
+    /// Invalid environment variable key format
+    InvalidEnvKey { key: String, reason: String },
+    /// Invalid environment variable value type
+    InvalidEnvValue {
+        key: String,
+        expected: String,
+        got: String,
+    },
+    /// Secret configuration error
+    SecretError { key: String, reason: String },
     /// Invalid command syntax
-    InvalidCommand(String),
+    InvalidCommand {
+        command_index: usize,
+        reason: String,
+    },
     /// Invalid merge configuration
     InvalidMerge(String),
+    /// Invalid timeout value
+    InvalidTimeout { value: u64, max: u64 },
+    /// Legacy: Invalid environment variable (for backward compatibility)
+    InvalidEnvVar(String),
 }
 
 impl std::fmt::Display for WorkflowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WorkflowError::NoSteps => write!(f, "Workflow has no steps"),
-            WorkflowError::InvalidEnvVar(msg) => write!(f, "Invalid environment variable: {}", msg),
-            WorkflowError::InvalidCommand(msg) => write!(f, "Invalid command: {}", msg),
-            WorkflowError::InvalidMerge(msg) => write!(f, "Invalid merge configuration: {}", msg),
+            WorkflowError::NoSteps => {
+                write!(f, "Workflow must have at least one command")
+            }
+            WorkflowError::InvalidEnvKey { key, reason } => {
+                write!(f, "Invalid environment variable key '{}': {}", key, reason)
+            }
+            WorkflowError::InvalidEnvValue { key, expected, got } => {
+                write!(
+                    f,
+                    "Invalid value for environment variable '{}': expected {}, got {}",
+                    key, expected, got
+                )
+            }
+            WorkflowError::SecretError { key, reason } => {
+                write!(f, "Secret configuration error for '{}': {}", key, reason)
+            }
+            WorkflowError::InvalidCommand {
+                command_index,
+                reason,
+            } => {
+                write!(f, "Invalid command at index {}: {}", command_index, reason)
+            }
+            WorkflowError::InvalidMerge(msg) => {
+                write!(f, "Invalid merge configuration: {}", msg)
+            }
+            WorkflowError::InvalidTimeout { value, max } => {
+                write!(
+                    f,
+                    "Invalid timeout value {}: must be between 1 and {} seconds",
+                    value, max
+                )
+            }
+            // Legacy format for backward compatibility
+            WorkflowError::InvalidEnvVar(msg) => {
+                write!(f, "Invalid environment variable: {}", msg)
+            }
         }
     }
 }
@@ -85,63 +156,236 @@ pub fn classify_workflow(config: &WorkflowConfig) -> WorkflowType {
     WorkflowType::Standard
 }
 
-/// Validate workflow configuration
+/// Maximum allowed timeout in seconds (10 minutes)
+const MAX_TIMEOUT_SECS: u64 = 600;
+
+/// Validate workflow configuration with error accumulation
 ///
-/// Performs comprehensive validation:
+/// Uses Stillwater's `Validation` applicative functor to accumulate ALL errors
+/// before reporting. This provides a better user experience by showing all
+/// problems at once rather than requiring iterative fixes.
+///
+/// ## Validation Checks
+///
 /// - Workflow has at least one command
-/// - Environment variables are well-formed (no empty names)
-/// - Secret values are properly configured
-/// - Merge workflows have valid commands
+/// - Environment variable keys are well-formed (no empty names, no '=')
+/// - Environment variable keys follow naming conventions
+/// - Secret keys are valid
+/// - Merge workflow has valid commands if present
+/// - Timeout values are within bounds
+///
+/// ## Example
+///
+/// ```rust
+/// use prodigy::cook::orchestrator::pure::validate_workflow;
+/// use stillwater::Validation;
+///
+/// // Validation reports ALL errors at once:
+/// // Error 1: Workflow has no commands
+/// // Error 2: Invalid env key ''
+/// // Error 3: Invalid env key 'KEY=BAD'
+/// ```
 pub fn validate_workflow(config: &WorkflowConfig) -> Validation<(), Vec<WorkflowError>> {
     let mut errors = Vec::new();
 
-    // Check for at least one command
-    if config.commands.is_empty() {
-        errors.push(WorkflowError::NoSteps);
-    }
+    // FR1: Validate workflow has commands
+    errors.extend(validate_has_commands(config));
 
-    // Validate environment variables
-    if let Some(env) = &config.env {
-        for key in env.keys() {
-            if key.is_empty() {
-                errors.push(WorkflowError::InvalidEnvVar(
-                    "Environment variable name cannot be empty".to_string(),
-                ));
-            }
-            if key.contains('=') {
-                errors.push(WorkflowError::InvalidEnvVar(format!(
-                    "Environment variable name cannot contain '=': {}",
-                    key
-                )));
-            }
-        }
-    }
+    // FR1: Validate environment variables
+    errors.extend(validate_env_vars(&config.env));
 
-    // Validate secrets
-    if let Some(secrets) = &config.secrets {
-        for key in secrets.keys() {
-            if key.is_empty() {
-                errors.push(WorkflowError::InvalidEnvVar(
-                    "Secret variable name cannot be empty".to_string(),
-                ));
-            }
-        }
-    }
+    // FR1: Validate secrets
+    errors.extend(validate_secrets(&config.secrets));
 
-    // Validate merge workflow if present
-    if let Some(merge) = &config.merge {
-        if merge.commands.is_empty() {
-            errors.push(WorkflowError::InvalidMerge(
-                "Merge workflow must have at least one command".to_string(),
-            ));
-        }
-    }
+    // FR1: Validate merge workflow
+    errors.extend(validate_merge_workflow(&config.merge));
+
+    // FR1: Validate command syntax
+    errors.extend(validate_commands(&config.commands));
 
     if errors.is_empty() {
         Validation::Success(())
     } else {
         Validation::Failure(errors)
     }
+}
+
+/// Validate workflow has at least one command
+fn validate_has_commands(config: &WorkflowConfig) -> Vec<WorkflowError> {
+    if config.commands.is_empty() {
+        vec![WorkflowError::NoSteps]
+    } else {
+        vec![]
+    }
+}
+
+/// Validate environment variables - accumulates all errors
+fn validate_env_vars(
+    env: &Option<std::collections::HashMap<String, String>>,
+) -> Vec<WorkflowError> {
+    let Some(env_map) = env else {
+        return vec![];
+    };
+
+    let mut errors = Vec::new();
+
+    for key in env_map.keys() {
+        // Check for empty key
+        if key.is_empty() {
+            errors.push(WorkflowError::InvalidEnvKey {
+                key: "(empty)".to_string(),
+                reason: "Environment variable name cannot be empty".to_string(),
+            });
+            continue;
+        }
+
+        // Check for '=' in key
+        if key.contains('=') {
+            errors.push(WorkflowError::InvalidEnvKey {
+                key: key.clone(),
+                reason: "Environment variable name cannot contain '='".to_string(),
+            });
+        }
+
+        // Check for valid env var format (starts with letter or underscore)
+        if !is_valid_env_key_format(key) {
+            errors.push(WorkflowError::InvalidEnvKey {
+                key: key.clone(),
+                reason: "Must start with a letter or underscore, and contain only alphanumeric characters or underscores".to_string(),
+            });
+        }
+    }
+
+    errors
+}
+
+/// Check if an environment variable key has valid format
+///
+/// Valid format: starts with letter or underscore, contains only [A-Za-z0-9_]
+fn is_valid_env_key_format(key: &str) -> bool {
+    if key.is_empty() {
+        return false;
+    }
+
+    let mut chars = key.chars();
+    let first = chars.next().unwrap();
+
+    // First character must be letter or underscore
+    if !first.is_ascii_alphabetic() && first != '_' {
+        return false;
+    }
+
+    // Rest must be alphanumeric or underscore
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Validate secrets configuration - accumulates all errors
+fn validate_secrets(
+    secrets: &Option<std::collections::HashMap<String, SecretValue>>,
+) -> Vec<WorkflowError> {
+    let Some(secrets_map) = secrets else {
+        return vec![];
+    };
+
+    let mut errors = Vec::new();
+
+    for key in secrets_map.keys() {
+        if key.is_empty() {
+            errors.push(WorkflowError::SecretError {
+                key: "(empty)".to_string(),
+                reason: "Secret name cannot be empty".to_string(),
+            });
+            continue;
+        }
+
+        // Validate secret key format
+        if !is_valid_env_key_format(key) {
+            errors.push(WorkflowError::SecretError {
+                key: key.clone(),
+                reason: "Must start with a letter or underscore, and contain only alphanumeric characters or underscores".to_string(),
+            });
+        }
+    }
+
+    errors
+}
+
+/// Validate merge workflow configuration - accumulates all errors
+fn validate_merge_workflow(merge: &Option<MergeWorkflow>) -> Vec<WorkflowError> {
+    let Some(merge_config) = merge else {
+        return vec![];
+    };
+
+    let mut errors = Vec::new();
+
+    // Check for at least one command
+    if merge_config.commands.is_empty() {
+        errors.push(WorkflowError::InvalidMerge(
+            "Merge workflow must have at least one command".to_string(),
+        ));
+    }
+
+    // Validate timeout if present
+    if let Some(timeout) = merge_config.timeout {
+        if timeout == 0 || timeout > MAX_TIMEOUT_SECS {
+            errors.push(WorkflowError::InvalidTimeout {
+                value: timeout,
+                max: MAX_TIMEOUT_SECS,
+            });
+        }
+    }
+
+    errors
+}
+
+/// Validate command syntax - accumulates all errors
+fn validate_commands(commands: &[crate::config::command::WorkflowCommand]) -> Vec<WorkflowError> {
+    let mut errors = Vec::new();
+
+    for (index, cmd) in commands.iter().enumerate() {
+        // Validate each command
+        if let Some(validation_error) = validate_single_command(cmd, index) {
+            errors.push(validation_error);
+        }
+    }
+
+    errors
+}
+
+/// Validate a single command
+fn validate_single_command(
+    cmd: &crate::config::command::WorkflowCommand,
+    index: usize,
+) -> Option<WorkflowError> {
+    use crate::config::command::WorkflowCommand;
+
+    match cmd {
+        WorkflowCommand::Simple(s) if s.trim().is_empty() => Some(WorkflowError::InvalidCommand {
+            command_index: index,
+            reason: "Command cannot be empty".to_string(),
+        }),
+        _ => None,
+    }
+}
+
+/// Format validation errors for user display
+///
+/// Groups related errors and provides a clear summary.
+pub fn format_validation_errors(errors: &[WorkflowError]) -> String {
+    if errors.is_empty() {
+        return "No validation errors".to_string();
+    }
+
+    let mut output = format!(
+        "Workflow validation failed with {} error(s):\n",
+        errors.len()
+    );
+
+    for (i, error) in errors.iter().enumerate() {
+        output.push_str(&format!("  {}. {}\n", i + 1, error));
+    }
+
+    output
 }
 
 /// Iteration decision
@@ -331,7 +575,7 @@ mod tests {
                 assert!(!errors.is_empty());
                 assert!(errors
                     .iter()
-                    .any(|e| matches!(e, WorkflowError::InvalidEnvVar(_))));
+                    .any(|e| matches!(e, WorkflowError::InvalidEnvKey { .. })));
             }
             _ => panic!("Expected validation failure"),
         }
@@ -345,11 +589,8 @@ mod tests {
             Validation::Failure(errors) => {
                 assert!(!errors.is_empty());
                 let has_equals_error = errors.iter().any(|e| {
-                    if let WorkflowError::InvalidEnvVar(msg) = e {
-                        msg.contains("=")
-                    } else {
-                        false
-                    }
+                    matches!(e, WorkflowError::InvalidEnvKey { key, reason }
+                        if key.contains('=') || reason.contains('='))
                 });
                 assert!(has_equals_error);
             }
@@ -360,16 +601,142 @@ mod tests {
     #[test]
     fn test_workflow_error_display() {
         let err = WorkflowError::NoSteps;
-        assert_eq!(err.to_string(), "Workflow has no steps");
+        assert_eq!(err.to_string(), "Workflow must have at least one command");
 
         let err = WorkflowError::InvalidEnvVar("test".to_string());
         assert_eq!(err.to_string(), "Invalid environment variable: test");
 
-        let err = WorkflowError::InvalidCommand("bad".to_string());
-        assert_eq!(err.to_string(), "Invalid command: bad");
+        let err = WorkflowError::InvalidEnvKey {
+            key: "BAD=KEY".to_string(),
+            reason: "contains '='".to_string(),
+        };
+        assert!(err.to_string().contains("BAD=KEY"));
+        assert!(err.to_string().contains("contains '='"));
+
+        let err = WorkflowError::InvalidCommand {
+            command_index: 0,
+            reason: "empty command".to_string(),
+        };
+        assert!(err.to_string().contains("index 0"));
+        assert!(err.to_string().contains("empty command"));
 
         let err = WorkflowError::InvalidMerge("no cmds".to_string());
         assert_eq!(err.to_string(), "Invalid merge configuration: no cmds");
+    }
+
+    // === New tests for validation accumulation (Spec 176) ===
+
+    #[test]
+    fn test_validation_accumulates_multiple_errors() {
+        // Create workflow with multiple validation errors
+        let mut env = HashMap::new();
+        env.insert("".to_string(), "value1".to_string()); // Error 1: empty key
+        env.insert("KEY=BAD".to_string(), "value2".to_string()); // Error 2: contains '='
+
+        let config = WorkflowConfig {
+            name: Some("multi-error".to_string()),
+            commands: vec![], // Error 3: no commands
+            env: Some(env),
+            secrets: None,
+            env_files: None,
+            profiles: None,
+            merge: None,
+        };
+
+        let result = validate_workflow(&config);
+        match result {
+            Validation::Failure(errors) => {
+                // Should have accumulated ALL errors (at least 3)
+                assert!(
+                    errors.len() >= 3,
+                    "Expected at least 3 errors, got {}",
+                    errors.len()
+                );
+
+                // Verify specific errors present
+                assert!(
+                    errors.iter().any(|e| matches!(e, WorkflowError::NoSteps)),
+                    "Expected NoSteps error"
+                );
+                assert!(
+                    errors
+                        .iter()
+                        .any(|e| matches!(e, WorkflowError::InvalidEnvKey { .. })),
+                    "Expected InvalidEnvKey error"
+                );
+            }
+            _ => panic!("Expected validation failure with multiple errors"),
+        }
+    }
+
+    #[test]
+    fn test_env_key_format_validation() {
+        // Valid keys
+        assert!(is_valid_env_key_format("VALID_KEY"));
+        assert!(is_valid_env_key_format("_PRIVATE"));
+        assert!(is_valid_env_key_format("key123"));
+        assert!(is_valid_env_key_format("A"));
+
+        // Invalid keys
+        assert!(!is_valid_env_key_format("")); // Empty
+        assert!(!is_valid_env_key_format("123KEY")); // Starts with number
+        assert!(!is_valid_env_key_format("KEY-NAME")); // Contains hyphen
+        assert!(!is_valid_env_key_format("KEY.NAME")); // Contains period
+    }
+
+    #[test]
+    fn test_format_validation_errors() {
+        let errors = vec![
+            WorkflowError::NoSteps,
+            WorkflowError::InvalidEnvKey {
+                key: "BAD".to_string(),
+                reason: "test".to_string(),
+            },
+        ];
+
+        let formatted = format_validation_errors(&errors);
+        assert!(formatted.contains("2 error(s)"));
+        assert!(formatted.contains("1."));
+        assert!(formatted.contains("2."));
+    }
+
+    #[test]
+    fn test_secret_validation_accumulates_errors() {
+        use crate::cook::environment::SecretValue;
+
+        let mut secrets = HashMap::new();
+        secrets.insert("".to_string(), SecretValue::Simple("secret1".to_string())); // Empty key
+        secrets.insert(
+            "123_INVALID".to_string(),
+            SecretValue::Simple("secret2".to_string()),
+        ); // Invalid format
+
+        let config = WorkflowConfig {
+            name: Some("secrets-test".to_string()),
+            commands: vec![WorkflowCommand::Simple("echo test".to_string())],
+            env: None,
+            secrets: Some(secrets),
+            env_files: None,
+            profiles: None,
+            merge: None,
+        };
+
+        let result = validate_workflow(&config);
+        match result {
+            Validation::Failure(errors) => {
+                // Should have at least 2 secret errors
+                let secret_errors: Vec<_> = errors
+                    .iter()
+                    .filter(|e| matches!(e, WorkflowError::SecretError { .. }))
+                    .collect();
+                assert!(
+                    secret_errors.len() >= 2,
+                    "Expected at least 2 secret errors, got {}",
+                    secret_errors.len()
+                );
+            }
+            _ => panic!("Expected validation failure"),
+        }
     }
 
     // Iteration decision tests
