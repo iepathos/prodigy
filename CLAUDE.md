@@ -665,6 +665,183 @@ src/cook/execution/mapreduce/
 - **Scoped overrides**: Local changes don't leak to parent scope
 - **Clean API**: No boilerplate `Effect::asks` calls
 
+## Validation Patterns (Spec 176)
+
+### Overview
+
+Prodigy uses Stillwater's `Validation` applicative functor for comprehensive error accumulation. Unlike traditional fail-fast validation, this approach collects ALL errors before reporting, enabling users to fix multiple issues in a single iteration.
+
+### Error Accumulation Benefits
+
+**Traditional fail-fast validation:**
+```rust
+// User sees only first error, must fix and retry to see next
+fn validate(items: &[Item]) -> Result<()> {
+    for item in items {
+        if item.is_invalid() {
+            return Err(error); // Stops here
+        }
+    }
+    Ok(())
+}
+```
+
+**Stillwater validation pattern:**
+```rust
+use stillwater::Validation;
+
+fn validate(items: &[Item]) -> Validation<Vec<ValidItem>, Vec<ValidationError>> {
+    let mut all_errors = Vec::new();
+    let mut valid_items = Vec::new();
+
+    for item in items {
+        match validate_item(item) {
+            Validation::Success(valid) => valid_items.push(valid),
+            Validation::Failure(errors) => all_errors.extend(errors),
+        }
+    }
+
+    if all_errors.is_empty() {
+        Validation::Success(valid_items)
+    } else {
+        Validation::Failure(all_errors) // ALL errors at once
+    }
+}
+```
+
+### Work Item Validation
+
+MapReduce workflows validate work items before execution:
+
+```rust
+use prodigy::cook::execution::mapreduce::validation::{
+    validate_work_items, WorkItemSchema, FieldType,
+};
+use stillwater::Validation;
+
+let items = vec![
+    json!({"id": "item-1", "count": 5}),
+    json!({"id": "item-2", "count": "invalid"}),  // Type error
+    json!({"count": 10}),                          // Missing id
+];
+
+let schema = WorkItemSchema::new()
+    .require_field("id")
+    .field_type("count", FieldType::Number);
+
+match validate_work_items(&items, Some(&schema)) {
+    Validation::Success(valid_items) => {
+        // Process valid items
+    }
+    Validation::Failure(errors) => {
+        // ALL errors reported: type error AND missing field
+        for error in errors {
+            eprintln!("{}", error);
+        }
+    }
+}
+```
+
+### Workflow Validation Examples
+
+**Command validation with accumulation:**
+```rust
+use prodigy::cook::orchestrator::pure::validate_commands;
+
+let commands = vec![
+    "rm -rf /",           // Dangerous
+    "",                   // Empty
+    "curl http://...",    // Suspicious (warning)
+];
+
+match validate_commands(&commands) {
+    Validation::Success(_) => { /* all valid */ }
+    Validation::Failure(errors) => {
+        // Reports: dangerous pattern, empty command
+        // Warnings: suspicious curl pattern
+    }
+}
+```
+
+**Environment validation:**
+```rust
+use prodigy::cook::orchestrator::pure::validate_environment;
+
+let required = ["API_KEY", "DATABASE_URL", "SECRET_TOKEN"];
+let provided = HashMap::from([
+    ("API_KEY".to_string(), "".to_string()),  // Empty (warning)
+    // DATABASE_URL missing (error)
+    // SECRET_TOKEN missing (error)
+]);
+
+match validate_environment(&required, &provided) {
+    Validation::Success(_) => { /* all present */ }
+    Validation::Failure(errors) => {
+        // Reports ALL missing variables at once
+    }
+}
+```
+
+### DLQ Integration
+
+Failed validation items are automatically added to the Dead Letter Queue for later retry or inspection:
+
+```rust
+use prodigy::cook::execution::mapreduce::dlq_integration::{
+    validation_errors_to_dlq_items, DlqValidationItem,
+};
+
+// After validation failure
+let dlq_items: Vec<DlqValidationItem> = validation_errors_to_dlq_items(
+    &validation_errors,
+    &original_items,
+    job_id,
+);
+
+// Items can be inspected and retried
+for item in dlq_items {
+    println!("Item {} failed: {}", item.item_index, item.error);
+}
+```
+
+**Workflow DLQ integration:**
+```yaml
+map:
+  input: "items.json"
+  validation:
+    schema:
+      required_fields: ["id", "type"]
+      field_types:
+        count: number
+        enabled: boolean
+    on_failure: dlq  # Send validation failures to DLQ
+
+reduce:
+  - claude: "/process-valid ${map.results}"
+  - shell: "prodigy dlq show ${job_id}"  # Review failures
+```
+
+### Validation Error Types
+
+```rust
+pub enum WorkItemValidationError {
+    MissingRequiredField { item_index: usize, field: String },
+    InvalidFieldType { item_index: usize, field: String, expected: String, got: String },
+    ConstraintViolation { item_index: usize, field: String, constraint: String, value: String },
+    NotAnObject { item_index: usize },
+    NullItem { item_index: usize },
+    DuplicateId { item_index: usize, id: String, first_seen_at: usize },
+    InvalidId { item_index: usize, reason: String },
+}
+```
+
+**Key benefits:**
+- **Complete error reporting**: Users see all issues at once
+- **Faster debugging**: Fix multiple problems per iteration
+- **DLQ integration**: Failed items preserved for retry
+- **Type safety**: Schema-based validation catches type mismatches
+- **Pure functions**: All validation logic is testable without I/O
+
 ## Environment Variables (Spec 120)
 
 Define variables at workflow root:
