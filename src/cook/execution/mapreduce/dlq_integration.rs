@@ -1,14 +1,38 @@
-//! DLQ Integration for MapReduce Agent Failures
+//! DLQ Integration for MapReduce Agent Failures (Spec 176)
 //!
-//! This module provides pure functions to convert AgentResult failures into
-//! DeadLetteredItems for the Dead Letter Queue (DLQ). All functions are pure
-//! (no I/O) and fully testable.
+//! This module provides pure functions to convert AgentResult failures and
+//! validation errors into DeadLetteredItems for the Dead Letter Queue (DLQ).
+//! All functions are pure (no I/O) and fully testable.
+//!
+//! ## Validation Error Integration (Spec 176)
+//!
+//! When work items fail validation before MapReduce execution, they are
+//! converted to DLQ items with full error context preserved:
+//!
+//! ```rust
+//! use prodigy::cook::execution::mapreduce::dlq_integration::validation_errors_to_dlq_items;
+//! use prodigy::cook::execution::mapreduce::validation::WorkItemValidationError;
+//! use serde_json::json;
+//!
+//! let errors = vec![
+//!     WorkItemValidationError::MissingRequiredField {
+//!         item_index: 0,
+//!         field: "name".to_string(),
+//!     },
+//! ];
+//! let items = vec![json!({"id": "item-1"})];
+//!
+//! let dlq_items = validation_errors_to_dlq_items(&errors, &items);
+//! assert_eq!(dlq_items.len(), 1);
+//! ```
 
 use crate::cook::execution::dlq::{DeadLetteredItem, ErrorType, FailureDetail, WorktreeArtifacts};
 use crate::cook::execution::mapreduce::agent::types::{AgentResult, AgentStatus};
+use crate::cook::execution::mapreduce::validation::WorkItemValidationError;
 use chrono::Utc;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 /// Convert an AgentResult to a DeadLetteredItem for DLQ insertion
 ///
@@ -267,6 +291,137 @@ fn requires_manual_review(error_msg: &str) -> bool {
         || msg_lower.contains("validation")
         || msg_lower.contains("commit required")
         || msg_lower.contains("commit validation")
+}
+
+// ============================================================================
+// Validation Error DLQ Integration (Spec 176)
+// ============================================================================
+
+/// Convert validation errors to DLQ items
+///
+/// Groups validation errors by item index and creates a DeadLetteredItem for
+/// each unique item that failed validation. All errors for each item are
+/// preserved in the error_context field.
+///
+/// # Arguments
+///
+/// * `errors` - The validation errors to convert
+/// * `items` - The original work items (used to get item data)
+///
+/// # Returns
+///
+/// A list of DeadLetteredItems, one per unique failed item
+pub fn validation_errors_to_dlq_items(
+    errors: &[WorkItemValidationError],
+    items: &[Value],
+) -> Vec<DeadLetteredItem> {
+    // Group errors by item index
+    let mut errors_by_index: HashMap<usize, Vec<&WorkItemValidationError>> = HashMap::new();
+
+    for error in errors {
+        let idx = get_error_item_index(error);
+        errors_by_index.entry(idx).or_default().push(error);
+    }
+
+    // Convert each group to a DLQ item
+    errors_by_index
+        .into_iter()
+        .map(|(idx, item_errors)| {
+            create_validation_dlq_item(idx, &item_errors, items.get(idx).cloned())
+        })
+        .collect()
+}
+
+/// Get the item index from a validation error
+fn get_error_item_index(error: &WorkItemValidationError) -> usize {
+    match error {
+        WorkItemValidationError::MissingRequiredField { item_index, .. } => *item_index,
+        WorkItemValidationError::InvalidFieldType { item_index, .. } => *item_index,
+        WorkItemValidationError::ConstraintViolation { item_index, .. } => *item_index,
+        WorkItemValidationError::NotAnObject { item_index } => *item_index,
+        WorkItemValidationError::NullItem { item_index } => *item_index,
+        WorkItemValidationError::DuplicateId { item_index, .. } => *item_index,
+        WorkItemValidationError::InvalidId { item_index, .. } => *item_index,
+    }
+}
+
+/// Create a DLQ item from grouped validation errors
+fn create_validation_dlq_item(
+    idx: usize,
+    errors: &[&WorkItemValidationError],
+    item_data: Option<Value>,
+) -> DeadLetteredItem {
+    let now = Utc::now();
+
+    // Create error context from all errors for this item
+    let error_context: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
+
+    // Create a combined error message
+    let error_message = if errors.len() == 1 {
+        errors[0].to_string()
+    } else {
+        format!(
+            "{} validation error(s) for work item #{}",
+            errors.len(),
+            idx
+        )
+    };
+
+    // Create error signature from first error (for grouping)
+    let error_signature = create_error_signature(&error_message);
+
+    let failure_detail = FailureDetail {
+        attempt_number: 1,
+        timestamp: now,
+        error_type: ErrorType::ValidationFailed,
+        error_message: error_message.clone(),
+        error_context: Some(error_context),
+        stack_trace: None,
+        agent_id: format!("validation-{}", idx),
+        step_failed: "work_item_validation".to_string(),
+        duration_ms: 0,
+        json_log_location: None,
+    };
+
+    DeadLetteredItem {
+        item_id: format!("item-{}", idx),
+        item_data: item_data.unwrap_or(Value::Null),
+        first_attempt: now,
+        last_attempt: now,
+        failure_count: 1,
+        failure_history: vec![failure_detail],
+        error_signature,
+        worktree_artifacts: None,     // No worktree for validation failures
+        reprocess_eligible: false,    // Validation failures need data fixes
+        manual_review_required: true, // Always requires review to fix data
+    }
+}
+
+/// Create a single DLQ item from a validation error
+///
+/// Convenience function for creating a DLQ item from a single error.
+pub fn validation_error_to_dlq_item(
+    error: &WorkItemValidationError,
+    item_data: &Value,
+) -> DeadLetteredItem {
+    let idx = get_error_item_index(error);
+    create_validation_dlq_item(idx, &[error], Some(item_data.clone()))
+}
+
+/// Extract ID from work item for DLQ (best effort)
+#[allow(dead_code)]
+fn extract_item_id(item: &Value, idx: usize) -> String {
+    // Try common ID fields
+    for field in &["id", "item_id", "_id", "key"] {
+        if let Some(Value::String(s)) = item.get(*field) {
+            return s.clone();
+        }
+        if let Some(Value::Number(n)) = item.get(*field) {
+            return n.to_string();
+        }
+    }
+    // Fallback to index-based ID
+    format!("item-{}", idx)
 }
 
 #[cfg(test)]
@@ -561,5 +716,143 @@ Context:
         assert_eq!(context[0], "Executing agent command");
         assert_eq!(context[1], "Processing work item item-1");
         assert_eq!(context[2], "MapReduce map phase");
+    }
+
+    // ============================================================================
+    // Validation DLQ Integration Tests (Spec 176)
+    // ============================================================================
+
+    #[test]
+    fn test_validation_errors_to_dlq_items_single_error() {
+        let errors = vec![WorkItemValidationError::MissingRequiredField {
+            item_index: 0,
+            field: "name".to_string(),
+        }];
+        let items = vec![serde_json::json!({"id": "item-1"})];
+
+        let dlq_items = validation_errors_to_dlq_items(&errors, &items);
+
+        assert_eq!(dlq_items.len(), 1);
+        let dlq_item = &dlq_items[0];
+        assert_eq!(dlq_item.item_id, "item-0");
+        assert_eq!(dlq_item.failure_count, 1);
+        assert_eq!(
+            dlq_item.failure_history[0].error_type,
+            ErrorType::ValidationFailed
+        );
+        assert!(dlq_item.manual_review_required);
+        assert!(!dlq_item.reprocess_eligible);
+    }
+
+    #[test]
+    fn test_validation_errors_to_dlq_items_multiple_errors_same_item() {
+        let errors = vec![
+            WorkItemValidationError::MissingRequiredField {
+                item_index: 0,
+                field: "name".to_string(),
+            },
+            WorkItemValidationError::InvalidFieldType {
+                item_index: 0,
+                field: "count".to_string(),
+                expected: "number".to_string(),
+                got: "string".to_string(),
+            },
+        ];
+        let items = vec![serde_json::json!({"id": "item-1", "count": "bad"})];
+
+        let dlq_items = validation_errors_to_dlq_items(&errors, &items);
+
+        // Should be grouped into one DLQ item
+        assert_eq!(dlq_items.len(), 1);
+        let dlq_item = &dlq_items[0];
+
+        // Error context should contain both errors
+        let context = dlq_item.failure_history[0].error_context.as_ref().unwrap();
+        assert_eq!(context.len(), 2);
+    }
+
+    #[test]
+    fn test_validation_errors_to_dlq_items_multiple_items() {
+        let errors = vec![
+            WorkItemValidationError::NullItem { item_index: 0 },
+            WorkItemValidationError::MissingRequiredField {
+                item_index: 2,
+                field: "name".to_string(),
+            },
+        ];
+        let items = vec![
+            Value::Null,
+            serde_json::json!({"id": "item-2"}),
+            serde_json::json!({"id": "item-3"}),
+        ];
+
+        let dlq_items = validation_errors_to_dlq_items(&errors, &items);
+
+        // Should create two DLQ items
+        assert_eq!(dlq_items.len(), 2);
+
+        // Verify different item indices
+        let indices: Vec<_> = dlq_items.iter().map(|i| &i.item_id).collect();
+        assert!(indices.contains(&&"item-0".to_string()));
+        assert!(indices.contains(&&"item-2".to_string()));
+    }
+
+    #[test]
+    fn test_validation_error_to_dlq_item() {
+        let error = WorkItemValidationError::ConstraintViolation {
+            item_index: 5,
+            field: "score".to_string(),
+            constraint: "range [0, 100]".to_string(),
+            value: "150".to_string(),
+        };
+        let item_data = serde_json::json!({"id": "item-5", "score": 150});
+
+        let dlq_item = validation_error_to_dlq_item(&error, &item_data);
+
+        assert_eq!(dlq_item.item_id, "item-5");
+        assert_eq!(dlq_item.item_data, item_data);
+        assert_eq!(
+            dlq_item.failure_history[0].step_failed,
+            "work_item_validation"
+        );
+    }
+
+    #[test]
+    fn test_get_error_item_index() {
+        assert_eq!(
+            get_error_item_index(&WorkItemValidationError::NullItem { item_index: 3 }),
+            3
+        );
+        assert_eq!(
+            get_error_item_index(&WorkItemValidationError::NotAnObject { item_index: 7 }),
+            7
+        );
+        assert_eq!(
+            get_error_item_index(&WorkItemValidationError::DuplicateId {
+                item_index: 10,
+                id: "dup".to_string(),
+                first_seen_at: 2,
+            }),
+            10
+        );
+    }
+
+    #[test]
+    fn test_extract_item_id() {
+        // Test with "id" field
+        let item = serde_json::json!({"id": "my-id"});
+        assert_eq!(extract_item_id(&item, 0), "my-id");
+
+        // Test with numeric id
+        let item = serde_json::json!({"id": 123});
+        assert_eq!(extract_item_id(&item, 0), "123");
+
+        // Test with alternative field
+        let item = serde_json::json!({"item_id": "alt-id"});
+        assert_eq!(extract_item_id(&item, 0), "alt-id");
+
+        // Test fallback to index
+        let item = serde_json::json!({"name": "no-id"});
+        assert_eq!(extract_item_id(&item, 5), "item-5");
     }
 }
