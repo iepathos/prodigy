@@ -450,7 +450,7 @@ Gap detection uses normalization logic to accurately match feature categories ag
 "MapReduce Workflows"     → ["mapreduce", "workflows"]
 "agent_merge"             → "agent-merge"
 "command-types"           → "command-types"
-"Goal Seeking Operations" → ["goal", "seeking", "operations"]
+"Validation Operations"   → ["validation", "operations"]
 ```
 
 ### Matching Logic

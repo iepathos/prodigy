@@ -36,7 +36,7 @@ You can examine the actual configuration files used to maintain this documentati
     {
       "area": "command_types",
       "source_files": ["src/config/command.rs"],
-      "feature_categories": ["shell", "claude", "goal_seek", "foreach", "validation"]
+      "feature_categories": ["shell", "claude", "foreach", "validation"]
     }
   ]
 }

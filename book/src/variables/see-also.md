@@ -15,7 +15,7 @@
 - **Phase Availability**: Variables have different availability depending on workflow phase (setup, map, reduce, merge)
 - **Variable Scoping**: Setup captures are workflow-wide, map captures are agent-local, reduce captures are step-forward
 - **Format Modifiers**: Git context variables support format modifiers (:json, :lines, :csv, :*.ext), while custom captures use capture_format
-- **Metadata Fields**: All captured variables include .success, .exit_code, .stderr, and .duration fields. Goal-seeking commands also provide validation.completion, validation.gaps, and validation.status metadata
+- **Metadata Fields**: All captured variables include .success, .exit_code, .stderr, and .duration fields. Validation commands also provide validation.completion, validation.gaps, and validation.status metadata
 
 ### External Resources
 

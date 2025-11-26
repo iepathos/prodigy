@@ -192,7 +192,7 @@ graph TD
     Use `validate` for completion checks with targeted gap filling. The `threshold` setting and `on_incomplete` handlers provide iterative refinement.
 
 ```yaml
-# Source: Validation pattern from src/cook/goal_seek/mod.rs and features.json
+# Source: Validation pattern from features.json
 - claude: "/implement-feature auth"
   commit_required: true
   validate:
