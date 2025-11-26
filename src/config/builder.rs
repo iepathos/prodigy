@@ -80,6 +80,19 @@ pub fn load_prodigy_config() -> Result<Config<ProdigyConfig>, ConfigErrors> {
 ///
 /// * `env` - A `ConfigEnv` implementation (`RealEnv` for production, `MockEnv` for tests)
 ///
+/// # Environment Variable Support
+///
+/// The following environment variables are supported:
+/// - `PRODIGY_CLAUDE_API_KEY` → `claude_api_key`
+/// - `PRODIGY_LOG_LEVEL` → `log_level`
+/// - `PRODIGY_AUTO_COMMIT` → `auto_commit`
+/// - `PRODIGY_EDITOR` → `default_editor`
+/// - `PRODIGY_MAX_CONCURRENT` → `max_concurrent_specs`
+///
+/// For nested fields, use double underscore:
+/// - `PRODIGY__PROJECT__NAME` → `project.name`
+/// - `PRODIGY__STORAGE__BACKEND` → `storage.backend`
+///
 /// # Example
 ///
 /// ```ignore
@@ -103,7 +116,8 @@ pub fn load_prodigy_config_with<E: ConfigEnv>(
     let global_path = global_config_path();
     let project_path = project_config_path();
 
-    Config::<ProdigyConfig>::builder()
+    // First, build with file sources and structured env vars
+    let mut builder = Config::<ProdigyConfig>::builder()
         // Layer 1: Hardcoded defaults (lowest priority)
         .source(Defaults::from(ProdigyConfig::default()))
         // Layer 2: Global config file (optional - missing file is OK)
@@ -121,8 +135,20 @@ pub fn load_prodigy_config_with<E: ConfigEnv>(
         // Layer 4: Environment variables (highest priority)
         // Use "__" as separator so single underscores in field names are preserved
         // E.g., PRODIGY__LOG_LEVEL -> log_level, PRODIGY__STORAGE__COMPRESSION_LEVEL -> storage.compression_level
-        .source(Env::prefix("PRODIGY__").separator("__"))
-        .build_with_env(env)
+        .source(Env::prefix("PRODIGY__").separator("__"));
+
+    // Layer 5: Legacy environment variable mappings for backward compatibility
+    // These use single underscore and have explicit field mappings
+    builder = builder.source(
+        Env::prefix("PRODIGY_")
+            .map("CLAUDE_API_KEY", "claude_api_key")
+            .map("LOG_LEVEL", "log_level")
+            .map("AUTO_COMMIT", "auto_commit")
+            .map("EDITOR", "default_editor")
+            .map("MAX_CONCURRENT", "max_concurrent_specs"),
+    );
+
+    builder.build_with_env(env)
 }
 
 /// Load Prodigy configuration with tracing for debugging.
@@ -168,6 +194,15 @@ pub fn load_prodigy_config_traced_with<E: ConfigEnv>(
                 .named("project config"),
         )
         .source(Env::prefix("PRODIGY__").separator("__"))
+        // Legacy environment variable mappings for backward compatibility
+        .source(
+            Env::prefix("PRODIGY_")
+                .map("CLAUDE_API_KEY", "claude_api_key")
+                .map("LOG_LEVEL", "log_level")
+                .map("AUTO_COMMIT", "auto_commit")
+                .map("EDITOR", "default_editor")
+                .map("MAX_CONCURRENT", "max_concurrent_specs"),
+        )
         .build_traced_with_env(env)
 }
 
@@ -232,7 +267,17 @@ pub fn load_prodigy_config_with_options_and_env<E: ConfigEnv>(
 
     // Add environment variables if not skipped
     if !options.skip_env {
-        builder = builder.source(Env::prefix("PRODIGY__").separator("__"));
+        builder = builder
+            .source(Env::prefix("PRODIGY__").separator("__"))
+            // Legacy environment variable mappings for backward compatibility
+            .source(
+                Env::prefix("PRODIGY_")
+                    .map("CLAUDE_API_KEY", "claude_api_key")
+                    .map("LOG_LEVEL", "log_level")
+                    .map("AUTO_COMMIT", "auto_commit")
+                    .map("EDITOR", "default_editor")
+                    .map("MAX_CONCURRENT", "max_concurrent_specs"),
+            );
     }
 
     builder.build_with_env(env)
@@ -450,5 +495,100 @@ log_level: warn
         // Can extract the config
         let config = traced.into_inner();
         assert_eq!(config.log_level, "warn");
+    }
+
+    #[test]
+    fn test_legacy_env_vars_claude_api_key() {
+        // Test legacy single-underscore env var PRODIGY_CLAUDE_API_KEY
+        let env = MockEnv::new().with_env("PRODIGY_CLAUDE_API_KEY", "test-api-key-123");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert_eq!(config.claude_api_key, Some("test-api-key-123".to_string()));
+        assert_eq!(config.effective_api_key(), Some("test-api-key-123"));
+    }
+
+    #[test]
+    fn test_legacy_env_vars_log_level() {
+        // Test legacy single-underscore env var PRODIGY_LOG_LEVEL
+        let env = MockEnv::new().with_env("PRODIGY_LOG_LEVEL", "debug");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert_eq!(config.log_level, "debug");
+        assert_eq!(config.effective_log_level(), "debug");
+    }
+
+    #[test]
+    fn test_legacy_env_vars_auto_commit() {
+        // Test legacy single-underscore env var PRODIGY_AUTO_COMMIT
+        let env = MockEnv::new().with_env("PRODIGY_AUTO_COMMIT", "false");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert!(!config.auto_commit);
+        assert!(!config.effective_auto_commit());
+    }
+
+    #[test]
+    fn test_legacy_env_vars_editor() {
+        // Test legacy single-underscore env var PRODIGY_EDITOR
+        let env = MockEnv::new().with_env("PRODIGY_EDITOR", "vim");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert_eq!(config.default_editor, Some("vim".to_string()));
+        assert_eq!(config.effective_editor(), Some("vim"));
+    }
+
+    #[test]
+    fn test_legacy_env_vars_max_concurrent() {
+        // Test legacy single-underscore env var PRODIGY_MAX_CONCURRENT
+        let env = MockEnv::new().with_env("PRODIGY_MAX_CONCURRENT", "16");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert_eq!(config.max_concurrent_specs, 16);
+        assert_eq!(config.effective_max_concurrent(), 16);
+    }
+
+    #[test]
+    fn test_legacy_env_vars_override_file() {
+        // Legacy env vars should override file config
+        let global_path = global_config_path();
+        let env = MockEnv::new()
+            .with_file(
+                global_path.to_string_lossy().to_string(),
+                r#"
+log_level: info
+auto_commit: true
+"#,
+            )
+            .with_env("PRODIGY_LOG_LEVEL", "trace")
+            .with_env("PRODIGY_AUTO_COMMIT", "false");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert_eq!(config.log_level, "trace"); // env override
+        assert!(!config.auto_commit); // env override
+    }
+
+    #[test]
+    fn test_all_legacy_env_vars_together() {
+        // Test all legacy env vars together
+        let env = MockEnv::new()
+            .with_env("PRODIGY_CLAUDE_API_KEY", "my-key")
+            .with_env("PRODIGY_LOG_LEVEL", "warn")
+            .with_env("PRODIGY_AUTO_COMMIT", "true")
+            .with_env("PRODIGY_EDITOR", "nano")
+            .with_env("PRODIGY_MAX_CONCURRENT", "8");
+
+        let config = load_prodigy_config_with(&env).unwrap();
+
+        assert_eq!(config.claude_api_key, Some("my-key".to_string()));
+        assert_eq!(config.log_level, "warn");
+        assert!(config.auto_commit);
+        assert_eq!(config.default_editor, Some("nano".to_string()));
+        assert_eq!(config.max_concurrent_specs, 8);
     }
 }
