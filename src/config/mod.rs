@@ -8,11 +8,13 @@ pub mod command;
 pub mod command_discovery;
 pub mod command_parser;
 pub mod command_validator;
+pub mod diagnostics;
 pub mod dynamic_registry;
 pub mod loader;
 pub mod mapreduce;
 pub mod metadata_parser;
 pub mod prodigy_config;
+pub mod tracing;
 pub mod workflow;
 
 pub use builder::{
