@@ -29,8 +29,8 @@ pub use dynamic_registry::DynamicCommandRegistry;
 pub use loader::ConfigLoader;
 pub use mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
 pub use prodigy_config::{
-    global_config_path, project_config_path, BackendType, ProdigyConfig, ProjectSettings,
-    StorageSettings,
+    global_config_path, project_config_path, BackendType, PluginConfig, ProdigyConfig,
+    ProjectSettings, StorageSettings, VALID_LOG_LEVELS,
 };
 pub use workflow::WorkflowConfig;
 
@@ -53,11 +53,25 @@ pub struct Config {
     pub workflow: Option<WorkflowConfig>,
 }
 
-/// Global configuration settings for MMM
+/// Global configuration settings for Prodigy.
+///
+/// **Deprecated**: Use [`ProdigyConfig`] with [`load_prodigy_config`] instead.
 ///
 /// These settings apply across all projects and can be overridden
 /// by project-specific configuration. Stored in the user's home
-/// directory under ~/.prodigy/config.toml.
+/// directory under ~/.prodigy/config.yml.
+///
+/// # Migration
+///
+/// ```ignore
+/// // Old approach
+/// let global = GlobalConfig::load()?;
+/// let api_key = global.claude_api_key;
+///
+/// // New approach
+/// let config = load_prodigy_config()?;
+/// let api_key = config.effective_api_key();
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub prodigy_home: PathBuf,
@@ -66,7 +80,7 @@ pub struct GlobalConfig {
     pub claude_api_key: Option<String>,
     pub max_concurrent_specs: Option<u32>,
     pub auto_commit: Option<bool>,
-    pub plugins: Option<PluginConfig>,
+    pub plugins: Option<OldPluginConfig>,
 }
 
 /// Project-specific configuration settings
@@ -84,13 +98,15 @@ pub struct ProjectConfig {
     pub variables: Option<toml::Table>,
 }
 
-/// Plugin system configuration
+/// Legacy plugin system configuration.
+///
+/// **Deprecated**: Use [`PluginConfig`] from [`prodigy_config`] module instead.
 ///
 /// Controls plugin discovery, loading, and execution.
-/// Plugins extend MMM's functionality with custom commands
+/// Plugins extend Prodigy's functionality with custom commands
 /// and workflows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginConfig {
+pub struct OldPluginConfig {
     pub enabled: bool,
     pub directory: PathBuf,
     pub auto_load: Vec<String>,
@@ -106,6 +122,124 @@ impl Default for GlobalConfig {
             max_concurrent_specs: Some(1),
             auto_commit: Some(true),
             plugins: None,
+        }
+    }
+}
+
+impl GlobalConfig {
+    /// Load global configuration.
+    ///
+    /// **Deprecated**: Use [`load_prodigy_config`] instead which provides:
+    /// - Automatic layered loading (global → project → env)
+    /// - Comprehensive validation with error accumulation
+    /// - Source location tracking for errors
+    ///
+    /// # Migration
+    ///
+    /// ```ignore
+    /// // Old approach
+    /// let global = GlobalConfig::load()?;
+    ///
+    /// // New approach
+    /// let config = load_prodigy_config()?;
+    /// // Access global settings directly from config
+    /// ```
+    #[deprecated(since = "0.6.0", note = "Use load_prodigy_config() instead")]
+    pub fn load() -> Result<Self> {
+        let config = load_prodigy_config().map_err(|errors| {
+            anyhow!(
+                "Failed to load configuration: {}",
+                errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
+
+        Ok(Self::from_prodigy_config(&config))
+    }
+
+    /// Convert from the new ProdigyConfig type to the legacy GlobalConfig.
+    pub fn from_prodigy_config(config: &ProdigyConfig) -> Self {
+        GlobalConfig {
+            prodigy_home: config.get_prodigy_home(),
+            default_editor: config.default_editor.clone(),
+            log_level: Some(config.log_level.clone()),
+            claude_api_key: config.claude_api_key.clone(),
+            max_concurrent_specs: Some(config.max_concurrent_specs as u32),
+            auto_commit: Some(config.auto_commit),
+            plugins: if config.plugins.enabled {
+                Some(OldPluginConfig {
+                    enabled: config.plugins.enabled,
+                    directory: config
+                        .plugins
+                        .directory
+                        .clone()
+                        .unwrap_or_else(|| PathBuf::from("plugins")),
+                    auto_load: config.plugins.auto_load.clone(),
+                })
+            } else {
+                None
+            },
+        }
+    }
+}
+
+impl ProjectConfig {
+    /// Load project configuration.
+    ///
+    /// **Deprecated**: Use [`load_prodigy_config`] instead which provides:
+    /// - Automatic layered loading (global → project → env)
+    /// - Comprehensive validation with error accumulation
+    /// - Source location tracking for errors
+    ///
+    /// # Migration
+    ///
+    /// ```ignore
+    /// // Old approach
+    /// let project = ProjectConfig::load()?;
+    ///
+    /// // New approach
+    /// let config = load_prodigy_config()?;
+    /// // Access project settings via config.project
+    /// ```
+    #[deprecated(since = "0.6.0", note = "Use load_prodigy_config() instead")]
+    pub fn load() -> Result<Option<Self>> {
+        let config = load_prodigy_config().map_err(|errors| {
+            anyhow!(
+                "Failed to load configuration: {}",
+                errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
+
+        Ok(config.project.as_ref().map(Self::from_project_settings))
+    }
+
+    /// Convert from the new ProjectSettings type to the legacy ProjectConfig.
+    pub fn from_project_settings(settings: &ProjectSettings) -> Self {
+        ProjectConfig {
+            name: settings.name.clone().unwrap_or_default(),
+            description: settings.description.clone(),
+            version: settings.version.clone(),
+            spec_dir: settings.spec_dir.clone(),
+            claude_api_key: settings.claude_api_key.clone(),
+            auto_commit: settings.auto_commit,
+            variables: settings
+                .variables
+                .iter()
+                .fold(toml::Table::new(), |mut acc, (k, v)| {
+                    // Convert serde_json::Value to toml::Value
+                    if let Ok(toml_val) = serde_json::from_value::<toml::Value>(v.clone()) {
+                        acc.insert(k.clone(), toml_val);
+                    }
+                    acc
+                })
+                .into(),
         }
     }
 }
