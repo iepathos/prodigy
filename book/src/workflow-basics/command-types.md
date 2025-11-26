@@ -13,6 +13,9 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 | [`write_file:`](#write-file-commands) | Create files | Format validation (JSON/YAML), directory creation, permissions |
 | [`validate:`](#validation-commands) | Implementation validation | Threshold checking, gap detection, multi-step validation |
 
+!!! note "Deprecated: Goal Seek Commands"
+    The `goal_seek:` command type has been removed from Prodigy. Use `validate:` with `on_incomplete` handlers for iterative refinement workflows instead.
+
 !!! tip "Command Exclusivity"
     Each workflow step must use exactly one command type. You cannot combine `shell:` and `claude:` in the same step. Use `on_success:` or `on_failure:` to chain commands together.
 
@@ -265,110 +268,6 @@ Perform codebase analysis with intelligent caching to avoid redundant computatio
     - **Multiple commands**: Share one analysis with appropriate `max_cache_age`
     - **CI/CD pipelines**: Use `force_refresh: true` for consistency
 
-### Goal Seek Commands
-
-Iteratively refine implementation until validation threshold is met.
-
-**Source**: src/cook/goal_seek/mod.rs:15-41
-
-**Syntax**:
-```yaml
-- goal_seek:
-    goal: "Human-readable goal description"
-    claude: "/command-for-refinement"  # Either claude or shell required
-    shell: "refinement-command"        # Either claude or shell required
-    validate: "validation-command"     # Required: returns score 0-100
-    threshold: 90                      # Required: success threshold (0-100)
-    max_attempts: 5                    # Required: maximum refinement attempts
-    timeout_seconds: 600               # Optional: timeout for entire operation
-    fail_on_incomplete: true           # Optional: fail workflow if goal not met
-  commit_required: true
-```
-
-**Fields**:
-- `goal` (required): Human-readable description of what to achieve
-- `claude` (optional): Claude command for refinement attempts
-- `shell` (optional): Shell command for refinement attempts (use claude OR shell)
-- `validate` (required): Command that returns validation score (0-100)
-- `threshold` (required): Minimum score required for success (0-100)
-- `max_attempts` (required): Maximum number of refinement attempts
-- `timeout_seconds` (optional): Timeout for the entire goal-seeking operation
-- `fail_on_incomplete` (optional): Whether to fail workflow if goal is not met
-
-**Validation Output Format**:
-The validate command must output a line containing `score: <number>` where number is 0-100:
-```
-score: 85
-```
-
-**Result Types**:
-- `Complete`: Goal achieved (score >= threshold)
-- `Incomplete`: Maximum attempts reached without achieving threshold
-- `Failed`: Error during execution
-
-**Execution Flow**:
-
-```mermaid
-flowchart TD
-    Start[Start goal_seek] --> Run[Execute refinement<br/>claude or shell]
-    Run --> Validate[Run validate command]
-    Validate --> Parse[Parse score from output]
-    Parse --> Check{Score >=<br/>threshold?}
-
-    Check -->|Yes| Complete[Complete<br/>Goal achieved]
-    Check -->|No| Attempts{Attempts <<br/>max_attempts?}
-
-    Attempts -->|Yes| Run
-    Attempts -->|No| Incomplete[Incomplete<br/>Max attempts reached]
-
-    Complete --> End[End]
-    Incomplete --> FailCheck{fail_on_incomplete?}
-    FailCheck -->|true| Fail[Fail workflow]
-    FailCheck -->|false| End
-
-    style Complete fill:#e8f5e9
-    style Incomplete fill:#fff3e0
-    style Fail fill:#ffebee
-    style Check fill:#e1f5ff
-```
-
-**Figure**: Goal-seeking iteration flow showing refinement loop and termination conditions.
-
-**Example** (from workflows/implement-goal.yml:8):
-```yaml
-- goal_seek:
-    goal: "Implement specification: $ARG"
-    claude: "/prodigy-implement-spec $ARG"
-    validate: "git diff --stat | grep -q '.*\\.rs' && echo 'score: 100' || echo 'score: 0'"
-    threshold: 90
-    max_attempts: 3
-    timeout_seconds: 600
-  commit_required: true
-```
-
-**Example with shell refinement** (from workflows/goal-seeking-examples.yml:7):
-```yaml
-- goal_seek:
-    goal: "Achieve 90% test coverage"
-    shell: "cargo tarpaulin --out Lcov"
-    validate: "cargo tarpaulin --print-summary 2>/dev/null | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
-    threshold: 90
-    max_attempts: 5
-    timeout_seconds: 300
-    fail_on_incomplete: true
-  commit_required: true
-```
-
-!!! example "Common Use Cases"
-    - Iteratively improving code quality until metrics are met
-    - Achieving test coverage thresholds (e.g., 90% coverage)
-    - Performance optimization to target benchmarks
-    - Fixing linting issues until clean
-    - Implementing specifications completely with validation
-
-!!! warning "Validation Score Format"
-    The validate command **must** output `score: <number>` (0-100) for goal-seeking to work. Example: `echo "score: 85"`
-
 ### Foreach Commands
 
 Iterate over a list of items, executing commands for each item in parallel or sequentially.
@@ -584,10 +483,8 @@ validate:
     - Ensuring documentation quality standards
     - Multi-step validation pipelines
 
-!!! info "Validate vs Goal Seek"
-    **`validate:`** is for one-time validation with gap detection and retry logic.
-    **`goal_seek:`** is for iterative refinement until a score threshold is met.
-    Use `validate:` for spec checking, `goal_seek:` for quality improvement.
+!!! tip "Iterative Validation"
+    Use `validate:` with `on_incomplete` handlers for iterative refinement workflows. The `threshold` setting and `max_attempts` provide control over retry behavior.
 
 ### Common Fields
 
@@ -615,9 +512,9 @@ Each workflow step must specify **exactly one** command type. You cannot combine
     - claude: "/lint"            # ✓ Only Claude command
     - analyze:                   # ✓ Only analyze command
         max_cache_age: 300
-    - goal_seek:                 # ✓ Only goal_seek command
-        goal: "Fix tests"
-        validate: "..."
+    - validate:                  # ✓ Only validate command
+        commands:
+          - shell: "cargo test"
     ```
 
 === "Invalid ✗"
@@ -628,7 +525,7 @@ Each workflow step must specify **exactly one** command type. You cannot combine
     - analyze: {...}             # ✗ Cannot combine analyze and claude
       claude: "/review"
 
-    - goal_seek: {...}           # ✗ Cannot combine goal_seek and foreach
+    - validate: {...}            # ✗ Cannot combine validate and foreach
       foreach: {...}
     ```
 

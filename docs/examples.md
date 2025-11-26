@@ -13,19 +13,18 @@ Find the right example for your use case:
 | Use Case | Example | Key Features |
 |----------|---------|--------------|
 | Simple build/test pipeline | Example 1 | Basic commands, error handling |
-| Iterative optimization | Example 2 | Goal seeking, validation feedback |
-| Loop over configurations | Example 3 | Foreach iteration, parallel processing |
-| Parallel code processing | Example 4, 8 | MapReduce, distributed work |
-| Conditional logic | Example 5 | Capture output, when clauses |
-| Multi-step validation | Example 6 | Validation with gap filling |
-| Environment configuration | Example 7 | Env vars, secrets, profiles |
-| Dead Letter Queue (DLQ) | Example 8 | Error handling, retry failed items |
-| Generate config files | Example 9 | write_file with JSON/YAML/text |
-| Advanced git tracking | Example 10 | Git context variables, working_dir |
-| External service resilience | Example 11 | Circuit breakers, fail fast |
-| Retry with backoff | Example 12 | Exponential/linear/custom backoff |
-| Reusable workflows | Example 13 | Composition (preview feature) |
-| Custom merge process | Example 14 | Merge workflows, pre-merge validation |
+| Loop over configurations | Example 2 | Foreach iteration, parallel processing |
+| Parallel code processing | Example 3, 7 | MapReduce, distributed work |
+| Conditional logic | Example 4 | Capture output, when clauses |
+| Multi-step validation | Example 5 | Validation with gap filling |
+| Environment configuration | Example 6 | Env vars, secrets, profiles |
+| Dead Letter Queue (DLQ) | Example 7 | Error handling, retry failed items |
+| Generate config files | Example 8 | write_file with JSON/YAML/text |
+| Advanced git tracking | Example 9 | Git context variables, working_dir |
+| External service resilience | Example 10 | Circuit breakers, fail fast |
+| Retry with backoff | Example 11 | Exponential/linear/custom backoff |
+| Reusable workflows | Example 12 | Composition (preview feature) |
+| Custom merge process | Example 13 | Merge workflows, pre-merge validation |
 
 ## Example 1: Simple Build and Test
 
@@ -42,79 +41,7 @@ Find the right example for your use case:
 
 ---
 
-## Example 2: Coverage Improvement with Goal Seeking
-
-!!! tip "When to Use Goal Seeking"
-    Use `goal_seek` when you need iterative improvement toward a measurable goal (e.g., test coverage, performance metrics). For one-time validation with gap filling, use `validate` instead (see Example 6).
-
-```yaml
-- goal_seek:
-    goal: "Achieve 80% test coverage"
-    claude: "/improve-coverage"  # Can also use 'shell' for shell commands
-    validate: |
-      coverage=$(cargo tarpaulin | grep 'Coverage' | sed 's/.*: \([0-9.]*\)%.*/\1/')
-      echo "score: ${coverage%.*}"
-    threshold: 80
-    max_attempts: 5
-    timeout_seconds: 1800  # Optional: 30 minute timeout for entire goal-seeking process
-    fail_on_incomplete: false  # Optional: Continue workflow even if goal not reached
-```
-
-**Source**: GoalSeekConfig from src/cook/goal_seek/mod.rs:14-41, execution engine from src/cook/goal_seek/engine.rs:23-116
-
-**How Goal Seeking Works:**
-
-Goal seeking provides iterative refinement with automatic convergence detection:
-1. Execute the improvement command (Claude or shell)
-2. Run validation script to get a score (0-100)
-3. Pass environment variables to next iteration:
-   - `PRODIGY_VALIDATION_SCORE` - Current score
-   - `PRODIGY_VALIDATION_OUTPUT` - Full validation output
-   - `PRODIGY_VALIDATION_GAPS` - Identified improvement areas
-4. Repeat until threshold reached, max attempts hit, or convergence detected
-5. Auto-stops when no improvement in last 3 attempts (convergence)
-
-```mermaid
-flowchart TD
-    Start[Start Goal Seek] --> Execute[Execute Improvement<br/>Claude or Shell Command]
-    Execute --> Validate[Run Validation Script]
-    Validate --> Score{Score >= Threshold?}
-
-    Score -->|Yes| Success[Complete - Goal Achieved]
-    Score -->|No| CheckAttempts{Max Attempts<br/>Reached?}
-
-    CheckAttempts -->|Yes| Incomplete[Complete - Goal Not Reached]
-    CheckAttempts -->|No| CheckConvergence{No Improvement<br/>in 3 Attempts?}
-
-    CheckConvergence -->|Yes| Converged[Complete - Converged]
-    CheckConvergence -->|No| SetEnv[Set Environment Vars<br/>PRODIGY_VALIDATION_SCORE<br/>PRODIGY_VALIDATION_OUTPUT<br/>PRODIGY_VALIDATION_GAPS]
-
-    SetEnv --> Execute
-
-    style Success fill:#e8f5e9
-    style Incomplete fill:#fff3e0
-    style Converged fill:#e1f5ff
-```
-
-**Figure**: Goal-seeking execution flow showing iterative refinement with convergence detection.
-
-**Validation Script Format:**
-```bash
-# Must output "score: N" where N is 0-100
-echo "score: 75"
-# Optional: output "gaps: description" for targeted improvements
-echo "gaps: Missing tests for auth module"
-```
-
-**Goal-Seek vs Validate:**
-- `goal_seek`: Iterative optimization with feedback loop
-- `validate`: One-time completion check (see Example 6)
-
-**Note:** Changes are automatically committed during goal-seeking iterations. Use `commit_required: true` on the outer goal_seek step to control commit behavior.
-
----
-
-## Example 3: Foreach Iteration
+## Example 2: Foreach Iteration
 
 ```yaml
 # Test multiple configurations in sequence
@@ -146,7 +73,7 @@ echo "gaps: Missing tests for auth module"
 
 ---
 
-## Example 4: Parallel Code Review
+## Example 3: Parallel Code Review
 
 !!! example "MapReduce Pattern"
     This example demonstrates parallel processing using the MapReduce pattern: setup generates work items, map processes them in parallel agents, and reduce aggregates results.
@@ -221,7 +148,7 @@ graph TD
 
 ---
 
-## Example 5: Conditional Deployment
+## Example 4: Conditional Deployment
 
 ```yaml
 - shell: "cargo test --quiet && echo true || echo false"
@@ -259,10 +186,10 @@ graph TD
 
 ---
 
-## Example 6: Multi-Step Validation
+## Example 5: Multi-Step Validation
 
-!!! note "Validation vs Goal Seeking"
-    Use `validate` for one-time completion checks with targeted gap filling. Unlike `goal_seek` which iteratively improves a metric, `validate` checks if work meets criteria and fixes specific gaps if not.
+!!! note "Iterative Validation"
+    Use `validate` for completion checks with targeted gap filling. The `threshold` setting and `on_incomplete` handlers provide iterative refinement.
 
 ```yaml
 # Source: Validation pattern from src/cook/goal_seek/mod.rs and features.json
@@ -321,11 +248,11 @@ validate:
   threshold: 80
 ```
 
-**Note:** Validation is a one-time completion check, distinct from `goal_seek` which iteratively improves until a threshold is met. Use validation when you want to verify completeness and have Claude fill specific gaps.
+**Note:** Validation provides iterative completion checking with gap filling. Use it when you want to verify completeness and have Claude fill specific gaps.
 
 ---
 
-## Example 7: Environment-Aware Workflow
+## Example 6: Environment-Aware Workflow
 
 ```yaml
 # Global environment variables (including secrets with masking)
@@ -424,7 +351,7 @@ The modern `env`-based approach is recommended for consistency, but legacy workf
 
 ---
 
-## Example 8: Complex MapReduce with Error Handling
+## Example 7: Complex MapReduce with Error Handling
 
 !!! warning "Resource Management"
     Setting `max_parallel` too high can exhaust system resources (CPU, memory, file handles). Start with 5-10 concurrent agents and monitor resource usage before increasing.
@@ -551,7 +478,7 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 
 ---
 
-## Example 9: Generating Configuration Files
+## Example 8: Generating Configuration Files
 
 ```yaml
 # Generate a JSON configuration file
@@ -598,7 +525,7 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 
 ---
 
-## Example 10: Advanced Features
+## Example 9: Advanced Features
 
 ```yaml
 # Nested error handling with retry configuration
@@ -741,7 +668,7 @@ Note: Agent execution status is independent of cleanup status. If an agent compl
 
 ---
 
-## Example 11: Circuit Breaker for Resilient Error Handling
+## Example 10: Circuit Breaker for Resilient Error Handling
 
 ```yaml
 name: api-processing-with-circuit-breaker
@@ -826,7 +753,7 @@ stateDiagram-v2
 
 ---
 
-## Example 12: Retry Configuration with Backoff Strategies
+## Example 11: Retry Configuration with Backoff Strategies
 
 ```yaml
 name: resilient-deployment
@@ -958,7 +885,7 @@ error_policy:
 
 ---
 
-## Example 13: Workflow Composition (Preview Feature)
+## Example 12: Workflow Composition (Preview Feature)
 
 > **Note**: Workflow composition features are partially implemented. Core composition logic exists but CLI integration is pending (Spec 131-133). This example shows the planned syntax.
 
@@ -1032,7 +959,7 @@ workflow:
 
 ---
 
-## Example 14: Custom Merge Workflows
+## Example 13: Custom Merge Workflows
 
 MapReduce workflows execute in isolated git worktrees. When the workflow completes, you can define a custom merge workflow to control how changes are merged back to your original branch.
 

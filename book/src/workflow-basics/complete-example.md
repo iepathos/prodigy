@@ -89,7 +89,7 @@ This demonstrates best practices:
 
 ### Next Steps
 
-- [Error Handling](../error-handling.md) - Add `on_failure` handlers for robust workflows
+- [Error Handling](error-handling.md) - Add `on_failure` handlers for robust workflows
 - [Variable Interpolation](../variables/available-variables.md) - Use dynamic values in commands
-- [Advanced Features](../advanced/index.md) - Explore goal-seeking, validation, and more
+- [Advanced Features](../advanced/index.md) - Explore validation, error handling, and more
 
