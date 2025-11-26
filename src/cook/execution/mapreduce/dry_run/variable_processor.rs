@@ -194,15 +194,7 @@ impl VariableProcessor {
         let regex = regex::Regex::new(r"\$\{([^}]+)\}").expect("Invalid regex");
 
         // Check all command types for variables
-        let command_texts = vec![
-            command.claude.as_deref(),
-            command.shell.as_deref(),
-            command
-                .goal_seek
-                .as_ref()
-                .and_then(|gs| gs.claude.as_deref()),
-            command.goal_seek.as_ref().map(|gs| gs.validate.as_str()),
-        ];
+        let command_texts = vec![command.claude.as_deref(), command.shell.as_deref()];
 
         for text in command_texts.into_iter().flatten() {
             for cap in regex.captures_iter(text) {

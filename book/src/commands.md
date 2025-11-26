@@ -55,38 +55,7 @@
   capture_output: "implementation_plan"
 ```
 
-## 3. Goal-Seeking Commands
-
-Iteratively refine code until a validation threshold is met.
-
-```yaml
-- goal_seek:
-    goal: "Achieve 90% test coverage"
-    claude: "/prodigy-coverage --improve"
-    validate: "cargo tarpaulin --print-summary | grep 'Coverage' | sed 's/.*Coverage=\\([0-9]*\\).*/score: \\1/'"
-    threshold: 90
-    max_attempts: 5
-    timeout_seconds: 300
-    fail_on_incomplete: true
-  commit_required: true
-```
-
-**Fields:**
-- `goal`: Human-readable description
-- `claude` or `shell`: Command to execute for refinement
-- `validate`: Command that outputs `score: N` (0-100)
-- `threshold`: Minimum score to consider complete
-- `max_attempts`: Maximum refinement iterations
-- `timeout_seconds`: Optional timeout per attempt
-- `fail_on_incomplete`: Whether to fail workflow if threshold not met (default: true)
-
-**Troubleshooting:**
-- **Threshold not met:** Check that validate command outputs exactly `score: N` format (0-100)
-- **Not converging:** Use `fail_on_incomplete: false` for optional quality gates
-- **Debug scores:** Run workflow with verbose mode (`-v`) to see validation scores each iteration
-- **Max attempts reached:** Increase `max_attempts` or lower `threshold` if goal is too ambitious
-
-## 4. Foreach Commands
+## 3. Foreach Commands
 
 Iterate over a list with optional parallelism.
 
@@ -125,7 +94,7 @@ Iterate over a list with optional parallelism.
           create_dirs: true
 ```
 
-## 5. Write File Commands
+## 4. Write File Commands
 
 Create or overwrite files with content from variables or literals. Supports text, JSON, and YAML formats with automatic validation and formatting.
 
@@ -180,7 +149,7 @@ Create or overwrite files with content from variables or literals. Supports text
 - **Combine with validation**: Use `validate` field to ensure generated files meet requirements before proceeding
 - **For logs and documentation**: Use `format: text` to write content as-is without validation overhead
 
-## 6. Validation Commands
+## 5. Validation Commands
 
 Validate implementation completeness with automatic retry.
 
@@ -535,7 +504,7 @@ These planned features may be exposed in future versions of Prodigy.
 For more information on related topics:
 - **Variable Interpolation**: See the [Variables chapter](./variables/custom-variable-capture.md) for details on using captured outputs like `${variable_name}` in subsequent commands
 - **Environment Variables**: See the [Environment Variables chapter](./environment/index.md) for global env, secrets, and profiles
-- **Error Handling**: See the [Error Handling chapter](./error-handling.md#command-level-error-handling) for advanced `on_failure` strategies and retry patterns
+- **Error Handling**: See the [Error Handling chapter](./workflow-basics/error-handling.md#command-level-error-handling) for advanced `on_failure` strategies and retry patterns
 - **MapReduce Workflows**: See the [MapReduce chapter](./mapreduce/index.md#complete-structure) for large-scale parallel command execution with agent templates
 
 **Example: Using Captured Output in Subsequent Commands**

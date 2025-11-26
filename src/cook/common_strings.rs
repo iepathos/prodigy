@@ -11,7 +11,6 @@ pub mod commands {
     pub const CLAUDE: &str = "claude";
     pub const SHELL: &str = "shell";
     pub const TEST: &str = "test";
-    pub const GOAL_SEEK: &str = "goal_seek";
     pub const FOREACH: &str = "foreach";
     pub const HANDLER: &str = "handler";
     pub const BUILD: &str = "build";
@@ -160,7 +159,6 @@ pub fn intern_command(name: &str) -> Arc<str> {
         commands::CLAUDE => Arc::from(commands::CLAUDE),
         commands::SHELL => Arc::from(commands::SHELL),
         commands::TEST => Arc::from(commands::TEST),
-        commands::GOAL_SEEK => Arc::from(commands::GOAL_SEEK),
         commands::FOREACH => Arc::from(commands::FOREACH),
         commands::HANDLER => Arc::from(commands::HANDLER),
         commands::BUILD => Arc::from(commands::BUILD),

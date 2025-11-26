@@ -21,7 +21,6 @@ fn create_workflow_step() -> WorkflowStep {
         claude: None,
         shell: None,
         test: None,
-        goal_seek: None,
         foreach: None,
         write_file: None,
         command: None,

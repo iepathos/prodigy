@@ -9,7 +9,6 @@ Prodigy supports several types of commands in workflows. **Each command step mus
 | [`shell:`](#shell-commands) | Execute shell commands | Output capture, conditional execution, timeouts |
 | [`claude:`](#claude-commands) | Run Claude AI commands | Variable interpolation, commit tracking, output declarations |
 | [`analyze:`](#analyze-commands) | Codebase analysis with caching | Cache control, force refresh, format options |
-| [`goal_seek:`](#goal-seek-commands) | Iterative refinement | Score-based validation, automatic retry, convergence detection |
 | [`foreach:`](#foreach-commands) | Parallel iteration | Process lists in parallel, item limits, error handling |
 | [`write_file:`](#write-file-commands) | Create files | Format validation (JSON/YAML), directory creation, permissions |
 | [`validate:`](#validation-commands) | Implementation validation | Threshold checking, gap detection, multi-step validation |
@@ -26,7 +25,6 @@ flowchart TD
     Start -->|Run shell commands| Shell[shell:]
     Start -->|Execute Claude AI| Claude[claude:]
     Start -->|Analyze codebase| Analyze{Need fresh<br/>metrics?}
-    Start -->|Improve until goal met| GoalSeek[goal_seek:]
     Start -->|Process multiple items| Foreach[foreach:]
     Start -->|Save data to file| WriteFile[write_file:]
     Start -->|Check completeness| Validate[validate:]
@@ -38,7 +36,6 @@ flowchart TD
     style Claude fill:#f3e5f5
     style AnalyzeForce fill:#fff3e0
     style AnalyzeCache fill:#fff3e0
-    style GoalSeek fill:#e8f5e9
     style Foreach fill:#fce4ec
     style WriteFile fill:#f1f8e9
     style Validate fill:#ede7f6

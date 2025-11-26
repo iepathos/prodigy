@@ -385,8 +385,6 @@ impl WorkflowExecutor {
             Ok(CommandType::Shell(shell_cmd.clone()))
         } else if let Some(test_cmd) = &step.test {
             Ok(CommandType::Test(test_cmd.clone()))
-        } else if let Some(goal_seek_config) = &step.goal_seek {
-            Ok(CommandType::GoalSeek(goal_seek_config.clone()))
         } else if let Some(foreach_config) = &step.foreach {
             Ok(CommandType::Foreach(foreach_config.clone()))
         } else if let Some(write_file_config) = &step.write_file {

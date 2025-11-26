@@ -443,9 +443,6 @@ pub fn count_specified_commands(step: &WorkflowStep) -> usize {
     if step.handler.is_some() {
         count += 1;
     }
-    if step.goal_seek.is_some() {
-        count += 1;
-    }
     if step.foreach.is_some() {
         count += 1;
     }
@@ -462,12 +459,12 @@ pub fn count_specified_commands(step: &WorkflowStep) -> usize {
 pub fn validate_single_command_type(count: usize) -> Result<()> {
     if count > 1 {
         return Err(anyhow::anyhow!(
-            "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
+            "Multiple command types specified. Use only one of: claude, shell, test, handler, foreach, write_file, or name/command"
         ));
     }
     if count == 0 {
         return Err(anyhow::anyhow!(
-            "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, write_file, or name/command"
+            "No command specified. Use one of: claude, shell, test, handler, foreach, write_file, or name/command"
         ));
     }
     Ok(())
@@ -542,7 +539,6 @@ pub fn extract_command_name(command_type: &super::CommandType) -> &str {
         super::CommandType::Shell(cmd) => cmd,
         super::CommandType::Test(test_cmd) => &test_cmd.command,
         super::CommandType::Handler { handler_name, .. } => handler_name,
-        super::CommandType::GoalSeek(config) => &config.goal,
         super::CommandType::Foreach(_) => "foreach",
         super::CommandType::WriteFile(config) => &config.path,
     }

@@ -106,7 +106,6 @@ fn test_timeout_field_serialization() {
         claude: None,
         analyze: None,
         test: None,
-        goal_seek: None,
         foreach: None,
         write_file: None,
         id: None,

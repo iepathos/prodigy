@@ -901,7 +901,6 @@ Sessions stored as `UnifiedSession` in `~/.prodigy/sessions/{id}.json`:
 ### Command Types
 - `claude:` - Execute Claude commands
 - `shell:` - Run shell commands
-- `goal_seek:` - Goal-seeking with validation
 - `foreach:` - Iterate with nested commands
 
 ### Variable Interpolation

@@ -141,58 +141,6 @@ pub enum Commands {
         command: CheckpointCommands,
     },
 
-    /// Execute goal-seeking operation with iterative refinement
-    #[command(name = "goal-seek", alias = "seek")]
-    GoalSeek {
-        /// Goal description
-        #[arg(help = "What you want to achieve")]
-        goal: String,
-
-        /// Command to execute for attempts
-        #[arg(
-            short = 'c',
-            long,
-            help = "Command to execute (gets validation context)"
-        )]
-        command: String,
-
-        /// Validation command
-        #[arg(
-            long,
-            help = "Command to validate results (should output score: 0-100)"
-        )]
-        validate: String,
-
-        /// Success threshold (0-100)
-        #[arg(
-            short = 't',
-            long,
-            default_value = "80",
-            help = "Minimum score to consider success"
-        )]
-        threshold: u32,
-
-        /// Maximum attempts
-        #[arg(
-            short = 'm',
-            long,
-            default_value = "5",
-            help = "Maximum attempts before giving up"
-        )]
-        max_attempts: u32,
-
-        /// Timeout in seconds
-        #[arg(long, help = "Overall timeout in seconds")]
-        timeout: Option<u64>,
-
-        /// Fail on incomplete
-        #[arg(long, help = "Exit with error if goal not achieved")]
-        fail_on_incomplete: bool,
-
-        /// Working directory
-        #[arg(short = 'p', long, help = "Working directory for commands")]
-        path: Option<PathBuf>,
-    },
     /// Manage git worktrees for parallel Prodigy sessions
     Worktree {
         #[command(subcommand)]

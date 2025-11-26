@@ -211,7 +211,6 @@ impl OnFailureConfig {
                         shell: shell.clone(),
                         claude: claude.clone(),
                         test: None,
-                        goal_seek: None,
                         foreach: None,
                         write_file: None,
                         command: None,

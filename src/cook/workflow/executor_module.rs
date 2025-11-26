@@ -25,9 +25,7 @@ pub use pure::{
 pub use commands::{execute_claude_command, execute_shell_command, format_command_description};
 
 // Re-export specialized command functions
-pub use specialized_commands::{
-    execute_foreach_command, execute_goal_seek_command, execute_write_file_command,
-};
+pub use specialized_commands::{execute_foreach_command, execute_write_file_command};
 
 // Re-export commonly used items from failure_handler module
 pub use failure_handler::{

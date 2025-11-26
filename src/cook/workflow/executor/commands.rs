@@ -28,9 +28,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::specialized_commands::{
-    execute_foreach_command, execute_goal_seek_command, execute_write_file_command,
-};
+use super::specialized_commands::{execute_foreach_command, execute_write_file_command};
 use super::{CommandType, StepResult, WorkflowContext, WorkflowExecutor, WorkflowStep};
 
 // ============================================================================
@@ -100,7 +98,6 @@ pub fn format_command_description(command_type: &CommandType) -> String {
         CommandType::Shell(cmd) => format!("shell: {}", cmd),
         CommandType::Test(cmd) => format!("test: {}", cmd.command),
         CommandType::Handler { handler_name, .. } => format!("handler: {}", handler_name),
-        CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
         CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
         CommandType::WriteFile(cfg) => format!("write_file: {}", cfg.path),
     }
@@ -164,7 +161,6 @@ impl WorkflowExecutor {
                 self.execute_handler_command(handler_name, attributes, env, ctx, env_vars)
                     .await
             }
-            CommandType::GoalSeek(config) => execute_goal_seek_command(config).await,
             CommandType::Foreach(config) => execute_foreach_command(config).await,
             CommandType::WriteFile(mut config) => {
                 let (path, p_res) = ctx.interpolate_with_tracking(&config.path);

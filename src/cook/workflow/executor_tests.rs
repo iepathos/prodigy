@@ -616,32 +616,6 @@ mod tests {
     }
 
     #[test]
-    fn test_determine_command_type_goal_seek() {
-        let (executor, _, _, _) = create_test_executor();
-
-        let goal_seek_config = crate::cook::goal_seek::GoalSeekConfig {
-            goal: "Performance improvement > 20%".to_string(),
-            claude: Some("/optimize-performance".to_string()),
-            shell: None,
-            validate: "cargo test performance".to_string(),
-            threshold: 80,
-            max_attempts: 5,
-            timeout_seconds: Some(300),
-            fail_on_incomplete: Some(false),
-        };
-
-        let step = WorkflowStep {
-            goal_seek: Some(goal_seek_config.clone()),
-            ..Default::default()
-        };
-
-        let result = executor.determine_command_type(&step).unwrap();
-        assert!(
-            matches!(result, CommandType::GoalSeek(config) if config.goal == "Performance improvement > 20%")
-        );
-    }
-
-    #[test]
     fn test_determine_command_type_foreach() {
         let (executor, _, _, _) = create_test_executor();
 
@@ -657,7 +631,6 @@ mod tests {
                 shell: Some("echo Processing item".to_string()),
                 analyze: None,
                 test: None,
-                goal_seek: None,
                 foreach: None,
                 write_file: None,
                 id: None,
@@ -1601,63 +1574,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Skip test - goal seek uses real shell executor which needs more setup
-    async fn test_execute_goal_seek_command() {
-        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
-
-        let temp_dir = TempDir::new().unwrap();
-        let env = ExecutionEnvironment {
-            working_dir: Arc::new(temp_dir.path().to_path_buf()),
-            project_dir: Arc::new(temp_dir.path().to_path_buf()),
-            worktree_name: None,
-            session_id: Arc::from("test"),
-        };
-
-        // Add mock responses for goal seek iterations
-        claude_mock.add_response(ExecutionResult {
-            stdout: "Iteration 1: Performance improved by 10%".to_string(),
-            stderr: String::new(),
-            exit_code: Some(0),
-            success: true,
-            metadata: HashMap::new(),
-        });
-        claude_mock.add_response(ExecutionResult {
-            stdout: "Iteration 2: Performance improved by 25%".to_string(),
-            stderr: String::new(),
-            exit_code: Some(0),
-            success: true,
-            metadata: HashMap::new(),
-        });
-
-        let goal_seek_config = crate::cook::goal_seek::GoalSeekConfig {
-            goal: "Performance improvement > 20%".to_string(),
-            claude: Some("/optimize-performance".to_string()),
-            shell: None,
-            validate: "echo 25".to_string(), // Simple validation returning score
-            threshold: 20,
-            max_attempts: 5,
-            timeout_seconds: None,
-            fail_on_incomplete: None,
-        };
-
-        let step = WorkflowStep {
-            goal_seek: Some(goal_seek_config),
-            ..Default::default()
-        };
-
-        let mut context = WorkflowContext::default();
-        let result = executor.execute_step(&step, &env, &mut context).await;
-
-        // Goal seek should succeed after finding 25% improvement
-        if let Err(e) = &result {
-            eprintln!("Goal seek failed with error: {:?}", e);
-        }
-        assert!(result.is_ok());
-        let step_result = result.unwrap();
-        assert!(step_result.success);
-    }
-
-    #[tokio::test]
     async fn test_execute_foreach_command() {
         let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
@@ -1688,7 +1604,6 @@ mod tests {
                 shell: Some("echo Processing item".to_string()),
                 analyze: None,
                 test: None,
-                goal_seek: None,
                 foreach: None,
                 write_file: None,
                 id: None,

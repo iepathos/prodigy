@@ -335,10 +335,6 @@ pub struct WorkflowStepCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<TestCommand>,
 
-    /// Goal-seeking configuration for iterative refinement
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
-
     /// Foreach configuration for parallel iteration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foreach: Option<ForeachConfig>,
@@ -421,7 +417,6 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             shell: Option<String>,
             analyze: Option<HashMap<String, serde_json::Value>>,
             test: Option<TestCommand>,
-            goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
             foreach: Option<ForeachConfig>,
             write_file: Option<WriteFileConfig>,
             id: Option<String>,
@@ -466,12 +461,11 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
         if helper.claude.is_none()
             && shell.is_none()
             && helper.analyze.is_none()
-            && helper.goal_seek.is_none()
             && helper.foreach.is_none()
             && helper.write_file.is_none()
         {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', 'goal_seek', 'foreach', or 'write_file' field",
+                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', 'foreach', or 'write_file' field",
             ));
         }
 
@@ -480,7 +474,6 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             shell,
             analyze: helper.analyze,
             test,
-            goal_seek: helper.goal_seek,
             foreach: helper.foreach,
             write_file: helper.write_file,
             id: helper.id,
@@ -549,9 +542,6 @@ fn extract_command_string(step: &WorkflowStepCommand) -> String {
     } else if let Some(test_cmd) = &step.test {
         // For test commands, we need special handling
         format!("test {}", test_cmd.command)
-    } else if let Some(goal_seek_config) = &step.goal_seek {
-        // For goal_seek commands, we need special handling
-        format!("goal_seek {}", goal_seek_config.goal)
     } else if let Some(foreach_config) = &step.foreach {
         // For foreach commands, we need special handling
         match &foreach_config.input {
@@ -981,7 +971,6 @@ when: "${build.success} == true"
             shell: None,
             analyze: None,
             test: None,
-            goal_seek: None,
             foreach: None,
             write_file: None,
             id: Some("test-step".to_string()),

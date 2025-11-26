@@ -231,7 +231,6 @@ map:
             shell: Some("exit 42".to_string()),
             claude: None,
             test: None,
-            goal_seek: None,
             foreach: None,
             write_file: None,
             command: None,

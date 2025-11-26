@@ -1,7 +1,6 @@
 //! Specialized command execution functions
 //!
 //! This module contains execution logic for specialized command types:
-//! - GoalSeek: Iterative goal achievement with validation
 //! - Foreach: Parallel/sequential iteration over collections
 //! - WriteFile: File writing with format support
 //!
@@ -11,110 +10,6 @@
 use super::StepResult;
 use anyhow::{anyhow, Result};
 use std::path::Path;
-
-// ============================================================================
-// Goal Seek Command
-// ============================================================================
-
-/// Execute a goal-seek command
-///
-/// Goal-seek iteratively attempts to achieve a goal using Claude commands
-/// until success, max attempts, or timeout.
-pub async fn execute_goal_seek_command(
-    config: crate::cook::goal_seek::GoalSeekConfig,
-) -> Result<StepResult> {
-    use crate::cook::goal_seek::{
-        shell_executor::ShellCommandExecutor, GoalSeekEngine, GoalSeekResult,
-    };
-
-    let mut engine = GoalSeekEngine::new(Box::new(ShellCommandExecutor::new()));
-    let result = engine.seek(config.clone()).await?;
-
-    match result {
-        GoalSeekResult::Success {
-            attempts,
-            final_score,
-            ..
-        } => Ok(StepResult {
-            success: true,
-            stdout: format!(
-                "Goal '{}' achieved in {} attempts ({}%)",
-                config.goal, attempts, final_score
-            ),
-            stderr: String::new(),
-            exit_code: Some(0),
-            json_log_location: None,
-        }),
-        GoalSeekResult::MaxAttemptsReached {
-            attempts,
-            best_score,
-            ..
-        } => {
-            if config.fail_on_incomplete.unwrap_or(false) {
-                Err(anyhow!(
-                    "Goal '{}' not achieved after {} attempts (best: {}%)",
-                    config.goal,
-                    attempts,
-                    best_score
-                ))
-            } else {
-                Ok(StepResult {
-                    success: false,
-                    stdout: format!(
-                        "Goal '{}' not achieved after {} attempts (best: {}%)",
-                        config.goal, attempts, best_score
-                    ),
-                    stderr: String::new(),
-                    exit_code: Some(1),
-                    json_log_location: None,
-                })
-            }
-        }
-        GoalSeekResult::Timeout {
-            attempts,
-            best_score,
-            elapsed,
-        } => Err(anyhow!(
-            "Goal '{}' timed out after {} attempts ({:?}). Best: {}%",
-            config.goal,
-            attempts,
-            elapsed,
-            best_score
-        )),
-        GoalSeekResult::Converged {
-            attempts,
-            final_score,
-            reason,
-        } => {
-            let success = final_score >= config.threshold;
-            if !success && config.fail_on_incomplete.unwrap_or(false) {
-                Err(anyhow!(
-                    "Goal '{}' converged but didn't reach threshold ({}%). Reason: {}",
-                    config.goal,
-                    final_score,
-                    reason
-                ))
-            } else {
-                Ok(StepResult {
-                    success,
-                    stdout: format!(
-                        "Goal '{}' converged after {} attempts ({}%). Reason: {}",
-                        config.goal, attempts, final_score, reason
-                    ),
-                    stderr: String::new(),
-                    exit_code: Some(if success { 0 } else { 1 }),
-                    json_log_location: None,
-                })
-            }
-        }
-        GoalSeekResult::Failed { attempts, error } => Err(anyhow!(
-            "Goal '{}' failed after {} attempts: {}",
-            config.goal,
-            attempts,
-            error
-        )),
-    }
-}
 
 // ============================================================================
 // Foreach Command

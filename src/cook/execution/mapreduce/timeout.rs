@@ -20,7 +20,6 @@ pub type AgentId = String;
 pub enum CommandType {
     Claude,
     Shell,
-    GoalSeek,
     Unknown,
 }
 
@@ -29,7 +28,6 @@ impl CommandType {
         match self {
             CommandType::Claude => "claude",
             CommandType::Shell => "shell",
-            CommandType::GoalSeek => "goal_seek",
             CommandType::Unknown => "unknown",
         }
     }
@@ -644,8 +642,6 @@ impl TimeoutEnforcer {
                 CommandType::Claude
             } else if command.shell.is_some() {
                 CommandType::Shell
-            } else if command.goal_seek.is_some() {
-                CommandType::GoalSeek
             } else {
                 CommandType::Unknown
             };
@@ -680,7 +676,6 @@ impl TimeoutEnforcer {
         match command_type {
             CommandType::Claude => Duration::from_secs(300), // 5 minutes for Claude commands
             CommandType::Shell => Duration::from_secs(60),   // 1 minute for shell commands
-            CommandType::GoalSeek => Duration::from_secs(600), // 10 minutes for goal seek
             CommandType::Unknown => Duration::from_secs(120), // 2 minutes for unknown
         }
     }

@@ -60,7 +60,6 @@ impl WorkflowExecutor {
             claude: None,
             shell: None,
             test: None,
-            goal_seek: None,
             foreach: None,
             write_file: None,
             command: None,
@@ -121,9 +120,6 @@ impl WorkflowExecutor {
                     command: command.to_string(),
                     on_failure: on_failure.as_ref().map(|f| (**f).clone()),
                 });
-            }
-            StepCommand::GoalSeek(config) => {
-                workflow_step.goal_seek = Some((**config).clone());
             }
             StepCommand::Handler(handler) => {
                 workflow_step.handler = Some(HandlerStep {
@@ -270,7 +266,6 @@ impl WorkflowExecutor {
                     claude: step.claude.clone(),
                     shell: step.shell.clone(),
                     test: step.test.clone(),
-                    goal_seek: step.goal_seek.clone(),
                     foreach: step.foreach.clone(),
                     write_file: None,
                     command: None,
@@ -309,7 +304,6 @@ impl WorkflowExecutor {
                     claude: None,
                     shell: None,
                     test: None,
-                    goal_seek: None,
                     foreach: None,
                     write_file: None,
                     command: Some(cmd_str.clone()),
@@ -344,7 +338,6 @@ impl WorkflowExecutor {
                     claude: None,
                     shell: None,
                     test: None,
-                    goal_seek: None,
                     foreach: None,
                     write_file: None,
                     command: Some(cmd.name.clone()),
@@ -379,7 +372,6 @@ impl WorkflowExecutor {
                     claude: None,
                     shell: None,
                     test: None,
-                    goal_seek: None,
                     foreach: None,
                     write_file: None,
                     command: Some(simple.name.clone()),

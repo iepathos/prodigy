@@ -277,7 +277,6 @@ pub fn create_handler_step(
         shell: cmd.shell.clone(),
         claude: cmd.claude.clone(),
         test: None,
-        goal_seek: None,
         foreach: None,
         write_file: None,
         command: None,

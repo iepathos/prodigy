@@ -244,7 +244,6 @@ pub struct CommandValidation {
 pub enum CommandType {
     Claude,
     Shell,
-    GoalSeek,
     Foreach,
 }
 
@@ -253,7 +252,6 @@ impl fmt::Display for CommandType {
         match self {
             CommandType::Claude => write!(f, "claude"),
             CommandType::Shell => write!(f, "shell"),
-            CommandType::GoalSeek => write!(f, "goal_seek"),
             CommandType::Foreach => write!(f, "foreach"),
         }
     }
