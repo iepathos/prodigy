@@ -186,9 +186,8 @@ commands:
     Ok(())
 }
 
-/// Test that documents expected behavior once bug is fixed
+/// Test that Failed sessions with checkpoint data are resumable
 #[tokio::test]
-#[ignore] // Will pass once bug is fixed
 async fn test_failed_session_should_be_resumable() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let working_dir = temp_dir.path().to_path_buf();
@@ -206,11 +205,10 @@ async fn test_failed_session_should_be_resumable() -> Result<()> {
         using_worktree: true,
     });
 
-    // Once bug is fixed: Failed sessions WITH checkpoint data should be resumable
+    // Failed sessions WITH checkpoint data should be resumable
     assert_eq!(state.status, SessionStatus::Failed);
     assert!(state.workflow_state.is_some());
 
-    // This should return true once the bug is fixed
     assert!(
         state.is_resumable(),
         "Failed sessions with checkpoint data should be resumable"
@@ -219,9 +217,8 @@ async fn test_failed_session_should_be_resumable() -> Result<()> {
     Ok(())
 }
 
-/// Test the fix: is_resumable should check for workflow_state, not just status
+/// Test that is_resumable checks for workflow_state, not just status
 #[tokio::test]
-#[ignore] // Will pass once bug is fixed
 async fn test_is_resumable_logic_after_fix() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let working_dir = temp_dir.path().to_path_buf();

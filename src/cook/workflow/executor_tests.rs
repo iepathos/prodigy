@@ -2223,7 +2223,6 @@ pub(crate) mod timeout_tests {
     use tempfile::TempDir;
 
     #[tokio::test]
-    #[ignore] // Skip test - timeout implementation not working correctly
     async fn test_workflow_timeout() {
         let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
