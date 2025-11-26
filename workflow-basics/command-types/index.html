@@ -831,17 +831,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#goal-seek-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Goal Seek Commands
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#foreach-commands" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2597,8 +2586,6 @@
       
         
       
-        
-      
     
     
     
@@ -2754,34 +2741,6 @@
     
   
     Parallel Iteration with Foreach
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../advanced/goal-seeking-operations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Goal-Seeking Operations
   
 
     
@@ -4519,17 +4478,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#goal-seek-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Goal Seek Commands
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#foreach-commands" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4650,11 +4598,6 @@
 <td>Cache control, force refresh, format options</td>
 </tr>
 <tr>
-<td><a href="#goal-seek-commands"><code>goal_seek:</code></a></td>
-<td>Iterative refinement</td>
-<td>Score-based validation, automatic retry, convergence detection</td>
-</tr>
-<tr>
 <td><a href="#foreach-commands"><code>foreach:</code></a></td>
 <td>Parallel iteration</td>
 <td>Process lists in parallel, item limits, error handling</td>
@@ -4671,6 +4614,10 @@
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">Deprecated: Goal Seek Commands</p>
+<p>The <code>goal_seek:</code> command type has been removed from Prodigy. Use <code>validate:</code> with <code>on_incomplete</code> handlers for iterative refinement workflows instead.</p>
+</div>
 <div class="admonition tip">
 <p class="admonition-title">Command Exclusivity</p>
 <p>Each workflow step must use exactly one command type. You cannot combine <code>shell:</code> and <code>claude:</code> in the same step. Use <code>on_success:</code> or <code>on_failure:</code> to chain commands together.</p>
@@ -4682,7 +4629,6 @@
     Start --&gt;|Run shell commands| Shell[shell:]
     Start --&gt;|Execute Claude AI| Claude[claude:]
     Start --&gt;|Analyze codebase| Analyze{Need fresh&lt;br/&gt;metrics?}
-    Start --&gt;|Improve until goal met| GoalSeek[goal_seek:]
     Start --&gt;|Process multiple items| Foreach[foreach:]
     Start --&gt;|Save data to file| WriteFile[write_file:]
     Start --&gt;|Check completeness| Validate[validate:]
@@ -4694,7 +4640,6 @@
     style Claude fill:#f3e5f5
     style AnalyzeForce fill:#fff3e0
     style AnalyzeCache fill:#fff3e0
-    style GoalSeek fill:#e8f5e9
     style Foreach fill:#fce4ec
     style WriteFile fill:#f1f8e9
     style Validate fill:#ede7f6</code></pre>
@@ -4901,110 +4846,20 @@
 <li><strong>CI/CD pipelines</strong>: Use <code>force_refresh: true</code> for consistency</li>
 </ul>
 </div>
-<h3 id="goal-seek-commands">Goal Seek Commands<a class="headerlink" href="#goal-seek-commands" title="Permanent link">&para;</a></h3>
-<p>Iteratively refine implementation until validation threshold is met.</p>
-<p><strong>Source</strong>: src/cook/goal_seek/mod.rs:15-41</p>
-<p><strong>Syntax</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Human-readable</span><span class="nv"> </span><span class="s">goal</span><span class="nv"> </span><span class="s">description&quot;</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/command-for-refinement&quot;</span><span class="w">  </span><span class="c1"># Either claude or shell required</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;refinement-command&quot;</span><span class="w">        </span><span class="c1"># Either claude or shell required</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;validation-command&quot;</span><span class="w">     </span><span class="c1"># Required: returns score 0-100</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span><span class="w">                      </span><span class="c1"># Required: success threshold (0-100)</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                    </span><span class="c1"># Required: maximum refinement attempts</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span><span class="w">               </span><span class="c1"># Optional: timeout for entire operation</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">fail_on_incomplete</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">           </span><span class="c1"># Optional: fail workflow if goal not met</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</code></pre></div></p>
-<p><strong>Fields</strong>:
-- <code>goal</code> (required): Human-readable description of what to achieve
-- <code>claude</code> (optional): Claude command for refinement attempts
-- <code>shell</code> (optional): Shell command for refinement attempts (use claude OR shell)
-- <code>validate</code> (required): Command that returns validation score (0-100)
-- <code>threshold</code> (required): Minimum score required for success (0-100)
-- <code>max_attempts</code> (required): Maximum number of refinement attempts
-- <code>timeout_seconds</code> (optional): Timeout for the entire goal-seeking operation
-- <code>fail_on_incomplete</code> (optional): Whether to fail workflow if goal is not met</p>
-<p><strong>Validation Output Format</strong>:
-The validate command must output a line containing <code>score: &lt;number&gt;</code> where number is 0-100:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>score: 85
-</code></pre></div></p>
-<p><strong>Result Types</strong>:
-- <code>Complete</code>: Goal achieved (score &gt;= threshold)
-- <code>Incomplete</code>: Maximum attempts reached without achieving threshold
-- <code>Failed</code>: Error during execution</p>
-<p><strong>Execution Flow</strong>:</p>
-<pre class="mermaid"><code>flowchart TD
-    Start[Start goal_seek] --&gt; Run[Execute refinement&lt;br/&gt;claude or shell]
-    Run --&gt; Validate[Run validate command]
-    Validate --&gt; Parse[Parse score from output]
-    Parse --&gt; Check{Score &gt;=&lt;br/&gt;threshold?}
-
-    Check --&gt;|Yes| Complete[Complete&lt;br/&gt;Goal achieved]
-    Check --&gt;|No| Attempts{Attempts &lt;&lt;br/&gt;max_attempts?}
-
-    Attempts --&gt;|Yes| Run
-    Attempts --&gt;|No| Incomplete[Incomplete&lt;br/&gt;Max attempts reached]
-
-    Complete --&gt; End[End]
-    Incomplete --&gt; FailCheck{fail_on_incomplete?}
-    FailCheck --&gt;|true| Fail[Fail workflow]
-    FailCheck --&gt;|false| End
-
-    style Complete fill:#e8f5e9
-    style Incomplete fill:#fff3e0
-    style Fail fill:#ffebee
-    style Check fill:#e1f5ff</code></pre>
-<p><strong>Figure</strong>: Goal-seeking iteration flow showing refinement loop and termination conditions.</p>
-<p><strong>Example</strong> (from workflows/implement-goal.yml:8):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Implement</span><span class="nv"> </span><span class="s">specification:</span><span class="nv"> </span><span class="s">$ARG&quot;</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-implement-spec</span><span class="nv"> </span><span class="s">$ARG&quot;</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;git</span><span class="nv"> </span><span class="s">diff</span><span class="nv"> </span><span class="s">--stat</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">grep</span><span class="nv"> </span><span class="s">-q</span><span class="nv"> </span><span class="s">&#39;.*\\.rs&#39;</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">&#39;score:</span><span class="nv"> </span><span class="s">100&#39;</span><span class="nv"> </span><span class="s">||</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">&#39;score:</span><span class="nv"> </span><span class="s">0&#39;&quot;</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</code></pre></div></p>
-<p><strong>Example with shell refinement</strong> (from workflows/goal-seeking-examples.yml:7):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Achieve</span><span class="nv"> </span><span class="s">90%</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">coverage&quot;</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">tarpaulin</span><span class="nv"> </span><span class="s">--out</span><span class="nv"> </span><span class="s">Lcov&quot;</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">tarpaulin</span><span class="nv"> </span><span class="s">--print-summary</span><span class="nv"> </span><span class="s">2&gt;/dev/null</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">grep</span><span class="nv"> </span><span class="s">&#39;Coverage&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">sed</span><span class="nv"> </span><span class="s">&#39;s/.*Coverage=\\([0-9]*\\).*/score:</span><span class="nv"> </span><span class="s">\\1/&#39;&quot;</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="nt">fail_on_incomplete</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</code></pre></div></p>
-<div class="admonition example">
-<p class="admonition-title">Common Use Cases</p>
-<ul>
-<li>Iteratively improving code quality until metrics are met</li>
-<li>Achieving test coverage thresholds (e.g., 90% coverage)</li>
-<li>Performance optimization to target benchmarks</li>
-<li>Fixing linting issues until clean</li>
-<li>Implementing specifications completely with validation</li>
-</ul>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Validation Score Format</p>
-<p>The validate command <strong>must</strong> output <code>score: &lt;number&gt;</code> (0-100) for goal-seeking to work. Example: <code>echo "score: 85"</code></p>
-</div>
 <h3 id="foreach-commands">Foreach Commands<a class="headerlink" href="#foreach-commands" title="Permanent link">&para;</a></h3>
 <p>Iterate over a list of items, executing commands for each item in parallel or sequentially.</p>
 <p><strong>Source</strong>: src/config/command.rs:344, src/config/command.rs:188-211</p>
 <p><strong>Syntax</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">foreach</span><span class="p">:</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="nt">items</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;item1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;item2&quot;</span><span class="p p-Indicator">]</span><span class="w">       </span><span class="c1"># Static list</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="c1"># OR</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">items</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;shell-command&quot;</span><span class="w">          </span><span class="c1"># Command that produces items</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="nt">do</span><span class="p">:</span><span class="w">                             </span><span class="c1"># Commands to execute per item</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/process</span><span class="nv"> </span><span class="s">${item}&quot;</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;test</span><span class="nv"> </span><span class="s">${item}&quot;</span>
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="nt">parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                     </span><span class="c1"># Optional: number of parallel workers</span>
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">    </span><span class="nt">continue_on_error</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">         </span><span class="c1"># Optional: continue if item fails</span>
-<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="nt">max_items</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">                  </span><span class="c1"># Optional: limit number of items</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">foreach</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="nt">items</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;item1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;item2&quot;</span><span class="p p-Indicator">]</span><span class="w">       </span><span class="c1"># Static list</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="c1"># OR</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">items</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;shell-command&quot;</span><span class="w">          </span><span class="c1"># Command that produces items</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">do</span><span class="p">:</span><span class="w">                             </span><span class="c1"># Commands to execute per item</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/process</span><span class="nv"> </span><span class="s">${item}&quot;</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;test</span><span class="nv"> </span><span class="s">${item}&quot;</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="nt">parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                     </span><span class="c1"># Optional: number of parallel workers</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">continue_on_error</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">         </span><span class="c1"># Optional: continue if item fails</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nt">max_items</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">                  </span><span class="c1"># Optional: limit number of items</span>
 </code></pre></div></p>
 <p><strong>Input Types</strong>:
 1. <strong>Static List</strong>: Array of strings directly in YAML
@@ -5049,13 +4904,13 @@ Inside <code>do</code> commands, use <code>${item}</code> to reference the curre
     style ProcessAll fill:#fff3e0</code></pre>
 <p><strong>Figure</strong>: Foreach execution showing sequential vs parallel processing and error handling.</p>
 <p><strong>Example</strong> (from workflows/fix-files-mapreduce.yml - conceptual):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">foreach</span><span class="p">:</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="nt">items</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;find</span><span class="nv"> </span><span class="s">src</span><span class="nv"> </span><span class="s">-name</span><span class="nv"> </span><span class="s">&#39;*.rs&#39;</span><span class="nv"> </span><span class="s">-type</span><span class="nv"> </span><span class="s">f&quot;</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="nt">do</span><span class="p">:</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/analyze-file</span><span class="nv"> </span><span class="s">${item}&quot;</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rustfmt</span><span class="nv"> </span><span class="s">${item}&quot;</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="nt">parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="nt">continue_on_error</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">foreach</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="nt">items</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;find</span><span class="nv"> </span><span class="s">src</span><span class="nv"> </span><span class="s">-name</span><span class="nv"> </span><span class="s">&#39;*.rs&#39;</span><span class="nv"> </span><span class="s">-type</span><span class="nv"> </span><span class="s">f&quot;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">do</span><span class="p">:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/analyze-file</span><span class="nv"> </span><span class="s">${item}&quot;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rustfmt</span><span class="nv"> </span><span class="s">${item}&quot;</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">continue_on_error</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div></p>
 <div class="admonition example">
 <p class="admonition-title">Common Use Cases</p>
@@ -5074,12 +4929,12 @@ Inside <code>do</code> commands, use <code>${item}</code> to reference the curre
 <p>Write content to files with format validation and directory creation.</p>
 <p><strong>Source</strong>: src/config/command.rs:348, src/config/command.rs:279-317</p>
 <p><strong>Syntax</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">write_file</span><span class="p">:</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/file.json&quot;</span><span class="w">        </span><span class="c1"># Required: file path (supports variables)</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${map.results}&quot;</span><span class="w">       </span><span class="c1"># Required: content to write (supports variables)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">json</span><span class="w">                    </span><span class="c1"># Optional: text, json, yaml (default: text)</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0644&quot;</span><span class="w">                    </span><span class="c1"># Optional: file permissions (default: 0644)</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="nt">create_dirs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">               </span><span class="c1"># Optional: create parent directories (default: false)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">write_file</span><span class="p">:</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/file.json&quot;</span><span class="w">        </span><span class="c1"># Required: file path (supports variables)</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${map.results}&quot;</span><span class="w">       </span><span class="c1"># Required: content to write (supports variables)</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">json</span><span class="w">                    </span><span class="c1"># Optional: text, json, yaml (default: text)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0644&quot;</span><span class="w">                    </span><span class="c1"># Optional: file permissions (default: 0644)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="nt">create_dirs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">               </span><span class="c1"># Optional: create parent directories (default: false)</span>
 </code></pre></div></p>
 <p><strong>Fields</strong>:
 - <code>path</code> (required): File path to write to (supports variable interpolation)
@@ -5095,11 +4950,11 @@ Inside <code>do</code> commands, use <code>${item}</code> to reference the curre
 - <code>Json</code>: Validate JSON syntax and pretty-print
 - <code>Yaml</code>: Validate YAML syntax and format</p>
 <p><strong>Example</strong> (from workflows/debtmap-reduce.yml:105):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">write_file</span><span class="p">:</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/map-results.json&quot;</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${map.results}&quot;</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">json</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">create_dirs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">write_file</span><span class="p">:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/map-results.json&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${map.results}&quot;</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">json</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">create_dirs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div></p>
 <div class="admonition example">
 <p class="admonition-title">Common Use Cases</p>
@@ -5119,19 +4974,19 @@ Inside <code>do</code> commands, use <code>${item}</code> to reference the curre
 <p>Validate implementation completeness using shell or Claude commands with threshold-based checking.</p>
 <p><strong>Source</strong>: src/cook/workflow/validation.rs:12-50</p>
 <p><strong>Syntax</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">validate</span><span class="p">:</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">    </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;validation-command&quot;</span><span class="w">         </span><span class="c1"># Either shell or claude or commands</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/validate-command&quot;</span><span class="w">         </span><span class="c1"># Either shell or claude or commands</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">commands</span><span class="p">:</span><span class="w">                           </span><span class="c1"># Or array of commands for multi-step validation</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;step1&quot;</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/step2&quot;</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="nt">expected_schema</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># Optional: JSON schema for validation output</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">                      </span><span class="c1"># Optional: completion threshold % (default: 100)</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">                        </span><span class="c1"># Optional: timeout in seconds</span>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">    </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;validation.json&quot;</span><span class="w">      </span><span class="c1"># Optional: where validation results are written</span>
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="nt">on_incomplete</span><span class="p">:</span><span class="w">                      </span><span class="c1"># Optional: commands to run if validation fails</span>
-<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
-<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">      </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;validation-command&quot;</span><span class="w">         </span><span class="c1"># Either shell or claude or commands</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/validate-command&quot;</span><span class="w">         </span><span class="c1"># Either shell or claude or commands</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">commands</span><span class="p">:</span><span class="w">                           </span><span class="c1"># Or array of commands for multi-step validation</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;step1&quot;</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/step2&quot;</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="nt">expected_schema</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">              </span><span class="c1"># Optional: JSON schema for validation output</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">                      </span><span class="c1"># Optional: completion threshold % (default: 100)</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">                        </span><span class="c1"># Optional: timeout in seconds</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;validation.json&quot;</span><span class="w">      </span><span class="c1"># Optional: where validation results are written</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="nt">on_incomplete</span><span class="p">:</span><span class="w">                      </span><span class="c1"># Optional: commands to run if validation fails</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">      </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </code></pre></div></p>
 <p><strong>Fields</strong>:
 - <code>shell</code> (optional): Shell command for validation (deprecated, use <code>commands</code>)
@@ -5146,30 +5001,30 @@ Inside <code>do</code> commands, use <code>${item}</code> to reference the curre
   - <code>max_attempts</code>: Maximum retry attempts</p>
 <p><strong>Validation Output Format</strong>:
 Validation commands should output JSON matching this structure:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">&quot;complete&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">&quot;gaps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">&quot;incomplete_specs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">&quot;complete&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">&quot;gaps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="nt">&quot;incomplete_specs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Example with result_file</strong> (from workflows/implement.yml:8):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">validate</span><span class="p">:</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-validate-spec</span><span class="nv"> </span><span class="s">$ARG</span><span class="nv"> </span><span class="s">--output</span><span class="nv"> </span><span class="s">.prodigy/validation-result.json&quot;</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/validation-result.json&quot;</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">on_incomplete</span><span class="p">:</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-complete-spec</span><span class="nv"> </span><span class="s">$ARG</span><span class="nv"> </span><span class="s">--gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-validate-spec</span><span class="nv"> </span><span class="s">$ARG</span><span class="nv"> </span><span class="s">--output</span><span class="nv"> </span><span class="s">.prodigy/validation-result.json&quot;</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/validation-result.json&quot;</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">on_incomplete</span><span class="p">:</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-complete-spec</span><span class="nv"> </span><span class="s">$ARG</span><span class="nv"> </span><span class="s">--gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
 </code></pre></div></p>
 <p><strong>Example with commands array</strong> (from workflows/debtmap.yml:13):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nt">validate</span><span class="p">:</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">commands</span><span class="p">:</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-validate-debtmap-plan</span><span class="nv"> </span><span class="s">--before</span><span class="nv"> </span><span class="s">.prodigy/debtmap-before.json</span><span class="nv"> </span><span class="s">--plan</span><span class="nv"> </span><span class="s">.prodigy/IMPLEMENTATION_PLAN.md</span><span class="nv"> </span><span class="s">--output</span><span class="nv"> </span><span class="s">.prodigy/plan-validation.json&quot;</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/plan-validation.json&quot;</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span>
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">  </span><span class="nt">on_incomplete</span><span class="p">:</span>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-plan-gaps</span><span class="nv"> </span><span class="s">--gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
-<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">commands</span><span class="p">:</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-validate-debtmap-plan</span><span class="nv"> </span><span class="s">--before</span><span class="nv"> </span><span class="s">.prodigy/debtmap-before.json</span><span class="nv"> </span><span class="s">--plan</span><span class="nv"> </span><span class="s">.prodigy/IMPLEMENTATION_PLAN.md</span><span class="nv"> </span><span class="s">--output</span><span class="nv"> </span><span class="s">.prodigy/plan-validation.json&quot;</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/plan-validation.json&quot;</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">on_incomplete</span><span class="p">:</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-plan-gaps</span><span class="nv"> </span><span class="s">--gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </code></pre></div></p>
 <div class="admonition example">
 <p class="admonition-title">Common Use Cases</p>
@@ -5181,11 +5036,9 @@ Validation commands should output JSON matching this structure:
 <li>Multi-step validation pipelines</li>
 </ul>
 </div>
-<div class="admonition info">
-<p class="admonition-title">Validate vs Goal Seek</p>
-<p><strong><code>validate:</code></strong> is for one-time validation with gap detection and retry logic.
-<strong><code>goal_seek:</code></strong> is for iterative refinement until a score threshold is met.
-Use <code>validate:</code> for spec checking, <code>goal_seek:</code> for quality improvement.</p>
+<div class="admonition tip">
+<p class="admonition-title">Iterative Validation</p>
+<p>Use <code>validate:</code> with <code>on_incomplete</code> handlers for iterative refinement workflows. The <code>threshold</code> setting and <code>max_attempts</code> provide control over retry behavior.</p>
 </div>
 <h3 id="common-fields">Common Fields<a class="headerlink" href="#common-fields" title="Permanent link">&para;</a></h3>
 <p>Several fields are available across all command types:</p>
@@ -5206,24 +5059,24 @@ Use <code>validate:</code> for spec checking, <code>goal_seek:</code> for qualit
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Valid ✓</label><label for="__tabbed_1_2">Invalid ✗</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span><span class="w">        </span><span class="c1"># ✓ Only shell command</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/lint&quot;</span><span class="w">            </span><span class="c1"># ✓ Only Claude command</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">analyze</span><span class="p">:</span><span class="w">                   </span><span class="c1"># ✓ Only analyze command</span>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">    </span><span class="nt">max_cache_age</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span><span class="w">                 </span><span class="c1"># ✓ Only goal_seek command</span>
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Fix</span><span class="nv"> </span><span class="s">tests&quot;</span>
-<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;...&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span><span class="w">        </span><span class="c1"># ✓ Only shell command</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/lint&quot;</span><span class="w">            </span><span class="c1"># ✓ Only Claude command</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">analyze</span><span class="p">:</span><span class="w">                   </span><span class="c1"># ✓ Only analyze command</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">max_cache_age</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">validate</span><span class="p">:</span><span class="w">                  </span><span class="c1"># ✓ Only validate command</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="nt">commands</span><span class="p">:</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span><span class="w">        </span><span class="c1"># ✗ Cannot combine shell and claude</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/lint&quot;</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">analyze</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">             </span><span class="c1"># ✗ Cannot combine analyze and claude</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/review&quot;</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">           </span><span class="c1"># ✗ Cannot combine goal_seek and foreach</span>
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">  </span><span class="nt">foreach</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span><span class="w">        </span><span class="c1"># ✗ Cannot combine shell and claude</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/lint&quot;</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">analyze</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">             </span><span class="c1"># ✗ Cannot combine analyze and claude</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/review&quot;</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">            </span><span class="c1"># ✗ Cannot combine validate and foreach</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">  </span><span class="nt">foreach</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 </div>
 </div>
@@ -5237,15 +5090,15 @@ Use <code>shell:</code> with <code>on_failure:</code> instead for the same funct
 </div>
 <p><strong>Source</strong>: src/config/command.rs:446-463</p>
 <p><strong>Old (deprecated)</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">test</span><span class="p">:</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">    </span><span class="nt">on_failure</span><span class="p">:</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/debug-test&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">test</span><span class="p">:</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="nt">on_failure</span><span class="p">:</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/debug-test&quot;</span>
 </code></pre></div></p>
 <p><strong>New (recommended)</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">on_failure</span><span class="p">:</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/debug-test&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test&quot;</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">on_failure</span><span class="p">:</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/debug-test&quot;</span>
 </code></pre></div></p>
 <p>The migration is straightforward: replace <code>test:</code> → <code>command:</code> with <code>shell:</code> and keep all other fields unchanged.</p>
 

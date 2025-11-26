@@ -2335,10 +2335,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#5-goal-seeking-and-validation-examples" class="md-nav__link">
+  <a href="#5-validation-with-gap-filling-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Goal-Seeking and Validation Examples
+        5. Validation with Gap Filling Examples
       
     </span>
   </a>
@@ -2575,8 +2575,6 @@
       
         
       
-        
-      
     
     
     
@@ -2732,34 +2730,6 @@
     
   
     Parallel Iteration with Foreach
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../advanced/goal-seeking-operations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Goal-Seeking Operations
   
 
     
@@ -4497,10 +4467,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#5-goal-seeking-and-validation-examples" class="md-nav__link">
+  <a href="#5-validation-with-gap-filling-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Goal-Seeking and Validation Examples
+        5. Validation with Gap Filling Examples
       
     </span>
   </a>
@@ -4603,7 +4573,7 @@
 </tr>
 <tr>
 <td><strong>Command Types</strong></td>
-<td><code>claude:</code>, <code>shell:</code>, <code>goal_seek:</code>, <code>foreach:</code>, <code>write_file:</code></td>
+<td><code>claude:</code>, <code>shell:</code>, <code>foreach:</code>, <code>write_file:</code>, <code>validate:</code></td>
 <td>Same + <code>agent_template</code></td>
 </tr>
 <tr>
@@ -4638,7 +4608,7 @@
 <p>This example demonstrates a full standard workflow with all major configuration options.</p>
 <p><strong>Source</strong>: workflows/debtmap.yml (lines 1-56)</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Sequential workflow for technical debt analysis and remediation</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Demonstrates: validation, goal-seeking, error handlers, output capture</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Demonstrates: validation, error handlers, output capture</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Phase 1: Generate coverage data</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;just</span><span class="nv"> </span><span class="s">coverage-lcov&quot;</span>
@@ -5017,93 +4987,63 @@
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">half_open_requests</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">     </span><span class="c1"># Requests allowed in half-open state</span>
 </code></pre></div>
 <hr />
-<h3 id="5-goal-seeking-and-validation-examples">5. Goal-Seeking and Validation Examples<a class="headerlink" href="#5-goal-seeking-and-validation-examples" title="Permanent link">&para;</a></h3>
-<p>This example demonstrates iterative refinement with validation and automatic gap filling.</p>
-<p><strong>Source</strong>: workflows/goal-seeking-examples.yml (lines 1-129)</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Example 1: Test Coverage Improvement</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Achieve</span><span class="nv"> </span><span class="s">90%</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">coverage&quot;</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/prodigy-coverage</span><span class="nv"> </span><span class="s">--improve&quot;</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">tarpaulin</span><span class="nv"> </span><span class="s">--print-summary</span><span class="nv"> </span><span class="s">2&gt;/dev/null</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">grep</span><span class="nv"> </span><span class="s">&#39;Coverage&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">sed</span><span class="nv"> </span><span class="s">&#39;s/.*Coverage=\\([0-9]*\\).*/score:</span><span class="nv"> </span><span class="s">\\1/&#39;&quot;</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">fail_on_incomplete</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1"># Example 2: Performance Optimization</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Optimize</span><span class="nv"> </span><span class="s">algorithm</span><span class="nv"> </span><span class="s">performance</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">under</span><span class="nv"> </span><span class="s">100ms&quot;</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/optimize-performance</span><span class="nv"> </span><span class="s">--target</span><span class="nv"> </span><span class="s">100ms&quot;</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">bench</span><span class="nv"> </span><span class="s">--bench</span><span class="nv"> </span><span class="s">main_bench</span><span class="nv"> </span><span class="s">2&gt;/dev/null</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">grep</span><span class="nv"> </span><span class="s">&#39;time:&#39;</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">awk</span><span class="nv"> </span><span class="s">&#39;{if</span><span class="nv"> </span><span class="s">($2</span><span class="nv"> </span><span class="s">&lt;</span><span class="nv"> </span><span class="s">100)</span><span class="nv"> </span><span class="s">print</span><span class="nv"> </span><span class="s">\&quot;score:</span><span class="nv"> </span><span class="s">95\&quot;;</span><span class="nv"> </span><span class="s">else</span><span class="nv"> </span><span class="s">print</span><span class="nv"> </span><span class="s">\&quot;score:\&quot;,</span><span class="nv"> </span><span class="s">int(10000/$2)}&#39;&quot;</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">    </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>
-<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="c1"># Example 3: Code Quality with Custom Validation</span>
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Fix</span><span class="nv"> </span><span class="s">all</span><span class="nv"> </span><span class="s">clippy</span><span class="nv"> </span><span class="s">warnings</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">improve</span><span class="nv"> </span><span class="s">code</span><span class="nv"> </span><span class="s">quality&quot;</span>
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-clippy-warnings&quot;</span>
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">      </span><span class="no">warnings=$(cargo clippy 2&gt;&amp;1 | grep -c warning || echo 0)</span>
-<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">      </span><span class="no">if [ &quot;$warnings&quot; -eq 0 ]; then</span>
-<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="w">        </span><span class="no">echo &quot;score: 100&quot;</span>
-<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">      </span><span class="no">else</span>
-<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">        </span><span class="no">score=$((100 - warnings * 5))</span>
-<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="w">        </span><span class="no">echo &quot;score: $score&quot;</span>
-<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a><span class="w">      </span><span class="no">fi</span>
+<h3 id="5-validation-with-gap-filling-examples">5. Validation with Gap Filling Examples<a class="headerlink" href="#5-validation-with-gap-filling-examples" title="Permanent link">&para;</a></h3>
+<p>This example demonstrates validation with automatic gap filling using the <code>validate:</code> command with <code>on_incomplete</code> handlers.</p>
+<p><strong>Source</strong>: workflows/implement.yml and workflows/debtmap.yml</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Example 1: Specification Implementation with Validation</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/implement-spec</span><span class="nv"> </span><span class="s">$ARG&quot;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/validate-spec</span><span class="nv"> </span><span class="s">$ARG</span><span class="nv"> </span><span class="s">--output</span><span class="nv"> </span><span class="s">.prodigy/validation-result.json&quot;</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.prodigy/validation-result.json&quot;</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">95</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">on_incomplete</span><span class="p">:</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/complete-spec</span><span class="nv"> </span><span class="s">$ARG</span><span class="nv"> </span><span class="s">--gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">      </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">      </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">      </span><span class="nt">fail_workflow</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="c1"># Example 2: Multi-step Validation Pipeline</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/implement-feature</span><span class="nv"> </span><span class="s">auth&quot;</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">  </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="nt">commands</span><span class="p">:</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">auth&quot;</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">clippy</span><span class="nv"> </span><span class="s">--</span><span class="nv"> </span><span class="s">-D</span><span class="nv"> </span><span class="s">warnings&quot;</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/validate-implementation</span><span class="nv"> </span><span class="s">--output</span><span class="nv"> </span><span class="s">validation.json&quot;</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">    </span><span class="nt">result_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;validation.json&quot;</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">    </span><span class="nt">on_incomplete</span><span class="p">:</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/complete-gaps</span><span class="nv"> </span><span class="s">${validation.gaps}&quot;</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">      </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">      </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="c1"># Example 3: Code Quality Validation</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-clippy-warnings&quot;</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="w">  </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a><span class="w">    </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">clippy</span><span class="nv"> </span><span class="s">2&gt;&amp;1</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">grep</span><span class="nv"> </span><span class="s">-c</span><span class="nv"> </span><span class="s">warning</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">xargs</span><span class="nv"> </span><span class="s">-I</span><span class="nv"> </span><span class="s">{}</span><span class="nv"> </span><span class="s">bash</span><span class="nv"> </span><span class="s">-c</span><span class="nv"> </span><span class="s">&#39;if</span><span class="nv"> </span><span class="s">[</span><span class="nv"> </span><span class="s">{}</span><span class="nv"> </span><span class="s">-eq</span><span class="nv"> </span><span class="s">0</span><span class="nv"> </span><span class="s">];</span><span class="nv"> </span><span class="s">then</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">\&quot;score:</span><span class="nv"> </span><span class="s">100\&quot;;</span><span class="nv"> </span><span class="s">else</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">\&quot;score:</span><span class="nv"> </span><span class="s">$((100</span><span class="nv"> </span><span class="s">-</span><span class="nv"> </span><span class="s">{}</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">5))\&quot;;</span><span class="nv"> </span><span class="s">fi&#39;&quot;</span>
 <a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">95</span>
-<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="w">    </span><span class="nt">fail_on_incomplete</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">  </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>
-<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a><span class="c1"># Example 4: Multi-stage Goal Seeking</span>
-<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Complete</span><span class="nv"> </span><span class="s">feature</span><span class="nv"> </span><span class="s">implementation</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">quality</span><span class="nv"> </span><span class="s">checks&quot;</span>
-<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a><span class="w">  </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Implement</span><span class="nv"> </span><span class="s">user</span><span class="nv"> </span><span class="s">profile</span><span class="nv"> </span><span class="s">feature&quot;</span>
-<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/implement-feature</span><span class="nv"> </span><span class="s">user-profile&quot;</span>
-<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;test</span><span class="nv"> </span><span class="s">-f</span><span class="nv"> </span><span class="s">src/features/user_profile.rs</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">&#39;score:</span><span class="nv"> </span><span class="s">100&#39;</span><span class="nv"> </span><span class="s">||</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">&#39;score:</span><span class="nv"> </span><span class="s">0&#39;&quot;</span>
-<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
-<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a>
-<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Add</span><span class="nv"> </span><span class="s">comprehensive</span><span class="nv"> </span><span class="s">tests&quot;</span>
-<a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a><span class="w">  </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-7-50" name="__codelineno-7-50" href="#__codelineno-7-50"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Add</span><span class="nv"> </span><span class="s">tests</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">user</span><span class="nv"> </span><span class="s">profile</span><span class="nv"> </span><span class="s">feature&quot;</span>
-<a id="__codelineno-7-51" name="__codelineno-7-51" href="#__codelineno-7-51"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/add-tests</span><span class="nv"> </span><span class="s">src/features/user_profile.rs&quot;</span>
-<a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-7-53" name="__codelineno-7-53" href="#__codelineno-7-53"></a><span class="w">      </span><span class="no">test_count=$(grep -c &quot;#\\[test\\]&quot; src/features/user_profile.rs || echo 0)</span>
-<a id="__codelineno-7-54" name="__codelineno-7-54" href="#__codelineno-7-54"></a><span class="w">      </span><span class="no">if [ &quot;$test_count&quot; -ge 5 ]; then</span>
-<a id="__codelineno-7-55" name="__codelineno-7-55" href="#__codelineno-7-55"></a><span class="w">        </span><span class="no">echo &quot;score: 100&quot;</span>
-<a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a><span class="w">      </span><span class="no">else</span>
-<a id="__codelineno-7-57" name="__codelineno-7-57" href="#__codelineno-7-57"></a><span class="w">        </span><span class="no">score=$((test_count * 20))</span>
-<a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a><span class="w">        </span><span class="no">echo &quot;score: $score&quot;</span>
-<a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a><span class="w">      </span><span class="no">fi</span>
-<a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
-<a id="__codelineno-7-61" name="__codelineno-7-61" href="#__codelineno-7-61"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-7-62" name="__codelineno-7-62" href="#__codelineno-7-62"></a>
-<a id="__codelineno-7-63" name="__codelineno-7-63" href="#__codelineno-7-63"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Ensure</span><span class="nv"> </span><span class="s">tests</span><span class="nv"> </span><span class="s">pass&quot;</span>
-<a id="__codelineno-7-64" name="__codelineno-7-64" href="#__codelineno-7-64"></a><span class="w">  </span><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-7-65" name="__codelineno-7-65" href="#__codelineno-7-65"></a><span class="w">    </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Make</span><span class="nv"> </span><span class="s">all</span><span class="nv"> </span><span class="s">user</span><span class="nv"> </span><span class="s">profile</span><span class="nv"> </span><span class="s">tests</span><span class="nv"> </span><span class="s">pass&quot;</span>
-<a id="__codelineno-7-66" name="__codelineno-7-66" href="#__codelineno-7-66"></a><span class="w">    </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-tests</span><span class="nv"> </span><span class="s">user_profile&quot;</span>
-<a id="__codelineno-7-67" name="__codelineno-7-67" href="#__codelineno-7-67"></a><span class="w">    </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">user_profile</span><span class="nv"> </span><span class="s">2&gt;&amp;1</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">grep</span><span class="nv"> </span><span class="s">-q</span><span class="nv"> </span><span class="s">&#39;test</span><span class="nv"> </span><span class="s">result:</span><span class="nv"> </span><span class="s">ok&#39;</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">&#39;score:</span><span class="nv"> </span><span class="s">100&#39;</span><span class="nv"> </span><span class="s">||</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">&#39;score:</span><span class="nv"> </span><span class="s">0&#39;&quot;</span>
-<a id="__codelineno-7-68" name="__codelineno-7-68" href="#__codelineno-7-68"></a><span class="w">    </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
-<a id="__codelineno-7-69" name="__codelineno-7-69" href="#__codelineno-7-69"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-<a id="__codelineno-7-70" name="__codelineno-7-70" href="#__codelineno-7-70"></a><span class="w">    </span><span class="nt">fail_on_incomplete</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">    </span><span class="nt">on_incomplete</span><span class="p">:</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="w">      </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-remaining-warnings&quot;</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">      </span><span class="nt">commit_required</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">      </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </code></pre></div>
-<p><strong>Goal-Seeking Configuration</strong> (from src/cook/goal_seek/mod.rs):
-- <code>goal: String</code> - Human-readable description of the goal
-- <code>claude: String</code> - Claude command to execute for improvement
-- <code>validate: String</code> - Shell command that outputs "score: N" (0-100)
-- <code>threshold: u32</code> - Minimum score required for success (0-100)
-- <code>max_attempts: u32</code> - Maximum refinement iterations
-- <code>timeout_seconds: u64</code> - Maximum time for all attempts
-- <code>fail_on_incomplete: bool</code> - Fail workflow if threshold not reached</p>
+<p><strong>Validation Configuration</strong> (from src/cook/workflow/validation.rs):
+- <code>shell</code> or <code>claude</code>: Command that returns validation score
+- <code>commands</code>: Array of commands for multi-step validation
+- <code>result_file</code>: JSON file with validation results
+- <code>threshold</code>: Minimum score required (0-100)
+- <code>on_incomplete</code>: Commands to run if threshold not met
+  - <code>max_attempts</code>: Maximum retry attempts
+  - <code>fail_workflow</code>: Whether to fail if still incomplete after retries</p>
 <p><strong>Validation Output Format</strong>:
-The validation command must output a single line with the score:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>score: 85
+The validation command should output JSON with a score:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">85</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">&quot;gaps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Missing test for edge case&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Documentation incomplete&quot;</span><span class="p">]</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">}</span>
 </code></pre></div></p>
-<p>The score should be between 0 and 100, where 100 indicates complete success.</p>
 <hr />
 <h3 id="6-foreach-parallel-iteration-example">6. Foreach Parallel Iteration Example<a class="headerlink" href="#6-foreach-parallel-iteration-example" title="Permanent link">&para;</a></h3>
 <p>This example demonstrates parallel iteration over work items with different input sources and concurrency controls.</p>
@@ -5243,7 +5183,6 @@ The validation command must output a single line with the score:
 <li><strong>Error Handling</strong>: See <a href="../../workflow-basics/error-handling/">../workflow-basics/error-handling.md</a></li>
 <li><strong>MapReduce Basics</strong>: See <a href="../../mapreduce/">../mapreduce/index.md</a></li>
 <li><strong>Validation</strong>: See <a href="../../advanced/implementation-validation/">../advanced/implementation-validation.md</a></li>
-<li><strong>Goal Seeking</strong>: See <a href="../../advanced/goal-seeking-operations/">../advanced/goal-seeking-operations.md</a></li>
 </ul>
 <hr />
 

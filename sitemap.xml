@@ -2,430 +2,426 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://entropicdrift.com/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/commands/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/error-context-migration-guide/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/examples/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/git-context-advanced/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/installation/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce-worktree-architecture/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/stillwater-pattern-mapping/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/stillwater-validation-migration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/composition/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/git-integration/</loc>
-         <lastmod>2025-11-25</lastmod>
-    </url>
-    <url>
-         <loc>https://entropicdrift.com/advanced/goal-seeking-operations/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/implementation-validation/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/observability/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/parallel-iteration-with-foreach/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/sessions/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/step-identification/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/storage/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/advanced/timeout-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/advanced-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/automatic-gap-detection/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/documentation-versioning/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/github-actions-integration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/mkdocs-workflow/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/quick-start/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/real-world-example-prodigys-own-documentation/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/tutorial/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/automated-documentation/understanding-the-workflow/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/complete-examples/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/composition-metadata/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/default-values/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/parameter-definitions/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/sub-workflows/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/template-system/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/composition/workflow-extension-inheritance/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/complete-configuration-examples/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/configuration-precedence-rules/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/default-values-reference/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/environment-variables/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/global-config/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/global-configuration-structure/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/project-configuration-structure/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/storage-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/configuration/workflow-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/common-patterns/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/environment-files/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/environment-precedence/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/environment-profiles/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/mapreduce-environment-variables/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/per-command-environment-overrides/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/environment/secrets-management/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/backoff-strategies/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/checkpoint-and-resume/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/dead-letter-queue-dlq/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/environment-variables-in-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/error-collection-strategies/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/event-tracking/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/global-storage-architecture/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/overview/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/setup-phase-advanced/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/work-distribution/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/mapreduce/workflow-format-comparison/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/reference/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/backoff-strategies/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/backoff-strategy-comparison/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/basic-retry-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/complete-examples/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/conditional-retry-with-error-matchers/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/failure-actions/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/implementation-references/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/jitter-for-distributed-systems/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/retry-budget/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/retry-metrics-and-observability/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/retry-configuration/workflow-level-vs-command-level-retry/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/troubleshooting/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/troubleshooting/common-error-messages/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/troubleshooting/faq/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/variables/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/variables/available-variables/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/variables/custom-variable-capture/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/variables/troubleshooting-variable-interpolation/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/available-fields/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/command-level-options/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/command-types/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/complete-example/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/conditional-execution/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/environment-configuration/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/environment/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/error-handling/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/full-workflow-structure/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/merge-workflows/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/next-steps/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/variables/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
     <url>
          <loc>https://entropicdrift.com/workflow-basics/workflow-structure/</loc>
-         <lastmod>2025-11-25</lastmod>
+         <lastmod>2025-11-26</lastmod>
     </url>
 </urlset>

@@ -2385,8 +2385,6 @@
       
         
       
-        
-      
     
     
     
@@ -2542,34 +2540,6 @@
     
   
     Parallel Iteration with Foreach
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../advanced/goal-seeking-operations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Goal-Seeking Operations
   
 
     
@@ -4370,17 +4340,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#goal-seek-not-converging" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Goal seek not converging
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#validate-command-failures" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4708,34 +4667,6 @@
 - Review template parameter definitions for requirements
 - Check template paths are correct (relative to registry or filesystem)</p>
 <p>See <a href="common-error-messages/#template-not-found">Common Error Messages</a> for specific composition error details.</p>
-<h3 id="goal-seek-not-converging">Goal seek not converging<a class="headerlink" href="#goal-seek-not-converging" title="Permanent link">&para;</a></h3>
-<p><strong>Symptoms:</strong> "Max attempts reached", "Timeout", "Converged" with low score, validate command fails</p>
-<p><strong>Causes:</strong>
-- Validate command not returning valid score (0-100)
-- Threshold too high for achievable goal
-- Max attempts too low
-- Claude/shell command not making effective progress
-- Score calculation logic incorrect</p>
-<p><strong>Solutions:</strong>
-- Test validate command independently: <code>bash -c "your-validate-command"</code>
-- Ensure validate returns numeric score 0-100 on stdout
-- Lower threshold if goal is unrealistic: <code>threshold: 80</code> instead of <code>threshold: 95</code>
-- Increase max_attempts for complex refinements: <code>max_attempts: 10</code>
-- Review attempt history to see if scores are improving
-- Check timeout_seconds isn't too restrictive
-- Verify goal description is clear and actionable for Claude
-- Add verbose logging to validate command for debugging</p>
-<p>Example goal_seek configuration:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Source: workflows/implement-goal.yml</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">goal_seek</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">goal</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Improve</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">coverage</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">80%&quot;</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/improve-coverage&quot;</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">validate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">tarpaulin</span><span class="nv"> </span><span class="s">--output-format</span><span class="nv"> </span><span class="s">json</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">jq</span><span class="nv"> </span><span class="s">&#39;.coverage&#39;&quot;</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
-</code></pre></div></p>
-<p><strong>Source</strong>: src/cook/goal_seek/mod.rs:13-76, src/cook/goal_seek/engine.rs</p>
 <h3 id="validate-command-failures">Validate command failures<a class="headerlink" href="#validate-command-failures" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong> "Schema validation failed", "Threshold not met", "Gap-filling failed", validate command error</p>
 <p><strong>Causes:</strong>
@@ -4753,16 +4684,16 @@
 - Review gap-filling commands in on_incomplete section
 - Use verbose mode to see validation output: <code>prodigy run workflow.yml -v</code></p>
 <p>Example validate configuration:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Source: src/cook/workflow/validation.rs:10-49</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">validate</span><span class="p">:</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">--no-fail-fast</span><span class="nv"> </span><span class="s">--</span><span class="nv"> </span><span class="s">--format</span><span class="nv"> </span><span class="s">json&quot;</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">expected_schema</span><span class="p">:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;object&quot;</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">required</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;passed&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;total&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90.0</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">on_incomplete</span><span class="p">:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">commands</span><span class="p">:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-failing-tests&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Source: src/cook/workflow/validation.rs:10-49</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cargo</span><span class="nv"> </span><span class="s">test</span><span class="nv"> </span><span class="s">--no-fail-fast</span><span class="nv"> </span><span class="s">--</span><span class="nv"> </span><span class="s">--format</span><span class="nv"> </span><span class="s">json&quot;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">expected_schema</span><span class="p">:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;object&quot;</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">required</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;passed&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;total&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90.0</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">on_incomplete</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">commands</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claude</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/fix-failing-tests&quot;</span>
 </code></pre></div></p>
 <p><strong>Source</strong>: src/cook/workflow/validation.rs:10-49</p>
 <h3 id="write-file-failures">Write file failures<a class="headerlink" href="#write-file-failures" title="Permanent link">&para;</a></h3>
@@ -4782,17 +4713,17 @@
 - Use absolute paths or verify working directory context
 - Check disk space: <code>df -h</code></p>
 <p>Example write_file configuration:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Source: src/config/command.rs:278-298</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">write_file</span><span class="p">:</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/results-${item.id}.json&quot;</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="no">{</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">        </span><span class="no">&quot;item_id&quot;: &quot;${item.id}&quot;,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">        </span><span class="no">&quot;status&quot;: &quot;completed&quot;</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="no">}</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">json</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">create_dirs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0644&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Source: src/config/command.rs:278-298</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">write_file</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/results-${item.id}.json&quot;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="no">{</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="no">&quot;item_id&quot;: &quot;${item.id}&quot;,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">        </span><span class="no">&quot;status&quot;: &quot;completed&quot;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="no">}</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">json</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">create_dirs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0644&quot;</span>
 </code></pre></div></p>
 <p><strong>Source</strong>: src/config/command.rs:278-313, tests/write_file_integration_test.rs</p>
 <h3 id="claude-command-fails-with-command-not-found">Claude command fails with "command not found"<a class="headerlink" href="#claude-command-fails-with-command-not-found" title="Permanent link">&para;</a></h3>
@@ -4808,37 +4739,37 @@
 - Use full path if necessary: <code>/path/to/claude</code></p>
 <h2 id="debug-tips">Debug Tips<a class="headerlink" href="#debug-tips" title="Permanent link">&para;</a></h2>
 <h3 id="use-dry-run-mode-to-preview-execution">Use dry-run mode to preview execution<a class="headerlink" href="#use-dry-run-mode-to-preview-execution" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>prodigy<span class="w"> </span>run<span class="w"> </span>workflow.yml<span class="w"> </span>--dry-run
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>prodigy<span class="w"> </span>run<span class="w"> </span>workflow.yml<span class="w"> </span>--dry-run
 </code></pre></div>
 <p><strong>Shows:</strong> Preview of commands that would be executed without actually running them</p>
 <p><strong>Use when:</strong> Verifying workflow steps before execution, testing variable interpolation, checking command syntax</p>
 <p><strong>Source</strong>: src/cli/args.rs:64</p>
 <h3 id="use-verbose-mode-for-execution-details">Use verbose mode for execution details<a class="headerlink" href="#use-verbose-mode-for-execution-details" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>prodigy<span class="w"> </span>run<span class="w"> </span>workflow.yml<span class="w"> </span>-v
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>prodigy<span class="w"> </span>run<span class="w"> </span>workflow.yml<span class="w"> </span>-v
 </code></pre></div>
 <p><strong>Shows:</strong> Claude streaming output, tool invocations, and execution timeline</p>
 <p><strong>Use when:</strong> Understanding what Claude is doing, debugging tool calls</p>
 <h3 id="check-claude-json-logs-for-full-interaction">Check Claude JSON logs for full interaction<a class="headerlink" href="#check-claude-json-logs-for-full-interaction" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>prodigy<span class="w"> </span>logs<span class="w"> </span>--latest<span class="w"> </span>--summary
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>prodigy<span class="w"> </span>logs<span class="w"> </span>--latest<span class="w"> </span>--summary
 </code></pre></div>
 <p><strong>Shows:</strong> Full Claude interaction including messages, tools, token usage, errors</p>
 <p><strong>Use when:</strong> Claude command failed, understanding why Claude made certain decisions</p>
 <p>For more on Claude JSON logs, see the "Viewing Claude Execution Logs (Spec 126)" section in the project CLAUDE.md file.</p>
 <h3 id="inspect-event-logs-for-execution-timeline">Inspect event logs for execution timeline<a class="headerlink" href="#inspect-event-logs-for-execution-timeline" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># List events for a job</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>prodigy<span class="w"> </span>events<span class="w"> </span>ls<span class="w"> </span>--job-id<span class="w"> </span>&lt;job_id&gt;
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Follow events in real-time</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>prodigy<span class="w"> </span>events<span class="w"> </span>follow<span class="w"> </span>--job-id<span class="w"> </span>&lt;job_id&gt;
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Show event statistics</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>prodigy<span class="w"> </span>events<span class="w"> </span>stats
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># List events for a job</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>prodigy<span class="w"> </span>events<span class="w"> </span>ls<span class="w"> </span>--job-id<span class="w"> </span>&lt;job_id&gt;
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Follow events in real-time</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>prodigy<span class="w"> </span>events<span class="w"> </span>follow<span class="w"> </span>--job-id<span class="w"> </span>&lt;job_id&gt;
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Show event statistics</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>prodigy<span class="w"> </span>events<span class="w"> </span>stats
 </code></pre></div>
 <p><strong>Shows:</strong> Detailed execution timeline, agent starts/completions, durations, real-time event stream</p>
 <p><strong>Use when:</strong> Understanding workflow execution flow, finding bottlenecks, monitoring active jobs</p>
 <p><strong>Source</strong>: src/cli/commands/events.rs:22-98</p>
 <h3 id="review-dlq-for-failed-item-details">Review DLQ for failed item details<a class="headerlink" href="#review-dlq-for-failed-item-details" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>prodigy<span class="w"> </span>dlq<span class="w"> </span>show<span class="w"> </span>&lt;job_id&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>prodigy<span class="w"> </span>dlq<span class="w"> </span>show<span class="w"> </span>&lt;job_id&gt;
 </code></pre></div>
 <p><strong>Shows:</strong> Failed items with full error details, retry history, json_log_location</p>
 <p><strong>Use when:</strong> MapReduce items failing, understanding failure patterns</p>
@@ -4847,12 +4778,12 @@
 <p><strong>Shows:</strong> Saved execution state, completed items, variables, phase progress</p>
 <p><strong>Use when:</strong> Resume not working, understanding saved state</p>
 <h3 id="examine-worktree-git-log-for-commits">Examine worktree git log for commits<a class="headerlink" href="#examine-worktree-git-log-for-commits" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">cd</span><span class="w"> </span>~/.prodigy/worktrees/<span class="o">{</span>repo<span class="o">}</span>/<span class="o">{</span>session<span class="o">}</span>/<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>log
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">cd</span><span class="w"> </span>~/.prodigy/worktrees/<span class="o">{</span>repo<span class="o">}</span>/<span class="o">{</span>session<span class="o">}</span>/<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>log
 </code></pre></div>
 <p><strong>Shows:</strong> All commits created during workflow execution with full details</p>
 <p><strong>Use when:</strong> Understanding what changed, verifying commits created</p>
 <h3 id="tail-claude-json-log-in-real-time">Tail Claude JSON log in real-time<a class="headerlink" href="#tail-claude-json-log-in-real-time" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>prodigy<span class="w"> </span>logs<span class="w"> </span>--latest<span class="w"> </span>--tail
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>prodigy<span class="w"> </span>logs<span class="w"> </span>--latest<span class="w"> </span>--tail
 </code></pre></div>
 <p><strong>Shows:</strong> Live streaming of Claude JSON log as it's being written</p>
 <p><strong>Use when:</strong> Watching long-running Claude command, debugging in real-time</p>
