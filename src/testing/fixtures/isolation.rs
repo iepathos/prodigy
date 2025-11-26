@@ -54,6 +54,7 @@ pub struct TestEnv {
     saved_vars: HashMap<String, Option<String>>,
 }
 
+#[allow(deprecated)]
 impl TestEnv {
     /// Create a new environment isolation fixture
     pub fn new() -> Self {
@@ -82,12 +83,14 @@ impl TestEnv {
     }
 }
 
+#[allow(deprecated)]
 impl Default for TestEnv {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[allow(deprecated)]
 impl Drop for TestEnv {
     fn drop(&mut self) {
         // Restore all environment variables
@@ -316,11 +319,13 @@ impl TestGitRepo {
 /// # }
 /// ```
 pub struct IsolatedTestContext {
+    #[allow(deprecated)]
     pub env: TestEnv,
     pub working_dir: TestWorkingDir,
     pub git_repo: Option<TestGitRepo>,
 }
 
+#[allow(deprecated)]
 impl IsolatedTestContext {
     /// Create a new isolated test context
     pub fn new() -> Result<Self> {
