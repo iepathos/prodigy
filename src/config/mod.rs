@@ -3,6 +3,7 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod builder;
 pub mod command;
 pub mod command_discovery;
 pub mod command_parser;
@@ -11,8 +12,14 @@ pub mod dynamic_registry;
 pub mod loader;
 pub mod mapreduce;
 pub mod metadata_parser;
+pub mod prodigy_config;
 pub mod workflow;
 
+pub use builder::{
+    load_prodigy_config, load_prodigy_config_traced, load_prodigy_config_traced_with,
+    load_prodigy_config_with, load_prodigy_config_with_options,
+    load_prodigy_config_with_options_and_env, LoadOptions,
+};
 pub use command::{
     Command, CommandArg, CommandMetadata, OutputDeclaration, SimpleCommand, WorkflowCommand,
 };
@@ -21,6 +28,10 @@ pub use command_validator::{apply_command_defaults, validate_command, CommandReg
 pub use dynamic_registry::DynamicCommandRegistry;
 pub use loader::ConfigLoader;
 pub use mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
+pub use prodigy_config::{
+    global_config_path, project_config_path, BackendType, ProdigyConfig, ProjectSettings,
+    StorageSettings,
+};
 pub use workflow::WorkflowConfig;
 
 /// Get the global Prodigy directory for storing configuration and data
