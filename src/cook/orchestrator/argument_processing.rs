@@ -228,8 +228,17 @@ impl ArgumentProcessor {
         };
         executor = executor.with_environment_config(global_env_config)?;
 
+        // Set PRODIGY_ARG as actual OS environment variable so init_workflow_context can read it
+        // This ensures $ARG variable substitution works in workflow commands
+        std::env::set_var("PRODIGY_ARG", input);
+
         // Execute the workflow through the executor to ensure validation is handled
-        executor.execute(&extended_workflow, env).await?;
+        let result = executor.execute(&extended_workflow, env).await;
+
+        // Clean up the environment variable after execution
+        std::env::remove_var("PRODIGY_ARG");
+
+        result?;
 
         Ok(())
     }
