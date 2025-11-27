@@ -36,12 +36,14 @@ pub fn validate_transition(from: &SessionStatus, to: &SessionStatus) -> Result<(
         (Paused, Failed) => true,
         (Paused, Completed) => true,
 
+        // From Failed - allow resume (retry failed workflows)
+        (Failed, Running) => true,
+
         // Same status is always valid (idempotent)
         (a, b) if a == b => true,
 
-        // Terminal states cannot transition
+        // Terminal states cannot transition (except Failed -> Running above)
         (Completed, _) => false,
-        (Failed, _) => false,
         (Cancelled, _) => false,
 
         // All other transitions are invalid
@@ -86,6 +88,12 @@ pub fn calculate_duration(
 /// Apply a status update to a session (pure function)
 pub fn apply_status_update(session: &mut UnifiedSession, status: SessionStatus) -> Result<()> {
     validate_transition(&session.status, &status)?;
+
+    // Clear completed_at when resuming from Failed
+    if session.status == SessionStatus::Failed && status == SessionStatus::Running {
+        session.completed_at = None;
+    }
+
     session.status = status;
     session.updated_at = Utc::now();
 
@@ -117,9 +125,17 @@ mod tests {
     #[test]
     fn test_validate_transition_invalid() {
         assert!(validate_transition(&Completed, &Running).is_err());
-        assert!(validate_transition(&Failed, &Running).is_err());
         assert!(validate_transition(&Cancelled, &Running).is_err());
         assert!(validate_transition(&Completed, &Paused).is_err());
+    }
+
+    #[test]
+    fn test_validate_transition_failed_to_running() {
+        // Failed -> Running is allowed for resume functionality
+        assert!(validate_transition(&Failed, &Running).is_ok());
+        // But Failed cannot transition to other states
+        assert!(validate_transition(&Failed, &Paused).is_err());
+        assert!(validate_transition(&Failed, &Completed).is_err());
     }
 
     #[test]
@@ -156,7 +172,17 @@ mod tests {
     #[test]
     fn test_transition_status_invalid() {
         assert!(transition_status(&Completed, Transition::Start).is_err());
-        assert!(transition_status(&Failed, Transition::Resume).is_err());
+        assert!(transition_status(&Cancelled, Transition::Resume).is_err());
+    }
+
+    #[test]
+    fn test_transition_status_resume_from_failed() {
+        // Resume from Failed should work (for retry functionality)
+        assert!(transition_status(&Failed, Transition::Resume).is_ok());
+        assert_eq!(
+            transition_status(&Failed, Transition::Resume).unwrap(),
+            Running
+        );
     }
 
     #[test]
