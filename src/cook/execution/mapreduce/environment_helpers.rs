@@ -64,7 +64,7 @@ use crate::worktree::WorktreeManager;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use stillwater::Effect;
+use stillwater::{asks, local, Effect};
 
 // =============================================================================
 // MapEnv Reader Helpers
@@ -81,10 +81,9 @@ use stillwater::Effect;
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_worktree_manager() -> Effect<Arc<WorktreeManager>, MapReduceError, MapEnv> {
-    Effect::<Arc<WorktreeManager>, MapReduceError, MapEnv>::asks(|env: &MapEnv| {
-        env.worktree_manager.clone()
-    })
+pub fn get_worktree_manager(
+) -> impl Effect<Output = Arc<WorktreeManager>, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.worktree_manager.clone())
 }
 
 /// Get the command executor from the map environment.
@@ -98,10 +97,9 @@ pub fn get_worktree_manager() -> Effect<Arc<WorktreeManager>, MapReduceError, Ma
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_command_executor() -> Effect<Arc<AgentCommandExecutor>, MapReduceError, MapEnv> {
-    Effect::<Arc<AgentCommandExecutor>, MapReduceError, MapEnv>::asks(|env: &MapEnv| {
-        env.command_executor.clone()
-    })
+pub fn get_command_executor(
+) -> impl Effect<Output = Arc<AgentCommandExecutor>, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.command_executor.clone())
 }
 
 /// Get the checkpoint storage from the map environment.
@@ -115,10 +113,9 @@ pub fn get_command_executor() -> Effect<Arc<AgentCommandExecutor>, MapReduceErro
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_storage() -> Effect<Arc<dyn CheckpointStorage>, MapReduceError, MapEnv> {
-    Effect::<Arc<dyn CheckpointStorage>, MapReduceError, MapEnv>::asks(|env: &MapEnv| {
-        env.storage.clone()
-    })
+pub fn get_storage(
+) -> impl Effect<Output = Arc<dyn CheckpointStorage>, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.storage.clone())
 }
 
 /// Get the agent template from the map environment.
@@ -132,10 +129,9 @@ pub fn get_storage() -> Effect<Arc<dyn CheckpointStorage>, MapReduceError, MapEn
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_agent_template() -> Effect<Vec<WorkflowStep>, MapReduceError, MapEnv> {
-    Effect::<Vec<WorkflowStep>, MapReduceError, MapEnv>::asks(|env: &MapEnv| {
-        env.agent_template.clone()
-    })
+pub fn get_agent_template(
+) -> impl Effect<Output = Vec<WorkflowStep>, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.agent_template.clone())
 }
 
 /// Get the job ID from the map environment.
@@ -149,8 +145,8 @@ pub fn get_agent_template() -> Effect<Vec<WorkflowStep>, MapReduceError, MapEnv>
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_job_id() -> Effect<String, MapReduceError, MapEnv> {
-    Effect::<String, MapReduceError, MapEnv>::asks(|env: &MapEnv| env.job_id.clone())
+pub fn get_job_id() -> impl Effect<Output = String, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.job_id.clone())
 }
 
 /// Get the maximum parallel agents setting from the map environment.
@@ -164,8 +160,8 @@ pub fn get_job_id() -> Effect<String, MapReduceError, MapEnv> {
 ///         Effect::pure(max)
 ///     });
 /// ```
-pub fn get_max_parallel() -> Effect<usize, MapReduceError, MapEnv> {
-    Effect::<usize, MapReduceError, MapEnv>::asks(|env: &MapEnv| env.max_parallel)
+pub fn get_max_parallel() -> impl Effect<Output = usize, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.max_parallel)
 }
 
 /// Get workflow environment variables from the map environment.
@@ -179,10 +175,9 @@ pub fn get_max_parallel() -> Effect<usize, MapReduceError, MapEnv> {
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_workflow_env() -> Effect<HashMap<String, Value>, MapReduceError, MapEnv> {
-    Effect::<HashMap<String, Value>, MapReduceError, MapEnv>::asks(|env: &MapEnv| {
-        env.workflow_env.clone()
-    })
+pub fn get_workflow_env(
+) -> impl Effect<Output = HashMap<String, Value>, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.workflow_env.clone())
 }
 
 /// Get additional configuration from the map environment.
@@ -198,10 +193,9 @@ pub fn get_workflow_env() -> Effect<HashMap<String, Value>, MapReduceError, MapE
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_config() -> Effect<HashMap<String, Value>, MapReduceError, MapEnv> {
-    Effect::<HashMap<String, Value>, MapReduceError, MapEnv>::asks(|env: &MapEnv| {
-        env.config.clone()
-    })
+pub fn get_config(
+) -> impl Effect<Output = HashMap<String, Value>, Error = MapReduceError, Env = MapEnv> {
+    asks(|env: &MapEnv| env.config.clone())
 }
 
 /// Get a specific configuration value from the map environment.
@@ -215,11 +209,11 @@ pub fn get_config() -> Effect<HashMap<String, Value>, MapReduceError, MapEnv> {
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_config_value(key: &str) -> Effect<Option<Value>, MapReduceError, MapEnv> {
+pub fn get_config_value(
+    key: &str,
+) -> impl Effect<Output = Option<Value>, Error = MapReduceError, Env = MapEnv> {
     let key = key.to_string();
-    Effect::<Option<Value>, MapReduceError, MapEnv>::asks(move |env: &MapEnv| {
-        env.config.get(&key).cloned()
-    })
+    asks(move |env: &MapEnv| env.config.get(&key).cloned())
 }
 
 /// Compose multiple environment accesses into a single effect.
@@ -233,11 +227,12 @@ pub fn get_config_value(key: &str) -> Effect<Option<Value>, MapReduceError, MapE
 ///         Effect::pure(())
 ///     });
 /// ```
-pub fn get_execution_context(
-) -> Effect<(String, usize, Arc<dyn CheckpointStorage>), MapReduceError, MapEnv> {
-    Effect::<(String, usize, Arc<dyn CheckpointStorage>), MapReduceError, MapEnv>::asks(
-        |env: &MapEnv| (env.job_id.clone(), env.max_parallel, env.storage.clone()),
-    )
+pub fn get_execution_context() -> impl Effect<
+    Output = (String, usize, Arc<dyn CheckpointStorage>),
+    Error = MapReduceError,
+    Env = MapEnv,
+> {
+    asks(|env: &MapEnv| (env.job_id.clone(), env.max_parallel, env.storage.clone()))
 }
 
 // =============================================================================
@@ -245,39 +240,35 @@ pub fn get_execution_context(
 // =============================================================================
 
 /// Get the command executor from the phase environment.
-pub fn get_phase_command_executor() -> Effect<Arc<AgentCommandExecutor>, MapReduceError, PhaseEnv> {
-    Effect::<Arc<AgentCommandExecutor>, MapReduceError, PhaseEnv>::asks(|env: &PhaseEnv| {
-        env.command_executor.clone()
-    })
+pub fn get_phase_command_executor(
+) -> impl Effect<Output = Arc<AgentCommandExecutor>, Error = MapReduceError, Env = PhaseEnv> {
+    asks(|env: &PhaseEnv| env.command_executor.clone())
 }
 
 /// Get the checkpoint storage from the phase environment.
-pub fn get_phase_storage() -> Effect<Arc<dyn CheckpointStorage>, MapReduceError, PhaseEnv> {
-    Effect::<Arc<dyn CheckpointStorage>, MapReduceError, PhaseEnv>::asks(|env: &PhaseEnv| {
-        env.storage.clone()
-    })
+pub fn get_phase_storage(
+) -> impl Effect<Output = Arc<dyn CheckpointStorage>, Error = MapReduceError, Env = PhaseEnv> {
+    asks(|env: &PhaseEnv| env.storage.clone())
 }
 
 /// Get variables from the phase environment.
-pub fn get_variables() -> Effect<HashMap<String, Value>, MapReduceError, PhaseEnv> {
-    Effect::<HashMap<String, Value>, MapReduceError, PhaseEnv>::asks(|env: &PhaseEnv| {
-        env.variables.clone()
-    })
+pub fn get_variables(
+) -> impl Effect<Output = HashMap<String, Value>, Error = MapReduceError, Env = PhaseEnv> {
+    asks(|env: &PhaseEnv| env.variables.clone())
 }
 
 /// Get a specific variable from the phase environment.
-pub fn get_variable(name: &str) -> Effect<Option<Value>, MapReduceError, PhaseEnv> {
+pub fn get_variable(
+    name: &str,
+) -> impl Effect<Output = Option<Value>, Error = MapReduceError, Env = PhaseEnv> {
     let name = name.to_string();
-    Effect::<Option<Value>, MapReduceError, PhaseEnv>::asks(move |env: &PhaseEnv| {
-        env.variables.get(&name).cloned()
-    })
+    asks(move |env: &PhaseEnv| env.variables.get(&name).cloned())
 }
 
 /// Get workflow environment variables from the phase environment.
-pub fn get_phase_workflow_env() -> Effect<HashMap<String, Value>, MapReduceError, PhaseEnv> {
-    Effect::<HashMap<String, Value>, MapReduceError, PhaseEnv>::asks(|env: &PhaseEnv| {
-        env.workflow_env.clone()
-    })
+pub fn get_phase_workflow_env(
+) -> impl Effect<Output = HashMap<String, Value>, Error = MapReduceError, Env = PhaseEnv> {
+    asks(|env: &PhaseEnv| env.workflow_env.clone())
 }
 
 // =============================================================================
@@ -338,11 +329,14 @@ impl MapEnvOverrides {
 ///     execute_agents(work_items),
 /// );
 /// ```
-pub fn with_max_parallel<T: Send + 'static>(
+pub fn with_max_parallel<E>(
     max_parallel: usize,
-    effect: Effect<T, MapReduceError, MapEnv>,
-) -> Effect<T, MapReduceError, MapEnv> {
-    Effect::local(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = MapEnv>
+where
+    E: Effect<Error = MapReduceError, Env = MapEnv>,
+{
+    local(
         move |env: &MapEnv| MapEnv {
             max_parallel,
             ..env.clone()
@@ -364,11 +358,14 @@ pub fn with_max_parallel<T: Send + 'static>(
 ///     execute_setup(commands),
 /// );
 /// ```
-pub fn with_config<T: Send + 'static>(
+pub fn with_config<E>(
     config_overrides: HashMap<String, Value>,
-    effect: Effect<T, MapReduceError, MapEnv>,
-) -> Effect<T, MapReduceError, MapEnv> {
-    Effect::local(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = MapEnv>
+where
+    E: Effect<Error = MapReduceError, Env = MapEnv>,
+{
+    local(
         move |env: &MapEnv| {
             let mut config = env.config.clone();
             config.extend(config_overrides.clone());
@@ -390,10 +387,13 @@ pub fn with_config<T: Send + 'static>(
 /// ```ignore
 /// let effect = with_debug(execute_commands(commands));
 /// ```
-pub fn with_debug<T: Send + 'static>(
-    effect: Effect<T, MapReduceError, MapEnv>,
-) -> Effect<T, MapReduceError, MapEnv> {
-    Effect::local(
+pub fn with_debug<E>(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = MapEnv>
+where
+    E: Effect<Error = MapReduceError, Env = MapEnv>,
+{
+    local(
         |env: &MapEnv| {
             let mut config = env.config.clone();
             config.insert("debug".to_string(), serde_json::json!(true));
@@ -415,10 +415,13 @@ pub fn with_debug<T: Send + 'static>(
 /// ```ignore
 /// let effect = with_verbose(execute_agent(item));
 /// ```
-pub fn with_verbose<T: Send + 'static>(
-    effect: Effect<T, MapReduceError, MapEnv>,
-) -> Effect<T, MapReduceError, MapEnv> {
-    Effect::local(
+pub fn with_verbose<E>(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = MapEnv>
+where
+    E: Effect<Error = MapReduceError, Env = MapEnv>,
+{
+    local(
         |env: &MapEnv| {
             let mut config = env.config.clone();
             config.insert("verbose".to_string(), serde_json::json!(true));
@@ -444,11 +447,14 @@ pub fn with_verbose<T: Send + 'static>(
 ///
 /// let effect = with_overrides(overrides, execute_agents(items));
 /// ```
-pub fn with_overrides<T: Send + 'static>(
+pub fn with_overrides<E>(
     overrides: MapEnvOverrides,
-    effect: Effect<T, MapReduceError, MapEnv>,
-) -> Effect<T, MapReduceError, MapEnv> {
-    Effect::local(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = MapEnv>
+where
+    E: Effect<Error = MapReduceError, Env = MapEnv>,
+{
+    local(
         move |env: &MapEnv| {
             let mut new_env = env.clone();
 
@@ -516,11 +522,14 @@ impl PhaseEnvOverrides {
 ///     execute_reduce(commands),
 /// );
 /// ```
-pub fn with_variables<T: Send + 'static>(
+pub fn with_variables<E>(
     variable_overrides: HashMap<String, Value>,
-    effect: Effect<T, MapReduceError, PhaseEnv>,
-) -> Effect<T, MapReduceError, PhaseEnv> {
-    Effect::local(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = PhaseEnv>
+where
+    E: Effect<Error = MapReduceError, Env = PhaseEnv>,
+{
+    local(
         move |env: &PhaseEnv| {
             let mut variables = env.variables.clone();
             variables.extend(variable_overrides.clone());
@@ -543,11 +552,14 @@ pub fn with_variables<T: Send + 'static>(
 ///
 /// let effect = with_phase_overrides(overrides, execute_reduce(commands));
 /// ```
-pub fn with_phase_overrides<T: Send + 'static>(
+pub fn with_phase_overrides<E>(
     overrides: PhaseEnvOverrides,
-    effect: Effect<T, MapReduceError, PhaseEnv>,
-) -> Effect<T, MapReduceError, PhaseEnv> {
-    Effect::local(
+    effect: E,
+) -> impl Effect<Output = E::Output, Error = MapReduceError, Env = PhaseEnv>
+where
+    E: Effect<Error = MapReduceError, Env = PhaseEnv>,
+{
+    local(
         move |env: &PhaseEnv| {
             let mut new_env = env.clone();
 
@@ -575,6 +587,7 @@ mod tests {
     use crate::cook::execution::mapreduce::mock_environment::{
         MockMapEnvBuilder, MockPhaseEnvBuilder,
     };
+    use stillwater::{Effect, EffectExt};
 
     #[tokio::test]
     async fn test_get_max_parallel() {

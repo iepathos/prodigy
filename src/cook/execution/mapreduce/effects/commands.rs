@@ -11,7 +11,7 @@ use crate::cook::execution::mapreduce::effects::worktree::Worktree;
 use crate::cook::execution::mapreduce::environment::MapEnv;
 use serde_json::Value;
 use std::collections::HashMap;
-use stillwater::Effect;
+use stillwater::{from_async, Effect};
 
 /// Result from command execution
 #[derive(Debug, Clone)]
@@ -44,11 +44,11 @@ pub struct CommandResult {
 pub fn execute_commands_effect(
     item: &Value,
     worktree: &Worktree,
-) -> Effect<CommandResult, MapReduceError, MapEnv> {
+) -> impl Effect<Output = CommandResult, Error = MapReduceError, Env = MapEnv> {
     let item = item.clone();
     let worktree = worktree.clone();
 
-    Effect::from_async(move |env: &MapEnv| {
+    from_async(move |env: &MapEnv| {
         let item = item.clone();
         let worktree = worktree.clone();
         let _command_executor = env.command_executor.clone();

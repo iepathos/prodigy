@@ -56,9 +56,9 @@ hostname = "0.4"
 nix = { version = "0.30", features = ["signal", "process"] }
 sysinfo = "0.37.1"
 dirs = "6.0.0"
-stillwater = "0.8.0"
+stillwater = "0.11.0"
 rayon = "1.11.0"
-premortem = { version = "0.3.0", features = ["toml", "yaml", "derive"] }
+premortem = { path = "../premortem", features = ["toml", "yaml", "derive"] }
 
 [features]
 default = []

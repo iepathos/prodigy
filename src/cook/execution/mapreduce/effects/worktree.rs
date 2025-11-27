@@ -6,7 +6,7 @@
 use crate::cook::execution::errors::MapReduceError;
 use crate::cook::execution::mapreduce::environment::MapEnv;
 use std::path::PathBuf;
-use stillwater::Effect;
+use stillwater::{from_async, Effect};
 
 /// Worktree information
 #[derive(Debug, Clone)]
@@ -36,10 +36,10 @@ pub struct Worktree {
 pub fn create_worktree_effect(
     name: &str,
     _parent_branch: &str,
-) -> Effect<Worktree, MapReduceError, MapEnv> {
+) -> impl Effect<Output = Worktree, Error = MapReduceError, Env = MapEnv> {
     let name = name.to_string();
 
-    Effect::from_async(move |env: &MapEnv| {
+    from_async(move |env: &MapEnv| {
         let name = name.clone();
         let _worktree_manager = env.worktree_manager.clone();
 
@@ -70,8 +70,10 @@ pub fn create_worktree_effect(
 /// let effect = remove_worktree_effect(&worktree);
 /// effect.run_async(&env).await?;
 /// ```
-pub fn remove_worktree_effect(_worktree: &Worktree) -> Effect<(), MapReduceError, MapEnv> {
-    Effect::from_async(move |env: &MapEnv| {
+pub fn remove_worktree_effect(
+    _worktree: &Worktree,
+) -> impl Effect<Output = (), Error = MapReduceError, Env = MapEnv> {
+    from_async(move |env: &MapEnv| {
         let _worktree_manager = env.worktree_manager.clone();
 
         async move {

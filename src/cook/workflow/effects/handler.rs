@@ -27,7 +27,7 @@ use super::{CommandError, CommandOutput};
 use crate::commands::AttributeValue;
 use crate::cook::workflow::pure::build_command;
 use std::collections::HashMap;
-use stillwater::Effect;
+use stillwater::{from_async, Effect};
 
 /// Effect: Execute a registered handler command
 ///
@@ -70,12 +70,12 @@ pub fn execute_handler_effect(
     handler_name: &str,
     attributes: HashMap<String, AttributeValue>,
     variables: &HashMap<String, String>,
-) -> Effect<CommandOutput, CommandError, WorkflowEnv> {
+) -> impl Effect<Output = CommandOutput, Error = CommandError, Env = WorkflowEnv> {
     let handler_name = handler_name.to_string();
     let attributes = attributes.clone();
     let variables = variables.clone();
 
-    Effect::from_async(move |env: &WorkflowEnv| {
+    from_async(move |env: &WorkflowEnv| {
         let handler_name = handler_name.clone();
         let attributes = attributes.clone();
         let variables = variables.clone();

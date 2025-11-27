@@ -443,6 +443,7 @@ pub fn mock_map_env_with_parallel(max_parallel: usize) -> MapEnv {
 mod tests {
     use super::*;
     use crate::cook::execution::mapreduce::environment_helpers::*;
+    use stillwater::Effect;
 
     #[tokio::test]
     async fn test_mock_map_env_builder_defaults() {

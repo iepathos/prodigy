@@ -17,7 +17,7 @@ use crate::cook::execution::mapreduce::effects::merge::{merge_to_parent_effect, 
 use crate::cook::execution::mapreduce::effects::worktree::{create_worktree_effect, Worktree};
 use crate::cook::execution::mapreduce::environment::MapEnv;
 use serde_json::Value;
-use stillwater::Effect;
+use stillwater::{from_async, par_all_limit, BoxedEffect, Effect, EffectExt};
 
 /// Result from executing a single agent
 #[derive(Debug, Clone)]
@@ -45,30 +45,32 @@ pub fn execute_agent_effect(
     item: &Value,
     agent_name: &str,
     parent_branch: &str,
-) -> Effect<AgentExecutionResult, MapReduceError, MapEnv> {
+) -> BoxedEffect<AgentExecutionResult, MapReduceError, MapEnv> {
     let item = item.clone();
     let agent_name = agent_name.to_string();
     let parent_branch = parent_branch.to_string();
 
     // Compose effects sequentially with and_then
-    create_worktree_effect(&agent_name, &parent_branch).and_then(move |worktree| {
-        let item = item.clone();
-        let parent_branch = parent_branch.clone();
-        let worktree_clone = worktree.clone();
+    create_worktree_effect(&agent_name, &parent_branch)
+        .and_then(move |worktree| {
+            let item = item.clone();
+            let parent_branch = parent_branch.clone();
+            let worktree_clone = worktree.clone();
 
-        execute_commands_effect(&item, &worktree).and_then(move |command_result| {
-            let worktree = worktree_clone;
-            let worktree_clone2 = worktree.clone();
+            execute_commands_effect(&item, &worktree).and_then(move |command_result| {
+                let worktree = worktree_clone;
+                let worktree_clone2 = worktree.clone();
 
-            merge_to_parent_effect(&worktree, &parent_branch).map(move |merge_result| {
-                AgentExecutionResult {
-                    worktree: worktree_clone2,
-                    command_result,
-                    merge_result,
-                }
+                merge_to_parent_effect(&worktree, &parent_branch).map(move |merge_result| {
+                    AgentExecutionResult {
+                        worktree: worktree_clone2,
+                        command_result,
+                        merge_result,
+                    }
+                })
             })
         })
-    })
+        .boxed()
 }
 
 /// Execute multiple agents in parallel with bounded concurrency
@@ -96,23 +98,33 @@ pub fn execute_agents_parallel(
     items: &[Value],
     parent_branch: &str,
     max_parallel: usize,
-) -> Effect<Vec<AgentExecutionResult>, Vec<MapReduceError>, MapEnv> {
+) -> impl Effect<Output = Vec<AgentExecutionResult>, Error = Vec<MapReduceError>, Env = MapEnv> {
     let parent_branch = parent_branch.to_string();
+    let items: Vec<Value> = items.to_vec();
 
-    // Create an effect for each work item
-    let agent_effects: Vec<Effect<AgentExecutionResult, MapReduceError, MapEnv>> = items
-        .iter()
-        .enumerate()
-        .map(|(index, item)| {
-            let agent_name = format!("agent-{}", index);
-            execute_agent_effect(item, &agent_name, &parent_branch)
-        })
-        .collect();
+    // Wrap in from_async to have access to environment for par_all_limit
+    from_async(move |env: &MapEnv| {
+        let parent_branch = parent_branch.clone();
+        let items = items.clone();
+        let env = env.clone(); // Clone env for use in async block
 
-    // Execute all effects in parallel with bounded concurrency
-    // THIS IS THE CRITICAL PIECE - par_all_limit enables parallel execution
-    // Note: par_all_limit returns Vec<E> for errors, collecting all failures
-    Effect::par_all_limit(agent_effects, max_parallel)
+        async move {
+            // Create an effect for each work item
+            let agent_effects: Vec<BoxedEffect<AgentExecutionResult, MapReduceError, MapEnv>> =
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| {
+                        let agent_name = format!("agent-{}", index);
+                        execute_agent_effect(item, &agent_name, &parent_branch)
+                    })
+                    .collect();
+
+            // Execute all effects in parallel with bounded concurrency
+            // par_all_limit returns Vec<E> for errors, collecting all failures
+            par_all_limit(agent_effects, max_parallel, &env).await
+        }
+    })
 }
 
 /// Pure function to partition work items for parallel batching

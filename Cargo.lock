@@ -1535,8 +1535,6 @@ dependencies = [
 [[package]]
 name = "premortem"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ef11520e3e224c995dc43fa4cdafc4cb1d7700bff4a719803a2134f6e4478a"
 dependencies = [
  "premortem-derive",
  "regex",
@@ -1552,8 +1550,6 @@ dependencies = [
 [[package]]
 name = "premortem-derive"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1556d95aa9e11da45b819431cbed3d6f8ce5557b21adaa42b4002334239c2ff3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2060,9 +2056,9 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "stillwater"
-version = "0.8.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e86782dce3d3494a7040ac8926f64cfc09f1208c2f0147d349a2d8f6715dc53"
+checksum = "4b1e8e08a028817aa1ef3ce500ee762c4158307b6bb6952a6acabf0795d2e1b8"
 dependencies = [
  "futures",
 ]

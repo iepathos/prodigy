@@ -10,7 +10,7 @@ use anyhow::{Context as AnyhowContext, Result};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use stillwater::Effect;
+use stillwater::{from_async, pure as stillwater_pure, BoxedEffect, EffectExt};
 
 /// Storage backend trait for checkpoint persistence
 #[async_trait::async_trait]
@@ -27,18 +27,19 @@ pub trait EventLog: Send + Sync {
 }
 
 /// Environment for state I/O operations
+#[derive(Clone)]
 pub struct StateEnv {
     pub storage: Arc<dyn StorageBackend>,
     pub event_log: Arc<dyn EventLog>,
 }
 
 /// Type alias for state effects
-pub type StateEffect<T> = Effect<T, anyhow::Error, StateEnv>;
+pub type StateEffect<T> = BoxedEffect<T, anyhow::Error, StateEnv>;
 
 /// Save checkpoint (I/O wrapper)
 pub fn save_checkpoint(state: MapReduceJobState) -> StateEffect<()> {
     let state = Arc::new(state);
-    Effect::from_async(move |env: &StateEnv| {
+    from_async(move |env: &StateEnv| {
         let state = Arc::clone(&state);
         let storage = Arc::clone(&env.storage);
         let event_log = Arc::clone(&env.event_log);
@@ -55,12 +56,13 @@ pub fn save_checkpoint(state: MapReduceJobState) -> StateEffect<()> {
             Ok(())
         }
     })
+    .boxed()
 }
 
 /// Load checkpoint (I/O)
 pub fn load_checkpoint(job_id: String) -> StateEffect<MapReduceJobState> {
     let job_id = Arc::new(job_id);
-    Effect::from_async(move |env: &StateEnv| {
+    from_async(move |env: &StateEnv| {
         let job_id = Arc::clone(&job_id);
         let storage = Arc::clone(&env.storage);
 
@@ -71,6 +73,7 @@ pub fn load_checkpoint(job_id: String) -> StateEffect<MapReduceJobState> {
             Ok(state)
         }
     })
+    .boxed()
 }
 
 /// Update state and save (composition of pure + I/O)
@@ -82,7 +85,9 @@ pub fn update_with_agent_result(
     let new_state = pure::apply_agent_result(state, result);
 
     // Save updated state
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 /// Complete agent batch (pure + I/O composition)
@@ -97,14 +102,16 @@ pub fn complete_batch(
     }
 
     // I/O: save checkpoint
-    save_checkpoint(new_state.clone()).and_then(move |_| {
-        // Pure: check if transition needed
-        if pure::should_transition_to_reduce(&new_state) {
-            transition_to_reduce(new_state)
-        } else {
-            Effect::pure(new_state)
-        }
-    })
+    save_checkpoint(new_state.clone())
+        .and_then(move |_| {
+            // Pure: check if transition needed
+            if pure::should_transition_to_reduce(&new_state) {
+                transition_to_reduce(new_state)
+            } else {
+                stillwater_pure(new_state).boxed()
+            }
+        })
+        .boxed()
 }
 
 /// Transition to reduce phase (I/O)
@@ -113,7 +120,7 @@ fn transition_to_reduce(state: MapReduceJobState) -> StateEffect<MapReduceJobSta
     let new_state = pure::start_reduce_phase(state);
     let new_state = Arc::new(new_state);
 
-    let effect = Effect::from_async(move |env: &StateEnv| {
+    from_async(move |env: &StateEnv| {
         let new_state = Arc::clone(&new_state);
         let event_log = Arc::clone(&env.event_log);
 
@@ -125,15 +132,17 @@ fn transition_to_reduce(state: MapReduceJobState) -> StateEffect<MapReduceJobSta
 
             Ok((*new_state).clone())
         }
-    });
-
-    effect.and_then(|s| save_checkpoint(s.clone()).map(move |_| s))
+    })
+    .and_then(|s| save_checkpoint(s.clone()).map(move |_| s))
+    .boxed()
 }
 
 /// Start reduce phase with save
 pub fn start_reduce_phase_with_save(state: MapReduceJobState) -> StateEffect<MapReduceJobState> {
     let new_state = pure::start_reduce_phase(state);
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 /// Complete reduce phase with save
@@ -142,13 +151,17 @@ pub fn complete_reduce_phase_with_save(
     output: Option<String>,
 ) -> StateEffect<MapReduceJobState> {
     let new_state = pure::complete_reduce_phase(state, output);
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 /// Mark job complete with save
 pub fn mark_complete_with_save(state: MapReduceJobState) -> StateEffect<MapReduceJobState> {
     let new_state = pure::mark_complete(state);
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 /// Mark setup complete with save
@@ -157,7 +170,9 @@ pub fn mark_setup_complete_with_save(
     output: Option<String>,
 ) -> StateEffect<MapReduceJobState> {
     let new_state = pure::mark_setup_complete(state, output);
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 /// Update variables with save
@@ -166,7 +181,9 @@ pub fn update_variables_with_save(
     variables: HashMap<String, Value>,
 ) -> StateEffect<MapReduceJobState> {
     let new_state = pure::update_variables(state, variables);
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 /// Set parent worktree with save
@@ -175,7 +192,9 @@ pub fn set_parent_worktree_with_save(
     worktree: Option<String>,
 ) -> StateEffect<MapReduceJobState> {
     let new_state = pure::set_parent_worktree(state, worktree);
-    save_checkpoint(new_state.clone()).map(move |_| new_state.clone())
+    save_checkpoint(new_state.clone())
+        .map(move |_| new_state.clone())
+        .boxed()
 }
 
 #[cfg(test)]
@@ -185,6 +204,7 @@ mod tests {
     use chrono::Utc;
     use std::collections::HashSet;
     use std::sync::Mutex;
+    use stillwater::Effect;
 
     struct MockStorage {
         checkpoints: Arc<Mutex<HashMap<String, String>>>,

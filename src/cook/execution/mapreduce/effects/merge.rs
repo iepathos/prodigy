@@ -9,7 +9,7 @@
 use crate::cook::execution::errors::MapReduceError;
 use crate::cook::execution::mapreduce::effects::worktree::Worktree;
 use crate::cook::execution::mapreduce::environment::MapEnv;
-use stillwater::Effect;
+use stillwater::{from_async, Effect};
 
 /// Result from merge operation
 #[derive(Debug, Clone)]
@@ -39,10 +39,10 @@ pub struct MergeResult {
 pub fn merge_to_parent_effect(
     worktree: &Worktree,
     _parent_branch: &str,
-) -> Effect<MergeResult, MapReduceError, MapEnv> {
+) -> impl Effect<Output = MergeResult, Error = MapReduceError, Env = MapEnv> {
     let _worktree_name = worktree.name.clone();
 
-    Effect::from_async(move |env: &MapEnv| {
+    from_async(move |env: &MapEnv| {
         let _worktree_manager = env.worktree_manager.clone();
 
         async move {
@@ -62,8 +62,10 @@ pub fn merge_to_parent_effect(
 ///
 /// Checks whether an agent's worktree has any commits that need to be merged.
 /// Used for commit validation and optimization.
-pub fn has_commits_effect(_worktree: &Worktree) -> Effect<bool, MapReduceError, MapEnv> {
-    Effect::from_async(move |env: &MapEnv| {
+pub fn has_commits_effect(
+    _worktree: &Worktree,
+) -> impl Effect<Output = bool, Error = MapReduceError, Env = MapEnv> {
+    from_async(move |env: &MapEnv| {
         let _worktree_manager = env.worktree_manager.clone();
 
         async move {
@@ -76,8 +78,10 @@ pub fn has_commits_effect(_worktree: &Worktree) -> Effect<bool, MapReduceError, 
 /// Effect: Get list of commits in worktree
 ///
 /// Retrieves the list of commits made in an agent's worktree.
-pub fn list_commits_effect(_worktree: &Worktree) -> Effect<Vec<String>, MapReduceError, MapEnv> {
-    Effect::from_async(move |env: &MapEnv| {
+pub fn list_commits_effect(
+    _worktree: &Worktree,
+) -> impl Effect<Output = Vec<String>, Error = MapReduceError, Env = MapEnv> {
+    from_async(move |env: &MapEnv| {
         let _worktree_manager = env.worktree_manager.clone();
 
         async move {

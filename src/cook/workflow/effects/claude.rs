@@ -23,7 +23,7 @@ use super::environment::WorkflowEnv;
 use super::{CommandError, CommandOutput};
 use crate::cook::workflow::pure::{build_command, parse_output_variables};
 use std::collections::HashMap;
-use stillwater::Effect;
+use stillwater::{from_async, Effect};
 
 /// Effect: Execute Claude command with variable expansion and output parsing
 ///
@@ -54,11 +54,11 @@ use stillwater::Effect;
 pub fn execute_claude_command_effect(
     template: &str,
     variables: &HashMap<String, String>,
-) -> Effect<CommandOutput, CommandError, WorkflowEnv> {
+) -> impl Effect<Output = CommandOutput, Error = CommandError, Env = WorkflowEnv> {
     let template = template.to_string();
     let variables = variables.clone();
 
-    Effect::from_async(move |env: &WorkflowEnv| {
+    from_async(move |env: &WorkflowEnv| {
         let template = template.clone();
         let variables = variables.clone();
         let working_dir = env.working_dir.clone();
@@ -117,11 +117,11 @@ pub fn execute_claude_command_effect(
 pub fn execute_claude_command_effect_fallible(
     template: &str,
     variables: &HashMap<String, String>,
-) -> Effect<CommandOutput, CommandError, WorkflowEnv> {
+) -> impl Effect<Output = CommandOutput, Error = CommandError, Env = WorkflowEnv> {
     let template = template.to_string();
     let variables = variables.clone();
 
-    Effect::from_async(move |env: &WorkflowEnv| {
+    from_async(move |env: &WorkflowEnv| {
         let template = template.clone();
         let variables = variables.clone();
         let working_dir = env.working_dir.clone();

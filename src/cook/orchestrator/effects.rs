@@ -32,10 +32,10 @@ use crate::core::orchestration::{ExecutionMode, ExecutionPlan, Phase};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use stillwater::Effect;
+use stillwater::{fail, from_async, pure as stillwater_pure, BoxedEffect, EffectExt};
 
 /// Effect type for orchestrator operations
-pub type OrchEffect<T> = Effect<T, anyhow::Error, OrchestratorEnv>;
+pub type OrchEffect<T> = BoxedEffect<T, anyhow::Error, OrchestratorEnv>;
 
 /// Workflow session state
 #[derive(Debug, Clone)]
@@ -118,7 +118,7 @@ pub fn setup_environment_effect(
     project_path: Arc<PathBuf>,
     dry_run: bool,
 ) -> OrchEffect<ExecutionEnvironment> {
-    Effect::from_async(move |env: &OrchestratorEnv| {
+    from_async(move |env: &OrchestratorEnv| {
         let plan = plan.clone();
         let project_path = project_path.clone();
         let session_manager = env.session_manager.clone();
@@ -153,6 +153,7 @@ pub fn setup_environment_effect(
             })
         }
     })
+    .boxed()
 }
 
 /// Execute plan effect (I/O)
@@ -171,7 +172,7 @@ pub fn execute_plan_effect(
     plan: ExecutionPlan,
     exec_env: ExecutionEnvironment,
 ) -> OrchEffect<WorkflowResult> {
-    Effect::from_async(move |_env: &OrchestratorEnv| {
+    from_async(move |_env: &OrchestratorEnv| {
         let plan = plan.clone();
         let exec_env = exec_env.clone();
 
@@ -206,6 +207,7 @@ pub fn execute_plan_effect(
             })
         }
     })
+    .boxed()
 }
 
 /// Helper: Execute phases sequentially
@@ -246,7 +248,7 @@ pub fn finalize_session_effect(
     result: WorkflowResult,
     exec_env: ExecutionEnvironment,
 ) -> OrchEffect<WorkflowResult> {
-    Effect::from_async(move |env: &OrchestratorEnv| {
+    from_async(move |env: &OrchestratorEnv| {
         let result = result.clone();
         let exec_env = exec_env.clone();
         let session_manager = env.session_manager.clone();
@@ -264,6 +266,7 @@ pub fn finalize_session_effect(
             Ok(result)
         }
     })
+    .boxed()
 }
 
 /// Compose all effects into complete workflow execution
@@ -288,11 +291,13 @@ pub fn run_workflow_effect(
     let plan_for_exec = plan.clone();
     let _plan_for_finalize = plan.clone(); // Reserved for future phase integration
 
-    setup_environment_effect(plan, project_path, dry_run).and_then_auto(move |exec_env| {
-        let env_for_finalize = exec_env.clone();
-        execute_plan_effect(plan_for_exec.clone(), exec_env)
-            .and_then_auto(move |result| finalize_session_effect(result, env_for_finalize))
-    })
+    setup_environment_effect(plan, project_path, dry_run)
+        .and_then_auto(move |exec_env| {
+            let env_for_finalize = exec_env.clone();
+            execute_plan_effect(plan_for_exec.clone(), exec_env)
+                .and_then_auto(move |result| finalize_session_effect(result, env_for_finalize))
+        })
+        .boxed()
 }
 
 /// Validate workflow configuration (Effect wrapping pure validation)
@@ -302,14 +307,14 @@ pub fn validate_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowConfig> {
     use stillwater::Validation;
 
     match pure::validate_workflow(&config) {
-        Validation::Success(_) => Effect::pure(config),
+        Validation::Success(_) => stillwater_pure(config).boxed(),
         Validation::Failure(errors) => {
             let error_msg = errors
                 .iter()
                 .map(|e| e.to_string())
                 .collect::<Vec<_>>()
                 .join(", ");
-            Effect::fail(anyhow::anyhow!("Workflow validation failed: {}", error_msg))
+            fail(anyhow::anyhow!("Workflow validation failed: {}", error_msg)).boxed()
         }
     }
 }
@@ -320,31 +325,33 @@ pub fn validate_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowConfig> {
 /// This is a simplified implementation demonstrating Effect composition.
 pub fn setup_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowSession> {
     // First validate
-    validate_workflow(config.clone()).and_then_auto(|validated_config| {
-        // Then setup session
-        Effect::from_async(move |env: &OrchestratorEnv| {
-            let session_manager = env.session_manager.clone();
-            async move {
-                // Generate session ID
-                let session_id = uuid::Uuid::new_v4().to_string();
+    validate_workflow(config.clone())
+        .and_then_auto(|validated_config| {
+            // Then setup session
+            from_async(move |env: &OrchestratorEnv| {
+                let session_manager = env.session_manager.clone();
+                async move {
+                    // Generate session ID
+                    let session_id = uuid::Uuid::new_v4().to_string();
 
-                // Start session
-                session_manager
-                    .start_session(&session_id)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Failed to start session: {}", e))?;
+                    // Start session
+                    session_manager
+                        .start_session(&session_id)
+                        .await
+                        .map_err(|e| anyhow::anyhow!("Failed to start session: {}", e))?;
 
-                // For now, we don't create worktree here - that's handled elsewhere
-                // This is a simplified implementation focusing on the Effect pattern
+                    // For now, we don't create worktree here - that's handled elsewhere
+                    // This is a simplified implementation focusing on the Effect pattern
 
-                Ok::<WorkflowSession, anyhow::Error>(WorkflowSession {
-                    session_id,
-                    worktree_path: None,
-                    config: validated_config,
-                })
-            }
+                    Ok::<WorkflowSession, anyhow::Error>(WorkflowSession {
+                        session_id,
+                        worktree_path: None,
+                        config: validated_config,
+                    })
+                }
+            })
         })
-    })
+        .boxed()
 }
 
 /// Execute complete workflow (placeholder)
@@ -352,14 +359,16 @@ pub fn setup_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowSession> {
 /// This demonstrates the Effect composition pattern.
 /// Full workflow execution will be integrated incrementally.
 pub fn execute_workflow(config: WorkflowConfig) -> OrchEffect<WorkflowResult> {
-    setup_workflow(config).and_then_auto(|session| {
-        let result = WorkflowResult {
-            session_id: session.session_id,
-            step_results: vec![],
-            success: true,
-        };
-        OrchEffect::pure(result)
-    })
+    setup_workflow(config)
+        .and_then(|session| {
+            let result = WorkflowResult {
+                session_id: session.session_id,
+                step_results: vec![],
+                success: true,
+            };
+            stillwater_pure::<_, anyhow::Error, OrchestratorEnv>(result).boxed()
+        })
+        .boxed()
 }
 
 #[cfg(test)]

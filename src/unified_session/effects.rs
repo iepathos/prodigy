@@ -27,7 +27,7 @@ use crate::core::session::updates::{apply_session_update, apply_updates, Session
 use crate::unified_session::{SessionId, UnifiedSession};
 use async_trait::async_trait;
 use std::sync::Arc;
-use stillwater::Effect;
+use stillwater::{from_async, Effect};
 
 /// Error type for session effects
 #[derive(Debug, Clone)]
@@ -117,8 +117,8 @@ impl SessionEnv {
 pub fn update_session_effect(
     id: SessionId,
     update: SessionUpdate,
-) -> Effect<UnifiedSession, SessionEffectError, SessionEnv> {
-    Effect::from_async(move |env: &SessionEnv| {
+) -> impl Effect<Output = UnifiedSession, Error = SessionEffectError, Env = SessionEnv> {
+    from_async(move |env: &SessionEnv| {
         let id = id.clone();
         let update = update.clone();
         let storage = env.storage.clone();
@@ -181,8 +181,8 @@ pub fn update_session_effect(
 pub fn batch_update_session_effect(
     id: SessionId,
     updates: Vec<SessionUpdate>,
-) -> Effect<UnifiedSession, SessionEffectError, SessionEnv> {
-    Effect::from_async(move |env: &SessionEnv| {
+) -> impl Effect<Output = UnifiedSession, Error = SessionEffectError, Env = SessionEnv> {
+    from_async(move |env: &SessionEnv| {
         let id = id.clone();
         let updates = updates.clone();
         let storage = env.storage.clone();
@@ -221,8 +221,8 @@ pub fn batch_update_session_effect(
 /// Pure I/O effect that loads a session from storage.
 pub fn load_session_effect(
     id: SessionId,
-) -> Effect<UnifiedSession, SessionEffectError, SessionEnv> {
-    Effect::from_async(move |env: &SessionEnv| {
+) -> impl Effect<Output = UnifiedSession, Error = SessionEffectError, Env = SessionEnv> {
+    from_async(move |env: &SessionEnv| {
         let id = id.clone();
         let storage = env.storage.clone();
 
@@ -240,8 +240,10 @@ pub fn load_session_effect(
 /// Effect: Save session to storage
 ///
 /// Pure I/O effect that saves a session to storage.
-pub fn save_session_effect(session: UnifiedSession) -> Effect<(), SessionEffectError, SessionEnv> {
-    Effect::from_async(move |env: &SessionEnv| {
+pub fn save_session_effect(
+    session: UnifiedSession,
+) -> impl Effect<Output = (), Error = SessionEffectError, Env = SessionEnv> {
+    from_async(move |env: &SessionEnv| {
         let session = session.clone();
         let storage = env.storage.clone();
 
