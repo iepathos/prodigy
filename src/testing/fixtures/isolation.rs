@@ -1,107 +1,15 @@
-//! Test isolation fixtures for environment, working directory, and git repository isolation
+//! Test isolation fixtures for working directory and git repository isolation
 //!
 //! These fixtures use RAII pattern to ensure proper cleanup even when tests panic.
+//!
+//! For environment variable isolation, use `stillwater::MockEnv` which provides
+//! thread-safe testing without modifying global state.
 
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::TempDir;
-
-/// Environment variable isolation fixture (DEPRECATED)
-///
-/// **DEPRECATED**: Use `premortem::MockEnv` instead for thread-safe testing.
-/// This fixture uses `std::env::set_var` which modifies global state and is not
-/// thread-safe. Tests using this fixture should run with `#[serial]` or be
-/// migrated to use `MockEnv`.
-///
-/// # Migration to MockEnv
-///
-/// ```ignore
-/// // Old approach (not thread-safe)
-/// let mut env = TestEnv::new();
-/// env.set("PRODIGY_AUTO_MERGE", "true");
-/// let config = StorageConfig::from_env()?;
-///
-/// // New approach (thread-safe)
-/// use premortem::MockEnv;
-/// let env = MockEnv::new().with_env("PRODIGY_AUTO_MERGE", "true");
-/// let config = StorageConfig::from_env_with(&env)?;
-/// ```
-///
-/// # Example (deprecated usage)
-///
-/// ```
-/// use prodigy::testing::fixtures::isolation::TestEnv;
-///
-/// # fn example() -> anyhow::Result<()> {
-/// let mut env = TestEnv::new();
-/// env.set("PRODIGY_AUTO_MERGE", "true");
-///
-/// // Environment variable is set for this scope
-/// assert_eq!(std::env::var("PRODIGY_AUTO_MERGE")?, "true");
-///
-/// // When env drops, original value is restored
-/// # Ok(())
-/// # }
-/// ```
-#[deprecated(
-    since = "0.8.0",
-    note = "Use premortem::MockEnv for thread-safe environment testing"
-)]
-pub struct TestEnv {
-    saved_vars: HashMap<String, Option<String>>,
-}
-
-#[allow(deprecated)]
-impl TestEnv {
-    /// Create a new environment isolation fixture
-    pub fn new() -> Self {
-        TestEnv {
-            saved_vars: HashMap::new(),
-        }
-    }
-
-    /// Set an environment variable, saving the original value
-    pub fn set(&mut self, key: &str, value: &str) {
-        // Save original value if not already saved
-        if !self.saved_vars.contains_key(key) {
-            self.saved_vars
-                .insert(key.to_string(), std::env::var(key).ok());
-        }
-        std::env::set_var(key, value);
-    }
-
-    /// Remove an environment variable, saving the original value
-    pub fn remove(&mut self, key: &str) {
-        if !self.saved_vars.contains_key(key) {
-            self.saved_vars
-                .insert(key.to_string(), std::env::var(key).ok());
-        }
-        std::env::remove_var(key);
-    }
-}
-
-#[allow(deprecated)]
-impl Default for TestEnv {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[allow(deprecated)]
-impl Drop for TestEnv {
-    fn drop(&mut self) {
-        // Restore all environment variables
-        for (key, value) in &self.saved_vars {
-            match value {
-                Some(v) => std::env::set_var(key, v),
-                None => std::env::remove_var(key),
-            }
-        }
-    }
-}
 
 /// Working directory isolation fixture
 ///
@@ -299,85 +207,9 @@ impl TestGitRepo {
     }
 }
 
-/// Composite test context with all isolation fixtures
-///
-/// Combines environment, working directory, and optional git repository isolation.
-///
-/// # Example
-///
-/// ```
-/// use prodigy::testing::fixtures::isolation::IsolatedTestContext;
-///
-/// # fn example() -> anyhow::Result<()> {
-/// let mut ctx = IsolatedTestContext::new()?.with_git_repo()?;
-///
-/// ctx.env.set("PRODIGY_AUTO_MERGE", "true");
-/// ctx.working_dir.change_to(ctx.git_repo.as_ref().unwrap().path())?;
-///
-/// // All isolation is automatically cleaned up when ctx drops
-/// # Ok(())
-/// # }
-/// ```
-pub struct IsolatedTestContext {
-    #[allow(deprecated)]
-    pub env: TestEnv,
-    pub working_dir: TestWorkingDir,
-    pub git_repo: Option<TestGitRepo>,
-}
-
-#[allow(deprecated)]
-impl IsolatedTestContext {
-    /// Create a new isolated test context
-    pub fn new() -> Result<Self> {
-        Ok(IsolatedTestContext {
-            env: TestEnv::new(),
-            working_dir: TestWorkingDir::new()?,
-            git_repo: None,
-        })
-    }
-
-    /// Add an isolated git repository to the context
-    pub fn with_git_repo(mut self) -> Result<Self> {
-        self.git_repo = Some(TestGitRepo::new()?);
-        Ok(self)
-    }
-}
-
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_env_set_and_restore() {
-        let original_value = std::env::var("TEST_VAR_123").ok();
-
-        {
-            let mut env = TestEnv::new();
-            env.set("TEST_VAR_123", "test_value");
-            assert_eq!(std::env::var("TEST_VAR_123").unwrap(), "test_value");
-        }
-
-        // After drop, original value should be restored
-        assert_eq!(std::env::var("TEST_VAR_123").ok(), original_value);
-    }
-
-    #[test]
-    fn test_env_remove_and_restore() {
-        std::env::set_var("TEST_VAR_456", "original");
-
-        {
-            let mut env = TestEnv::new();
-            env.remove("TEST_VAR_456");
-            assert!(std::env::var("TEST_VAR_456").is_err());
-        }
-
-        // After drop, original value should be restored
-        assert_eq!(std::env::var("TEST_VAR_456").unwrap(), "original");
-
-        // Cleanup
-        std::env::remove_var("TEST_VAR_456");
-    }
 
     #[test]
     fn test_working_dir_restore() -> Result<()> {
@@ -430,40 +262,5 @@ mod tests {
         let log = String::from_utf8_lossy(&output.stdout);
         assert!(log.contains("Test commit"));
         Ok(())
-    }
-
-    #[test]
-    fn test_isolated_context() -> Result<()> {
-        // Create context which includes TestWorkingDir before git repo
-        let mut ctx = IsolatedTestContext::new()?;
-        ctx = ctx.with_git_repo()?;
-
-        ctx.env.set("TEST_VAR_789", "value");
-        assert_eq!(std::env::var("TEST_VAR_789")?, "value");
-
-        let git_repo = ctx.git_repo.as_ref().unwrap();
-        ctx.working_dir.change_to(git_repo.path())?;
-        // Use canonicalize to handle symlinks (e.g., /var -> /private/var on macOS)
-        assert_eq!(
-            std::env::current_dir()?.canonicalize()?,
-            git_repo.path().canonicalize()?
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_panic_safety() {
-        let original_value = std::env::var("PANIC_TEST_VAR").ok();
-
-        let result = std::panic::catch_unwind(|| {
-            let mut env = TestEnv::new();
-            env.set("PANIC_TEST_VAR", "should_be_restored");
-            panic!("Test panic");
-        });
-
-        assert!(result.is_err());
-        // Even after panic, original value should be restored
-        assert_eq!(std::env::var("PANIC_TEST_VAR").ok(), original_value);
     }
 }

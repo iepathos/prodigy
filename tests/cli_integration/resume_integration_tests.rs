@@ -17,9 +17,9 @@ use tempfile::TempDir;
 /// Helper to setup isolated PRODIGY_HOME for a test
 ///
 /// Returns a TempDir that will be used as PRODIGY_HOME.
-/// IMPORTANT: Do NOT use TestEnv to set PRODIGY_HOME globally - it's not thread-safe
-/// and will cause race conditions in parallel tests. Instead, pass the path directly
-/// to subprocesses via CliTest::env().
+/// IMPORTANT: Do NOT use std::env::set_var to set PRODIGY_HOME globally - it's not
+/// thread-safe and will cause race conditions in parallel tests. Instead, pass the
+/// path directly to subprocesses via CliTest::env().
 fn setup_test_prodigy_home() -> TempDir {
     TempDir::new().expect("Failed to create temp directory for PRODIGY_HOME")
 }
