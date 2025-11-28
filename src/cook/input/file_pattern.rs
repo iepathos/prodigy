@@ -16,22 +16,18 @@ use std::path::{Path, PathBuf};
 /// with a base directory for testing. It follows the Stillwater pattern
 /// of dependency injection via services.
 ///
-/// # Production Usage
+/// # Example
 ///
-/// ```ignore
-/// let fs = FileSystem::new();  // Uses current working directory
-/// let provider = FilePatternInputProvider::with_filesystem(fs);
 /// ```
+/// use prodigy::cook::input::FileSystem;
 ///
-/// # Test Usage with MockEnv
+/// // Production: uses current working directory
+/// let fs = FileSystem::new();
+/// assert!(fs.base_dir().is_none());
 ///
-/// ```ignore
-/// use stillwater::testing::MockEnv;
-///
-/// let fs = FileSystem::with_base_dir(temp_path.to_path_buf());
-/// let env = MockEnv::new()
-///     .with(|| fs)
-///     .build();
+/// // Testing: uses specific base directory
+/// let fs = FileSystem::with_base_dir("/tmp/test".into());
+/// assert_eq!(fs.base_dir().unwrap().to_str().unwrap(), "/tmp/test");
 /// ```
 #[derive(Clone, Debug)]
 pub struct FileSystem {
@@ -249,8 +245,10 @@ impl FilePatternInputProvider {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let fs = FileSystem::with_base_dir(temp_path.to_path_buf());
+    /// ```
+    /// use prodigy::cook::input::{FileSystem, FilePatternInputProvider};
+    ///
+    /// let fs = FileSystem::with_base_dir("/tmp/test".into());
     /// let provider = FilePatternInputProvider::with_filesystem(fs);
     /// ```
     pub fn with_filesystem(filesystem: FileSystem) -> Self {

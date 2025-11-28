@@ -257,9 +257,9 @@ impl StorageConfig {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
     /// use premortem::MockEnv;
-    /// use prodigy::storage::config::StorageConfig;
+    /// use prodigy::storage::{StorageConfig, BackendType};
     ///
     /// let env = MockEnv::new()
     ///     .with_env("PRODIGY_STORAGE_TYPE", "memory");

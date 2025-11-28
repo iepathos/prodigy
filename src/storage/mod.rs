@@ -18,7 +18,7 @@ mod tests;
 pub use cleanup::{
     parse_duration, CleanupConfig, CleanupStats, StorageCleanupManager, StorageStats,
 };
-pub use config::{BackendConfig, BackendType};
+pub use config::{BackendConfig, BackendType, StorageConfig};
 pub use error::{StorageError, StorageResult};
 pub use factory::StorageFactory;
 pub use global::GlobalStorage;
