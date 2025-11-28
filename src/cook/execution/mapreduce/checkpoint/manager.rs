@@ -140,13 +140,15 @@ impl CheckpointManager {
 
     /// Validate checkpoint structure
     fn validate_checkpoint(&self, checkpoint: &MapReduceCheckpoint) -> Result<()> {
-        // Validate counts
-        let total_completed = checkpoint.work_item_state.completed_items.len();
-        let total_failed = checkpoint.work_item_state.failed_items.len();
-        let total_pending = checkpoint.work_item_state.pending_items.len();
-        let total_in_progress = checkpoint.work_item_state.in_progress_items.len();
-
-        let total_accounted = total_completed + total_failed + total_pending + total_in_progress;
+        // Validate counts using functional sum
+        let total_accounted = [
+            checkpoint.work_item_state.completed_items.len(),
+            checkpoint.work_item_state.failed_items.len(),
+            checkpoint.work_item_state.pending_items.len(),
+            checkpoint.work_item_state.in_progress_items.len(),
+        ]
+        .into_iter()
+        .sum::<usize>();
 
         if total_accounted != checkpoint.metadata.total_work_items {
             warn!(
@@ -155,17 +157,18 @@ impl CheckpointManager {
             );
         }
 
-        // Validate agent state consistency
-        for agent_id in checkpoint.agent_state.agent_assignments.keys() {
-            if !checkpoint.agent_state.active_agents.contains_key(agent_id) {
-                return Err(anyhow!(
+        // Validate agent state consistency using functional find
+        checkpoint
+            .agent_state
+            .agent_assignments
+            .keys()
+            .find(|agent_id| !checkpoint.agent_state.active_agents.contains_key(*agent_id))
+            .map_or(Ok(()), |agent_id| {
+                Err(anyhow!(
                     "Agent {} has assignments but is not active",
                     agent_id
-                ));
-            }
-        }
-
-        Ok(())
+                ))
+            })
     }
 
     /// Validate checkpoint integrity
@@ -251,33 +254,40 @@ impl CheckpointManager {
         checkpoints: &[CheckpointInfo],
         policy: &RetentionPolicy,
     ) -> Vec<CheckpointId> {
-        let mut to_delete = Vec::new();
         let mut sorted = checkpoints.to_vec();
         sorted.sort_by_key(|c| c.created_at);
 
-        // Apply max_checkpoints limit
-        if let Some(max) = policy.max_checkpoints {
-            if sorted.len() > max {
-                let excess = sorted.len() - max;
-                for checkpoint in sorted.iter().take(excess) {
-                    if !policy.keep_final || !checkpoint.is_final {
-                        to_delete.push(CheckpointId::from_string(checkpoint.id.clone()));
-                    }
-                }
-            }
-        }
+        let should_delete = |cp: &CheckpointInfo| !policy.keep_final || !cp.is_final;
 
-        // Apply max_age limit
-        if let Some(max_age) = policy.max_age {
-            let cutoff = Utc::now() - chrono::Duration::from_std(max_age).unwrap_or_default();
-            for checkpoint in &sorted {
-                if checkpoint.created_at < cutoff && (!policy.keep_final || !checkpoint.is_final) {
-                    to_delete.push(CheckpointId::from_string(checkpoint.id.clone()));
-                }
-            }
-        }
+        // Collect deletions from max_checkpoints limit
+        let excess_deletions: Vec<CheckpointId> = policy
+            .max_checkpoints
+            .filter(|&max| sorted.len() > max)
+            .map(|max| {
+                sorted
+                    .iter()
+                    .take(sorted.len() - max)
+                    .filter(|cp| should_delete(cp))
+                    .map(|cp| CheckpointId::from_string(cp.id.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
 
-        to_delete
+        // Collect deletions from max_age limit
+        let age_deletions: Vec<CheckpointId> = policy
+            .max_age
+            .map(|max_age| {
+                let cutoff = Utc::now() - chrono::Duration::from_std(max_age).unwrap_or_default();
+                sorted
+                    .iter()
+                    .filter(|cp| cp.created_at < cutoff && should_delete(cp))
+                    .map(|cp| CheckpointId::from_string(cp.id.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Combine deletions (using chain to avoid duplicates would require dedup)
+        excess_deletions.into_iter().chain(age_deletions).collect()
     }
 
     /// Build resume state from checkpoint

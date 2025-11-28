@@ -365,27 +365,26 @@ impl EnhancedProgressTracker {
             let mut metrics = self.metrics.write().await;
             *metrics = snapshot.metrics;
 
-            // Restore agent states
+            // Restore agent states using functional mapping
             let mut agents = self.agents.write().await;
-            for (agent_id, state) in snapshot.agent_states {
-                agents.insert(
-                    agent_id.clone(),
-                    AgentProgress {
-                        agent_id: agent_id.clone(),
-                        item_id: String::new(),
-                        state,
-                        current_step: String::new(),
-                        steps_completed: 0,
-                        total_steps: 0,
-                        progress_percentage: 0.0,
-                        started_at: snapshot.timestamp,
-                        last_update: snapshot.timestamp,
-                        estimated_completion: None,
-                        error_count: 0,
-                        retry_count: 0,
-                    },
-                );
-            }
+            let restored_agents = snapshot.agent_states.into_iter().map(|(agent_id, state)| {
+                let progress = AgentProgress {
+                    agent_id: agent_id.clone(),
+                    item_id: String::new(),
+                    state,
+                    current_step: String::new(),
+                    steps_completed: 0,
+                    total_steps: 0,
+                    progress_percentage: 0.0,
+                    started_at: snapshot.timestamp,
+                    last_update: snapshot.timestamp,
+                    estimated_completion: None,
+                    error_count: 0,
+                    retry_count: 0,
+                };
+                (agent_id, progress)
+            });
+            agents.extend(restored_agents);
 
             info!("Restored progress from disk for job {}", self.job_id);
             Ok(true)
@@ -745,9 +744,10 @@ impl ProgressWebServer {
             let connections = self.connections.read().await;
             let message = serde_json::to_string(&update).unwrap_or_default();
 
-            for (_, sender) in connections.iter() {
+            // Broadcast to all connections using functional iteration
+            connections.values().for_each(|sender| {
                 let _ = sender.send(message.clone());
-            }
+            });
         }
     }
 
@@ -873,30 +873,33 @@ impl ProgressWebServer {
             server.tracker.job_id, metrics.success_rate
         ));
 
-        // Agent states
-        let mut state_counts: HashMap<String, usize> = HashMap::new();
-        for agent in agents.values() {
-            let state_name = match &agent.state {
-                AgentState::Queued => "queued",
-                AgentState::Initializing => "initializing",
-                AgentState::Running { .. } => "running",
-                AgentState::Merging => "merging",
-                AgentState::Completed => "completed",
-                AgentState::Failed { .. } => "failed",
-                AgentState::Retrying { .. } => "retrying",
-                AgentState::DeadLettered => "dead_lettered",
-            };
-            *state_counts.entry(state_name.to_string()).or_insert(0) += 1;
-        }
+        // Agent states - count using functional fold
+        let state_counts: HashMap<String, usize> =
+            agents.values().fold(HashMap::new(), |mut counts, agent| {
+                let state_name = match &agent.state {
+                    AgentState::Queued => "queued",
+                    AgentState::Initializing => "initializing",
+                    AgentState::Running { .. } => "running",
+                    AgentState::Merging => "merging",
+                    AgentState::Completed => "completed",
+                    AgentState::Failed { .. } => "failed",
+                    AgentState::Retrying { .. } => "retrying",
+                    AgentState::DeadLettered => "dead_lettered",
+                };
+                *counts.entry(state_name.to_string()).or_insert(0) += 1;
+                counts
+            });
 
         output.push_str("# HELP mapreduce_agent_states Count of agents by state\n");
         output.push_str("# TYPE mapreduce_agent_states gauge\n");
-        for (state, count) in state_counts {
+
+        // Build state metrics using functional iteration
+        state_counts.iter().for_each(|(state, count)| {
             output.push_str(&format!(
                 "mapreduce_agent_states{{job_id=\"{}\",state=\"{}\"}} {}\n",
                 server.tracker.job_id, state, count
             ));
-        }
+        });
 
         // Job duration
         let duration = server.tracker.start_time.elapsed().as_secs();
