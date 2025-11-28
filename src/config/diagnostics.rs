@@ -6,15 +6,17 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```
 //! use prodigy::config::diagnostics::detect_issues;
-//! use prodigy::config::tracing::trace_config;
+//! use prodigy::config::tracing::trace_config_with;
+//! use premortem::MockEnv;
 //!
-//! let traced = trace_config()?;
+//! let env = MockEnv::new();
+//! let traced = trace_config_with(&env).expect("trace failed");
 //! let issues = detect_issues(&traced);
 //!
-//! for issue in issues {
-//!     println!("Warning: {}", issue.message());
+//! for issue in &issues {
+//!     println!("Warning: {}", issue.message);
 //! }
 //! ```
 

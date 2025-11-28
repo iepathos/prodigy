@@ -55,23 +55,14 @@ pub struct Config {
     pub workflow: Option<WorkflowConfig>,
 }
 
-/// Global configuration settings for Prodigy.
+/// Legacy global configuration settings.
 ///
-/// **Deprecated**: Use [`ProdigyConfig`] with [`load_prodigy_config`] instead.
+/// Use [`ProdigyConfig`] with [`load_prodigy_config`] instead:
 ///
-/// These settings apply across all projects and can be overridden
-/// by project-specific configuration. Stored in the user's home
-/// directory under ~/.prodigy/config.yml.
+/// ```no_run
+/// use prodigy::config::load_prodigy_config;
 ///
-/// # Migration
-///
-/// ```ignore
-/// // Old approach
-/// let global = GlobalConfig::load()?;
-/// let api_key = global.claude_api_key;
-///
-/// // New approach
-/// let config = load_prodigy_config()?;
+/// let config = load_prodigy_config().expect("load failed");
 /// let api_key = config.effective_api_key();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,39 +120,6 @@ impl Default for GlobalConfig {
 }
 
 impl GlobalConfig {
-    /// Load global configuration.
-    ///
-    /// **Deprecated**: Use [`load_prodigy_config`] instead which provides:
-    /// - Automatic layered loading (global → project → env)
-    /// - Comprehensive validation with error accumulation
-    /// - Source location tracking for errors
-    ///
-    /// # Migration
-    ///
-    /// ```ignore
-    /// // Old approach
-    /// let global = GlobalConfig::load()?;
-    ///
-    /// // New approach
-    /// let config = load_prodigy_config()?;
-    /// // Access global settings directly from config
-    /// ```
-    #[deprecated(since = "0.6.0", note = "Use load_prodigy_config() instead")]
-    pub fn load() -> Result<Self> {
-        let config = load_prodigy_config().map_err(|errors| {
-            anyhow!(
-                "Failed to load configuration: {}",
-                errors
-                    .iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        })?;
-
-        Ok(Self::from_prodigy_config(&config))
-    }
-
     /// Convert from the new ProdigyConfig type to the legacy GlobalConfig.
     pub fn from_prodigy_config(config: &ProdigyConfig) -> Self {
         GlobalConfig {
@@ -189,39 +147,6 @@ impl GlobalConfig {
 }
 
 impl ProjectConfig {
-    /// Load project configuration.
-    ///
-    /// **Deprecated**: Use [`load_prodigy_config`] instead which provides:
-    /// - Automatic layered loading (global → project → env)
-    /// - Comprehensive validation with error accumulation
-    /// - Source location tracking for errors
-    ///
-    /// # Migration
-    ///
-    /// ```ignore
-    /// // Old approach
-    /// let project = ProjectConfig::load()?;
-    ///
-    /// // New approach
-    /// let config = load_prodigy_config()?;
-    /// // Access project settings via config.project
-    /// ```
-    #[deprecated(since = "0.6.0", note = "Use load_prodigy_config() instead")]
-    pub fn load() -> Result<Option<Self>> {
-        let config = load_prodigy_config().map_err(|errors| {
-            anyhow!(
-                "Failed to load configuration: {}",
-                errors
-                    .iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        })?;
-
-        Ok(config.project.as_ref().map(Self::from_project_settings))
-    }
-
     /// Convert from the new ProjectSettings type to the legacy ProjectConfig.
     pub fn from_project_settings(settings: &ProjectSettings) -> Self {
         ProjectConfig {

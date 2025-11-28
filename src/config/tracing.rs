@@ -9,10 +9,14 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use prodigy::config::tracing::{trace_config, TraceOutput};
+//! ```
+//! use prodigy::config::tracing::trace_config_with;
+//! use premortem::MockEnv;
 //!
-//! let traced = trace_config()?;
+//! let env = MockEnv::new()
+//!     .with_env("PRODIGY__LOG_LEVEL", "debug");
+//!
+//! let traced = trace_config_with(&env).expect("trace failed");
 //!
 //! // Query a specific path
 //! if let Some(trace) = traced.trace("log_level") {
@@ -23,9 +27,6 @@
 //! for (path, trace) in traced.all_traces() {
 //!     println!("{}", trace.explain(&path));
 //! }
-//!
-//! // Get JSON output
-//! let json = traced.to_json("log_level")?;
 //! ```
 
 use premortem::trace::{TracedConfig, ValueTrace};

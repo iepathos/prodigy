@@ -558,9 +558,6 @@ async fn test_file_pattern_symlink_handling() {
 
 #[tokio::test]
 async fn test_file_pattern_glob_expansion() {
-    // Create TestWorkingDir BEFORE creating temp directory to capture valid CWD
-    let wd = TestWorkingDir::new().unwrap();
-
     let temp_dir = TempDir::new().unwrap();
     let temp_path = temp_dir.path();
 
@@ -595,11 +592,10 @@ async fn test_file_pattern_glob_expansion() {
         let _ = Command::new("sync").status();
     }
 
-    let provider = file_pattern::FilePatternInputProvider::new();
+    // Use FileSystem with base_dir for parallel test safety (Stillwater pattern)
+    let fs = file_pattern::FileSystem::with_base_dir(temp_path.to_path_buf());
+    let provider = file_pattern::FilePatternInputProvider::with_filesystem(fs);
     let mut config = provider::InputConfig::new();
-
-    // Change to temp directory
-    wd.change_to(temp_path).unwrap();
 
     // Test txt files pattern
     config.set("patterns".to_string(), json!(["*.txt"]));
@@ -610,8 +606,6 @@ async fn test_file_pattern_glob_expansion() {
     config.set("patterns".to_string(), json!(["**/*.rs"]));
     let inputs = provider.generate_inputs(&config).await.unwrap();
     assert_eq!(inputs.len(), 3, "Should find 3 .rs files");
-
-    // TestWorkingDir automatically restores original directory when dropped
 }
 
 // ========== Environment Provider Tests ==========

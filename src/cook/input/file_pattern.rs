@@ -10,7 +10,74 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub struct FilePatternInputProvider;
+/// FileSystem service for filesystem operations.
+///
+/// This service encapsulates filesystem operations and can be configured
+/// with a base directory for testing. It follows the Stillwater pattern
+/// of dependency injection via services.
+///
+/// # Production Usage
+///
+/// ```ignore
+/// let fs = FileSystem::new();  // Uses current working directory
+/// let provider = FilePatternInputProvider::with_filesystem(fs);
+/// ```
+///
+/// # Test Usage with MockEnv
+///
+/// ```ignore
+/// use stillwater::testing::MockEnv;
+///
+/// let fs = FileSystem::with_base_dir(temp_path.to_path_buf());
+/// let env = MockEnv::new()
+///     .with(|| fs)
+///     .build();
+/// ```
+#[derive(Clone, Debug)]
+pub struct FileSystem {
+    base_dir: Option<PathBuf>,
+}
+
+impl Default for FileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FileSystem {
+    /// Create a new FileSystem that uses the current working directory.
+    pub fn new() -> Self {
+        Self { base_dir: None }
+    }
+
+    /// Create a FileSystem with a specific base directory.
+    ///
+    /// All relative patterns will be resolved relative to this directory.
+    /// This is the primary method for testing - create a FileSystem with
+    /// a temp directory to avoid CWD races in parallel tests.
+    pub fn with_base_dir(base_dir: PathBuf) -> Self {
+        Self {
+            base_dir: Some(base_dir),
+        }
+    }
+
+    /// Get the base directory, if set.
+    pub fn base_dir(&self) -> Option<&Path> {
+        self.base_dir.as_deref()
+    }
+
+    /// Resolve a pattern to an absolute path pattern.
+    fn resolve_pattern(&self, pattern: &str) -> String {
+        match &self.base_dir {
+            Some(dir) => dir.join(pattern).to_string_lossy().to_string(),
+            None => pattern.to_string(),
+        }
+    }
+}
+
+pub struct FilePatternInputProvider {
+    filesystem: FileSystem,
+}
 
 /// Create file-related variables from a path
 fn create_file_variables(file_path: &Path) -> Vec<(String, VariableValue)> {
@@ -86,8 +153,12 @@ fn expand_pattern(pattern: &str, recursive: bool) -> String {
     }
 }
 
-/// Discover files matching the given patterns
-fn discover_files(patterns: &[serde_json::Value], recursive: bool) -> Result<HashSet<PathBuf>> {
+/// Discover files matching the given patterns using the provided FileSystem.
+fn discover_files(
+    filesystem: &FileSystem,
+    patterns: &[serde_json::Value],
+    recursive: bool,
+) -> Result<HashSet<PathBuf>> {
     let mut all_files = HashSet::new();
 
     for pattern in patterns {
@@ -95,7 +166,8 @@ fn discover_files(patterns: &[serde_json::Value], recursive: bool) -> Result<Has
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Pattern must be a string"))?;
 
-        let pattern_to_use = expand_pattern(pattern_str, recursive);
+        let expanded = expand_pattern(pattern_str, recursive);
+        let pattern_to_use = filesystem.resolve_pattern(&expanded);
 
         for entry in glob(&pattern_to_use)? {
             match entry {
@@ -163,8 +235,26 @@ impl Default for FilePatternInputProvider {
 }
 
 impl FilePatternInputProvider {
+    /// Create a new provider using the current working directory.
     pub fn new() -> Self {
-        Self
+        Self {
+            filesystem: FileSystem::new(),
+        }
+    }
+
+    /// Create a provider with a specific FileSystem.
+    ///
+    /// This is the primary method for testing - inject a FileSystem
+    /// configured with a temp directory to avoid CWD races.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let fs = FileSystem::with_base_dir(temp_path.to_path_buf());
+    /// let provider = FilePatternInputProvider::with_filesystem(fs);
+    /// ```
+    pub fn with_filesystem(filesystem: FileSystem) -> Self {
+        Self { filesystem }
     }
 }
 
@@ -196,7 +286,7 @@ impl InputProvider for FilePatternInputProvider {
         let patterns = config.get_array("patterns")?;
         let recursive = config.get_bool("recursive").unwrap_or(false);
 
-        let all_files = discover_files(&patterns, recursive)?;
+        let all_files = discover_files(&self.filesystem, &patterns, recursive)?;
 
         let inputs = all_files
             .iter()

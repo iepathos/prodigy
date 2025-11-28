@@ -14,6 +14,7 @@ pub mod types;
 mod tests;
 
 pub use config::{InputConfig, InputSource};
+pub use file_pattern::{FilePatternInputProvider, FileSystem};
 pub use legacy_adapter::LegacyInputAdapter;
 pub use processor::InputProcessor;
 pub use provider::InputProvider;

@@ -6,45 +6,24 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use prodigy::config::prodigy_config::load_prodigy_config;
+//! ```no_run
+//! use prodigy::config::load_prodigy_config;
 //!
-//! // Load from all sources with real I/O
 //! let config = load_prodigy_config().expect("config errors");
 //! println!("Max concurrent specs: {}", config.max_concurrent_specs);
 //! ```
 //!
-//! # Testing Example
+//! # Testing with MockEnv
 //!
-//! ```ignore
-//! use prodigy::config::prodigy_config::load_prodigy_config_with;
+//! ```
+//! use prodigy::config::load_prodigy_config_with;
 //! use premortem::MockEnv;
 //!
 //! let env = MockEnv::new()
-//!     .with_file("~/.prodigy/config.yml", "log_level: info")
-//!     .with_env("PRODIGY_LOG_LEVEL", "debug");
+//!     .with_env("PRODIGY__LOG_LEVEL", "debug");
 //!
-//! let config = load_prodigy_config_with(&env).unwrap();
+//! let config = load_prodigy_config_with(&env).expect("load failed");
 //! assert_eq!(config.log_level, "debug");
-//! ```
-//!
-//! # Migration from GlobalConfig/ProjectConfig
-//!
-//! This module replaces the older `GlobalConfig` and `ProjectConfig` types with
-//! a unified `ProdigyConfig`. The old types still exist for backward compatibility
-//! but delegate to this new system.
-//!
-//! ```ignore
-//! // Old approach (deprecated)
-//! let global = GlobalConfig::load()?;
-//! let project = ProjectConfig::load()?;
-//! let api_key = project
-//!     .and_then(|p| p.claude_api_key.clone())
-//!     .or_else(|| global.claude_api_key.clone());
-//!
-//! // New approach
-//! let config = load_prodigy_config()?;
-//! let api_key = config.effective_api_key();  // Precedence handled internally
 //! ```
 
 use premortem::prelude::*;

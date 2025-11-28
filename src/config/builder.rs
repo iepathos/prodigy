@@ -17,10 +17,10 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use prodigy::config::builder::load_prodigy_config;
+//! ```no_run
+//! use prodigy::config::load_prodigy_config;
 //!
-//! let config = load_prodigy_config()?;
+//! let config = load_prodigy_config().expect("failed to load config");
 //! println!("Log level: {}", config.log_level);
 //! ```
 //!
@@ -28,17 +28,13 @@
 //!
 //! Use `load_prodigy_config_with` with a `MockEnv` for testing:
 //!
-//! ```ignore
-//! use prodigy::config::builder::load_prodigy_config_with;
+//! ```
+//! use prodigy::config::load_prodigy_config_with;
 //! use premortem::MockEnv;
 //!
-//! let env = MockEnv::new()
-//!     .with_file("~/.prodigy/config.yml", "log_level: debug")
-//!     .with_env("PRODIGY_MAX_CONCURRENT_SPECS", "8");
-//!
-//! let config = load_prodigy_config_with(&env)?;
-//! assert_eq!(config.log_level, "debug");
-//! assert_eq!(config.max_concurrent_specs, 8);
+//! let env = MockEnv::new();
+//! let config = load_prodigy_config_with(&env).expect("failed to load config");
+//! assert_eq!(config.log_level, "info"); // default value
 //! ```
 
 use super::prodigy_config::{global_config_path, project_config_path, ProdigyConfig};
@@ -63,9 +59,11 @@ use premortem::prelude::*;
 ///
 /// # Example
 ///
-/// ```ignore
-/// let config = load_prodigy_config()?;
-/// println!("Log level: {}", config.log_level);  // Deref to ProdigyConfig
+/// ```no_run
+/// use prodigy::config::load_prodigy_config;
+///
+/// let config = load_prodigy_config().expect("failed to load config");
+/// println!("Log level: {}", config.log_level);
 /// ```
 pub fn load_prodigy_config() -> Result<Config<ProdigyConfig>, ConfigErrors> {
     load_prodigy_config_with(&RealEnv)
@@ -95,20 +93,17 @@ pub fn load_prodigy_config() -> Result<Config<ProdigyConfig>, ConfigErrors> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use prodigy::config::load_prodigy_config_with;
 /// use premortem::MockEnv;
 ///
-/// let mock = MockEnv::new()
-///     .with_file("~/.prodigy/config.yml", r#"
-///         log_level: debug
-///         max_concurrent_specs: 10
-///     "#)
-///     .with_env("PRODIGY_AUTO_COMMIT", "false");
+/// let env = MockEnv::new()
+///     .with_env("PRODIGY__LOG_LEVEL", "debug")
+///     .with_env("PRODIGY__MAX_CONCURRENT_SPECS", "10");
 ///
-/// let config = load_prodigy_config_with(&mock)?;
+/// let config = load_prodigy_config_with(&env).expect("failed to load");
 /// assert_eq!(config.log_level, "debug");
 /// assert_eq!(config.max_concurrent_specs, 10);
-/// assert!(!config.auto_commit); // env var overrides file
 /// ```
 pub fn load_prodigy_config_with<E: ConfigEnv>(
     env: &E,
@@ -158,13 +153,15 @@ pub fn load_prodigy_config_with<E: ConfigEnv>(
 ///
 /// # Example
 ///
-/// ```ignore
-/// let traced = load_prodigy_config_traced()?;
+/// ```no_run
+/// use prodigy::config::load_prodigy_config_traced;
+///
+/// let traced = load_prodigy_config_traced().expect("failed to load");
 ///
 /// // See where a value came from
 /// if let Some(trace) = traced.trace("max_concurrent_specs") {
-///     println!("Value: {}", trace.final_value.value);
-///     println!("Source: {}", trace.final_value.source.source);
+///     println!("Value: {:?}", trace.final_value.value);
+///     println!("Source: {:?}", trace.final_value.source);
 /// }
 ///
 /// // Get the actual config
