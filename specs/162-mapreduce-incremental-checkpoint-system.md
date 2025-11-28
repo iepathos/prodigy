@@ -225,6 +225,23 @@ Implement an incremental checkpoint system for MapReduce workflows that:
 
 ## Technical Details
 
+### Stillwater Functional Patterns
+
+This implementation follows the "pure core, imperative shell" pattern using Stillwater's functional abstractions. All checkpoint logic is organized into:
+- **Pure functions**: Validation, state transitions, checkpoint preparation
+- **Effects**: I/O operations wrapped in composable Effect types
+- **Validation**: Error accumulation for comprehensive error reporting
+
+#### Core Patterns Used
+
+| Pattern | Use Case | Benefit |
+|---------|----------|---------|
+| `Validation<T, Vec<E>>` | Checkpoint validation | Accumulates ALL errors |
+| `Effect<T, E, Env>` | Checkpoint I/O | Testable, composable |
+| `bracket` | Signal handling | Guaranteed cleanup |
+| `asks`/`local` | Configuration access | Clean dependency injection |
+| `Semigroup` | Result aggregation | Composable checkpoint merging |
+
 ### Implementation Approach
 
 #### 1. Checkpoint Trigger System
@@ -322,7 +339,47 @@ impl MapReduceCoordinator {
 }
 ```
 
-#### 3. Signal Handler Integration
+#### 3. Signal Handler Integration with Bracket Pattern
+
+**Stillwater Pattern**: Use `bracket` for guaranteed checkpoint on interrupt:
+
+```rust
+use stillwater::effect::bracket::bracket;
+use stillwater::prelude::*;
+
+/// Run MapReduce job with guaranteed checkpoint on interrupt
+pub fn run_job_with_checkpoint_guarantee<E>(
+    job: MapReduceJob,
+) -> impl Effect<Output = JobResult, Error = JobError, Env = E>
+where
+    E: HasCheckpointEnv + HasJobEnv,
+{
+    bracket(
+        // Acquire: initialize job state
+        initialize_job_effect(&job),
+
+        // Release: ALWAYS save checkpoint (even on interrupt/error)
+        |job_state| async move {
+            save_checkpoint_on_shutdown(job_state).await.ok();
+        },
+
+        // Use: execute the job phases
+        |job_state| execute_job_phases_effect(job_state),
+    )
+}
+
+/// Effect for saving checkpoint on shutdown
+fn save_checkpoint_on_shutdown(
+    state: JobState,
+) -> impl Effect<Output = CheckpointId, Error = CheckpointError, Env = CheckpointEnv> {
+    from_fn(move |env: &CheckpointEnv| async move {
+        let checkpoint = prepare_checkpoint(&state, CheckpointReason::BeforeShutdown);
+        env.storage.save_checkpoint(&checkpoint).await
+    })
+}
+```
+
+**Legacy Signal Handler (for compatibility)**:
 
 ```rust
 use tokio::signal;
@@ -360,7 +417,307 @@ pub async fn register_signal_handlers(coordinator: Arc<MapReduceCoordinator>) {
 }
 ```
 
-#### 4. Storage Location Unification
+#### 4. Checkpoint Validation with Error Accumulation
+
+**Stillwater Pattern**: Use `Validation` to accumulate ALL errors:
+
+```rust
+use stillwater::Validation;
+
+/// Checkpoint validation errors
+#[derive(Debug, Clone)]
+pub enum CheckpointValidationError {
+    WorkItemCountMismatch { expected: usize, actual: usize },
+    OrphanedAgentAssignment { agent_id: String },
+    IntegrityHashMismatch { expected: String, actual: String },
+    InvalidPhaseState { phase: PhaseType, reason: String },
+    MissingRequiredField { field: String },
+    InconsistentTimestamps { field: String, issue: String },
+}
+
+/// Validate checkpoint with error accumulation (reports ALL issues)
+pub fn validate_checkpoint(
+    checkpoint: &MapReduceCheckpoint,
+) -> Validation<(), Vec<CheckpointValidationError>> {
+    Validation::all((
+        validate_work_item_counts(checkpoint),
+        validate_agent_consistency(checkpoint),
+        validate_integrity_hash(checkpoint),
+        validate_phase_state(checkpoint),
+        validate_timestamps(checkpoint),
+    ))
+    .map(|_| ())
+}
+
+/// Pure: validate work item counts
+fn validate_work_item_counts(
+    checkpoint: &MapReduceCheckpoint,
+) -> Validation<(), Vec<CheckpointValidationError>> {
+    let total_accounted = checkpoint.work_item_state.completed_items.len()
+        + checkpoint.work_item_state.failed_items.len()
+        + checkpoint.work_item_state.pending_items.len()
+        + checkpoint.work_item_state.in_progress_items.len();
+
+    if total_accounted == checkpoint.metadata.total_work_items {
+        Validation::Success(())
+    } else {
+        Validation::Failure(vec![CheckpointValidationError::WorkItemCountMismatch {
+            expected: checkpoint.metadata.total_work_items,
+            actual: total_accounted,
+        }])
+    }
+}
+
+/// Pure: validate agent assignment consistency
+fn validate_agent_consistency(
+    checkpoint: &MapReduceCheckpoint,
+) -> Validation<(), Vec<CheckpointValidationError>> {
+    let orphaned: Vec<_> = checkpoint
+        .agent_state
+        .agent_assignments
+        .keys()
+        .filter(|agent_id| !checkpoint.agent_state.active_agents.contains_key(*agent_id))
+        .map(|agent_id| CheckpointValidationError::OrphanedAgentAssignment {
+            agent_id: agent_id.clone(),
+        })
+        .collect();
+
+    if orphaned.is_empty() {
+        Validation::Success(())
+    } else {
+        Validation::Failure(orphaned)
+    }
+}
+
+/// Pure: validate integrity hash
+fn validate_integrity_hash(
+    checkpoint: &MapReduceCheckpoint,
+) -> Validation<(), Vec<CheckpointValidationError>> {
+    let calculated = calculate_integrity_hash(checkpoint);
+
+    if calculated == checkpoint.metadata.integrity_hash {
+        Validation::Success(())
+    } else {
+        Validation::Failure(vec![CheckpointValidationError::IntegrityHashMismatch {
+            expected: checkpoint.metadata.integrity_hash.clone(),
+            actual: calculated,
+        }])
+    }
+}
+```
+
+#### 5. Pure Checkpoint Preparation (Separated from I/O)
+
+**Stillwater Pattern**: Pure functions for checkpoint creation, Effects for I/O:
+
+```rust
+use stillwater::prelude::*;
+
+/// Pure: prepare checkpoint for saving (no I/O)
+pub fn prepare_checkpoint(
+    state: &MapReduceCheckpoint,
+    reason: CheckpointReason,
+) -> MapReduceCheckpoint {
+    let checkpoint_id = CheckpointId::new();
+    let mut checkpoint = state.clone();
+
+    checkpoint.metadata.checkpoint_id = checkpoint_id.to_string();
+    checkpoint.metadata.created_at = Utc::now();
+    checkpoint.metadata.checkpoint_reason = reason;
+    checkpoint.metadata.integrity_hash = calculate_integrity_hash(&checkpoint);
+
+    // Reset in-progress items to pending (safe for resume)
+    for (_, progress) in checkpoint.work_item_state.in_progress_items.drain() {
+        checkpoint.work_item_state.pending_items.push(progress.work_item);
+    }
+
+    checkpoint
+}
+
+/// Pure: calculate integrity hash
+pub fn calculate_integrity_hash(checkpoint: &MapReduceCheckpoint) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(checkpoint.metadata.job_id.as_bytes());
+    hasher.update(checkpoint.metadata.version.to_string().as_bytes());
+    hasher.update(format!("{:?}", checkpoint.metadata.phase).as_bytes());
+    hasher.update(checkpoint.metadata.total_work_items.to_string().as_bytes());
+    hasher.update(checkpoint.work_item_state.completed_items.len().to_string().as_bytes());
+    hasher.update(checkpoint.work_item_state.failed_items.len().to_string().as_bytes());
+
+    format!("{:x}", hasher.finalize())
+}
+
+/// Effect: save checkpoint to storage
+pub fn save_checkpoint_effect(
+    checkpoint: MapReduceCheckpoint,
+) -> impl Effect<Output = CheckpointId, Error = CheckpointError, Env = CheckpointEnv> {
+    from_fn(move |env: &CheckpointEnv| async move {
+        env.storage.save_checkpoint(&checkpoint).await?;
+        Ok(CheckpointId::from_string(checkpoint.metadata.checkpoint_id.clone()))
+    })
+}
+
+/// Composed Effect: validate, prepare, and save checkpoint
+pub fn create_checkpoint_effect(
+    state: &MapReduceCheckpoint,
+    reason: CheckpointReason,
+) -> impl Effect<Output = CheckpointId, Error = CheckpointError, Env = CheckpointEnv> {
+    // Validate first (pure, accumulates all errors)
+    let validation_result = validate_checkpoint(state);
+
+    from_validation(validation_result.map_err(CheckpointError::ValidationFailed))
+        .and_then(move |_| {
+            let checkpoint = prepare_checkpoint(state, reason);
+            save_checkpoint_effect(checkpoint)
+        })
+        .and_then(|id| {
+            cleanup_old_checkpoints_effect().map(move |_| id)
+        })
+        .context("Creating checkpoint")
+}
+```
+
+#### 6. Reader Pattern for Checkpoint Environment
+
+**Stillwater Pattern**: Use `asks` and `local` for clean configuration access:
+
+```rust
+use stillwater::prelude::*;
+
+/// Checkpoint environment for Reader pattern
+#[derive(Clone)]
+pub struct CheckpointEnv {
+    pub storage: Arc<dyn CheckpointStorage>,
+    pub config: CheckpointConfig,
+    pub job_id: String,
+}
+
+/// Get checkpoint interval from environment
+pub fn get_checkpoint_interval() -> impl Effect<Output = Option<usize>, Error = Never, Env = CheckpointEnv> {
+    asks(|env: &CheckpointEnv| env.config.interval_items)
+}
+
+/// Get retention policy from environment
+pub fn get_retention_policy() -> impl Effect<Output = Option<RetentionPolicy>, Error = Never, Env = CheckpointEnv> {
+    asks(|env: &CheckpointEnv| env.config.retention_policy.clone())
+}
+
+/// Override retention policy for specific operation
+pub fn with_extended_retention<E, T>(
+    effect: E,
+) -> impl Effect<Output = T, Error = E::Error, Env = CheckpointEnv>
+where
+    E: Effect<Env = CheckpointEnv>,
+{
+    local(
+        |env: &CheckpointEnv| CheckpointEnv {
+            config: CheckpointConfig {
+                retention_policy: Some(RetentionPolicy {
+                    max_checkpoints: Some(100), // Extended for migration
+                    max_age: None,
+                    keep_final: true,
+                }),
+                ..env.config.clone()
+            },
+            ..env.clone()
+        },
+        effect,
+    )
+}
+
+/// Pure: determine if checkpoint should be created
+pub fn should_checkpoint(
+    items_processed: usize,
+    last_checkpoint_time: DateTime<Utc>,
+    current_time: DateTime<Utc>,
+    config: &CheckpointConfig,
+) -> bool {
+    let item_trigger = config.interval_items
+        .map(|interval| items_processed >= interval)
+        .unwrap_or(false);
+
+    let time_trigger = config.interval_duration
+        .map(|interval| {
+            let elapsed = current_time.signed_duration_since(last_checkpoint_time);
+            elapsed >= chrono::Duration::from_std(interval).unwrap_or_default()
+        })
+        .unwrap_or(false);
+
+    item_trigger || time_trigger
+}
+```
+
+#### 7. Pure Work Item State Transitions
+
+**Stillwater Pattern**: Pure state machine, separate from persistence:
+
+```rust
+/// Work item status for state machine
+#[derive(Debug, Clone, PartialEq)]
+pub enum WorkItemStatus {
+    Pending,
+    InProgress { agent_id: String, started_at: DateTime<Utc> },
+    Completed { result: AgentResult },
+    Failed { error: String, retry_count: usize },
+}
+
+/// Events that trigger state transitions
+#[derive(Debug, Clone)]
+pub enum WorkItemEvent {
+    AgentStart { agent_id: String },
+    AgentComplete { result: AgentResult },
+    AgentFailed { error: String },
+    Interrupt,
+    Retry,
+}
+
+/// Pure: transition work item state
+pub fn transition_work_item(
+    current: WorkItemStatus,
+    event: WorkItemEvent,
+) -> Result<WorkItemStatus, TransitionError> {
+    match (current, event) {
+        (WorkItemStatus::Pending, WorkItemEvent::AgentStart { agent_id }) => {
+            Ok(WorkItemStatus::InProgress {
+                agent_id,
+                started_at: Utc::now(),
+            })
+        }
+        (WorkItemStatus::InProgress { .. }, WorkItemEvent::AgentComplete { result }) => {
+            Ok(WorkItemStatus::Completed { result })
+        }
+        (WorkItemStatus::InProgress { .. }, WorkItemEvent::AgentFailed { error }) => {
+            Ok(WorkItemStatus::Failed { error, retry_count: 1 })
+        }
+        (WorkItemStatus::InProgress { .. }, WorkItemEvent::Interrupt) => {
+            Ok(WorkItemStatus::Pending) // Reset on interrupt
+        }
+        (WorkItemStatus::Failed { retry_count, .. }, WorkItemEvent::Retry) => {
+            Ok(WorkItemStatus::Pending) // Back to pending for retry
+        }
+        (current, event) => Err(TransitionError::Invalid {
+            current: format!("{:?}", current),
+            event: format!("{:?}", event),
+        }),
+    }
+}
+
+/// Pure: apply transition to checkpoint work item state
+pub fn apply_work_item_transition(
+    mut state: WorkItemState,
+    item_id: &str,
+    event: WorkItemEvent,
+) -> Result<WorkItemState, TransitionError> {
+    // Find item and apply transition
+    // Returns new state without mutation
+    // ...
+    Ok(state)
+}
+```
+
+#### 8. Storage Location Unification
 
 **Current (Broken)**: Mixed storage locations causing resume failures
 - Some checkpoints: `~/.prodigy/state/session-UUID/mapreduce/`
@@ -369,26 +726,29 @@ pub async fn register_signal_handlers(coordinator: Arc<MapReduceCoordinator>) {
 **Fixed**: Single canonical location for all MapReduce state
 
 ```rust
-/// Get the canonical checkpoint storage directory for a MapReduce job
-pub fn get_checkpoint_directory(job_id: &str) -> Result<PathBuf> {
-    let prodigy_home = get_default_storage_dir()?;
-    let repo_name = get_current_repo_name()?;
-
-    let checkpoint_dir = prodigy_home
+/// Pure: get the canonical checkpoint storage directory for a MapReduce job
+pub fn get_checkpoint_directory(job_id: &str, prodigy_home: &Path, repo_name: &str) -> PathBuf {
+    prodigy_home
         .join("state")
         .join(repo_name)
         .join("mapreduce")
         .join("jobs")
-        .join(job_id);
+        .join(job_id)
+}
 
-    // Create directory structure if it doesn't exist
-    std::fs::create_dir_all(&checkpoint_dir)?;
-
-    Ok(checkpoint_dir)
+/// Effect: ensure checkpoint directory exists
+pub fn ensure_checkpoint_directory_effect(
+    job_id: &str,
+) -> impl Effect<Output = PathBuf, Error = IoError, Env = CheckpointEnv> {
+    from_fn(move |env: &CheckpointEnv| async move {
+        let dir = get_checkpoint_directory(job_id, &env.prodigy_home, &env.repo_name);
+        tokio::fs::create_dir_all(&dir).await?;
+        Ok(dir)
+    })
 }
 ```
 
-#### 5. Work Item State Machine
+#### 9. Work Item State Machine Diagram
 
 ```
 ┌─────────┐  agent_start   ┌────────────┐
@@ -465,51 +825,96 @@ pub enum CheckpointReason {
 
 ### Architecture Changes
 
+Following the "pure core, imperative shell" pattern, checkpoint logic is organized into:
+
+```
+src/cook/execution/mapreduce/checkpoint/
+├── pure/                           # Pure functions (no I/O)
+│   ├── preparation.rs              # Checkpoint preparation
+│   ├── validation.rs               # Validation with error accumulation
+│   ├── state_transitions.rs        # Work item state machine
+│   ├── triggers.rs                 # Checkpoint trigger predicates
+│   └── hash.rs                     # Integrity hash calculation
+├── effects/                        # I/O effects (Effect<T, E, Env>)
+│   ├── storage.rs                  # Save/load checkpoint effects
+│   ├── cleanup.rs                  # Retention policy effects
+│   └── signal.rs                   # Signal handler effects
+├── environment.rs                  # CheckpointEnv for Reader pattern
+├── manager.rs                      # High-level checkpoint manager
+├── types.rs                        # Data structures
+└── mod.rs                          # Module exports
+```
+
 #### Modified Components
 
 1. **MapReduceCoordinator** (`src/cook/execution/mapreduce/coordination/executor.rs`)
-   - Add checkpoint trigger system
-   - Integrate checkpoint manager
-   - Track work item states
-   - Handle signal-based checkpointing
+   - Use `bracket` pattern for guaranteed checkpoint on interrupt
+   - Integrate checkpoint effects
+   - Track work item states via pure state machine
+   - Compose effects for checkpoint triggering
 
 2. **CheckpointManager** (`src/cook/execution/mapreduce/checkpoint/manager.rs`)
-   - Implement incremental checkpoint creation
-   - Add atomic checkpoint writes
-   - Implement integrity validation
-   - Add checkpoint cleanup policies
+   - Refactored to use Effect composition
+   - Validation with `Validation<T, Vec<E>>` for error accumulation
+   - Pure checkpoint preparation separated from I/O
+   - Reader pattern for environment access
 
 3. **Resume Commands** (`src/cli/commands/resume.rs`)
    - Fix storage location paths
    - Unify checkpoint discovery logic
-   - Improve error messages
+   - Use Validation for comprehensive error reporting
    - Add resume progress reporting
 
 4. **StateManager** (`src/cook/execution/mapreduce/state/`)
-   - Track per-item state transitions
-   - Maintain in-memory state cache
-   - Sync state to checkpoints
-   - Handle concurrent state updates
+   - Pure state transitions (`transition_work_item`)
+   - Effects for persistence
+   - Sync state to checkpoints via Effect composition
+   - Handle concurrent state updates safely
 
-#### New Components
+#### New Components (Pure Functions)
 
-1. **SignalHandler** (`src/cook/execution/mapreduce/signals.rs`)
-   - Register SIGINT/SIGTERM handlers
-   - Trigger checkpoint on interrupt
-   - Coordinate graceful shutdown
-   - Prevent partial checkpoint writes
+1. **CheckpointValidation** (`src/cook/execution/mapreduce/checkpoint/pure/validation.rs`)
+   - `validate_checkpoint()` - returns `Validation<(), Vec<CheckpointValidationError>>`
+   - `validate_work_item_counts()` - pure predicate
+   - `validate_agent_consistency()` - pure predicate
+   - `validate_integrity_hash()` - pure predicate
 
-2. **CheckpointTriggers** (`src/cook/execution/mapreduce/checkpoint/triggers.rs`)
-   - Manage checkpoint trigger conditions
-   - Coordinate multiple trigger sources
-   - Prevent excessive checkpointing
-   - Provide configurable policies
+2. **CheckpointPreparation** (`src/cook/execution/mapreduce/checkpoint/pure/preparation.rs`)
+   - `prepare_checkpoint()` - pure checkpoint creation
+   - `calculate_integrity_hash()` - pure hash calculation
+   - `reset_in_progress_items()` - pure state transformation
 
-3. **WorkItemStateMachine** (`src/cook/execution/mapreduce/state/work_item.rs`)
-   - Define state transition rules
-   - Validate state changes
-   - Track state history
-   - Support state rollback on interrupt
+3. **CheckpointTriggers** (`src/cook/execution/mapreduce/checkpoint/pure/triggers.rs`)
+   - `should_checkpoint()` - pure predicate
+   - `CheckpointTriggerConfig` - configuration data structure
+
+4. **WorkItemStateMachine** (`src/cook/execution/mapreduce/checkpoint/pure/state_transitions.rs`)
+   - `transition_work_item()` - pure state transition
+   - `apply_work_item_transition()` - pure state application
+   - `WorkItemStatus` / `WorkItemEvent` - state machine types
+
+#### New Components (Effects)
+
+1. **CheckpointEffects** (`src/cook/execution/mapreduce/checkpoint/effects/storage.rs`)
+   - `save_checkpoint_effect()` - Effect for saving
+   - `load_checkpoint_effect()` - Effect for loading
+   - `create_checkpoint_effect()` - Composed validate + prepare + save
+
+2. **SignalEffects** (`src/cook/execution/mapreduce/checkpoint/effects/signal.rs`)
+   - `run_job_with_checkpoint_guarantee()` - bracket-based execution
+   - `save_checkpoint_on_shutdown()` - guaranteed cleanup effect
+
+3. **CleanupEffects** (`src/cook/execution/mapreduce/checkpoint/effects/cleanup.rs`)
+   - `cleanup_old_checkpoints_effect()` - retention policy application
+   - `with_extended_retention()` - local environment override
+
+#### New Components (Environment)
+
+1. **CheckpointEnv** (`src/cook/execution/mapreduce/checkpoint/environment.rs`)
+   - Reader pattern environment for checkpoint operations
+   - `get_checkpoint_interval()` - asks helper
+   - `get_retention_policy()` - asks helper
+   - `with_extended_retention()` - local helper
 
 ### Data Structures
 
@@ -550,6 +955,7 @@ pub enum CheckpointReason {
 
 ### Prerequisites
 - **Spec 134**: MapReduce Checkpoint and Resume (foundational checkpoint system)
+- **Stillwater**: Functional programming patterns library
 
 ### Affected Components
 - `MapReduceCoordinator` - execution coordination
@@ -562,10 +968,238 @@ pub enum CheckpointReason {
 - `tokio::signal` - for SIGINT/SIGTERM handling
 - `serde_json` - for checkpoint serialization
 - `sha2` - for checkpoint integrity hashing
+- `stillwater` - for Effect, Validation, and Semigroup patterns
 
 ## Testing Strategy
 
-### Unit Tests
+### Pure Function Tests (No I/O, No Mocking)
+
+Pure functions can be tested directly without any async runtime or mocking:
+
+```rust
+#[cfg(test)]
+mod pure_tests {
+    use super::pure::*;
+    use stillwater::Validation;
+
+    #[test]
+    fn test_should_checkpoint_item_interval() {
+        let config = CheckpointConfig {
+            interval_items: Some(5),
+            interval_duration: None,
+            ..Default::default()
+        };
+        let now = Utc::now();
+        let last_checkpoint = now - chrono::Duration::seconds(10);
+
+        // Below threshold
+        assert!(!should_checkpoint(3, last_checkpoint, now, &config));
+
+        // At threshold
+        assert!(should_checkpoint(5, last_checkpoint, now, &config));
+
+        // Above threshold
+        assert!(should_checkpoint(10, last_checkpoint, now, &config));
+    }
+
+    #[test]
+    fn test_should_checkpoint_time_interval() {
+        let config = CheckpointConfig {
+            interval_items: None,
+            interval_duration: Some(Duration::from_secs(30)),
+            ..Default::default()
+        };
+        let now = Utc::now();
+
+        // Within time interval
+        let recent = now - chrono::Duration::seconds(20);
+        assert!(!should_checkpoint(100, recent, now, &config));
+
+        // Past time interval
+        let old = now - chrono::Duration::seconds(35);
+        assert!(should_checkpoint(0, old, now, &config));
+    }
+
+    #[test]
+    fn test_work_item_state_transitions() {
+        // Pending -> InProgress
+        let result = transition_work_item(
+            WorkItemStatus::Pending,
+            WorkItemEvent::AgentStart { agent_id: "agent-1".to_string() },
+        );
+        assert!(matches!(result, Ok(WorkItemStatus::InProgress { .. })));
+
+        // InProgress -> Completed
+        let result = transition_work_item(
+            WorkItemStatus::InProgress { agent_id: "agent-1".to_string(), started_at: Utc::now() },
+            WorkItemEvent::AgentComplete { result: mock_result() },
+        );
+        assert!(matches!(result, Ok(WorkItemStatus::Completed { .. })));
+
+        // InProgress -> Pending on interrupt
+        let result = transition_work_item(
+            WorkItemStatus::InProgress { agent_id: "agent-1".to_string(), started_at: Utc::now() },
+            WorkItemEvent::Interrupt,
+        );
+        assert!(matches!(result, Ok(WorkItemStatus::Pending)));
+
+        // Invalid transition: Pending -> Completed
+        let result = transition_work_item(
+            WorkItemStatus::Pending,
+            WorkItemEvent::AgentComplete { result: mock_result() },
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_checkpoint_validation_accumulates_all_errors() {
+        // Create checkpoint with multiple issues
+        let checkpoint = create_checkpoint_with_issues();
+
+        let result = validate_checkpoint(&checkpoint);
+
+        match result {
+            Validation::Success(_) => panic!("Expected validation failures"),
+            Validation::Failure(errors) => {
+                // Should have accumulated ALL errors, not just the first
+                assert!(errors.len() >= 2, "Expected multiple errors, got {}", errors.len());
+
+                // Check specific error types are present
+                assert!(errors.iter().any(|e| matches!(e, CheckpointValidationError::WorkItemCountMismatch { .. })));
+                assert!(errors.iter().any(|e| matches!(e, CheckpointValidationError::OrphanedAgentAssignment { .. })));
+            }
+        }
+    }
+
+    #[test]
+    fn test_prepare_checkpoint_resets_in_progress() {
+        let mut state = create_test_checkpoint_state();
+        state.work_item_state.in_progress_items.insert(
+            "item-1".to_string(),
+            WorkItemProgress { /* ... */ },
+        );
+
+        let prepared = prepare_checkpoint(&state, CheckpointReason::Manual);
+
+        // In-progress items should be moved to pending
+        assert!(prepared.work_item_state.in_progress_items.is_empty());
+        assert!(prepared.work_item_state.pending_items.iter().any(|i| i.id == "item-1"));
+    }
+
+    #[test]
+    fn test_integrity_hash_deterministic() {
+        let checkpoint = create_test_checkpoint("job-1");
+
+        let hash1 = calculate_integrity_hash(&checkpoint);
+        let hash2 = calculate_integrity_hash(&checkpoint);
+
+        assert_eq!(hash1, hash2, "Hash should be deterministic");
+    }
+
+    #[test]
+    fn test_integrity_hash_changes_on_state_change() {
+        let mut checkpoint = create_test_checkpoint("job-1");
+        let hash1 = calculate_integrity_hash(&checkpoint);
+
+        checkpoint.metadata.completed_items += 1;
+        let hash2 = calculate_integrity_hash(&checkpoint);
+
+        assert_ne!(hash1, hash2, "Hash should change when state changes");
+    }
+}
+```
+
+### Effect Tests (With Mock Environment)
+
+Effects are tested with mock environments:
+
+```rust
+#[cfg(test)]
+mod effect_tests {
+    use super::effects::*;
+    use stillwater::prelude::*;
+
+    #[tokio::test]
+    async fn test_save_checkpoint_effect() {
+        let mock_storage = MockCheckpointStorage::new();
+        let env = CheckpointEnv {
+            storage: Arc::new(mock_storage),
+            config: CheckpointConfig::default(),
+            job_id: "test-job".to_string(),
+        };
+
+        let checkpoint = create_test_checkpoint("test-job");
+        let effect = save_checkpoint_effect(checkpoint);
+
+        let result = effect.run(&env).await;
+        assert!(result.is_ok());
+        assert!(env.storage.was_called_with("save_checkpoint"));
+    }
+
+    #[tokio::test]
+    async fn test_create_checkpoint_effect_validates_first() {
+        let mock_storage = MockCheckpointStorage::new();
+        let env = CheckpointEnv {
+            storage: Arc::new(mock_storage),
+            config: CheckpointConfig::default(),
+            job_id: "test-job".to_string(),
+        };
+
+        // Create invalid checkpoint
+        let invalid_checkpoint = create_invalid_checkpoint();
+        let effect = create_checkpoint_effect(&invalid_checkpoint, CheckpointReason::Manual);
+
+        let result = effect.run(&env).await;
+
+        // Should fail validation before attempting I/O
+        assert!(result.is_err());
+        assert!(!env.storage.was_called(), "Should not save invalid checkpoint");
+    }
+
+    #[tokio::test]
+    async fn test_reader_pattern_environment_access() {
+        let env = CheckpointEnv {
+            config: CheckpointConfig {
+                interval_items: Some(10),
+                ..Default::default()
+            },
+            ..mock_env()
+        };
+
+        let effect = get_checkpoint_interval();
+        let result = effect.run(&env).await.unwrap();
+
+        assert_eq!(result, Some(10));
+    }
+
+    #[tokio::test]
+    async fn test_local_override() {
+        let env = CheckpointEnv {
+            config: CheckpointConfig {
+                retention_policy: Some(RetentionPolicy {
+                    max_checkpoints: Some(5),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..mock_env()
+        };
+
+        // Inner effect reads retention policy
+        let inner = get_retention_policy();
+
+        // Wrap with extended retention
+        let effect = with_extended_retention(inner);
+
+        let result = effect.run(&env).await.unwrap();
+
+        // Should see extended retention (100), not original (5)
+        assert_eq!(result.unwrap().max_checkpoints, Some(100));
+    }
+}
+```
+
+### Legacy Unit Tests
 
 ```rust
 #[cfg(test)]
@@ -871,9 +1505,58 @@ If issues arise:
 2. **Error Clarity**: Resume error messages guide users to resolution
 3. **Consistency**: Behavior matches sequential workflow resume experience
 
+## Stillwater Migration Summary
+
+### Pattern Usage
+
+| Pattern | Location | Purpose |
+|---------|----------|---------|
+| `Validation<T, Vec<E>>` | `pure/validation.rs` | Accumulate ALL validation errors |
+| `Effect<T, E, Env>` | `effects/storage.rs` | Composable I/O operations |
+| `bracket` | `effects/signal.rs` | Guaranteed checkpoint on interrupt |
+| `asks`/`local` | `environment.rs` | Reader pattern for config |
+| Pure functions | `pure/*.rs` | Testable business logic |
+
+### Migration Benefits
+
+1. **Testability**: Pure functions test without async runtime or mocking
+2. **Error Reporting**: Users see ALL checkpoint validation errors at once
+3. **Composability**: Effects chain together cleanly with `and_then`, `map`
+4. **Reliability**: `bracket` guarantees checkpoint on any exit path
+5. **Flexibility**: Reader pattern enables scoped configuration overrides
+
+### Key Refactoring Steps
+
+1. **Extract Pure Functions**:
+   - `validate_checkpoint()` → returns `Validation<(), Vec<E>>`
+   - `prepare_checkpoint()` → no I/O
+   - `should_checkpoint()` → pure predicate
+   - `transition_work_item()` → pure state machine
+
+2. **Wrap I/O in Effects**:
+   - `save_checkpoint_effect()` → Effect for storage
+   - `load_checkpoint_effect()` → Effect for loading
+   - `cleanup_old_checkpoints_effect()` → Effect for cleanup
+
+3. **Add Reader Pattern**:
+   - `CheckpointEnv` → environment type
+   - `get_*()` → asks helpers
+   - `with_*()` → local overrides
+
+4. **Apply Bracket for Safety**:
+   - `run_job_with_checkpoint_guarantee()` → guaranteed cleanup
+
+### Existing Code That Can Be Reused
+
+- `src/cook/execution/mapreduce/pure/` - existing pure module structure
+- `src/cook/execution/variables/semigroup.rs` - Semigroup implementations
+- `src/cook/execution/mapreduce/checkpoint/types.rs` - data structures (unchanged)
+- `src/cook/execution/mapreduce/checkpoint/storage.rs` - storage trait (wrap in Effect)
+
 ## References
 
 - **RESUME_TEST_RESULTS.md**: Comprehensive test analysis and failure documentation
 - **test-mapreduce-resume.yml**: Test workflow for validation
 - **Spec 134**: MapReduce Checkpoint and Resume (foundation)
+- **Stillwater README**: Functional programming patterns library
 - **CLAUDE.md**: Resume functionality documentation
