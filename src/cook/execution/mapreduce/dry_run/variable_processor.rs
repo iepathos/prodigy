@@ -47,23 +47,29 @@ impl VariableProcessor {
 
     /// Extract variables available from setup phase
     fn extract_setup_variables(&self, setup_phase: Option<&SetupPhase>) -> HashMap<String, String> {
-        let mut variables = HashMap::new();
+        // Build captured outputs from setup phase
+        let captured_outputs: HashMap<String, String> = setup_phase
+            .map(|setup| {
+                setup
+                    .capture_outputs
+                    .keys()
+                    .map(|var_name| {
+                        (
+                            format!("setup.{}", var_name),
+                            "<captured from setup command>".to_string(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
-        if let Some(setup) = setup_phase {
-            // Setup phase can capture outputs
-            for var_name in setup.capture_outputs.keys() {
-                variables.insert(
-                    format!("setup.{}", var_name),
-                    "<captured from setup command>".to_string(),
-                );
-            }
-        }
+        // Combine with default setup variables
+        let default_vars = [
+            ("setup.phase".to_string(), "setup".to_string()),
+            ("setup.status".to_string(), "completed".to_string()),
+        ];
 
-        // Add default setup variables
-        variables.insert("setup.phase".to_string(), "setup".to_string());
-        variables.insert("setup.status".to_string(), "completed".to_string());
-
-        variables
+        default_vars.into_iter().chain(captured_outputs).collect()
     }
 
     /// Extract variables for sample work items
@@ -72,40 +78,41 @@ impl VariableProcessor {
         work_items: &[Value],
         sample_size: usize,
     ) -> Result<Vec<HashMap<String, String>>, DryRunError> {
-        let mut item_variables = Vec::new();
+        work_items
+            .iter()
+            .take(sample_size)
+            .enumerate()
+            .map(|(idx, item)| self.extract_single_item_variables(idx, item))
+            .collect()
+    }
 
-        for (idx, item) in work_items.iter().take(sample_size).enumerate() {
-            let mut vars = HashMap::new();
+    /// Extract variables from a single work item
+    fn extract_single_item_variables(
+        &self,
+        idx: usize,
+        item: &Value,
+    ) -> Result<HashMap<String, String>, DryRunError> {
+        // Start with item index
+        let index_var = ("item.index".to_string(), idx.to_string());
 
-            // Add item index
-            vars.insert("item.index".to_string(), idx.to_string());
+        // Extract item-specific variables based on type
+        let item_vars: Vec<(String, String)> = match item {
+            Value::Object(map) => map
+                .iter()
+                .map(|(key, value)| (format!("item.{}", key), self.value_to_string(value)))
+                .collect(),
+            Value::String(s) => vec![
+                ("item".to_string(), s.clone()),
+                ("item.value".to_string(), s.clone()),
+            ],
+            Value::Number(n) => vec![
+                ("item".to_string(), n.to_string()),
+                ("item.value".to_string(), n.to_string()),
+            ],
+            _ => vec![("item".to_string(), serde_json::to_string(item)?)],
+        };
 
-            // Extract fields from the item
-            match item {
-                Value::Object(map) => {
-                    for (key, value) in map {
-                        let var_name = format!("item.{}", key);
-                        let var_value = self.value_to_string(value);
-                        vars.insert(var_name, var_value);
-                    }
-                }
-                Value::String(s) => {
-                    vars.insert("item".to_string(), s.clone());
-                    vars.insert("item.value".to_string(), s.clone());
-                }
-                Value::Number(n) => {
-                    vars.insert("item".to_string(), n.to_string());
-                    vars.insert("item.value".to_string(), n.to_string());
-                }
-                _ => {
-                    vars.insert("item".to_string(), serde_json::to_string(item)?);
-                }
-            }
-
-            item_variables.push(vars);
-        }
-
-        Ok(item_variables)
+        Ok(std::iter::once(index_var).chain(item_vars).collect())
     }
 
     /// Extract variables available in reduce phase
@@ -114,29 +121,28 @@ impl VariableProcessor {
         reduce_phase: Option<&ReducePhase>,
         work_item_count: usize,
     ) -> HashMap<String, String> {
-        let mut variables = HashMap::new();
-
-        if reduce_phase.is_some() {
-            // Map phase results variables
-            variables.insert(
-                "map.successful".to_string(),
-                "<count of successful items>".to_string(),
-            );
-            variables.insert(
-                "map.failed".to_string(),
-                "<count of failed items>".to_string(),
-            );
-            variables.insert("map.total".to_string(), work_item_count.to_string());
-            variables.insert(
-                "map.results".to_string(),
-                "<aggregated results>".to_string(),
-            );
-
-            // Reduce phase variables
-            variables.insert("reduce.phase".to_string(), "reduce".to_string());
-        }
-
-        variables
+        reduce_phase
+            .map(|_| {
+                [
+                    (
+                        "map.successful".to_string(),
+                        "<count of successful items>".to_string(),
+                    ),
+                    (
+                        "map.failed".to_string(),
+                        "<count of failed items>".to_string(),
+                    ),
+                    ("map.total".to_string(), work_item_count.to_string()),
+                    (
+                        "map.results".to_string(),
+                        "<aggregated results>".to_string(),
+                    ),
+                    ("reduce.phase".to_string(), "reduce".to_string()),
+                ]
+                .into_iter()
+                .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Find undefined variable references
@@ -147,42 +153,38 @@ impl VariableProcessor {
         item_variables: &[HashMap<String, String>],
         reduce_variables: &HashMap<String, String>,
     ) -> Vec<String> {
-        let mut undefined = HashSet::new();
-        let mut all_defined = HashSet::new();
+        // Collect all defined variables using functional chaining
+        let shell_vars = [
+            "shell.output",
+            "shell.stdout",
+            "shell.stderr",
+            "shell.exit_code",
+        ]
+        .into_iter()
+        .map(String::from);
 
-        // Collect all defined variables
-        for var in setup_variables.keys() {
-            all_defined.insert(var.clone());
-        }
+        let all_defined: HashSet<String> = setup_variables
+            .keys()
+            .cloned()
+            .chain(reduce_variables.keys().cloned())
+            .chain(
+                item_variables
+                    .first()
+                    .into_iter()
+                    .flat_map(|item| item.keys().cloned()),
+            )
+            .chain(shell_vars)
+            .collect();
 
-        for var in reduce_variables.keys() {
-            all_defined.insert(var.clone());
-        }
-
-        // For item variables, use the first sample as representative
-        if let Some(first_item) = item_variables.first() {
-            for var in first_item.keys() {
-                all_defined.insert(var.clone());
-            }
-        }
-
-        // Add shell output variable (available after shell commands)
-        all_defined.insert("shell.output".to_string());
-        all_defined.insert("shell.stdout".to_string());
-        all_defined.insert("shell.stderr".to_string());
-        all_defined.insert("shell.exit_code".to_string());
-
-        // Check variable references in commands
-        for command in &map_phase.agent_template {
-            let references = self.extract_variable_references(command);
-            for var_ref in references {
-                if !all_defined.contains(&var_ref) && !self.is_dynamic_variable(&var_ref) {
-                    undefined.insert(var_ref);
-                }
-            }
-        }
-
-        undefined.into_iter().collect()
+        // Find undefined references using functional composition
+        map_phase
+            .agent_template
+            .iter()
+            .flat_map(|cmd| self.extract_variable_references(cmd))
+            .filter(|var_ref| !all_defined.contains(var_ref) && !self.is_dynamic_variable(var_ref))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
     }
 
     /// Extract variable references from a command
@@ -190,19 +192,19 @@ impl VariableProcessor {
         &self,
         command: &crate::cook::workflow::WorkflowStep,
     ) -> Vec<String> {
-        let mut references = Vec::new();
         let regex = regex::Regex::new(r"\$\{([^}]+)\}").expect("Invalid regex");
 
-        // Check all command types for variables
-        let command_texts = vec![command.claude.as_deref(), command.shell.as_deref()];
-
-        for text in command_texts.into_iter().flatten() {
-            for cap in regex.captures_iter(text) {
-                references.push(cap[1].to_string());
-            }
-        }
-
-        references
+        // Check all command types for variables using functional composition
+        [command.claude.as_deref(), command.shell.as_deref()]
+            .into_iter()
+            .flatten()
+            .flat_map(|text| {
+                regex
+                    .captures_iter(text)
+                    .map(|cap| cap[1].to_string())
+                    .collect::<Vec<_>>()
+            })
+            .collect()
     }
 
     /// Check if a variable is dynamically generated

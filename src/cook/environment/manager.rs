@@ -225,9 +225,8 @@ impl EnvironmentManager {
             .get(profile_name)
             .ok_or_else(|| anyhow!("Profile not found: {}", profile_name))?;
 
-        for (key, value) in &profile.env {
-            env.insert(key.clone(), value.clone());
-        }
+        // Apply profile environment using functional extension
+        env.extend(profile.env.iter().map(|(k, v)| (k.clone(), v.clone())));
 
         info!("Applied environment profile: {}", profile_name);
         Ok(())
@@ -286,11 +285,14 @@ impl EnvironmentManager {
         conditional: &ConditionalEnv,
         variables: &HashMap<String, String>,
     ) -> Result<String> {
-        // Create variable context for expression evaluation
-        let mut var_context = ExpressionVariableContext::new();
-        for (key, value) in variables {
-            var_context.set(key.clone(), Value::String(value.clone()));
-        }
+        // Create variable context using functional fold
+        let var_context =
+            variables
+                .iter()
+                .fold(ExpressionVariableContext::new(), |mut ctx, (key, value)| {
+                    ctx.set(key.clone(), Value::String(value.clone()));
+                    ctx
+                });
 
         // Evaluate condition
         let evaluator = ExpressionEvaluator::new();
@@ -342,18 +344,16 @@ impl EnvironmentManager {
         value: &str,
         variables: &HashMap<String, String>,
     ) -> Result<String> {
-        let mut result = value.to_string();
+        // Chain variable interpolations using fold
+        let with_vars = variables.iter().fold(value.to_string(), |acc, (key, val)| {
+            acc.replace(&format!("${{{}}}", key), val)
+                .replace(&format!("${}", key), val)
+        });
 
-        // Simple variable interpolation
-        for (key, val) in variables {
-            result = result.replace(&format!("${{{}}}", key), val);
-            result = result.replace(&format!("${}", key), val);
-        }
-
-        // Environment variable interpolation
-        for (key, val) in &self.base_env {
-            result = result.replace(&format!("${{env.{}}}", key), val);
-        }
+        // Apply environment variable interpolation
+        let result = self.base_env.iter().fold(with_vars, |acc, (key, val)| {
+            acc.replace(&format!("${{env.{}}}", key), val)
+        });
 
         Ok(result)
     }

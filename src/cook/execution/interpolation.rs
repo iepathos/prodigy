@@ -477,15 +477,14 @@ impl InterpolationContext {
     }
 
     /// Resolve remaining path segments in a JSON value (pure function)
-    fn resolve_path_in_value(mut current: Value, path: &[String]) -> Result<Value> {
-        for segment in path {
-            current = if Self::is_array_index(segment) {
-                Self::resolve_array_index(current, segment)?
+    fn resolve_path_in_value(initial: Value, path: &[String]) -> Result<Value> {
+        path.iter().try_fold(initial, |current, segment| {
+            if Self::is_array_index(segment) {
+                Self::resolve_array_index(current, segment)
             } else {
-                Self::resolve_property_access(current, segment)?
-            };
-        }
-        Ok(current)
+                Self::resolve_property_access(current, segment)
+            }
+        })
     }
 
     /// Check if segment is an array index like `[0]` (pure function)
@@ -525,21 +524,23 @@ impl InterpolationContext {
 
     /// Add variables from a JSON object
     pub fn add_json_object(&mut self, prefix: &str, obj: &serde_json::Map<String, Value>) {
-        for (key, value) in obj {
+        // Build key-value pairs using functional mapping
+        let new_vars = obj.iter().map(|(key, value)| {
             let full_key = if prefix.is_empty() {
                 key.clone()
             } else {
                 format!("{prefix}.{key}")
             };
-            self.variables.insert(full_key, value.clone());
-        }
+            (full_key, value.clone())
+        });
+
+        self.variables.extend(new_vars);
     }
 
     /// Merge another context into this one
     pub fn merge(&mut self, other: &InterpolationContext) {
-        for (key, value) in &other.variables {
-            self.variables.insert(key.clone(), value.clone());
-        }
+        self.variables
+            .extend(other.variables.iter().map(|(k, v)| (k.clone(), v.clone())));
     }
 }
 

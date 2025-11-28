@@ -219,38 +219,39 @@ impl WorkflowComposer {
         workflow: &mut ComposableWorkflow,
         defaults: &HashMap<String, Value>,
     ) -> Result<()> {
-        // Apply default values where not already set
         tracing::debug!("Applying {} default values", defaults.len());
 
-        // Apply defaults to environment variables if not already set
-        if workflow.config.env.is_none() {
-            workflow.config.env = Some(HashMap::new());
-        }
+        // Apply defaults to environment variables (ensure map exists first)
+        let env = workflow.config.env.get_or_insert_with(HashMap::new);
 
-        if let Some(env) = &mut workflow.config.env {
-            for (key, value) in defaults {
-                // Only apply default if key doesn't exist
-                if !env.contains_key(key) {
-                    let value_str = match value {
-                        Value::String(s) => s.clone(),
-                        Value::Number(n) => n.to_string(),
-                        Value::Bool(b) => b.to_string(),
-                        _ => value.to_string(),
-                    };
-                    env.insert(key.clone(), value_str);
-                }
-            }
-        }
+        // Build new entries for missing keys, then extend env
+        let new_entries: Vec<(String, String)> = defaults
+            .iter()
+            .filter(|(key, _)| !env.contains_key(*key))
+            .map(|(key, value)| {
+                let value_str = match value {
+                    Value::String(s) => s.clone(),
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    _ => value.to_string(),
+                };
+                (key.clone(), value_str)
+            })
+            .collect();
+
+        env.extend(new_entries);
 
         // Apply parameter defaults if defined
         if let Some(params) = &mut workflow.parameters {
-            for param in params.optional.iter_mut() {
-                if param.default.is_none() {
+            params
+                .optional
+                .iter_mut()
+                .filter(|param| param.default.is_none())
+                .for_each(|param| {
                     if let Some(default_value) = defaults.get(&param.name) {
                         param.default = Some(default_value.clone());
                     }
-                }
-            }
+                });
         }
 
         Ok(())
@@ -609,38 +610,35 @@ impl WorkflowComposer {
     }
 
     fn resolve_base_path(&self, base_name: &str) -> Result<PathBuf> {
-        // Resolve base workflow path
-        // Look in standard locations: ./bases/, ./templates/, ./workflows/
-        let candidates = vec![
-            PathBuf::from(format!("bases/{}.yml", base_name)),
-            PathBuf::from(format!("templates/{}.yml", base_name)),
-            PathBuf::from(format!("workflows/{}.yml", base_name)),
-            PathBuf::from(format!("{}.yml", base_name)),
-        ];
-
-        for candidate in candidates {
-            if candidate.exists() {
-                return Ok(candidate);
-            }
-        }
-
-        anyhow::bail!("Base workflow '{}' not found", base_name);
+        // Resolve base workflow path using functional search
+        ["bases", "templates", "workflows", ""]
+            .into_iter()
+            .map(|dir| {
+                if dir.is_empty() {
+                    PathBuf::from(format!("{}.yml", base_name))
+                } else {
+                    PathBuf::from(format!("{}/{}.yml", dir, base_name))
+                }
+            })
+            .find(|path| path.exists())
+            .ok_or_else(|| anyhow::anyhow!("Base workflow '{}' not found", base_name))
     }
 
     fn validate_sub_workflows(
         &self,
         sub_workflows: &HashMap<String, super::SubWorkflow>,
     ) -> Result<()> {
-        for (name, sub) in sub_workflows {
-            if !sub.source.exists() {
+        // Check for missing sources using functional approach
+        sub_workflows
+            .iter()
+            .find(|(_, sub)| !sub.source.exists())
+            .map_or(Ok(()), |(name, sub)| {
                 anyhow::bail!(
                     "Sub-workflow '{}' source does not exist: {:?}",
                     name,
                     sub.source
-                );
-            }
-        }
-        Ok(())
+                )
+            })
     }
 }
 
@@ -692,26 +690,26 @@ impl DependencyResolver {
     }
 
     fn check_circular_deps(&self, dependencies: &[DependencyInfo]) -> Result<()> {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+        // Build dependency graph using functional approach
+        let graph: HashMap<String, Vec<String>> =
+            dependencies.iter().fold(HashMap::new(), |mut acc, dep| {
+                acc.entry(dep.source.display().to_string())
+                    .or_default()
+                    .push(dep.resolved.clone());
+                acc
+            });
 
-        // Build dependency graph
-        for dep in dependencies {
-            let from = dep.source.display().to_string();
-            let to = dep.resolved.clone();
-
-            graph.entry(from).or_default().push(to);
-        }
-
-        // Check for cycles using DFS
+        // Check for cycles using DFS with functional iteration
         let mut visited = HashSet::new();
         let mut rec_stack = HashSet::new();
 
-        for node in graph.keys() {
-            if !visited.contains(node)
-                && Self::has_cycle(&graph, node, &mut visited, &mut rec_stack)?
-            {
-                anyhow::bail!("Circular dependency detected in workflow composition");
-            }
+        let has_cycle = graph.keys().any(|node| {
+            !visited.contains(node)
+                && Self::has_cycle(&graph, node, &mut visited, &mut rec_stack).unwrap_or(false)
+        });
+
+        if has_cycle {
+            anyhow::bail!("Circular dependency detected in workflow composition");
         }
 
         Ok(())
@@ -827,39 +825,49 @@ fn substitute_params(
     text: &str,
     params: &HashMap<String, Value>,
 ) -> Result<String> {
-    let mut result = text.to_string();
-    let mut errors = Vec::new();
+    // Collect all parameter substitutions (or errors)
+    let substitutions: Vec<Result<(String, String)>> = regex
+        .captures_iter(text)
+        .map(|cap| {
+            let param_name = cap[1].to_string();
+            params
+                .get(&param_name)
+                .map(|value| {
+                    let value_str = match value {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        Value::Array(_) | Value::Object(_) => {
+                            serde_json::to_string(value).unwrap_or_default()
+                        }
+                        Value::Null => String::new(),
+                    };
+                    (format!("${{{}}}", param_name), value_str)
+                })
+                .ok_or_else(|| anyhow::anyhow!("Parameter '{}' not found", param_name))
+        })
+        .collect();
 
-    for cap in regex.captures_iter(text) {
-        let param_name = &cap[1];
-        match params.get(param_name) {
-            Some(value) => {
-                let value_str = match value {
-                    Value::String(s) => s.clone(),
-                    Value::Number(n) => n.to_string(),
-                    Value::Bool(b) => b.to_string(),
-                    Value::Array(_) | Value::Object(_) => {
-                        // Complex types are serialized as JSON
-                        serde_json::to_string(value).with_context(|| {
-                            format!("Failed to serialize parameter '{}'", param_name)
-                        })?
-                    }
-                    Value::Null => String::new(),
-                };
+    // Separate successes from failures
+    let (successes, failures): (Vec<_>, Vec<_>) =
+        substitutions.into_iter().partition(Result::is_ok);
 
-                result = result.replace(&format!("${{{}}}", param_name), &value_str);
-            }
-            None => {
-                errors.push(format!("Parameter '{}' not found", param_name));
-            }
-        }
+    // Check for errors
+    if !failures.is_empty() {
+        let error_msgs: Vec<String> = failures
+            .into_iter()
+            .filter_map(|r| r.err().map(|e| e.to_string()))
+            .collect();
+        anyhow::bail!("Parameter substitution errors: {}", error_msgs.join(", "));
     }
 
-    if !errors.is_empty() {
-        anyhow::bail!("Parameter substitution errors: {}", errors.join(", "));
-    }
-
-    Ok(result)
+    // Apply all substitutions
+    Ok(successes
+        .into_iter()
+        .filter_map(Result::ok)
+        .fold(text.to_string(), |acc, (placeholder, value)| {
+            acc.replace(&placeholder, &value)
+        }))
 }
 
 #[cfg(test)]
