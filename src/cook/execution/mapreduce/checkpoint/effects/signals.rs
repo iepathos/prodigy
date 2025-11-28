@@ -199,7 +199,7 @@ pub async fn save_checkpoint_on_shutdown(
             if config.force_on_failure {
                 Err(msg)
             } else {
-                Ok(format!("Checkpoint save timed out, continuing shutdown"))
+                Ok("Checkpoint save timed out, continuing shutdown".to_string())
             }
         }
     }

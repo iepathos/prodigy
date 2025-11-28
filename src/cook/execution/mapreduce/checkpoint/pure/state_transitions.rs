@@ -18,7 +18,7 @@ pub enum WorkItemStatus {
         started_at: DateTime<Utc>,
     },
     /// Item completed successfully
-    Completed { result: AgentResult },
+    Completed { result: Box<AgentResult> },
     /// Item failed and may be retried
     Failed { error: String, retry_count: usize },
     /// Item exhausted retries and is in DLQ
@@ -73,7 +73,7 @@ pub enum WorkItemEvent {
     /// Agent started processing the item
     AgentStart { agent_id: String },
     /// Agent completed successfully
-    AgentComplete { result: AgentResult },
+    AgentComplete { result: Box<AgentResult> },
     /// Agent failed with an error
     AgentFailed { error: String },
     /// Workflow was interrupted
@@ -280,7 +280,7 @@ mod tests {
                 started_at: Utc::now(),
             },
             WorkItemEvent::AgentComplete {
-                result: mock_result(),
+                result: Box::new(mock_result()),
             },
         );
         assert!(matches!(result, Ok(WorkItemStatus::Completed { .. })));
@@ -347,7 +347,7 @@ mod tests {
         let result = transition_work_item(
             WorkItemStatus::Pending,
             WorkItemEvent::AgentComplete {
-                result: mock_result(),
+                result: Box::new(mock_result()),
             },
         );
         assert!(result.is_err());
@@ -367,7 +367,7 @@ mod tests {
             (
                 "item-3".to_string(),
                 WorkItemStatus::Completed {
-                    result: mock_result(),
+                    result: Box::new(mock_result()),
                 },
             ),
         ];
@@ -390,7 +390,7 @@ mod tests {
                 started_at: Utc::now(),
             },
             WorkItemStatus::Completed {
-                result: mock_result(),
+                result: Box::new(mock_result()),
             },
             WorkItemStatus::Failed {
                 error: "error".to_string(),
@@ -419,7 +419,7 @@ mod tests {
         assert!(!failed.can_retry(1));
 
         let completed = WorkItemStatus::Completed {
-            result: mock_result(),
+            result: Box::new(mock_result()),
         };
         assert!(!completed.can_retry(10));
     }
@@ -433,7 +433,7 @@ mod tests {
         }
         .is_terminal());
         assert!(WorkItemStatus::Completed {
-            result: mock_result()
+            result: Box::new(mock_result())
         }
         .is_terminal());
         assert!(!WorkItemStatus::Failed {

@@ -24,7 +24,6 @@ use super::{
 };
 use crate::cook::execution::mapreduce::agent::AgentResult;
 use chrono::{DateTime, Utc};
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -51,8 +50,6 @@ pub struct IncrementalCheckpointController {
     last_checkpoint_time: Arc<RwLock<DateTime<Utc>>>,
     /// Whether checkpointing is enabled
     enabled: Arc<AtomicBool>,
-    /// Storage path for checkpoints
-    storage_path: PathBuf,
 }
 
 impl IncrementalCheckpointController {
@@ -60,7 +57,6 @@ impl IncrementalCheckpointController {
     pub fn new(
         job_id: String,
         storage: Arc<dyn CheckpointStorage>,
-        storage_path: PathBuf,
         trigger_config: CheckpointTriggerConfig,
     ) -> Self {
         Self {
@@ -71,7 +67,6 @@ impl IncrementalCheckpointController {
             items_since_checkpoint: Arc::new(AtomicUsize::new(0)),
             last_checkpoint_time: Arc::new(RwLock::new(Utc::now())),
             enabled: Arc::new(AtomicBool::new(true)),
-            storage_path,
         }
     }
 
@@ -85,7 +80,6 @@ impl IncrementalCheckpointController {
             items_since_checkpoint: Arc::clone(&env.items_since_checkpoint),
             last_checkpoint_time: Arc::clone(&env.last_checkpoint_time),
             enabled: Arc::new(AtomicBool::new(env.enabled)),
-            storage_path: env.storage_path.clone(),
         }
     }
 
@@ -435,16 +429,11 @@ mod tests {
     fn create_test_controller(temp_dir: &TempDir) -> IncrementalCheckpointController {
         let storage_path = temp_dir.path().to_path_buf();
         let storage: Arc<dyn CheckpointStorage> =
-            Arc::new(FileCheckpointStorage::new(storage_path.clone(), true));
+            Arc::new(FileCheckpointStorage::new(storage_path, true));
 
         let trigger_config = CheckpointTriggerConfig::item_interval(2);
 
-        IncrementalCheckpointController::new(
-            "test-job".to_string(),
-            storage,
-            storage_path,
-            trigger_config,
-        )
+        IncrementalCheckpointController::new("test-job".to_string(), storage, trigger_config)
     }
 
     fn mock_agent_result(item_id: &str, success: bool) -> AgentResult {

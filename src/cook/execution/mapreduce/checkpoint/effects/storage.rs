@@ -126,21 +126,17 @@ pub fn should_save_checkpoint(
 
 /// Create an effect-like wrapper that saves the current checkpoint
 /// This is a convenience function that returns a future.
-pub fn save_checkpoint_effect<E: CheckpointStorageEnv + Clone + 'static>(
+pub async fn save_checkpoint_effect<E: CheckpointStorageEnv + Clone + 'static>(
     env: E,
     reason: CheckpointReason,
-) -> impl std::future::Future<Output = Result<String, CheckpointStorageError>> + Send {
-    async move { save_checkpoint(&env, reason).await }
-}
+) -> Result<String, CheckpointStorageError> { save_checkpoint(&env, reason).await }
 
 /// Create an effect-like wrapper that loads a checkpoint by ID
 /// This is a convenience function that returns a future.
-pub fn load_checkpoint_effect<E: CheckpointStorageEnv + Clone + 'static>(
+pub async fn load_checkpoint_effect<E: CheckpointStorageEnv + Clone + 'static>(
     env: E,
     checkpoint_id: String,
-) -> impl std::future::Future<Output = Result<MapReduceCheckpoint, CheckpointStorageError>> + Send {
-    async move { load_checkpoint(&env, checkpoint_id).await }
-}
+) -> Result<MapReduceCheckpoint, CheckpointStorageError> { load_checkpoint(&env, checkpoint_id).await }
 
 #[cfg(test)]
 mod tests {
