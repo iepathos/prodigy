@@ -1535,13 +1535,15 @@ dependencies = [
 [[package]]
 name = "premortem"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30ef11520e3e224c995dc43fa4cdafc4cb1d7700bff4a719803a2134f6e4478a"
 dependencies = [
  "premortem-derive",
  "regex",
  "serde",
  "serde_json",
  "serde_yaml",
- "stillwater",
+ "stillwater 0.8.0",
  "thiserror 1.0.69",
  "toml 0.8.23",
  "toml_edit",
@@ -1550,6 +1552,8 @@ dependencies = [
 [[package]]
 name = "premortem-derive"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1556d95aa9e11da45b819431cbed3d6f8ce5557b21adaa42b4002334239c2ff3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1606,7 +1610,7 @@ dependencies = [
  "sha2",
  "shell-words",
  "signal-hook",
- "stillwater",
+ "stillwater 0.11.0",
  "sysinfo",
  "tempfile",
  "thiserror 2.0.17",
@@ -2053,6 +2057,15 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
+name = "stillwater"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e86782dce3d3494a7040ac8926f64cfc09f1208c2f0147d349a2d8f6715dc53"
+dependencies = [
+ "futures",
+]
 
 [[package]]
 name = "stillwater"
