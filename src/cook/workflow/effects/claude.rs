@@ -205,9 +205,15 @@ pub fn execute_claude_command_with_retry(
         |error: &ClaudeError| {
             let is_transient = error.is_transient();
             if is_transient {
-                warn!("Claude command failed with transient error, will retry: {}", error);
+                warn!(
+                    "Claude command failed with transient error, will retry: {}",
+                    error
+                );
             } else {
-                info!("Claude command failed with permanent error, not retrying: {}", error);
+                info!(
+                    "Claude command failed with permanent error, not retrying: {}",
+                    error
+                );
             }
             is_transient
         },
