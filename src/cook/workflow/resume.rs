@@ -170,6 +170,36 @@ impl ResumeExecutor {
             .into());
         }
 
+        // Validate workflow hash to detect modifications (spec 184 FR6)
+        if let Some(ref workflow_path) = checkpoint.workflow_path {
+            if workflow_path.exists() {
+                // Compute current workflow hash
+                let current_workflow_content = std::fs::read_to_string(workflow_path)
+                    .context("Failed to read workflow file for hash validation")?;
+
+                use sha2::{Digest, Sha256};
+                let current_hash = format!("{:x}", Sha256::digest(current_workflow_content.as_bytes()));
+
+                // Compare with checkpoint hash
+                if checkpoint.workflow_hash != current_hash {
+                    return Err(CheckpointError::workflow_hash_mismatch(
+                        checkpoint.workflow_hash.clone(),
+                        current_hash,
+                        checkpoint.total_steps,
+                        checkpoint.execution_state.total_steps,
+                        checkpoint.workflow_id.clone(),
+                        workflow_path.clone(),
+                        Some(checkpoint.timestamp),
+                    )
+                    .into());
+                }
+            } else {
+                warn!("Workflow file not found, skipping hash validation: {:?}", workflow_path);
+            }
+        } else {
+            warn!("No workflow path in checkpoint, skipping hash validation");
+        }
+
         // Validate execution state consistency
         if checkpoint.execution_state.current_step_index > checkpoint.execution_state.total_steps {
             return Err(CheckpointError::InvalidCheckpoint {
