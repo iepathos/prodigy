@@ -693,13 +693,15 @@ impl WorkflowExecutor {
                     }
                 };
 
-                // Log checkpoint errors but don't fail the workflow
+                // Checkpoint write failures MUST fail the workflow (spec 184 FR2)
                 if let Err(checkpoint_err) = checkpoint_result {
                     tracing::error!(
                         "Failed to save checkpoint for workflow {}: {}",
                         workflow_id,
                         checkpoint_err
                     );
+                    // Return checkpoint error to fail the workflow
+                    return Err(checkpoint_err.into());
                 }
             }
         }
