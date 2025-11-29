@@ -182,7 +182,22 @@ impl UserInteraction for TestUserInteraction {
 // Test Helpers
 // ============================================================================
 
+/// Compute SHA256 hash of workflow content
+fn compute_workflow_hash(content: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(content.as_bytes()))
+}
+
 fn create_test_checkpoint(workflow_id: &str, workflow_path: PathBuf) -> WorkflowCheckpoint {
+    // Compute hash from actual workflow content if file exists
+    let workflow_hash = if workflow_path.exists() {
+        std::fs::read_to_string(&workflow_path)
+            .map(|content| compute_workflow_hash(&content))
+            .unwrap_or_else(|_| "test-hash".to_string())
+    } else {
+        "test-hash".to_string()
+    };
+
     WorkflowCheckpoint {
         workflow_id: workflow_id.to_string(),
         workflow_path: Some(workflow_path),
@@ -201,7 +216,7 @@ fn create_test_checkpoint(workflow_id: &str, workflow_path: PathBuf) -> Workflow
         timestamp: chrono::Utc::now(),
         variable_checkpoint_state: None,
         version: CHECKPOINT_VERSION,
-        workflow_hash: "test-hash".to_string(),
+        workflow_hash,
         total_steps: 2,
         workflow_name: Some("test-workflow".to_string()),
         error_recovery_state: None,

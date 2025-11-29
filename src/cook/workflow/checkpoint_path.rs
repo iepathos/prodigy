@@ -144,9 +144,7 @@ impl CheckpointStorage {
             }
             Self::UnifiedSession { session_id } => {
                 let global_base = resolve_global_base_dir()?;
-                Ok(global_base
-                    .join("sessions")
-                    .join(session_id))
+                Ok(global_base.join("sessions").join(session_id))
             }
         }
     }

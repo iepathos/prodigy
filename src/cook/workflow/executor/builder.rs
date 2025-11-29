@@ -153,12 +153,15 @@ impl WorkflowExecutor {
 
             // Spawn signal handler thread
             thread::spawn(move || {
-                let mut signals = Signals::new([SIGINT, SIGTERM]).expect("Failed to create signal handler");
+                let mut signals =
+                    Signals::new([SIGINT, SIGTERM]).expect("Failed to create signal handler");
 
                 for sig in signals.forever() {
                     match sig {
                         SIGINT | SIGTERM => {
-                            tracing::info!("Received shutdown signal, initiating graceful shutdown");
+                            tracing::info!(
+                                "Received shutdown signal, initiating graceful shutdown"
+                            );
                             shutdown_flag.store(true, Ordering::Release);
                             break;
                         }
@@ -177,7 +180,8 @@ impl WorkflowExecutor {
 
                 ctrlc::set_handler(move || {
                     let _ = tx.send(());
-                }).expect("Failed to set Ctrl+C handler");
+                })
+                .expect("Failed to set Ctrl+C handler");
 
                 let _ = rx.recv();
                 tracing::info!("Received Ctrl+C, initiating graceful shutdown");

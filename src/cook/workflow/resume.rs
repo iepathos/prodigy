@@ -178,7 +178,8 @@ impl ResumeExecutor {
                     .context("Failed to read workflow file for hash validation")?;
 
                 use sha2::{Digest, Sha256};
-                let current_hash = format!("{:x}", Sha256::digest(current_workflow_content.as_bytes()));
+                let current_hash =
+                    format!("{:x}", Sha256::digest(current_workflow_content.as_bytes()));
 
                 // Compare with checkpoint hash
                 if checkpoint.workflow_hash != current_hash {
@@ -194,7 +195,10 @@ impl ResumeExecutor {
                     .into());
                 }
             } else {
-                warn!("Workflow file not found, skipping hash validation: {:?}", workflow_path);
+                warn!(
+                    "Workflow file not found, skipping hash validation: {:?}",
+                    workflow_path
+                );
             }
         } else {
             warn!("No workflow path in checkpoint, skipping hash validation");
