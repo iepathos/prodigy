@@ -153,9 +153,11 @@ mod tests {
     }
 
     fn create_test_checkpoint_manager() -> Arc<CheckpointManager> {
-        Arc::new(CheckpointManager::with_storage(CheckpointStorage::Session {
-            session_id: "test-session".to_string(),
-        }))
+        Arc::new(CheckpointManager::with_storage(
+            CheckpointStorage::Session {
+                session_id: "test-session".to_string(),
+            },
+        ))
     }
 
     #[test]
