@@ -78,7 +78,23 @@ pub enum CheckpointStorage {
     /// Checkpoints are stored in global Prodigy directory, scoped by session ID.
     /// This is the recommended default for workflow checkpoints as it provides
     /// isolation between sessions and survives worktree cleanup.
+    ///
+    /// NOTE: Deprecated in favor of UnifiedSession. Kept for backward compatibility.
     Session {
+        /// Session ID for scoping
+        session_id: String,
+    },
+
+    /// Unified session storage (~/.prodigy/sessions/{session_id}/checkpoint.json) (Spec 184)
+    ///
+    /// Stores checkpoint alongside UnifiedSession data for tight integration.
+    /// This is the new recommended approach for all workflows.
+    ///
+    /// Benefits:
+    /// - Co-located with session metadata
+    /// - Simpler path structure
+    /// - Better integration with session management
+    UnifiedSession {
         /// Session ID for scoping
         session_id: String,
     },
@@ -126,6 +142,12 @@ impl CheckpointStorage {
                     .join(session_id)
                     .join("checkpoints"))
             }
+            Self::UnifiedSession { session_id } => {
+                let global_base = resolve_global_base_dir()?;
+                Ok(global_base
+                    .join("sessions")
+                    .join(session_id))
+            }
         }
     }
 
@@ -133,6 +155,10 @@ impl CheckpointStorage {
     ///
     /// Combines the base directory with the checkpoint ID to produce the full
     /// path to the checkpoint file. This is a pure function with no side effects.
+    ///
+    /// For UnifiedSession storage, the checkpoint is always named "checkpoint.json"
+    /// regardless of the checkpoint_id parameter, as there's only one checkpoint
+    /// per session in the unified model.
     ///
     /// # Examples
     ///
@@ -149,7 +175,16 @@ impl CheckpointStorage {
     /// ```
     pub fn checkpoint_file_path(&self, checkpoint_id: &str) -> Result<PathBuf> {
         let base = self.resolve_base_dir()?;
-        Ok(base.join(format!("{}.checkpoint.json", checkpoint_id)))
+        match self {
+            Self::UnifiedSession { .. } => {
+                // UnifiedSession always uses "checkpoint.json"
+                Ok(base.join("checkpoint.json"))
+            }
+            _ => {
+                // Other storage types use checkpoint_id
+                Ok(base.join(format!("{}.checkpoint.json", checkpoint_id)))
+            }
+        }
     }
 }
 
@@ -217,6 +252,38 @@ mod tests {
         assert!(base
             .to_string_lossy()
             .ends_with(".prodigy/state/my-repo/checkpoints"));
+    }
+
+    #[test]
+    fn test_unified_session_storage_path_resolution() {
+        let storage = CheckpointStorage::UnifiedSession {
+            session_id: "test-session-456".to_string(),
+        };
+
+        let base = storage.resolve_base_dir().unwrap();
+        assert!(base
+            .to_string_lossy()
+            .ends_with(".prodigy/sessions/test-session-456"));
+
+        let file = storage.checkpoint_file_path("ignored-id").unwrap();
+        assert!(file.to_string_lossy().ends_with("/checkpoint.json"));
+        assert!(!file.to_string_lossy().contains("ignored-id"));
+    }
+
+    #[test]
+    fn test_unified_session_always_uses_checkpoint_json() {
+        let storage = CheckpointStorage::UnifiedSession {
+            session_id: "test-session".to_string(),
+        };
+
+        // Regardless of checkpoint_id, should always be "checkpoint.json"
+        let path1 = storage.checkpoint_file_path("checkpoint-1").unwrap();
+        let path2 = storage.checkpoint_file_path("checkpoint-2").unwrap();
+        let path3 = storage.checkpoint_file_path("any-id").unwrap();
+
+        assert_eq!(path1, path2);
+        assert_eq!(path2, path3);
+        assert!(path1.to_string_lossy().ends_with("/checkpoint.json"));
     }
 
     #[test]
