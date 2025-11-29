@@ -16,9 +16,13 @@
 
 pub mod command_builder;
 pub mod output_parser;
+pub mod resume_planning;
+pub mod step_planning;
 pub mod variable_expansion;
 
 // Re-export primary functions and types
 pub use command_builder::build_command;
 pub use output_parser::{parse_output_variables, OutputPattern};
+pub use resume_planning::{plan_resume, validate_checkpoint_compatibility, ResumePlan};
+pub use step_planning::{is_safe_to_resume, plan_steps, ResumeDecision, StepPlan};
 pub use variable_expansion::{expand_variables, extract_variable_references};
