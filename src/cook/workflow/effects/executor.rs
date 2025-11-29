@@ -61,12 +61,15 @@ pub fn execute_step(
 
 /// Execute Claude step with built-in retry for transient errors
 ///
-/// Uses Stillwater's Effect::retry() with exponential backoff for transient Claude errors
-/// (500, overloaded, rate limit, ECONNRESET).
+/// Implements custom retry logic with exponential backoff for transient Claude errors
+/// (500, overloaded, rate limit, ECONNRESET). Uses manual retry loop since
+/// Stillwater's Effect::retry is not yet available.
 ///
-/// Note: This is a placeholder implementation. Full retry integration with Stillwater's
-/// Effect::retry requires additional type refinements based on the Stillwater API.
-/// For now, this function executes the command once without retry.
+/// Retry configuration:
+/// - Max attempts: 3
+/// - Initial delay: 1 second
+/// - Backoff multiplier: 2x (exponential)
+/// - Max delay: 30 seconds
 pub fn execute_claude_step_with_retry(
     command: &str,
     variables: &HashMap<String, String>,
@@ -83,17 +86,71 @@ pub fn execute_claude_step_with_retry(
             let start = Instant::now();
             let cmd = build_command(&command, &variables);
 
-            // TODO: Integrate Effect::retry once Stillwater API is finalized
-            // For now, execute once without retry
-            let output = execute_claude_command_effect(&cmd, &variables)
-                .run(&workflow_env)
-                .await
-                .map_err(StepError::CommandError)?;
+            // Retry configuration
+            const MAX_ATTEMPTS: u32 = 3;
+            const INITIAL_DELAY_MS: u64 = 1000;
+            const BACKOFF_MULTIPLIER: u64 = 2;
+            const MAX_DELAY_MS: u64 = 30000;
 
-            let duration = start.elapsed();
-            Ok(StepResult::from_command_output(output, duration))
+            let mut attempt = 0;
+            let mut delay_ms = INITIAL_DELAY_MS;
+            let mut last_error = None;
+
+            while attempt < MAX_ATTEMPTS {
+                attempt += 1;
+
+                match execute_claude_command_effect(&cmd, &variables)
+                    .run(&workflow_env)
+                    .await
+                {
+                    Ok(output) => {
+                        let duration = start.elapsed();
+                        return Ok(StepResult::from_command_output(output, duration));
+                    }
+                    Err(e) => {
+                        // Check if error is transient (retryable)
+                        let is_transient = is_transient_error(&e);
+
+                        if !is_transient || attempt >= MAX_ATTEMPTS {
+                            // Non-transient error or max retries exhausted
+                            return Err(StepError::CommandError(e));
+                        }
+
+                        // Store error for potential final return
+                        last_error = Some(e);
+
+                        // Wait before retry with exponential backoff
+                        if attempt < MAX_ATTEMPTS {
+                            tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                            delay_ms = (delay_ms * BACKOFF_MULTIPLIER).min(MAX_DELAY_MS);
+                        }
+                    }
+                }
+            }
+
+            // If we exhausted all retries, return the last error
+            Err(StepError::CommandError(last_error.unwrap_or_else(|| {
+                super::CommandError::ExecutionFailed {
+                    message: "All retry attempts failed".to_string(),
+                    exit_code: None,
+                }
+            })))
         }
     })
+}
+
+/// Check if an error is transient and should be retried
+fn is_transient_error(error: &super::CommandError) -> bool {
+    let error_string = error.to_string().to_lowercase();
+
+    // Check for common transient error patterns
+    error_string.contains("500")
+        || error_string.contains("overloaded")
+        || error_string.contains("rate limit")
+        || error_string.contains("econnreset")
+        || error_string.contains("timeout")
+        || error_string.contains("connection refused")
+        || error_string.contains("temporarily unavailable")
 }
 
 /// Execute entire workflow as composed Effect
@@ -148,7 +205,28 @@ mod tests {
     use std::time::Duration;
 
     fn create_test_execution_env() -> ExecutionEnv {
-        let workflow_env = WorkflowEnvBuilder::default().build();
+        use crate::cook::workflow::effects::environment::{ClaudeRunner, RunnerOutput};
+        use async_trait::async_trait;
+        use std::collections::HashMap;
+        use std::path::Path;
+
+        struct MockClaudeRunner;
+
+        #[async_trait]
+        impl ClaudeRunner for MockClaudeRunner {
+            async fn run(
+                &self,
+                _command: &str,
+                _working_dir: &Path,
+                _env_vars: HashMap<String, String>,
+            ) -> anyhow::Result<RunnerOutput> {
+                Ok(RunnerOutput::success("test output".to_string()))
+            }
+        }
+
+        let workflow_env = WorkflowEnvBuilder::default()
+            .with_claude_runner(Arc::new(MockClaudeRunner))
+            .build();
         let checkpoint_manager = Arc::new(CheckpointManager::with_storage(
             CheckpointStorage::Session {
                 session_id: "test-session".to_string(),

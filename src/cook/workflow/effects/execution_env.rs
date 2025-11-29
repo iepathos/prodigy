@@ -127,7 +127,29 @@ mod tests {
     use crate::cook::workflow::checkpoint_path::CheckpointStorage;
 
     fn create_test_workflow_env() -> WorkflowEnv {
-        WorkflowEnv::builder().build()
+        use crate::cook::workflow::effects::environment::{ClaudeRunner, RunnerOutput};
+        use async_trait::async_trait;
+        use std::collections::HashMap;
+        use std::path::Path;
+        use std::sync::Arc;
+
+        struct MockClaudeRunner;
+
+        #[async_trait]
+        impl ClaudeRunner for MockClaudeRunner {
+            async fn run(
+                &self,
+                _command: &str,
+                _working_dir: &Path,
+                _env_vars: HashMap<String, String>,
+            ) -> anyhow::Result<RunnerOutput> {
+                Ok(RunnerOutput::success("test output".to_string()))
+            }
+        }
+
+        WorkflowEnv::builder()
+            .with_claude_runner(Arc::new(MockClaudeRunner))
+            .build()
     }
 
     fn create_test_checkpoint_manager() -> Arc<CheckpointManager> {
