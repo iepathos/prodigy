@@ -237,14 +237,20 @@ use stillwater::{RetryPolicy, JitterStrategy};
 use std::time::Duration;
 
 /// Default retry policy for Claude commands
+///
+/// IMPORTANT: RetryPolicy requires at least one bound (max_retries OR max_delay).
+/// Without at least one bound, the policy will panic at construction.
 pub fn default_claude_retry_policy() -> RetryPolicy {
     RetryPolicy::exponential(Duration::from_secs(5))
-        .with_max_retries(5)
+        .with_max_retries(5)        // Required: at least one bound must be set
         .with_jitter(JitterStrategy::Proportional(0.25))
         .with_max_delay(Duration::from_secs(120))
 }
 
 /// Parse retry policy from workflow configuration
+///
+/// NOTE: Ensures at least one bound (max_retries or max_delay) is always set
+/// to satisfy RetryPolicy's validation requirements.
 pub fn parse_retry_policy(config: Option<&RetryConfig>) -> RetryPolicy {
     match config {
         Some(cfg) => {
@@ -258,6 +264,7 @@ pub fn parse_retry_policy(config: Option<&RetryConfig>) -> RetryPolicy {
                 }
             };
 
+            // Always set max_retries to ensure at least one bound is set
             let mut policy = base.with_max_retries(cfg.max_attempts.unwrap_or(5));
 
             if let Some(jitter) = cfg.jitter {
@@ -345,9 +352,9 @@ pub fn execute_claude_with_hooks(
         // Log final failure
         error!(
             "Claude command failed after {} attempts over {:?}: {}",
-            exhausted.attempts(),
-            exhausted.elapsed(),
-            exhausted.error()
+            exhausted.attempts,
+            exhausted.total_duration,
+            exhausted.final_error
         );
         exhausted.into_error()
     })
@@ -510,7 +517,9 @@ pub struct RetryAttempt {
 - Checkpoint format (retry metadata)
 
 ### External Dependencies
-- `stillwater` with `async` feature enabled
+- `stillwater` with features: `["async", "jitter"]`
+  - `async`: Required for all retry functions
+  - `jitter`: Required for jitter functionality (without it, jitter calls silently no-op)
 
 ## Testing Strategy
 
