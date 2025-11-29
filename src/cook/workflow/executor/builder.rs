@@ -37,6 +37,7 @@ impl WorkflowExecutor {
         session_manager: Arc<dyn SessionManager>,
         user_interaction: Arc<dyn UserInteraction>,
     ) -> Self {
+        use std::sync::atomic::AtomicBool;
         Self {
             claude_executor,
             session_manager,
@@ -64,6 +65,7 @@ impl WorkflowExecutor {
             dry_run_validations: Vec::new(),
             dry_run_potential_handlers: Vec::new(),
             positional_args: None,
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -134,6 +136,62 @@ impl WorkflowExecutor {
         self
     }
 
+    /// Setup signal handler for graceful shutdown (Spec 184)
+    ///
+    /// Installs SIGINT/SIGTERM handlers that set the shutdown flag,
+    /// allowing the executor to save a checkpoint before exiting.
+    pub fn setup_signal_handler(&self) {
+        use std::sync::atomic::Ordering;
+
+        let shutdown_flag = Arc::clone(&self.shutdown_signal);
+
+        #[cfg(unix)]
+        {
+            use signal_hook::consts::{SIGINT, SIGTERM};
+            use signal_hook::iterator::Signals;
+            use std::thread;
+
+            // Spawn signal handler thread
+            thread::spawn(move || {
+                let mut signals = Signals::new([SIGINT, SIGTERM]).expect("Failed to create signal handler");
+
+                for sig in signals.forever() {
+                    match sig {
+                        SIGINT | SIGTERM => {
+                            tracing::info!("Received shutdown signal, initiating graceful shutdown");
+                            shutdown_flag.store(true, Ordering::Release);
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            });
+        }
+
+        #[cfg(not(unix))]
+        {
+            // Windows Ctrl+C handler
+            std::thread::spawn(move || {
+                use std::sync::mpsc::channel;
+                let (tx, rx) = channel();
+
+                ctrlc::set_handler(move || {
+                    let _ = tx.send(());
+                }).expect("Failed to set Ctrl+C handler");
+
+                let _ = rx.recv();
+                tracing::info!("Received Ctrl+C, initiating graceful shutdown");
+                shutdown_flag.store(true, Ordering::Release);
+            });
+        }
+    }
+
+    /// Check if shutdown was requested (Spec 184)
+    pub fn is_shutdown_requested(&self) -> bool {
+        use std::sync::atomic::Ordering;
+        self.shutdown_signal.load(Ordering::Acquire)
+    }
+
     /// Set the checkpoint manager for workflow resumption
     pub fn with_checkpoint_manager(
         mut self,
@@ -158,6 +216,7 @@ impl WorkflowExecutor {
         user_interaction: Arc<dyn UserInteraction>,
         test_config: Arc<TestConfiguration>,
     ) -> Self {
+        use std::sync::atomic::AtomicBool;
         Self {
             claude_executor,
             session_manager,
@@ -185,6 +244,7 @@ impl WorkflowExecutor {
             dry_run_validations: Vec::new(),
             dry_run_potential_handlers: Vec::new(),
             positional_args: None,
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -197,6 +257,7 @@ impl WorkflowExecutor {
         test_config: Arc<TestConfiguration>,
         git_operations: Arc<dyn crate::abstractions::git::GitOperations>,
     ) -> Self {
+        use std::sync::atomic::AtomicBool;
         Self {
             claude_executor,
             session_manager,
@@ -224,6 +285,7 @@ impl WorkflowExecutor {
             dry_run_validations: Vec::new(),
             dry_run_potential_handlers: Vec::new(),
             positional_args: None,
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
         }
     }
 

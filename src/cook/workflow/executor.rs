@@ -75,6 +75,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -144,6 +145,8 @@ pub struct WorkflowExecutor {
     dry_run_potential_handlers: Vec<String>,
     /// Positional arguments passed via --args (Spec 163)
     positional_args: Option<Vec<String>>,
+    /// Shutdown signal for graceful interruption handling (Spec 184)
+    shutdown_signal: Arc<AtomicBool>,
 }
 
 impl WorkflowExecutor {
@@ -721,6 +724,47 @@ impl WorkflowExecutor {
         let mut any_changes = false;
 
         for (step_index, step) in workflow.steps.iter().enumerate() {
+            // Check for shutdown signal before each step (Spec 184)
+            if self.is_shutdown_requested() {
+                tracing::warn!("Shutdown signal received, saving checkpoint and exiting");
+                self.user_interaction.display_warning("Shutdown requested, saving checkpoint...");
+
+                // Save interrupted checkpoint if checkpoint manager is available
+                if let (Some(ref checkpoint_manager), Some(ref workflow_id), Some(ref normalized_workflow)) =
+                    (&self.checkpoint_manager, &self.workflow_id, &self.current_workflow)
+                {
+                    let workflow_hash = orchestration::create_workflow_hash(&normalized_workflow.name, normalized_workflow.steps.len());
+
+                    let mut checkpoint = checkpoint::create_checkpoint(
+                        workflow_id.clone(),
+                        normalized_workflow,
+                        workflow_context,
+                        self.checkpoint_completed_steps.clone(),
+                        step_index,
+                        workflow_hash,
+                    );
+
+                    // Mark as interrupted
+                    checkpoint.execution_state.status = checkpoint::WorkflowStatus::Interrupted;
+
+                    // Set workflow path
+                    if let Some(ref path) = self.workflow_path {
+                        checkpoint.workflow_path = Some(path.clone());
+                    }
+
+                    // Save checkpoint
+                    if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
+                        tracing::error!("Failed to save shutdown checkpoint: {}", e);
+                        self.user_interaction.display_error(&format!("Failed to save checkpoint: {}", e));
+                    } else {
+                        tracing::info!("Saved shutdown checkpoint at step {}", step_index);
+                        self.user_interaction.display_success("Checkpoint saved successfully");
+                    }
+                }
+
+                return Err(anyhow!("Workflow interrupted by user signal"));
+            }
+
             // Check if we should skip this step
             if pure::should_skip_step_execution(step_index, &self.completed_steps) {
                 let skip_msg = orchestration::format_skip_step(
