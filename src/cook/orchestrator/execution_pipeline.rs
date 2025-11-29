@@ -59,9 +59,14 @@ fn classify_execution_result(
 }
 
 /// Determine if a checkpoint should be saved based on the outcome
+///
+/// Checkpoints are saved for both interrupted and failed workflows to enable resume.
 #[allow(dead_code)] // Reserved for future checkpoint optimization
 fn should_save_checkpoint(outcome: &ExecutionOutcome) -> bool {
-    matches!(outcome, ExecutionOutcome::Interrupted)
+    matches!(
+        outcome,
+        ExecutionOutcome::Interrupted | ExecutionOutcome::Failed(_)
+    )
 }
 
 /// Generate the resume message for the user
@@ -240,7 +245,12 @@ impl ExecutionPipeline {
     }
 
     /// Handle session failure
-    async fn handle_session_failure(&self, error: &anyhow::Error, session_id: &str) -> Result<()> {
+    async fn handle_session_failure(
+        &self,
+        error: &anyhow::Error,
+        session_id: &str,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
         self.session_manager
             .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
             .await?;
@@ -250,14 +260,29 @@ impl ExecutionPipeline {
         self.user_interaction
             .display_error(&format!("Session failed: {error}"));
 
-        // Display how to resume the session
+        // Get current session state
         let state = self
             .session_manager
             .get_state()
-            .context("Failed to get session state for resume info")?;
+            .context("Failed to get session state for checkpoint")?;
+
+        // Save checkpoint for resume (Spec 186 FR1)
         if state.workflow_state.is_some() {
+            // Save checkpoint to enable resume
+            self.session_manager
+                .save_checkpoint(&state)
+                .await
+                .context("Failed to save checkpoint on failure")?;
+
+            // Also save to checkpoint path for CLI resume command
+            let checkpoint_path = env.working_dir.join(".prodigy").join("session_state.json");
+            self.session_manager
+                .save_state(&checkpoint_path)
+                .await
+                .context("Failed to save session state on failure")?;
+
             self.user_interaction.display_info(&format!(
-                "\n💡 To resume from last checkpoint, run: prodigy resume {}",
+                "\n💡 Checkpoint saved. Resume with: prodigy resume {}",
                 session_id
             ));
         }
@@ -381,6 +406,7 @@ impl ExecutionPipeline {
                 self.handle_session_failure(
                     execution_result.as_ref().unwrap_err(),
                     &env.session_id,
+                    env,
                 )
                 .await?;
                 execution_result
@@ -1179,9 +1205,10 @@ mod tests {
     }
 
     #[test]
-    fn test_should_not_save_checkpoint_on_failed() {
+    fn test_should_save_checkpoint_on_failed() {
+        // Spec 186: Checkpoints should be saved on failure to enable resume
         let outcome = ExecutionOutcome::Failed("error".to_string());
-        assert!(!should_save_checkpoint(&outcome));
+        assert!(should_save_checkpoint(&outcome));
     }
 
     #[test]

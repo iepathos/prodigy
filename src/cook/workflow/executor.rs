@@ -704,7 +704,7 @@ impl WorkflowExecutor {
                         checkpoint_err
                     );
                     // Return checkpoint error to fail the workflow
-                    return Err(checkpoint_err.into());
+                    return Err(checkpoint_err);
                 }
             }
         }
@@ -727,13 +727,23 @@ impl WorkflowExecutor {
             // Check for shutdown signal before each step (Spec 184)
             if self.is_shutdown_requested() {
                 tracing::warn!("Shutdown signal received, saving checkpoint and exiting");
-                self.user_interaction.display_warning("Shutdown requested, saving checkpoint...");
+                self.user_interaction
+                    .display_warning("Shutdown requested, saving checkpoint...");
 
                 // Save interrupted checkpoint if checkpoint manager is available
-                if let (Some(ref checkpoint_manager), Some(ref workflow_id), Some(ref normalized_workflow)) =
-                    (&self.checkpoint_manager, &self.workflow_id, &self.current_workflow)
-                {
-                    let workflow_hash = orchestration::create_workflow_hash(&normalized_workflow.name, normalized_workflow.steps.len());
+                if let (
+                    Some(ref checkpoint_manager),
+                    Some(ref workflow_id),
+                    Some(ref normalized_workflow),
+                ) = (
+                    &self.checkpoint_manager,
+                    &self.workflow_id,
+                    &self.current_workflow,
+                ) {
+                    let workflow_hash = orchestration::create_workflow_hash(
+                        &normalized_workflow.name,
+                        normalized_workflow.steps.len(),
+                    );
 
                     let mut checkpoint = checkpoint::create_checkpoint(
                         workflow_id.clone(),
@@ -755,10 +765,12 @@ impl WorkflowExecutor {
                     // Save checkpoint
                     if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
                         tracing::error!("Failed to save shutdown checkpoint: {}", e);
-                        self.user_interaction.display_error(&format!("Failed to save checkpoint: {}", e));
+                        self.user_interaction
+                            .display_error(&format!("Failed to save checkpoint: {}", e));
                     } else {
                         tracing::info!("Saved shutdown checkpoint at step {}", step_index);
-                        self.user_interaction.display_success("Checkpoint saved successfully");
+                        self.user_interaction
+                            .display_success("Checkpoint saved successfully");
                     }
                 }
 
