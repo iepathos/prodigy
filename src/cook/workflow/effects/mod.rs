@@ -40,6 +40,7 @@
 //! ```
 
 pub mod claude;
+pub mod claude_error;
 pub mod environment;
 pub mod execution_env;
 pub mod executor;
@@ -49,13 +50,14 @@ pub mod retry_helpers;
 pub mod shell;
 pub mod step_error;
 
-pub use claude::execute_claude_command_effect;
+pub use claude::{execute_claude_command_effect, execute_claude_command_with_retry};
+pub use claude_error::ClaudeError;
 pub use environment::{WorkflowEnv, WorkflowEnvBuilder};
 pub use execution_env::{ExecutionEnv, ExecutionEnvBuilder};
 pub use executor::{execute_claude_step_with_retry, execute_step, execute_workflow};
 pub use handler::execute_handler_effect;
 pub use progress::{StepResult, WorkflowProgress, WorkflowResult};
-pub use retry_helpers::{claude_retry_policy, shell_retry_policy};
+pub use retry_helpers::{default_claude_retry_policy, parse_retry_policy, shell_retry_policy};
 pub use shell::execute_shell_command_effect;
 pub use step_error::{StepError, WorkflowError};
 

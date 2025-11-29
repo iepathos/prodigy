@@ -27,10 +27,12 @@ mod tests {
     #[test]
     fn test_retry_config_default() {
         let config = RetryConfig::default();
+        assert_eq!(config.strategy, "exponential");
         assert_eq!(config.max_attempts, 3);
         assert_eq!(config.initial_delay, Duration::from_secs(1));
         assert_eq!(config.max_delay, Duration::from_secs(60));
-        assert_eq!(config.exponential_base, 2.0);
+        assert_eq!(config.jitter, Some(0.25));
+        assert_eq!(config.exponential_base, None);
     }
 
     #[test]
