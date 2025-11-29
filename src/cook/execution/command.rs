@@ -112,19 +112,59 @@ impl CommandMetadata {
 /// Retry configuration for commands
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetryConfig {
+    /// Retry strategy: constant, linear, or exponential
+    #[serde(default = "default_strategy")]
+    pub strategy: String,
+    /// Maximum retry attempts
     pub max_attempts: u32,
+    /// Initial delay between retries
+    #[serde(
+        serialize_with = "serialize_duration_secs",
+        deserialize_with = "deserialize_duration_secs"
+    )]
     pub initial_delay: Duration,
+    /// Maximum delay cap
+    #[serde(
+        serialize_with = "serialize_duration_secs",
+        deserialize_with = "deserialize_duration_secs"
+    )]
     pub max_delay: Duration,
-    pub exponential_base: f32,
+    /// Jitter factor (0.0 - 1.0)
+    #[serde(default)]
+    pub jitter: Option<f64>,
+    /// Exponential base (deprecated, use strategy instead)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exponential_base: Option<f32>,
+}
+
+fn default_strategy() -> String {
+    "exponential".to_string()
+}
+
+fn serialize_duration_secs<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_u64(duration.as_secs())
+}
+
+fn deserialize_duration_secs<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let secs = u64::deserialize(deserializer)?;
+    Ok(Duration::from_secs(secs))
 }
 
 impl Default for RetryConfig {
     fn default() -> Self {
         Self {
+            strategy: "exponential".to_string(),
             max_attempts: 3,
             initial_delay: Duration::from_secs(1),
             max_delay: Duration::from_secs(60),
-            exponential_base: 2.0,
+            jitter: Some(0.25),
+            exponential_base: None,
         }
     }
 }

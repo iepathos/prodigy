@@ -7,23 +7,29 @@
 //!
 //! - Pure: Command building and output parsing (from `pure/` module)
 //! - I/O: Claude command execution (wrapped in Effect)
+//! - Retry: Automatic retry for transient errors
 //!
 //! # Example
 //!
 //! ```ignore
-//! use prodigy::cook::workflow::effects::claude::execute_claude_command_effect;
+//! use prodigy::cook::workflow::effects::claude::execute_claude_command_with_retry;
+//! use prodigy::cook::workflow::effects::retry_helpers::default_claude_retry_policy;
 //! use std::collections::HashMap;
 //!
 //! let variables = HashMap::new();
-//! let effect = execute_claude_command_effect("/task ${item}", &variables);
+//! let retry_policy = default_claude_retry_policy();
+//! let effect = execute_claude_command_with_retry("/task ${item}", &variables, retry_policy);
 //! let result = effect.run(&env).await?;
 //! ```
 
+use super::claude_error::ClaudeError;
 use super::environment::WorkflowEnv;
 use super::{CommandError, CommandOutput};
 use crate::cook::workflow::pure::{build_command, parse_output_variables};
 use std::collections::HashMap;
-use stillwater::{from_async, Effect};
+use stillwater::effect::prelude::*;
+use stillwater::retry::RetryPolicy;
+use tracing::{info, warn};
 
 /// Effect: Execute Claude command with variable expansion and output parsing
 ///
@@ -143,6 +149,119 @@ pub fn execute_claude_command_effect_fallible(
                 })?;
 
             // Pure: Parse variables from output (even on failure)
+            let extracted_vars = parse_output_variables(&output.stdout, &output_patterns);
+
+            Ok(CommandOutput {
+                stdout: output.stdout,
+                stderr: output.stderr,
+                exit_code: output.exit_code,
+                success: output.success,
+                variables: extracted_vars,
+                json_log_location: output.json_log_location,
+            })
+        }
+    })
+}
+
+/// Effect: Execute Claude command with retry for transient errors
+///
+/// This effect wraps Claude command execution with automatic retry logic for
+/// transient errors (500, overload, timeouts) using Stillwater's Effect::retry_if.
+///
+/// # Arguments
+///
+/// * `template` - Command template with variable placeholders
+/// * `variables` - Map of variable names to values for expansion
+/// * `retry_policy` - Retry policy configuration (delays, max attempts, jitter)
+///
+/// # Returns
+///
+/// An Effect that retries transient errors and fails fast for permanent errors.
+///
+/// # Example
+///
+/// ```ignore
+/// use prodigy::cook::workflow::effects::retry_helpers::default_claude_retry_policy;
+///
+/// let policy = default_claude_retry_policy();
+/// let effect = execute_claude_command_with_retry("/task", &vars, policy);
+/// let result = effect.run(&env).await?;
+/// ```
+pub fn execute_claude_command_with_retry(
+    template: &str,
+    variables: &HashMap<String, String>,
+    retry_policy: RetryPolicy,
+) -> impl Effect<Output = CommandOutput, Error = CommandError, Env = WorkflowEnv> {
+    let template = template.to_string();
+    let variables = variables.clone();
+
+    retry_if(
+        move || {
+            let template = template.clone();
+            let variables = variables.clone();
+            execute_raw_claude(template, variables)
+        },
+        retry_policy.clone(),
+        |error: &ClaudeError| {
+            let is_transient = error.is_transient();
+            if is_transient {
+                warn!(
+                    "Claude command failed with transient error, will retry: {}",
+                    error
+                );
+            } else {
+                info!(
+                    "Claude command failed with permanent error, not retrying: {}",
+                    error
+                );
+            }
+            is_transient
+        },
+    )
+    .map_err(|claude_error| {
+        // Convert ClaudeError to CommandError
+        warn!("Claude command failed: {}", claude_error);
+        CommandError::ExecutionFailed {
+            message: claude_error.to_string(),
+            exit_code: None,
+        }
+    })
+}
+
+/// Execute raw Claude command (single attempt, no retry)
+///
+/// This is the inner function used by retry logic. It classifies errors into
+/// ClaudeError types for transient error detection.
+fn execute_raw_claude(
+    template: String,
+    variables: HashMap<String, String>,
+) -> impl Effect<Output = CommandOutput, Error = ClaudeError, Env = WorkflowEnv> {
+    from_async(move |env: &WorkflowEnv| {
+        let template = template.clone();
+        let variables = variables.clone();
+        let working_dir = env.working_dir.clone();
+        let claude_runner = env.claude_runner.clone();
+        let output_patterns = env.output_patterns.clone();
+        let env_vars = env.env_vars.clone();
+
+        async move {
+            // Pure: Build command from template
+            let command = build_command(&template, &variables);
+
+            // I/O: Execute Claude command
+            let output = claude_runner
+                .run(&command, &working_dir, env_vars)
+                .await
+                .map_err(|e| ClaudeError::ProcessError {
+                    message: e.to_string(),
+                })?;
+
+            if !output.success {
+                // Classify error based on stderr
+                return Err(ClaudeError::from_stderr(&output.stderr));
+            }
+
+            // Pure: Parse variables from output
             let extracted_vars = parse_output_variables(&output.stdout, &output_patterns);
 
             Ok(CommandOutput {
