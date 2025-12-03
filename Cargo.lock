@@ -1555,16 +1555,16 @@ dependencies = [
 
 [[package]]
 name = "premortem"
-version = "0.4.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29340b538449fb4d37f74b48106737efcf1d7cc66b58357ed43066f40d1fc824"
+checksum = "19f445aff17d01fcdcca829c322984688159cb6e89f12ba4c0c91297f8c4eb6c"
 dependencies = [
  "premortem-derive",
  "regex",
  "serde",
  "serde_json",
  "serde_yaml",
- "stillwater",
+ "stillwater 0.13.0",
  "thiserror 1.0.69",
  "toml 0.8.23",
  "toml_edit",
@@ -1631,7 +1631,7 @@ dependencies = [
  "sha2",
  "shell-words",
  "signal-hook",
- "stillwater",
+ "stillwater 0.11.0",
  "sysinfo",
  "tempfile",
  "thiserror 2.0.17",
@@ -2118,6 +2118,15 @@ dependencies = [
  "futures",
  "rand 0.8.5",
  "tokio",
+]
+
+[[package]]
+name = "stillwater"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80e43e8d97599702b745d8501a49ac76069ede74666d5883554b79b37f99a951"
+dependencies = [
+ "futures",
 ]
 
 [[package]]
