@@ -49,6 +49,8 @@ pub mod output_tests;
 pub mod process;
 // pub mod process_kill_tests; // Already included via process_tests
 #[cfg(test)]
+pub mod json_log_location_integration_test;
+#[cfg(test)]
 pub mod process_tests;
 pub mod progress;
 pub mod progress_dashboard;
@@ -65,8 +67,6 @@ pub mod runner;
 pub mod setup_executor;
 #[cfg(test)]
 pub mod shell_failure_tests;
-#[cfg(test)]
-pub mod json_log_location_integration_test;
 pub mod state;
 pub mod state_pure;
 #[cfg(test)]
