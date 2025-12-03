@@ -437,6 +437,37 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Get interpolated display name for a step (for logging)
+    pub(crate) fn get_interpolated_step_display_name(
+        &self,
+        step: &WorkflowStep,
+        ctx: &WorkflowContext,
+    ) -> String {
+        if let Some(claude_cmd) = &step.claude {
+            let (interpolated, _) = ctx.interpolate_with_tracking(claude_cmd);
+            format!("claude: {interpolated}")
+        } else if let Some(shell_cmd) = &step.shell {
+            let (interpolated, _) = ctx.interpolate_with_tracking(shell_cmd);
+            format!("shell: {interpolated}")
+        } else if let Some(test_cmd) = &step.test {
+            let (interpolated, _) = ctx.interpolate_with_tracking(&test_cmd.command);
+            format!("test: {interpolated}")
+        } else if let Some(handler_step) = &step.handler {
+            format!("handler: {}", handler_step.name)
+        } else if let Some(write_file_config) = &step.write_file {
+            let (interpolated, _) = ctx.interpolate_with_tracking(&write_file_config.path);
+            format!("write_file: {interpolated}")
+        } else if let Some(name) = &step.name {
+            let (interpolated, _) = ctx.interpolate_with_tracking(name);
+            interpolated
+        } else if let Some(command) = &step.command {
+            let (interpolated, _) = ctx.interpolate_with_tracking(command);
+            interpolated
+        } else {
+            "unnamed step".to_string()
+        }
+    }
+
     /// Save workflow state for checkpoint and session tracking
     async fn save_workflow_state(
         &mut self,
@@ -821,10 +852,18 @@ impl WorkflowExecutor {
     ) -> Result<bool> {
         self.current_step_index = Some(step_index);
 
-        let step_display = self.get_step_display_name(step);
-        let step_msg =
-            orchestration::format_step_progress(step_index, workflow.steps.len(), &step_display);
+        // Use interpolated display name for user-facing logging
+        let step_display_interpolated =
+            self.get_interpolated_step_display_name(step, workflow_context);
+        let step_msg = orchestration::format_step_progress(
+            step_index,
+            workflow.steps.len(),
+            &step_display_interpolated,
+        );
         self.user_interaction.display_progress(&step_msg);
+
+        // Keep non-interpolated version for tracking (used in timing, checkpoints, etc.)
+        let step_display = self.get_step_display_name(step);
 
         // Get HEAD before command execution if needed
         let head_before = if !execution_flags.skip_validation
