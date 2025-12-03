@@ -397,7 +397,7 @@ impl WorkflowExecutor {
                     let mut all_success = true;
                     for (idx, cmd) in commands.iter().enumerate() {
                         let step = self.convert_workflow_command_to_step(cmd, ctx)?;
-                        let step_display = self.get_step_display_name(&step);
+                        let step_display = self.get_interpolated_step_display_name(&step, ctx);
                         self.user_interaction.display_progress(&format!(
                             "  Recovery step {}/{}: {}",
                             idx + 1,
@@ -419,7 +419,7 @@ impl WorkflowExecutor {
                 HandlerType::SingleCommand => {
                     // Execute single command (legacy)
                     let handler_step = self.create_validation_handler(on_incomplete, ctx).unwrap();
-                    let step_display = self.get_step_display_name(&handler_step);
+                    let step_display = self.get_interpolated_step_display_name(&handler_step, ctx);
                     self.user_interaction
                         .display_progress(&format!("Running recovery step: {}", step_display));
 
