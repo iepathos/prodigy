@@ -1,4 +1,4 @@
-//! Integration tests for Spec 127: MapReduce Setup Phase Worktree Isolation
+//! Integration tests for MapReduce Setup Phase Worktree Isolation
 //!
 //! Verifies that the setup phase executes in an isolated worktree and that
 //! the main repository remains clean (no modified files or commits) during

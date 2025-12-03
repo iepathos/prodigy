@@ -1,10 +1,10 @@
-//! Integration tests for Spec 121: Claude JSON log location capture
+//! Integration tests for Claude JSON log location capture
 //!
 //! These tests verify that Claude JSON log locations are properly captured
 //! and propagated through the execution pipeline to AgentResult and DLQ.
 
 #[cfg(test)]
-mod spec_121_tests {
+mod json_log_location_tests {
     use crate::cook::execution::mapreduce::agent::types::{AgentResult, AgentStatus};
     use crate::cook::execution::mapreduce::command::executor::CommandResult;
     use std::path::PathBuf;

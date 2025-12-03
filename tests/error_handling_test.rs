@@ -1,4 +1,4 @@
-//! Comprehensive error handling tests for spec 101
+//! Comprehensive error handling tests
 //! Verifies that all production code properly handles errors without unwrap() or panic!()
 
 use anyhow::Result;
