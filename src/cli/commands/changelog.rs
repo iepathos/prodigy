@@ -120,7 +120,7 @@ fn parse_commits(
         revwalk.hide(from_oid)?;
     }
 
-    let filter_regex = filter.map(|f| Regex::new(f)).transpose()?;
+    let filter_regex = filter.map(Regex::new).transpose()?;
 
     let mut entries = Vec::new();
     for oid in revwalk {
@@ -148,7 +148,9 @@ fn parse_conventional_commit(
     commit: &git2::Commit,
 ) -> Result<Option<ChangelogEntry>> {
     // Conventional commit format: type(scope): description
-    let re = Regex::new(r"^(feat|fix|docs|style|refactor|perf|test|chore|build|ci)(?:\(([^)]+)\))?: (.+)$")?;
+    let re = Regex::new(
+        r"^(feat|fix|docs|style|refactor|perf|test|chore|build|ci)(?:\(([^)]+)\))?: (.+)$",
+    )?;
 
     if let Some(captures) = re.captures(message.lines().next().unwrap_or("")) {
         let commit_type = captures.get(1).unwrap().as_str();
@@ -164,10 +166,7 @@ fn parse_conventional_commit(
             _ => return Ok(None), // Skip other types
         };
 
-        let author = commit
-            .author()
-            .name()
-            .map(|s| s.to_string());
+        let author = commit.author().name().map(|s| s.to_string());
 
         let pr_number = extract_pr_number(message);
 
@@ -186,11 +185,7 @@ fn parse_conventional_commit(
 /// Extract PR number from commit message
 fn extract_pr_number(message: &str) -> Option<u32> {
     let re = Regex::new(r"#(\d+)").ok()?;
-    re.captures(message)?
-        .get(1)?
-        .as_str()
-        .parse()
-        .ok()
+    re.captures(message)?.get(1)?.as_str().parse().ok()
 }
 
 /// Build changelog structure from entries
@@ -200,7 +195,7 @@ fn build_changelog_from_commits(entries: Vec<ChangelogEntry>) -> Result<Changelo
     for entry in entries {
         grouped
             .entry(entry.category.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(entry);
     }
 
@@ -252,8 +247,18 @@ fn format_changelog_markdown(changelog: &Changelog) -> Result<String> {
 }
 
 /// Format entries by category
-fn format_entries(output: &mut String, entries: &HashMap<String, Vec<ChangelogEntry>>) -> Result<()> {
-    let order = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"];
+fn format_entries(
+    output: &mut String,
+    entries: &HashMap<String, Vec<ChangelogEntry>>,
+) -> Result<()> {
+    let order = [
+        "Added",
+        "Changed",
+        "Deprecated",
+        "Removed",
+        "Fixed",
+        "Security",
+    ];
 
     for category in &order {
         if let Some(items) = entries.get(*category) {
@@ -348,17 +353,15 @@ async fn validate_changelog(file: &Path, strict: bool, json: bool) -> Result<()>
             "versions": versions,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
+    } else if issues.is_empty() {
+        println!("✓ Changelog is valid");
     } else {
-        if issues.is_empty() {
-            println!("✓ Changelog is valid");
-        } else {
-            println!("✗ Changelog validation failed:");
-            for issue in &issues {
-                println!("  - {}", issue);
-            }
-            if strict {
-                anyhow::bail!("Changelog validation failed");
-            }
+        println!("✗ Changelog validation failed:");
+        for issue in &issues {
+            println!("  - {}", issue);
+        }
+        if strict {
+            anyhow::bail!("Changelog validation failed");
         }
     }
 
@@ -374,8 +377,7 @@ async fn prepare_release(
 ) -> Result<()> {
     let date = date.unwrap_or_else(|| Local::now().format("%Y-%m-%d").to_string());
 
-    let mut content = fs::read_to_string("CHANGELOG.md")
-        .context("Failed to read CHANGELOG.md")?;
+    let mut content = fs::read_to_string("CHANGELOG.md").context("Failed to read CHANGELOG.md")?;
 
     // Find the Unreleased section
     let unreleased_re = Regex::new(r"## \[Unreleased\]\n\n((?:###.+?\n(?:- .+?\n)+\n?)+)")?;
@@ -387,10 +389,12 @@ async fn prepare_release(
         let release_section = format!("## [{}] - {}\n\n{}", version, date, unreleased_content);
 
         // Replace Unreleased with new release and empty Unreleased
-        content = unreleased_re.replace(
-            &content,
-            format!("## [Unreleased]\n\n{}", release_section).as_str(),
-        ).to_string();
+        content = unreleased_re
+            .replace(
+                &content,
+                format!("## [Unreleased]\n\n{}", release_section).as_str(),
+            )
+            .to_string();
 
         if dry_run {
             println!("{}", content);
@@ -456,6 +460,9 @@ fn parse_changelog_markdown(content: &str) -> Result<Changelog> {
     let mut current_entries: HashMap<String, Vec<ChangelogEntry>> = HashMap::new();
     let mut breaking_changes: Vec<String> = Vec::new();
 
+    // Move regex construction outside loop
+    let version_re = Regex::new(r"## \[([^\]]+)\](?: - (.+))?")?;
+
     for line in lines {
         // Version header: ## [1.0.0] - 2024-01-01
         if line.starts_with("## [") {
@@ -472,7 +479,6 @@ fn parse_changelog_markdown(content: &str) -> Result<Changelog> {
             }
 
             // Parse new version
-            let version_re = Regex::new(r"## \[([^\]]+)\](?: - (.+))?")?;
             if let Some(cap) = version_re.captures(line) {
                 let version = cap.get(1).unwrap().as_str();
                 if version == "Unreleased" {
@@ -484,13 +490,13 @@ fn parse_changelog_markdown(content: &str) -> Result<Changelog> {
             }
         }
         // Category header: ### Added
-        else if line.starts_with("### ") {
-            current_category = Some(line[4..].trim().to_string());
+        else if let Some(stripped) = line.strip_prefix("### ") {
+            current_category = Some(stripped.trim().to_string());
         }
         // Entry: - Description
-        else if line.starts_with("- ") {
+        else if let Some(stripped) = line.strip_prefix("- ") {
             if let Some(ref category) = current_category {
-                let description = line[2..].trim().to_string();
+                let description = stripped.trim().to_string();
                 let entry = ChangelogEntry {
                     category: category.clone(),
                     description,
@@ -504,7 +510,7 @@ fn parse_changelog_markdown(content: &str) -> Result<Changelog> {
                 } else {
                     current_entries
                         .entry(category.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(entry);
                 }
             }
@@ -547,8 +553,11 @@ fn format_changelog_html(changelog: &Changelog, version: Option<&str>) -> Result
     }
 
     for release in &changelog.releases {
-        if version.map_or(true, |v| v == release.version) {
-            html.push_str(&format!("<h2>{} - {}</h2>\n", release.version, release.date));
+        if version.is_none_or(|v| v == release.version) {
+            html.push_str(&format!(
+                "<h2>{} - {}</h2>\n",
+                release.version, release.date
+            ));
 
             if !release.breaking_changes.is_empty() {
                 html.push_str("<h3>Breaking Changes</h3>\n<ul>\n");
@@ -571,7 +580,14 @@ fn format_entries_html(
     html: &mut String,
     entries: &HashMap<String, Vec<ChangelogEntry>>,
 ) -> Result<()> {
-    let order = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"];
+    let order = [
+        "Added",
+        "Changed",
+        "Deprecated",
+        "Removed",
+        "Fixed",
+        "Security",
+    ];
 
     for category in &order {
         if let Some(items) = entries.get(*category) {
