@@ -466,8 +466,19 @@ impl WorkflowExecutor {
             }
         }
 
-        // Add any command-line arguments or environment variables
-        if let Ok(arg) = std::env::var("PRODIGY_ARG") {
+        // Add positional arguments if provided (SPEC 163)
+        // This makes $ARG and $ARG_N variables available for interpolation
+        if let Some(args) = &self.positional_args {
+            // Add first positional arg as $ARG for backward compatibility
+            if let Some(first_arg) = args.first() {
+                workflow_context.variables.insert("ARG".to_string(), first_arg.clone());
+            }
+            // Also inject all positional args as ARG_1, ARG_2, etc.
+            use crate::cook::environment::pure::inject_positional_args;
+            inject_positional_args(&mut workflow_context.variables, args);
+        }
+        // Fall back to PRODIGY_ARG environment variable if no positional args
+        else if let Ok(arg) = std::env::var("PRODIGY_ARG") {
             workflow_context.variables.insert("ARG".to_string(), arg);
         }
 

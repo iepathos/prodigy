@@ -369,6 +369,12 @@ impl DefaultCookOrchestrator {
             )
             .with_dry_run(config.command.dry_run);
 
+        // Add positional args support for standard/dry-run workflows
+        if !config.command.args.is_empty() {
+            // Use first arg as $ARG for backward compatibility
+            executor = executor.with_positional_args(config.command.args.clone());
+        }
+
         if super::workflow_execution::has_env_config(&config.workflow) {
             executor = executor.with_environment_config(super::construction::create_env_config(
                 &config.workflow,

@@ -192,6 +192,9 @@ impl ArgumentProcessor {
             );
         }
 
+        // Set positional args AFTER potentially creating test executor
+        executor = executor.with_positional_args(vec![input.to_string()]);
+
         // Build global environment configuration.
         // Always include PRODIGY_ARG so commands can access the current input.
         // This passes the arg through the workflow environment instead of using
