@@ -256,6 +256,7 @@ async fn test_standard_input_format_detection() {
 }
 
 #[tokio::test]
+#[serial_test::serial] // Must run alone - modifies global env vars
 async fn test_standard_input_automation_mode() {
     let provider = standard_input::StandardInputProvider;
     let mut config = provider::InputConfig::new();
@@ -980,6 +981,7 @@ async fn test_arguments_with_key_value_pairs() {
 // ========== Environment Variable Provider Tests ==========
 
 #[tokio::test]
+#[serial_test::serial] // Must run alone - modifies global env vars
 async fn test_environment_provider_single_input_mode() {
     use environment::EnvironmentInputProvider;
 
@@ -1037,6 +1039,7 @@ async fn test_environment_provider_single_input_mode() {
 }
 
 #[tokio::test]
+#[serial_test::serial] // Must run alone - modifies global env vars
 async fn test_environment_provider_multiple_inputs_mode() {
     use environment::EnvironmentInputProvider;
 
@@ -1110,6 +1113,7 @@ async fn test_environment_provider_multiple_inputs_mode() {
 }
 
 #[tokio::test]
+#[serial_test::serial] // Must run alone - modifies global env vars
 async fn test_environment_provider_filter_empty() {
     use environment::EnvironmentInputProvider;
 

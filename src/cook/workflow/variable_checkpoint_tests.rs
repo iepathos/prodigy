@@ -144,6 +144,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     fn test_environment_compatibility_check() {
         let manager = VariableResumeManager::new();
         let test_state = create_test_variable_state();

@@ -471,7 +471,9 @@ impl WorkflowExecutor {
         if let Some(args) = &self.positional_args {
             // Add first positional arg as $ARG for backward compatibility
             if let Some(first_arg) = args.first() {
-                workflow_context.variables.insert("ARG".to_string(), first_arg.clone());
+                workflow_context
+                    .variables
+                    .insert("ARG".to_string(), first_arg.clone());
             }
             // Also inject all positional args as ARG_1, ARG_2, etc.
             use crate::cook::environment::pure::inject_positional_args;

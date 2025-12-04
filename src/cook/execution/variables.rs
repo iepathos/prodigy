@@ -1598,6 +1598,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_environment_variable() {
         std::env::set_var("TEST_VAR", "test_value");
 
@@ -2046,6 +2047,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_env_variable_with_special_chars() {
         std::env::set_var("TEST_SPECIAL_VAR", "value with spaces and $pecial ch@rs");
 

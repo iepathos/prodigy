@@ -101,6 +101,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_environment_variables() {
         // Set an environment variable for testing
         std::env::set_var("TEST_PRODIGY_VAR", "test_value_123");
@@ -282,6 +283,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars (USER)
     async fn test_complex_mapreduce_scenario() {
         let mut context = VariableContext::new();
 

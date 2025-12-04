@@ -1920,6 +1920,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_validation_with_streaming_enabled() {
         // Set streaming environment variable
         std::env::set_var("PRODIGY_CLAUDE_STREAMING", "true");
