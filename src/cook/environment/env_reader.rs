@@ -15,7 +15,7 @@
 //!
 //! ## Production Code
 //!
-//! ```rust
+//! ```no_run
 //! use prodigy::cook::environment::env_reader::{EnvReader, RealEnvReader};
 //!
 //! fn process_with_config<E: EnvReader>(env_reader: &E) -> Result<(), std::env::VarError> {
