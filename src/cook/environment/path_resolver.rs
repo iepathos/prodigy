@@ -176,6 +176,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[serial_test::serial] // Must run alone - modifies global HOME env var
     fn test_expand_home_dir() {
         let resolver = PathResolver::new();
 
@@ -193,6 +194,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     fn test_expand_env_vars() {
         let resolver = PathResolver::new();
 
@@ -274,6 +276,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     fn test_resolve_full_path() {
         let resolver = PathResolver::new();
 

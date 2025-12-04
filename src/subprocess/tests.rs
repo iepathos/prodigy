@@ -177,6 +177,7 @@ mod subprocess_tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env to test subprocess isolation
     async fn test_environment_not_inherited_from_parent() {
         // Set a test variable in the parent process that should NOT be inherited
         std::env::set_var("PRODIGY_TEST_BLOATED_VAR", "x".repeat(10000));

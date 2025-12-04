@@ -192,6 +192,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_env_secret_provider() {
         std::env::set_var("TEST_SECRET", "secret_value");
 
@@ -204,6 +205,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_secret_store_cache() {
         let mut store = SecretStore::new();
 
@@ -241,6 +243,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial] // Must run alone - modifies global env vars
     async fn test_default_provider() {
         let mut store = SecretStore::new();
 

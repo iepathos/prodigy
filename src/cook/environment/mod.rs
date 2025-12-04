@@ -19,6 +19,7 @@
 pub mod builder;
 mod config;
 pub mod context;
+pub mod env_reader;
 mod manager;
 mod path_resolver;
 pub mod pure;
@@ -28,6 +29,7 @@ pub use config::{
     ConditionalEnv, DynamicEnv, EnvProfile, EnvValue, EnvironmentConfig, SecretProvider,
     SecretValue, StepEnvironment,
 };
+pub use env_reader::{EnvReader, RealEnvReader};
 pub use manager::{EnvironmentContext, EnvironmentManager, EnvironmentSnapshot};
 pub use path_resolver::{PathResolver, Platform};
 pub use secret_store::{SecretStore, SecretStoreError};

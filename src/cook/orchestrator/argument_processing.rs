@@ -182,6 +182,11 @@ impl ArgumentProcessor {
             .with_checkpoint_manager(checkpoint_manager, workflow_id)
             .with_dry_run(config.command.dry_run);
 
+        // Set positional args BEFORE setting test config
+        // This ensures the executor has access to $ARG through positional_args,
+        // eliminating the need for global env mutation (Spec 189)
+        executor = executor.with_positional_args(vec![input.to_string()]);
+
         // Set test config if available
         if let Some(test_config) = &self.test_config {
             executor = crate::cook::workflow::WorkflowExecutorImpl::with_test_config(
@@ -189,16 +194,15 @@ impl ArgumentProcessor {
                 self.session_manager.clone(),
                 self.user_interaction.clone(),
                 test_config.clone(),
-            );
+            )
+            // Re-apply positional args after creating test executor
+            .with_positional_args(vec![input.to_string()]);
         }
-
-        // Set positional args AFTER potentially creating test executor
-        executor = executor.with_positional_args(vec![input.to_string()]);
 
         // Build global environment configuration.
         // Always include PRODIGY_ARG so commands can access the current input.
         // This passes the arg through the workflow environment instead of using
-        // global env mutation, ensuring thread-safety and test isolation.
+        // global env mutation, ensuring thread-safety and test isolation (Spec 189).
         let mut global_env: HashMap<String, crate::cook::environment::EnvValue> = config
             .workflow
             .env
@@ -231,17 +235,10 @@ impl ArgumentProcessor {
         };
         executor = executor.with_environment_config(global_env_config)?;
 
-        // Set PRODIGY_ARG as actual OS environment variable so init_workflow_context can read it
-        // This ensures $ARG variable substitution works in workflow commands
-        std::env::set_var("PRODIGY_ARG", input);
-
         // Execute the workflow through the executor to ensure validation is handled
-        let result = executor.execute(&extended_workflow, env).await;
-
-        // Clean up the environment variable after execution
-        std::env::remove_var("PRODIGY_ARG");
-
-        result?;
+        // Note: No need to set global PRODIGY_ARG env var - positional args are passed directly
+        // through the executor, and init_workflow_context uses them (see line 472-478 in context.rs)
+        executor.execute(&extended_workflow, env).await?;
 
         Ok(())
     }
