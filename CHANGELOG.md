@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2024-11-28
 
+### Breaking Changes
+- Orchestrator API refactored - removed direct state mutation methods in favor of effect-based execution
+- Workflow executor interface changed to use pure functions with Effect return types
+- Session management now requires explicit environment passing instead of global state
+
 ### Added
 - Reader pattern environment access helpers (spec 175)
 - Effect-based parallel execution foundation (spec 173)
@@ -78,6 +83,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type safety in parallel execution
 
 ## [0.3.0] - 2024-11-08
+
+### Breaking Changes
+- Session storage format changed to UnifiedSession - old session files need migration
+- MapReduce workflow YAML syntax introduced - basic workflow syntax unchanged but MapReduce requires new structure
+- Storage paths reorganized under `~/.prodigy/` - data migration required for existing users
 
 ### Added
 - MapReduce workflow support with parallel execution
