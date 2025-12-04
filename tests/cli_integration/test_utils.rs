@@ -94,6 +94,13 @@ impl CliTest {
         let mut command = Command::new(binary_path);
         command.current_dir(temp_dir.path());
 
+        // Set PRODIGY_HOME to temp directory for test isolation
+        // This prevents parallel tests from interfering with each other
+        // by ensuring each test has its own sessions, checkpoints, and events
+        let prodigy_home = temp_dir.path().join(".prodigy-test-home");
+        std::fs::create_dir_all(&prodigy_home).expect("Failed to create test PRODIGY_HOME");
+        command.env("PRODIGY_HOME", &prodigy_home);
+
         Self {
             temp_dir,
             command,

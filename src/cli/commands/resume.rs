@@ -218,7 +218,7 @@ async fn try_resume_regular_workflow(
     let session_id_obj = crate::unified_session::SessionId::from_string(session_id.to_string());
 
     // Try to load the session to check its status
-    if let Ok(session) = session_manager.load_session(&session_id_obj).await {
+    let session_data = if let Ok(session) = session_manager.load_session(&session_id_obj).await {
         use crate::unified_session::SessionStatus;
 
         // Check if session is in a non-resumable state
@@ -241,34 +241,74 @@ async fn try_resume_regular_workflow(
             }
         }
 
-        // Check if session has any checkpoints
-        if session.checkpoints.is_empty() {
-            let error_context = if let Some(error) = &session.error {
-                format!("\n\nThe session failed with:\n{}", error)
-            } else {
-                String::new()
-            };
-
-            return Err(anyhow!(
-                "Cannot resume session {}: No checkpoints available.\n\
-                 This workflow failed before any checkpoints were created.{}\n\n\
-                 You cannot resume from this failure. Please fix the issue and run the workflow again.",
-                session_id,
-                error_context
-            ));
-        }
-    }
+        Some(session)
+    } else {
+        None
+    };
 
     let checkpoint_dir = prodigy_home
         .join("state")
         .join(session_id)
         .join("checkpoints");
 
+    // Check if checkpoint directory exists and contains checkpoint files
     if !checkpoint_dir.exists() {
+        let error_context = if let Some(ref session) = session_data {
+            if let Some(error) = &session.error {
+                format!("\n\nThe session failed with:\n{}", error)
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
         return Err(anyhow!(
-            "No checkpoints found for session: {}\n\
-             Checkpoint directory does not exist: {}",
+            "Cannot resume session {}: No checkpoints found.\n\
+             This workflow failed before any checkpoints were created.{}\n\n\
+             Checkpoint directory does not exist: {}\n\n\
+             You cannot resume from this failure. Please fix the issue and run the workflow again.",
             session_id,
+            error_context,
+            checkpoint_dir.display()
+        ));
+    }
+
+    // Check if there are any checkpoint files in the directory
+    let has_checkpoints = std::fs::read_dir(&checkpoint_dir)
+        .ok()
+        .and_then(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .any(|entry| {
+                    entry
+                        .path()
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        == Some("json")
+                })
+                .then_some(true)
+        })
+        .unwrap_or(false);
+
+    if !has_checkpoints {
+        let error_context = if let Some(ref session) = session_data {
+            if let Some(error) = &session.error {
+                format!("\n\nThe session failed with:\n{}", error)
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
+        return Err(anyhow!(
+            "Cannot resume session {}: No checkpoints found.\n\
+             This workflow failed before any checkpoints were created.{}\n\n\
+             Checkpoint directory exists but contains no checkpoint files: {}\n\n\
+             You cannot resume from this failure. Please fix the issue and run the workflow again.",
+            session_id,
+            error_context,
             checkpoint_dir.display()
         ));
     }
@@ -519,7 +559,7 @@ pub async fn run_resume_job_command(
     let state_dir = prodigy_home.join("state");
     if !state_dir.exists() {
         return Err(anyhow!(
-            "No state directory found at: {}",
+            "Session not found: No state directory exists at: {}",
             state_dir.display()
         ));
     }
