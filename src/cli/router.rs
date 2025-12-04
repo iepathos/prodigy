@@ -174,6 +174,7 @@ pub async fn execute_command(command: Option<Commands>, verbose: u8) -> Result<(
         }
         Some(Commands::Template { action }) => execute_template_command(action).await,
         Some(Commands::Config { command }) => run_config_command(command).await,
+        Some(Commands::Changelog { command }) => run_changelog_command(command).await,
         None => {
             // No command provided, show help
             use crate::cli::help::generate_help;

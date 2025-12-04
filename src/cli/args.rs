@@ -286,6 +286,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: ConfigCommands,
     },
+    /// Manage project changelog
+    #[command(name = "changelog")]
+    Changelog {
+        #[command(subcommand)]
+        command: ChangelogCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -885,6 +891,113 @@ pub enum ConfigCommands {
         /// Configuration path to show (e.g., "log_level", "project.name")
         #[arg()]
         path: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ChangelogCommands {
+    /// Generate changelog from git commits
+    Generate {
+        /// Output file path (defaults to CHANGELOG.md)
+        #[arg(short = 'o', long, default_value = "CHANGELOG.md")]
+        output: PathBuf,
+
+        /// Start from this tag/commit
+        #[arg(long)]
+        from: Option<String>,
+
+        /// End at this tag/commit (defaults to HEAD)
+        #[arg(long)]
+        to: Option<String>,
+
+        /// Include only commits matching pattern
+        #[arg(long)]
+        filter: Option<String>,
+
+        /// Preview without writing file
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Validate changelog format
+    Validate {
+        /// Changelog file to validate (defaults to CHANGELOG.md)
+        #[arg(default_value = "CHANGELOG.md")]
+        file: PathBuf,
+
+        /// Check for Keep a Changelog compliance
+        #[arg(long)]
+        strict: bool,
+
+        /// Output validation report as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Prepare a new release section
+    Release {
+        /// Version number for the release
+        version: String,
+
+        /// Release date (defaults to today)
+        #[arg(long)]
+        date: Option<String>,
+
+        /// Generate from commits since last release
+        #[arg(long)]
+        from_commits: bool,
+
+        /// Preview without writing file
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Export changelog to different formats
+    Export {
+        /// Input changelog file (defaults to CHANGELOG.md)
+        #[arg(short = 'i', long, default_value = "CHANGELOG.md")]
+        input: PathBuf,
+
+        /// Output file path
+        #[arg(short = 'o', long)]
+        output: PathBuf,
+
+        /// Export format (json, html, xml)
+        #[arg(short = 'f', long, default_value = "json")]
+        format: String,
+
+        /// Include only specific version
+        #[arg(long)]
+        version: Option<String>,
+    },
+
+    /// Add a changelog entry
+    Add {
+        /// Entry type (added, changed, deprecated, removed, fixed, security)
+        #[arg(short = 't', long)]
+        entry_type: String,
+
+        /// Entry description
+        description: String,
+
+        /// Add to unreleased section
+        #[arg(long, default_value = "true")]
+        unreleased: bool,
+
+        /// Specific version to add to
+        #[arg(long)]
+        version: Option<String>,
+    },
+
+    /// Show changelog statistics
+    Stats {
+        /// Changelog file (defaults to CHANGELOG.md)
+        #[arg(default_value = "CHANGELOG.md")]
+        file: PathBuf,
 
         /// Output as JSON
         #[arg(long)]

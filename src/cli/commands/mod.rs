@@ -3,6 +3,7 @@
 //! This module contains the implementation of each CLI command.
 //! Each command is implemented as a separate module for better organization.
 
+pub mod changelog;
 pub mod checkpoints;
 pub mod clean;
 pub mod config;
@@ -16,6 +17,7 @@ pub mod sessions;
 pub mod worktree;
 
 // Re-export command execution functions
+pub use changelog::run_changelog_command;
 pub use checkpoints::run_checkpoints_command;
 pub use config::run_config_command;
 pub use dlq::run_dlq_command;
