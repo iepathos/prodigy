@@ -240,6 +240,23 @@ async fn try_resume_regular_workflow(
                 // Session is resumable (Paused, Running, Failed, etc.)
             }
         }
+
+        // Check if session has any checkpoints
+        if session.checkpoints.is_empty() {
+            let error_context = if let Some(error) = &session.error {
+                format!("\n\nThe session failed with:\n{}", error)
+            } else {
+                String::new()
+            };
+
+            return Err(anyhow!(
+                "Cannot resume session {}: No checkpoints available.\n\
+                 This workflow failed before any checkpoints were created.{}\n\n\
+                 You cannot resume from this failure. Please fix the issue and run the workflow again.",
+                session_id,
+                error_context
+            ));
+        }
     }
 
     let checkpoint_dir = prodigy_home
