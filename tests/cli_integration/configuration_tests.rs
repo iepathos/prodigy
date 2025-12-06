@@ -70,16 +70,23 @@ fn test_invalid_config_file() {
 
 #[test]
 fn test_config_with_environment_variables() {
+    // Use actual supported environment variables
     let test = CliTest::new()
-        .env("PRODIGY_MAX_ITERATIONS", "3")
-        .env("PRODIGY_AUTO_WORKTREE", "true");
+        .env("PRODIGY_LOG_LEVEL", "error")
+        .env("PRODIGY_AUTO_COMMIT", "false");
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Environment variables should be respected
-    assert_eq!(output.exit_code, exit_codes::SUCCESS);
+    assert!(
+        output.exit_code == exit_codes::SUCCESS,
+        "Expected success but got exit code {}. stdout: {}\nstderr: {}",
+        output.exit_code,
+        output.stdout,
+        output.stderr
+    );
 }
 
 #[test]
