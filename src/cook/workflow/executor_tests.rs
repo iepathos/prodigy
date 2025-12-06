@@ -1575,6 +1575,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_foreach_command() {
+        // Ensure test mode is not set to allow actual foreach execution
+        std::env::remove_var("PRODIGY_TEST_MODE");
+
         let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
