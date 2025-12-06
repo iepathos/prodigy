@@ -943,8 +943,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_workflow_execution_single_iteration() {
-        let (mut executor, _, session_mock, user_mock, _) =
-            create_test_executor_with_git_mock().await;
+        // Create executor with test_mode: true for proper test isolation
+        let claude_executor = Arc::new(MockClaudeExecutor::new());
+        let session_manager = Arc::new(MockSessionManager::new());
+        let user_interaction = Arc::new(MockUserInteraction::new());
+        let git_operations = Arc::new(MockGitOperations::new());
+
+        // Set up git mock responses (needed for commit tracking)
+        for _ in 0..20 {
+            git_operations.add_success_response("abc123def456").await;
+        }
+        git_operations.add_success_response("").await;
+
+        // Create test config with test_mode enabled
+        let test_config = Arc::new(TestConfiguration {
+            test_mode: true,
+            ..Default::default()
+        });
+
+        let mut executor = WorkflowExecutor::with_test_config_and_git(
+            claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+            session_manager.clone() as Arc<dyn SessionManager>,
+            user_interaction.clone() as Arc<dyn UserInteraction>,
+            test_config,
+            git_operations.clone(),
+        );
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -953,9 +976,6 @@ mod tests {
             worktree_name: None,
             session_id: Arc::from("test"),
         };
-
-        // Set up test mode to avoid actual command execution
-        std::env::set_var("PRODIGY_TEST_MODE", "true");
 
         // Set up workflow
         let workflow = ExtendedWorkflowConfig {
@@ -980,7 +1000,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify session updates were made
-        let updates = session_mock.get_updates();
+        let updates = session_manager.get_updates();
         assert!(updates
             .iter()
             .any(|u| matches!(u, SessionUpdate::StartWorkflow)));
@@ -989,12 +1009,10 @@ mod tests {
             .any(|u| matches!(u, SessionUpdate::IncrementIteration)));
 
         // Verify user messages
-        let messages = user_mock.get_messages();
+        let messages = user_interaction.get_messages();
         assert!(messages
             .iter()
             .any(|(t, m)| t == "info" && m.contains("Test Workflow")));
-
-        std::env::remove_var("PRODIGY_TEST_MODE");
     }
 
     #[tokio::test]

@@ -198,7 +198,14 @@ impl WorkflowExecutor {
             self.setup_step_environment_context(step, env, ctx).await?;
 
         // Early return for test mode (no actual execution)
-        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
+        // test_config takes precedence over environment variable for test isolation
+        // When test_config is set, it provides explicit control regardless of env vars
+        // This prevents environment variable pollution between parallel tests
+        let test_mode = self
+            .test_config
+            .as_ref()
+            .map(|config| config.test_mode)
+            .unwrap_or_else(|| std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true");
         if test_mode {
             return self.handle_test_mode_execution(step, &command_type);
         }
