@@ -179,7 +179,7 @@ impl ArgumentProcessor {
 
         let mut executor = self
             .create_workflow_executor_internal(config)
-            .with_checkpoint_manager(checkpoint_manager, workflow_id)
+            .with_checkpoint_manager(checkpoint_manager.clone(), workflow_id.clone())
             .with_dry_run(config.command.dry_run);
 
         // Set positional args BEFORE setting test config
@@ -195,6 +195,10 @@ impl ArgumentProcessor {
                 self.user_interaction.clone(),
                 test_config.clone(),
             )
+            // Re-apply checkpoint manager and workflow_id after creating test executor
+            .with_checkpoint_manager(checkpoint_manager, workflow_id)
+            // Re-apply dry-run mode after creating test executor
+            .with_dry_run(config.command.dry_run)
             // Re-apply positional args after creating test executor
             .with_positional_args(vec![input.to_string()]);
         }
