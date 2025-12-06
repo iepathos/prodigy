@@ -108,16 +108,16 @@ workflow_defaults:
 }
 
 #[test]
-fn test_config_with_command_aliases() {
+fn test_config_with_plugin_settings() {
     let config_content = r#"
-command_aliases:
-  c: run
-  e: exec
+plugins:
+  enabled: false
+  auto_load: []
 "#;
 
     let test = CliTest::new().with_config(config_content);
 
-    // Note: Command aliases might not be supported, but test the config loading
+    // Test that plugin config fields are properly loaded
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
