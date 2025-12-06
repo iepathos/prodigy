@@ -43,6 +43,9 @@ jobs:
         echo "$HOME/.local/bin" >> $GITHUB_PATH
       shell: bash
 
+    - name: Build binary
+      run: cargo build --bins
+
     - name: Run tests
       run: cargo test --all-features
     
