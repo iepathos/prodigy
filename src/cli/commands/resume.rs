@@ -280,13 +280,7 @@ async fn try_resume_regular_workflow(
         .and_then(|entries| {
             entries
                 .filter_map(Result::ok)
-                .any(|entry| {
-                    entry
-                        .path()
-                        .extension()
-                        .and_then(|ext| ext.to_str())
-                        == Some("json")
-                })
+                .any(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("json"))
                 .then_some(true)
         })
         .unwrap_or(false);

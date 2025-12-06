@@ -173,10 +173,10 @@ impl MergeOrchestrator {
             .context("Failed to execute claude /prodigy-merge-worktree")?;
 
         manager_validation::validate_claude_result(&result)?;
-        if self.verbosity == 0 {
-            // Clean output - only show the final result message
-            println!("{}", result.stdout);
-        }
+        // Note: Don't print result.stdout here - in streaming mode it contains the raw JSON log.
+        // Clean output is handled by the streaming processor based on verbosity and
+        // PRODIGY_CLAUDE_CONSOLE_OUTPUT environment variable.
+        // The calling code displays the final success message.
         Ok(result.stdout)
     }
 
