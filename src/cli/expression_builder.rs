@@ -172,7 +172,7 @@ impl ExpressionBuilderCommand {
             })
             .collect();
 
-        let matched = results.len()
+        let matched = results.len();
 
         println!("\n=== Results ===");
         println!("Matched: {}/{} items", matched, items.len());
