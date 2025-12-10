@@ -7,8 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2024-12-10
+
+### Changed
+- Bump actions/github-script from 7 to 8
+- Bump actions/cache from 3 to 4
+- Bump actions/checkout from 4 to 6
+- Bump criterion from 0.8.0 to 0.8.1
+
+## [0.4.2] - 2024-12-06
+
 ### Added
-- Comprehensive changelog management system
+- Comprehensive changelog management system (spec 79)
+- Eliminate global environment mutation (spec 189)
+- Interpolate $ARG variable in workflow step display messages
+
+### Changed
+- Rename test files from spec-based to descriptive names
+- Alphabetically sort test module declarations
+
+### Fixed
+- Remove verbose JSON output from merge at verbosity 0
+- Add checkpoint validation for resume command
+- Improve test isolation and checkpoint validation
+- Preserve checkpoint_manager and workflow_id when applying test config
+- Clear test mode in foreach execution test
+- Prioritize test_config over env vars for test isolation
+- Use actual environment variables in config test
 
 ## [0.4.1] - 2024-12-04
 
@@ -154,7 +179,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Command execution (Claude and shell)
 - Variable interpolation
 
-[Unreleased]: https://github.com/anthropics/prodigy/compare/0.4.1...HEAD
+[Unreleased]: https://github.com/anthropics/prodigy/compare/0.4.3...HEAD
+[0.4.3]: https://github.com/anthropics/prodigy/compare/0.4.2...0.4.3
+[0.4.2]: https://github.com/anthropics/prodigy/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/anthropics/prodigy/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/anthropics/prodigy/compare/0.3.1...0.4.0
 [0.3.1]: https://github.com/anthropics/prodigy/compare/0.3.0...0.3.1
