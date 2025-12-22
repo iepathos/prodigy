@@ -48,7 +48,7 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::PathBuf;
 
 /// Explicit storage strategy for checkpoints
@@ -188,8 +188,8 @@ impl CheckpointStorage {
 
 /// Pure function: get global Prodigy storage directory
 ///
-/// Returns `~/.prodigy` as the base directory for all global Prodigy storage.
-/// This is a pure function that derives the path from system home directory.
+/// Returns the base directory for all global Prodigy storage.
+/// Respects the PRODIGY_HOME environment variable for testing and custom configurations.
 ///
 /// # Errors
 ///
@@ -201,12 +201,12 @@ impl CheckpointStorage {
 /// use prodigy::cook::workflow::checkpoint_path::resolve_global_base_dir;
 ///
 /// let base = resolve_global_base_dir()?;
-/// assert!(base.to_string_lossy().ends_with(".prodigy"));
+/// assert!(base.to_string_lossy().contains(".prodigy") || std::env::var("PRODIGY_HOME").is_ok());
 /// # Ok::<(), anyhow::Error>(())
 /// ```
 pub fn resolve_global_base_dir() -> Result<PathBuf> {
-    let base_dirs = directories::BaseDirs::new().context("Could not determine home directory")?;
-    Ok(base_dirs.home_dir().join(".prodigy"))
+    // Delegate to centralized storage function that respects PRODIGY_HOME
+    crate::storage::get_default_storage_dir()
 }
 
 #[cfg(test)]
@@ -230,9 +230,10 @@ mod tests {
         };
 
         let base = storage.resolve_base_dir().unwrap();
+        // Check relative path structure (works with both ~/.prodigy and PRODIGY_HOME)
         assert!(base
             .to_string_lossy()
-            .ends_with(".prodigy/state/test-session-123/checkpoints"));
+            .ends_with("state/test-session-123/checkpoints"));
 
         let file = storage.checkpoint_file_path("checkpoint-1").unwrap();
         assert!(file
@@ -247,9 +248,10 @@ mod tests {
         };
 
         let base = storage.resolve_base_dir().unwrap();
+        // Check relative path structure (works with both ~/.prodigy and PRODIGY_HOME)
         assert!(base
             .to_string_lossy()
-            .ends_with(".prodigy/state/my-repo/checkpoints"));
+            .ends_with("state/my-repo/checkpoints"));
     }
 
     #[test]
@@ -259,9 +261,10 @@ mod tests {
         };
 
         let base = storage.resolve_base_dir().unwrap();
+        // Check relative path structure (works with both ~/.prodigy and PRODIGY_HOME)
         assert!(base
             .to_string_lossy()
-            .ends_with(".prodigy/sessions/test-session-456"));
+            .ends_with("sessions/test-session-456"));
 
         let file = storage.checkpoint_file_path("ignored-id").unwrap();
         assert!(file.to_string_lossy().ends_with("/checkpoint.json"));
@@ -330,9 +333,11 @@ mod tests {
     }
 
     #[test]
-    fn test_global_base_dir_contains_prodigy() {
+    fn test_global_base_dir_resolution() {
+        // Should return a valid path (may be PRODIGY_HOME or ~/.prodigy)
         let base = resolve_global_base_dir().unwrap();
-        assert!(base.to_string_lossy().ends_with(".prodigy"));
+        // Just verify it's a non-empty path
+        assert!(!base.as_os_str().is_empty());
     }
 
     #[test]
