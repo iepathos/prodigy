@@ -31,18 +31,15 @@
 //!
 //! ## Test Code
 //!
-//! ```no_run
-//! // In tests, use stillwater::MockEnv for isolated environment testing
-//! // Example test structure (use in actual test files):
-//! //
-//! // use stillwater::MockEnv;
-//! //
-//! // fn test_process_with_config() {
-//! //     let env = MockEnv::new()
-//! //         .with_env("API_KEY", "test-key-123");
-//! //
-//! //     process_with_config(&env).unwrap();
-//! // }
+//! ```ignore
+//! use stillwater::MockEnv;
+//!
+//! fn test_process_with_config() {
+//!     let env = MockEnv::new()
+//!         .with_env("API_KEY", "test-key-123");
+//!
+//!     process_with_config(&env).unwrap();
+//! }
 //! ```
 
 use std::ffi::OsString;
