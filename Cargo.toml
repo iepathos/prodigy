@@ -58,7 +58,7 @@ sysinfo = "0.37.1"
 dirs = "6.0.0"
 stillwater = { version = "0.13.0", features = ["async", "jitter"] }
 rayon = "1.11.0"
-premortem = { version = "0.6.0", features = ["toml", "yaml", "derive"] }
+premortem = { version = "0.6.1", features = ["toml", "yaml", "derive"] }
 
 [features]
 default = []
