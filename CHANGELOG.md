@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2025-12-26
+
+### Changed
+- Output capture now enabled by default for all commands - `${shell.output}` and similar variables work without explicit `capture_output: true`
+- Bump premortem from 0.6.0 to 0.6.1
+- Bump tracing from 0.1.43 to 0.1.44
+- Bump axum from 0.8.7 to 0.8.8
+- Bump toml from 0.9.8 to 0.9.10
+- Bump shell-words from 1.1.0 to 1.1.1
+- Bump actions/upload-artifact from 5 to 6
+- Bump actions/cache from 4 to 5
+
+### Fixed
+- Checkpoint path resolution now respects PRODIGY_HOME environment variable
+- Doc test configuration
+
 ## [0.4.3] - 2024-12-10
 
 ### Changed
@@ -179,7 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Command execution (Claude and shell)
 - Variable interpolation
 
-[Unreleased]: https://github.com/anthropics/prodigy/compare/0.4.3...HEAD
+[Unreleased]: https://github.com/anthropics/prodigy/compare/0.4.4...HEAD
+[0.4.4]: https://github.com/anthropics/prodigy/compare/0.4.3...0.4.4
 [0.4.3]: https://github.com/anthropics/prodigy/compare/0.4.2...0.4.3
 [0.4.2]: https://github.com/anthropics/prodigy/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/anthropics/prodigy/compare/0.4.0...0.4.1
