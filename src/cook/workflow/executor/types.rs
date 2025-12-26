@@ -10,15 +10,19 @@ use std::collections::HashMap;
 /// Capture output configuration - either a boolean or a variable name
 ///
 /// This type supports flexible output capture configurations:
-/// - `Disabled`: Don't capture output (default)
-/// - `Default`: Capture to command-type-specific variable names
+/// - `Disabled`: Don't capture output
+/// - `Default`: Capture to command-type-specific variable names (default)
 /// - `Variable(name)`: Capture to a custom variable name
+///
+/// Output is captured by default so `${shell.output}` and similar variables
+/// are available without explicit configuration. Use `capture_output: false`
+/// to disable if needed.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum CaptureOutput {
     /// Don't capture output
-    #[default]
     Disabled,
     /// Capture to default variable names (claude.output, shell.output, etc.)
+    #[default]
     Default,
     /// Capture to a custom variable name
     Variable(String),
