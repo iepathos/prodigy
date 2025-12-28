@@ -78,6 +78,58 @@ flowchart TD
     style R fill:#fce4ec,stroke:#c2185b
 ```
 
+### Data Flow
+
+The following diagram shows how data flows through the global storage system during MapReduce execution:
+
+```mermaid
+flowchart LR
+    subgraph Execution["MapReduce Execution"]
+        Agent1["Agent 1"]
+        Agent2["Agent 2"]
+        AgentN["Agent N"]
+    end
+
+    subgraph Storage["Global Storage (~/.prodigy/)"]
+        Events["events/
+        Lifecycle logs"]
+        State["state/
+        Checkpoints"]
+        DLQ["dlq/
+        Failed items"]
+        Sessions["sessions/
+        Status tracking"]
+    end
+
+    Agent1 -->|Write events| Events
+    Agent2 -->|Write events| Events
+    AgentN -->|Write events| Events
+
+    Agent1 -->|On failure| DLQ
+    Agent2 -->|On failure| DLQ
+    AgentN -->|On failure| DLQ
+
+    State -->|Resume| Agent1
+    State -->|Resume| Agent2
+    State -->|Resume| AgentN
+
+    Events -.->|Update| Sessions
+    DLQ -.->|Update| Sessions
+
+    style Execution fill:#fff3e0,stroke:#ef6c00
+    style Storage fill:#e8f5e9,stroke:#2e7d32
+    style Events fill:#e1f5fe,stroke:#0288d1
+    style State fill:#f3e5f5,stroke:#7b1fa2
+    style DLQ fill:#ffebee,stroke:#c62828
+    style Sessions fill:#fce4ec,stroke:#c2185b
+```
+
+This architecture enables:
+
+- **Unified monitoring**: All agents write to the same event log location
+- **Failure isolation**: Failed items go to DLQ without affecting other agents
+- **Seamless resume**: Checkpoints allow any interrupted agent to resume from where it left off
+
 ### Storage Components
 
 #### Events
