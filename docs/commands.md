@@ -153,7 +153,8 @@ Create or overwrite files with content from variables or literals. Supports text
 
 Validate implementation completeness with automatic retry.
 
-> **Warning:** The `command` field in ValidationConfig is deprecated. Use `shell` instead for shell commands or `claude` for Claude commands. The `command` field is still supported for backward compatibility but will be removed in a future version.
+!!! warning "Deprecated Field"
+    The `command` field in ValidationConfig is deprecated. Use `shell` instead for shell commands or `claude` for Claude commands. The `command` field is still supported for backward compatibility but will be removed in a future version.
 
 ```yaml
 - claude: "/implement-auth-spec"
@@ -244,7 +245,10 @@ All command types support these common fields:
 
 ### OnFailure Handler Configuration
 
-The `on_failure` field accepts an `OnFailureConfig` which supports multiple configuration formats:
+The `on_failure` field accepts an `OnFailureConfig` which supports multiple configuration formats. The configuration is parsed into one of several variants: `IgnoreErrors`, `SingleCommand`, `MultipleCommands`, `Detailed`, `Advanced`, `FailControl`, or `Handler`.
+
+!!! tip "Auto-Conversion"
+    Simple `claude:` or `shell:` handlers are automatically converted to the Advanced format internally, giving you the full power of retry control even with minimal configuration.
 
 **Source**: src/cook/workflow/on_failure.rs:67-115
 
@@ -318,9 +322,10 @@ From `workflows/implement.yml` (lines 20-30):
 
 ### Planned Feature: CaptureStreams
 
-> **Note:** The `capture_streams` field is defined in WorkflowStepCommand (src/config/command.rs:394-396) but is **reserved for future use** and not yet functional in YAML workflows.
->
-> **Why it's not available yet**: The field exists as a `String` placeholder in the YAML parser, but the execution engine doesn't yet support fine-grained stream capture control. This feature is planned to provide selective capture of stdout, stderr, exit codes, success status, and execution duration.
+!!! note "Reserved for Future Use"
+    The `capture_streams` field is defined in WorkflowStepCommand (src/config/command.rs:394-396) but is **reserved for future use** and not yet functional in YAML workflows.
+
+    **Why it's not available yet**: The field exists as a `String` placeholder in the YAML parser, but the execution engine doesn't yet support fine-grained stream capture control. This feature is planned to provide selective capture of stdout, stderr, exit codes, success status, and execution duration.
 
 **Current Approach:** Use the `capture_output` and `capture_format` fields to control output capture, which cover most common use cases:
 
@@ -350,33 +355,34 @@ The `capture_format` field controls how captured output is parsed:
 ```yaml
 # String format (default) - raw text output
 - shell: "git rev-parse HEAD"
-  capture: "commit_hash"
+  capture_output: "commit_hash"
   capture_format: "string"
 
 # Number format - parses numeric output
 - shell: "wc -l < file.txt"
-  capture: "line_count"
+  capture_output: "line_count"
   capture_format: "number"
 
 # JSON format - parses JSON output
 - shell: "cargo metadata --format-version 1"
-  capture: "project_metadata"
+  capture_output: "project_metadata"
   capture_format: "json"
 
 # Lines format - splits output into array of lines
 - shell: "git diff --name-only"
-  capture: "changed_files"
+  capture_output: "changed_files"
   capture_format: "lines"
 
 # Boolean format - true if command succeeds, false otherwise
 - shell: "grep -q 'pattern' file.txt"
-  capture: "pattern_found"
+  capture_output: "pattern_found"
   capture_format: "boolean"
 ```
 
 ### Deprecated Fields
 
-> **Warning:** The following fields are deprecated but still supported for backward compatibility. They will be removed in a future version. Please migrate to the recommended alternatives.
+!!! warning "Deprecated Fields"
+    The following fields are deprecated but still supported for backward compatibility. They will be removed in a future version. Please migrate to the recommended alternatives.
 
 These fields are deprecated:
 
@@ -512,12 +518,12 @@ For more information on related topics:
 ```yaml
 # Capture build output and use it in later commands
 - shell: "cargo build --release 2>&1"
-  capture: "build_output"
+  capture_output: "build_output"
   capture_format: "string"
 
 # Use the captured output in Claude command
 - claude: "/analyze-warnings '${build_output}'"
-  when: "${build_output contains 'warning'}"
+  when: "${build_output != ''}"
 
 # Store output to file for later analysis
 - write_file:
