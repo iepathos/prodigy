@@ -33,17 +33,17 @@ This section covers advanced workflow features including nested error handling, 
   when: "${test_output} contains 'passed' and ${build_output} contains 'Finished'"
 ```
 
-**Note:** Advanced features currently supported:
-- **Nested handlers**: Chain `on_failure` and `on_success` handlers for complex error recovery
-- **Max attempts**: Combine with conditional execution for automatic retry logic
-- **Conditional execution**: Use `when` clauses with captured output or variables
-- **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
-- **Working directory**: Per-command directory control using `working_dir` field
-- **Git context variables**: Automatic tracking of file changes during workflow execution
+!!! info "Advanced Features"
+    - **Nested handlers**: Chain `on_failure` and `on_success` handlers for complex error recovery
+    - **Max attempts**: Combine with conditional execution for automatic retry logic
+    - **Conditional execution**: Use `when` clauses with captured output or variables
+    - **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
+    - **Working directory**: Per-command directory control using `working_dir` field
+    - **Git context variables**: Automatic tracking of file changes during workflow execution
 
 ### Working Directory Usage
 
-**Source**: Field definition from src/commands/handlers/shell.rs:40, examples from workflows/environment-example.yml:52-64
+**Source**: Field definition from src/commands/handlers/shell.rs:40 (`schema.add_optional("working_dir", ...)`), examples from workflows/environment-example.yml:52-64
 
 ```yaml
 # Run command in specific directory
@@ -64,12 +64,14 @@ This section covers advanced workflow features including nested error handling, 
   working_dir: "${env.DEPLOY_DIR}"  # Path from environment variable
 ```
 
-**Note:** The `working_dir` field is fully implemented and production-ready:
-- Accepts relative or absolute paths
-- Supports variable interpolation (e.g., `"${env.PROJECT_DIR}"`)
-- Falls back to current execution context if not specified
-- Paths are resolved to absolute paths automatically
-- Relative paths are resolved via the workflow execution context
+!!! note "Working Directory Capabilities"
+    The `working_dir` field is fully implemented and production-ready:
+
+    - Accepts relative or absolute paths
+    - Supports variable interpolation (e.g., `"${env.PROJECT_DIR}"`)
+    - Falls back to current execution context if not specified
+    - Paths are resolved to absolute paths automatically
+    - Relative paths are resolved via the workflow execution context
 
 ### Git Context Variables (Spec 122)
 
@@ -122,9 +124,11 @@ Prodigy automatically tracks file changes during workflow execution and exposes 
 - `|pattern:**/*.rs` - Alternative syntax for glob pattern filtering (equivalent to `:pattern`)
 - `|basename` - Extract just file names without paths
 
-**Note:** Both `:pattern` and `|pattern:` syntaxes are valid and equivalent. Use whichever is more readable in your context:
-- `${git.modified_files:*.rs}` - Colon syntax (more concise)
-- `${git.modified_files|pattern:**/*.rs}` - Pipe syntax (more explicit)
+!!! tip "Pattern Syntax Options"
+    Both `:pattern` and `|pattern:` syntaxes are valid and equivalent. Use whichever is more readable in your context:
+
+    - `${git.modified_files:*.rs}` - Colon syntax (more concise)
+    - `${git.modified_files|pattern:**/*.rs}` - Pipe syntax (more explicit)
 
 **Source**: Git context tracking from src/cook/workflow/git_context.rs:1-120, variable resolution from src/cook/workflow/git_context.rs:36-42
 
@@ -228,6 +232,15 @@ stateDiagram-v2
 - `timeout: 30s` - Typical recovery time for transient issues
 - `half_open_requests: 3` - Minimal testing before full recovery
 
+!!! tip "Debugging Circuit Breaker State"
+    Monitor circuit breaker state transitions in verbose mode (`-v`). Look for log messages:
+
+    - `"Circuit breaker opened after N failures"` - Circuit opened, requests will be rejected
+    - `"Circuit breaker closed after N successes"` - Recovery complete, normal operation resumed
+    - `"Circuit breaker re-opened after test failures"` - Recovery failed during half-open testing
+
+    If the circuit keeps opening, check if the external service is healthy before adjusting thresholds.
+
 **See Also**: [Error Handling Guide](../workflow-basics/error-handling.md) for comprehensive error handling patterns
 
 ---
@@ -325,10 +338,10 @@ error_policy:
     jitter_factor: 0.3                      # (7)!
     retry_budget: 300s                      # (8)!
     retry_on:                               # (9)!
-      - network
-      - timeout
-      - server_error
-      - rate_limit
+      - network         # Connection failures, DNS errors
+      - timeout         # Command exceeded timeout duration
+      - server_error    # HTTP 5xx responses
+      - rate_limit      # HTTP 429 responses
     on_failure: continue                    # (10)!
 
 1. Maximum number of retry attempts before giving up
