@@ -1,0 +1,140 @@
+{
+  "item_type": "page",
+  "page_id": "automated-documentation-index",
+  "page_title": "Automated Documentation with mdBook",
+  "page_file": "docs/automated-documentation/index.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has multiple outdated source references and documents non-existent merge phase. Source line numbers are significantly off from actual workflow file.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Workflow Phases - Setup Phase",
+      "description": "Source reference points to incorrect line numbers and incomplete scope",
+      "current_content": "Source: workflows/book-docs-drift.yml:24-34",
+      "should_be": "Source: workflows/book-docs-drift.yml:24-49",
+      "fix_suggestion": "Update line reference to reflect actual setup phase extent (lines 24-49) which includes 5 steps not 2",
+      "source_reference": "workflows/book-docs-drift.yml:24-49"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Workflow Phases - Map Phase",
+      "description": "Source reference points to wrong lines in workflow file",
+      "current_content": "Source: workflows/book-docs-drift.yml:37-59",
+      "should_be": "Source: workflows/book-docs-drift.yml:52-74",
+      "fix_suggestion": "Update line reference to match actual map phase location",
+      "source_reference": "workflows/book-docs-drift.yml:52-74"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Workflow Phases - Reduce Phase",
+      "description": "Source reference points to wrong lines in workflow file",
+      "current_content": "Source: workflows/book-docs-drift.yml:62-82",
+      "should_be": "Source: workflows/book-docs-drift.yml:77-92",
+      "fix_suggestion": "Update line reference to match actual reduce phase location",
+      "source_reference": "workflows/book-docs-drift.yml:77-92"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow Phases - Merge Phase",
+      "description": "Documentation describes a 'Merge Phase' with source reference but no such phase exists in the actual workflow file",
+      "current_content": "4. **Merge Phase** (Integration):\n   - Merges updated documentation back to your original branch\n   - Preserves your working tree state\n   - Uses Claude to handle any merge conflicts\n   - Source: workflows/book-docs-drift.yml:93-100",
+      "should_be": "The workflow file does not contain a merge section. The workflow ends at error_policy (lines 94-99).",
+      "fix_suggestion": "Either remove the Merge Phase section entirely, or clarify that merging happens automatically via the MapReduce framework's parent worktree system - not as an explicit workflow phase. The merge is handled by Prodigy after successful completion of map+reduce phases.",
+      "source_reference": "workflows/book-docs-drift.yml (no merge section exists; file ends at line 99)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Workflow Phases - Setup Phase",
+      "description": "Setup phase documentation is incomplete - missing 3 steps from actual workflow",
+      "current_content": "Only describes 2 conceptual steps (feature analysis, gap detection)",
+      "should_be": "Setup includes 5 actual commands: 1) mkdir for analysis directory, 2) /prodigy-analyze-features-for-book, 3) /prodigy-detect-documentation-gaps, 4) /prodigy-analyze-chapter-structure, 5) /prodigy-split-oversized-chapters (with commit_required), 6) regenerate flattened items",
+      "fix_suggestion": "Add documentation for: chapter structure analysis that identifies oversized chapters, and automatic chapter splitting that runs BEFORE map phase",
+      "source_reference": "workflows/book-docs-drift.yml:39-49"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "How It Works",
+      "description": "Missing documentation for validation with thresholds feature in map phase",
+      "current_content": "Map phase description mentions 'Validates fixes meet quality standards' but doesn't explain the mechanism",
+      "should_be": "Document that validation uses a threshold (100%) and includes on_incomplete handler with max_attempts: 3 for automatic gap-filling",
+      "fix_suggestion": "Add explanation: 'Each fix is validated against a 100% quality threshold. If incomplete, Claude automatically attempts gap-filling up to 3 times.'",
+      "source_reference": "workflows/book-docs-drift.yml:64-72"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "How It Works",
+      "description": "Missing documentation for commit_required directive as quality gate",
+      "current_content": "No mention of commit_required enforcement",
+      "should_be": "Document that critical steps require commits (commit_required: true) to verify actual changes were made, preventing no-op runs",
+      "fix_suggestion": "Add explanation: 'Key steps are marked with commit_required: true, ensuring agents actually make changes rather than reporting success without modifications.'",
+      "source_reference": "workflows/book-docs-drift.yml:45, 59, 63, 72, 83, 87"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "How It Works",
+      "description": "Missing documentation for error_policy configuration",
+      "current_content": "Mentions DLQ but doesn't explain error_policy configuration",
+      "should_be": "Document error_policy section: on_item_failure: dlq, continue_on_failure: true, max_failures: 2, error_collection: aggregate",
+      "fix_suggestion": "Add brief explanation: 'The workflow uses a forgiving error policy: failed items go to DLQ, execution continues even after failures (up to 2 max), and errors are aggregated for analysis.'",
+      "source_reference": "workflows/book-docs-drift.yml:94-99"
+    }
+  ],
+  "positive_aspects": [
+    "Clear and compelling introduction explaining the problem (documentation drift) and solution",
+    "Good overview of MapReduce pattern for documentation processing",
+    "All internal links to related pages are valid and working (verified 11 links)",
+    "Quick start paths are clearly presented for different user needs and experience levels",
+    "Quality Guarantees section explains key benefits (code-grounded examples, validation checkpoints, build verification)",
+    "Worktree isolation concept is well explained with clear benefits listed",
+    "Well-organized structure with Getting Started, Understanding the System, Advanced Usage, and Reference sections",
+    "The 'Real Results' callout effectively demonstrates that Prodigy eats its own dog food"
+  ],
+  "improvement_suggestions": [
+    "Update all source references to match actual line numbers in workflows/book-docs-drift.yml",
+    "Either remove the Merge Phase section or reframe it as describing the automatic worktree merge behavior handled by MapReduce framework",
+    "Add documentation for chapter structure analysis and automatic splitting in setup phase",
+    "Document the validation/threshold mechanism for quality guarantees",
+    "Document the commit_required directive and its role as a quality gate",
+    "Add a visual diagram (mermaid) showing the workflow phases and their interactions",
+    "Consider adding MkDocs Material admonitions to highlight key concepts (tips, warnings)",
+    "Add tabbed examples showing before/after of documentation drift fixes"
+  ],
+  "cross_references": [
+    "quick-start.md",
+    "tutorial.md",
+    "understanding-the-workflow.md",
+    "automatic-gap-detection.md",
+    "advanced-configuration.md",
+    "github-actions-integration.md",
+    "documentation-versioning.md",
+    "troubleshooting.md",
+    "real-world-example-prodigys-own-documentation.md",
+    "../installation.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:35:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Automated Documentation",
+      "MapReduce workflow",
+      "Documentation drift detection",
+      "mdBook integration",
+      "Worktree isolation",
+      "Quality guarantees"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_found": 0,
+    "total_internal_links": 11,
+    "source_file_verified": "workflows/book-docs-drift.yml"
+  }
+}
