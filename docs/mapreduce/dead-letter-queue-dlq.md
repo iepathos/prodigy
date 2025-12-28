@@ -142,15 +142,20 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
 
 ### Failure Detail Fields
 
-Each attempt in `failure_history` is a `FailureDetail` object (src/cook/execution/dlq.rs:46-59):
+Each attempt in `failure_history` is a `FailureDetail` object (src/cook/execution/dlq.rs:46-62):
 
 ```json
-# Source: src/cook/execution/dlq.rs:46-59 (FailureDetail struct)
+# Source: src/cook/execution/dlq.rs:46-62 (FailureDetail struct)
 {
   "attempt_number": 1,
   "timestamp": "2025-01-11T10:30:00Z",
   "error_type": { "CommandFailed": { "exit_code": 101 } },
   "error_message": "cargo test failed with exit code 101",
+  "error_context": [
+    "Processing work item 'item-123'",
+    "Executing agent command",
+    "Running shell: cargo test"
+  ],
   "stack_trace": "thread 'main' panicked at src/main.rs:42...",
   "agent_id": "agent-1",
   "step_failed": "claude: /process '${item}'",
@@ -164,6 +169,7 @@ Each attempt in `failure_history` is a `FailureDetail` object (src/cook/executio
 - `timestamp`: When this attempt occurred (DateTime<Utc>)
 - `error_type`: Error classification (see Error Types below)
 - `error_message`: Human-readable error description
+- `error_context`: Optional context trail showing the operation stack for debugging (Vec<String>). Preserves the chain of operations that led to the failure.
 - `stack_trace`: Optional detailed stack trace
 - `agent_id`: ID of the agent that failed
 - `step_failed`: Command string that failed (e.g., "shell: cargo test")
@@ -172,7 +178,7 @@ Each attempt in `failure_history` is a `FailureDetail` object (src/cook/executio
 
 #### Error Types
 
-The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-71):
+The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:64-78):
 
 === "Execution Errors"
     **`Timeout`**: Agent execution exceeded timeout limit
@@ -183,6 +189,10 @@ The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-7
     ```json
     { "CommandFailed": { "exit_code": 101 } }
     ```
+
+    **`CommitValidationFailed`**: Commit validation failed - required commit was not created
+
+    Used when a command has `commit_required: true` but the agent did not create a commit. See [Commit Validation](./checkpoint-and-resume.md#commit-validation) for details.
 
     **`ValidationFailed`**: Post-execution validation command failed
 
@@ -476,23 +486,13 @@ map:
 
 ### Failure Flow
 
-```
-Work Item Processing
-       ↓
-   Command Failed
-       ↓
-  Retry Attempts (if configured)
-       ↓
-   Still Failing?
-       ↓
-on_item_failure: dlq
-       ↓
-Create DeadLetteredItem
-       ↓
-Save to ~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/items/{item_id}.json
-       ↓
-Continue Processing Other Items
-```
+The DLQ failure flow is illustrated in the diagram at the [top of this page](#overview). When a work item fails:
+
+1. **Retry attempts** are made based on the configured retry policy
+2. **After exhausting retries**, the `on_item_failure` policy determines the next action
+3. **With `dlq` policy** (default), a `DeadLetteredItem` is created with full failure context
+4. **The item is saved** to `~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/items/{item_id}.json`
+5. **Processing continues** with remaining work items
 
 ## Best Practices
 
