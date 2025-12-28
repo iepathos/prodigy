@@ -1,0 +1,99 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "environment-profiles",
+  "page_title": "environment profiles",
+  "page_file": "docs/environment/environment-profiles.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive. Source references are correct. Implementation status of CLI --profile flag is honestly documented. Page could benefit from MkDocs Material visual features for better readability.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire Page",
+      "description": "Page lacks MkDocs Material visual features (admonitions, tabs, code annotations)",
+      "fix_suggestion": "Add admonitions for notes and warnings, use tabs for profile activation methods (CLI vs environment variable), add code annotations for YAML examples",
+      "source_reference": null
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Activating Profiles",
+      "description": "The design note about CLI wiring could be formatted as an admonition for better visibility",
+      "current_content": "**Design Note**: The profile activation infrastructure is architecturally complete...",
+      "should_be": "!!! info \"Implementation Status\"\n    The profile activation infrastructure is architecturally complete...",
+      "fix_suggestion": "Convert inline design notes to admonitions for better visual hierarchy",
+      "source_reference": "src/cli/args.rs - Commands::Run struct does not have --profile flag"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Environment Variable Precedence",
+      "description": "Precedence list could use a mermaid diagram or numbered list with visual indicators",
+      "fix_suggestion": "Add a simple flowchart or visual hierarchy diagram showing precedence order",
+      "source_reference": "src/cook/environment/manager.rs:88-156"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source code references with file paths and line numbers",
+    "Honest documentation of implementation status (CLI wiring incomplete)",
+    "Clear explanation of profile structure with YAML examples",
+    "Comprehensive use cases section with practical examples",
+    "Proper cross-references to related pages (environment-precedence.md, environment-files.md)",
+    "Troubleshooting section with common issues",
+    "Best practices section with sensible recommendations"
+  ],
+  "improvement_suggestions": [
+    "Add admonition for implementation status note to make it more visible",
+    "Add tabs to show different profile activation methods",
+    "Include a visual diagram of precedence order",
+    "Consider adding code annotations to explain YAML structure",
+    "Add a collapsible section for advanced profile features"
+  ],
+  "cross_references": [
+    "environment-precedence",
+    "environment-files",
+    "per-command-environment-overrides"
+  ],
+  "verified_links": [
+    {
+      "link_text": "Environment Precedence",
+      "target": "environment-precedence.md",
+      "status": "valid"
+    },
+    {
+      "link_text": "Environment Files",
+      "target": "environment-files.md",
+      "status": "valid"
+    },
+    {
+      "link_text": "Per-Command Environment Overrides",
+      "target": "per-command-environment-overrides.md",
+      "status": "valid"
+    }
+  ],
+  "source_verification": {
+    "config_rs": {
+      "file": "src/cook/environment/config.rs",
+      "structs_verified": ["EnvironmentConfig", "EnvProfile", "EnvValue"],
+      "line_33_35_active_profile": true,
+      "profile_structure_matches": true
+    },
+    "manager_rs": {
+      "file": "src/cook/environment/manager.rs",
+      "profile_application_logic": "lines 118-120, 217-233",
+      "verified": true
+    },
+    "cli_args": {
+      "file": "src/cli/args.rs",
+      "profile_flag_implemented": false,
+      "documentation_accuracy": "Documentation correctly states CLI wiring is incomplete"
+    }
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["environment profiles", "profile activation", "precedence", "best practices"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
