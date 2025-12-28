@@ -1,0 +1,101 @@
+{
+  "item_type": "page",
+  "page_id": "storage-configuration",
+  "page_title": "storage configuration",
+  "page_file": "docs/configuration/storage-configuration.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good technical accuracy with minor improvements needed for completeness and visual presentation",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Storage Directory Structure",
+      "description": "Missing documentation for 'sessions' directory and 'logs' directory in the global storage structure",
+      "feature_reference": "storage_architecture.structure",
+      "fix_suggestion": "Add ~/.prodigy/sessions/{session_id}.json and ~/.prodigy/logs/{repo_name}/ to the directory structure diagram",
+      "source_reference": "src/unified_session/storage.rs:21-26, src/storage/global.rs:147-155"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Memory Storage",
+      "description": "MemoryConfig.max_memory default value discrepancy - code shows 100MB for default MemoryConfig, but 1GB for default_memory_limit function used in FileConfig context",
+      "current_content": "max_memory: 104857600  # 100MB",
+      "should_be": "Documentation is correct for MemoryConfig (100MB), but could clarify the distinction",
+      "fix_suggestion": "Add note that MemoryConfig defaults to 100MB which is appropriate for testing purposes",
+      "source_reference": "src/storage/config.rs:105-112, src/storage/config.rs:201-203"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Storage Directory Structure",
+      "description": "Checkpoint file naming convention in docs shows generic patterns but actual implementation includes version numbers",
+      "current_content": "reduce-checkpoint-v1-{timestamp}.json",
+      "should_be": "Good - already shows v1 version, but could mention this is the reduce checkpoint format version",
+      "fix_suggestion": "Add brief note explaining checkpoint versioning for forward compatibility",
+      "source_reference": "src/cook/execution/mapreduce/checkpoint/mod.rs:23"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall Page",
+      "description": "Page lacks MkDocs Material visual features that enhance readability",
+      "fix_suggestion": "Add admonitions for important notes (global storage recommendation), info boxes for environment variables, and potentially tabbed examples for file vs memory storage"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate documentation of FileConfig and MemoryConfig options with correct default values",
+    "Clear explanation of global vs local storage with strong recommendation for global",
+    "Comprehensive coverage of retry policy configuration with exponential backoff",
+    "Good troubleshooting section addressing common storage issues",
+    "Correct documentation of environment variables (PRODIGY_STORAGE_TYPE, PRODIGY_STORAGE_BASE_PATH, etc.)",
+    "Accurate directory structure diagram matching GlobalStorage implementation",
+    "Complete example configuration showing all options",
+    "Proper cross-reference to environment-variables.md (link validated as existing)"
+  ],
+  "improvement_suggestions": [
+    "Add admonition (tip/note) boxes for the 'Global storage is recommended' message",
+    "Include the 'sessions' and 'logs' directories in the storage structure diagram",
+    "Add code annotations to explain key configuration options in the complete example",
+    "Consider adding a 'Quick Reference' section with a table of all options and defaults",
+    "Add cross-references to related pages: advanced/storage/structure.md, mapreduce/global-storage-architecture.md"
+  ],
+  "cross_references": [
+    "environment-variables",
+    "advanced/storage/structure",
+    "mapreduce/global-storage-architecture"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:11:29Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "storage backends",
+      "file storage",
+      "memory storage",
+      "retry policy",
+      "cache configuration",
+      "global storage",
+      "directory structure",
+      "environment variables"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_checked": [
+      "src/storage/config.rs",
+      "src/storage/global.rs",
+      "src/unified_session/storage.rs",
+      "src/cook/execution/mapreduce/checkpoint/mod.rs"
+    ],
+    "links_validated": {
+      "total_internal_links": 1,
+      "broken_links": 0,
+      "validated_links": [
+        {
+          "text": "Environment Variables",
+          "target": "environment-variables.md",
+          "status": "valid"
+        }
+      ]
+    }
+  }
+}
