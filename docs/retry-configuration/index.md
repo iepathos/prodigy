@@ -2,6 +2,12 @@
 
 Prodigy provides sophisticated retry mechanisms with multiple backoff strategies to handle transient failures gracefully. The retry system supports both command-level and workflow-level configurations with fine-grained control over retry behavior.
 
+!!! tip "Quick Reference"
+    - **Default attempts**: 3 with exponential backoff
+    - **Always use jitter** for distributed systems to prevent thundering herd
+    - **Set retry budgets** for time-sensitive operations
+    - **Use circuit breakers** for external API calls
+
 ## Overview
 
 Prodigy has two retry systems that work together:
@@ -13,20 +19,26 @@ This chapter focuses on the enhanced retry system which provides comprehensive r
 
 ### When to Use Each Retry System
 
-**Use Enhanced Retry (retry_v2) for:**
-- Individual command execution failures (API calls, shell commands, file operations)
-- Operations needing fine-grained control over backoff strategies
-- Situations requiring conditional retry based on error types
-- Commands where jitter is needed to prevent thundering herd
-- External API calls with rate limiting
-- Operations benefiting from circuit breakers
+=== "Enhanced Retry (retry_v2)"
 
-**Use Workflow-Level Retry (error_policy) for:**
-- MapReduce work item failures
-- Workflow-wide error handling policies
-- Bulk operations requiring Dead Letter Queue (DLQ) integration
-- Scenarios needing failure thresholds and batch error collection
-- When you want to retry entire work items rather than individual commands
+    Use for fine-grained command-level control:
+
+    - Individual command execution failures (API calls, shell commands, file operations)
+    - Operations needing fine-grained control over backoff strategies
+    - Situations requiring conditional retry based on error types
+    - Commands where jitter is needed to prevent thundering herd
+    - External API calls with rate limiting
+    - Operations benefiting from circuit breakers
+
+=== "Workflow-Level Retry (error_policy)"
+
+    Use for bulk and workflow-wide policies:
+
+    - MapReduce work item failures
+    - Workflow-wide error handling policies
+    - Bulk operations requiring Dead Letter Queue (DLQ) integration
+    - Scenarios needing failure thresholds and batch error collection
+    - When you want to retry entire work items rather than individual commands
 
 For a detailed comparison with examples, see [Workflow-Level vs Command-Level Retry](workflow-level-vs-command-level-retry.md).
 
@@ -67,34 +79,66 @@ commands:
       jitter: true                   # RetryConfig.jitter (bool)
       jitter_factor: 0.3             # RetryConfig.jitter_factor (0.0-1.0)
       retry_on:                      # RetryConfig.retry_on (Vec<ErrorMatcher>)
-        - network
-        - timeout
-        - server_error
+        - network                    # Connection, refused, unreachable errors
+        - timeout                    # Timeout or timed out errors
+        - server_error               # HTTP 5xx errors (500, 502, 503, 504)
+        - rate_limit                 # HTTP 429 or "too many requests"
+        - pattern: "custom.*regex"   # Custom regex pattern matching
       retry_budget: "5m"             # RetryConfig.retry_budget (Optional<Duration>)
       on_failure: stop               # RetryConfig.on_failure (FailureAction)
 ```
 
 **Alternative Backoff Strategies**:
 
-```yaml
-# Fixed delay
-backoff: fixed
+=== "Fixed"
 
-# Linear backoff
-backoff:
-  type: linear
-  increment: "2s"
+    Constant delay between retries:
 
-# Fibonacci backoff
-backoff: fibonacci
+    ```yaml
+    backoff: fixed
+    initial_delay: "5s"  # Always waits 5 seconds
+    ```
 
-# Custom delay sequence
-backoff:
-  type: custom
-  delays: ["1s", "2s", "5s", "10s"]
-```
+=== "Linear"
 
-**Note**: Field names use snake_case in YAML but map to the exact struct fields in `src/cook/retry_v2.rs:14-52`. Duration values use humantime format (e.g., "1s", "30s", "5m").
+    Delay increases linearly:
+
+    ```yaml
+    backoff:
+      type: linear
+      increment: "2s"  # 2s, 4s, 6s, 8s...
+    ```
+
+=== "Exponential"
+
+    Delay doubles each attempt (default):
+
+    ```yaml
+    backoff:
+      type: exponential
+      base: 2.0  # 1s, 2s, 4s, 8s...
+    ```
+
+=== "Fibonacci"
+
+    Delay follows Fibonacci sequence:
+
+    ```yaml
+    backoff: fibonacci  # 1s, 1s, 2s, 3s, 5s...
+    ```
+
+=== "Custom"
+
+    Specify exact delay sequence:
+
+    ```yaml
+    backoff:
+      type: custom
+      delays: ["1s", "2s", "5s", "10s"]
+    ```
+
+!!! note "YAML Field Naming"
+    Field names use snake_case in YAML and map to the exact struct fields in `src/cook/retry_v2.rs:14-52`. Duration values use humantime format (e.g., "1s", "30s", "5m").
 
 For complete working examples, see [Complete Examples](complete-examples.md).
 
@@ -102,8 +146,22 @@ For complete working examples, see [Complete Examples](complete-examples.md).
 
 Circuit breakers are configured separately via `RetryExecutor`, **not as part of RetryConfig**. Circuit breakers provide fail-fast behavior when downstream systems are consistently failing, preventing resource exhaustion from repeated failed retries.
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: failures >= threshold
+    Open --> HalfOpen: recovery_timeout elapsed
+    HalfOpen --> Closed: success
+    HalfOpen --> Open: failure
+
+    note right of Closed: Normal operation
+    note right of Open: Requests fail immediately
+    note right of HalfOpen: Testing recovery
+```
+
 **Configuration** (programmatic):
 ```rust
+// Source: src/cook/retry_v2.rs:184-188
 let executor = RetryExecutor::new(retry_config)
     .with_circuit_breaker(
         5,                          // failure_threshold: open after 5 consecutive failures
@@ -111,12 +169,18 @@ let executor = RetryExecutor::new(retry_config)
     );
 ```
 
-**Source**: `src/cook/retry_v2.rs:184-188` (with_circuit_breaker method), `src/cook/retry_v2.rs:325-397` (CircuitBreaker implementation)
+!!! warning "Circuit Breaker Scope"
+    Circuit breakers are per-executor instances. If you create multiple executors, each has its own circuit breaker state.
 
 **Circuit States**:
-- **Closed**: Normal operation, retries are attempted
-- **Open**: Circuit tripped, requests fail immediately without retry
-- **HalfOpen**: Testing recovery, limited requests allowed
+
+| State | Behavior | Transition |
+|-------|----------|------------|
+| **Closed** | Normal operation, retries attempted | Opens after `failure_threshold` consecutive failures |
+| **Open** | Requests fail immediately without retry | Transitions to HalfOpen after `recovery_timeout` |
+| **HalfOpen** | Testing recovery with limited requests | Returns to Closed on success, reopens on failure |
+
+**Source**: `src/cook/retry_v2.rs:325-397` (CircuitBreaker implementation)
 
 ## Additional Topics
 
