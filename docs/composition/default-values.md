@@ -2,6 +2,14 @@
 
 Set default parameter values and environment variables at the workflow level. Defaults reduce required parameters and simplify workflow usage by providing sensible fallback values.
 
+!!! tip "When to Use Defaults"
+    Use defaults for values that work in most cases but may need occasional overrides:
+
+    - Development environment settings (`environment: "development"`)
+    - Reasonable timeouts (`timeout: 300`)
+    - Common log levels (`log_level: "info"`)
+    - Standard retry counts (`retry_count: 3`)
+
 ### Basic Syntax
 
 ```yaml
@@ -48,11 +56,16 @@ defaults:
 
 When multiple sources provide values for the same parameter, they are resolved in this order:
 
-1. **CLI `--param` flags** (highest priority) - Always override all other sources
-2. **Parameter `default` values** - Defined in parameter definitions
-3. **Workflow `defaults` values** (lowest priority) - Only used if parameter has no default
+| Priority | Source | Description |
+|----------|--------|-------------|
+| 1 (highest) | CLI `--param` flags | Always override all other sources |
+| 2 | Parameter `default` values | Defined in parameter definitions |
+| 3 (lowest) | Workflow `defaults` values | Only used if parameter has no default |
 
-**Source**: Parameter precedence implemented in src/cook/workflow/composition/composer.rs:245-254 and src/cook/workflow/composer_integration.rs:68-72
+!!! info "Precedence Rule"
+    CLI flags always win. Parameter defaults override workflow defaults. Workflow defaults are the fallback when no other value is provided.
+
+**Source**: Parameter precedence implemented in `src/cook/workflow/composition/composer.rs:245-254` and `src/cook/workflow/composer_integration.rs:68-72`
 
 ### Example with Precedence
 
@@ -188,7 +201,7 @@ commands:
 
 ### Template Integration
 
-Templates can use defaults for parameterization:
+Templates can use defaults for parameterization. See [Template System](template-system.md) for complete template documentation.
 
 ```yaml
 # template.yml
@@ -217,6 +230,9 @@ template:
     # Uses defaults: replicas=3, environment=staging
 ```
 
+!!! note "Template Defaults vs Workflow Defaults"
+    When using templates, defaults defined in the template are inherited by the consuming workflow. The consuming workflow can override template defaults using the `with:` block.
+
 ### Implementation Status
 
 All default value features are fully implemented and functional:
@@ -228,7 +244,30 @@ All default value features are fully implemented and functional:
 - ✅ Merge logic with parameter definitions (composer.rs:245-254)
 - ✅ CLI parameter override support (composer_integration.rs:68-72)
 
-The `apply_defaults` function at src/cook/workflow/composition/composer.rs:217-257 handles:
+The `apply_defaults` function at `src/cook/workflow/composition/composer.rs:217-257` handles:
+
 1. Applying defaults to environment variables (only if not already set)
 2. Applying defaults to parameter definitions (only if parameter has no default value)
 3. Type conversion for environment variable values (strings, numbers, booleans)
+
+!!! warning "Common Gotcha"
+    If a parameter definition has its own `default` value, the workflow-level `defaults` value for that parameter is ignored. This can cause confusion when you expect the workflow default to be used.
+
+    ```yaml
+    defaults:
+      timeout: 300  # This is IGNORED for 'timeout' parameter
+
+    parameters:
+      definitions:
+        timeout:
+          type: Number
+          default: 600  # This value is used, not 300
+    ```
+
+---
+
+## See Also
+
+- [Parameter Definitions](parameter-definitions.md) - Define parameter types, validation, and defaults
+- [Template System](template-system.md) - Create reusable workflow templates with defaults
+- [Workflow Extension & Inheritance](workflow-extension-inheritance.md) - Extend workflows and inherit defaults
