@@ -1,0 +1,134 @@
+{
+  "item_type": "page",
+  "page_id": "parallel-iteration-with-foreach",
+  "page_title": "parallel iteration with foreach",
+  "page_file": "docs/advanced/parallel-iteration-with-foreach.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Documentation is accurate and well-aligned with the codebase implementation. Source references are valid and examples match actual behavior.",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate source file references with specific line numbers",
+    "Clear explanation of input formats (list vs command)",
+    "Correct documentation of default parallelism (10 workers)",
+    "Proper coverage of variables: ${item}, ${index}, ${total}",
+    "Accurate error handling documentation (continue_on_error)",
+    "Good practical use cases section",
+    "Helpful comparison between foreach and MapReduce",
+    "Progress tracking information is accurate",
+    "Internal links are valid (../mapreduce/index.md)",
+    "Example YAML syntax matches actual implementation"
+  ],
+  "improvement_suggestions": [
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "suggestion": "Add explicit note about test command deprecation warning that appears in logs",
+      "section": "Nested Commands",
+      "detail": "The code emits a warning when test commands are used in foreach. Consider adding a deprecation notice or removing test from the supported types list."
+    },
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "suggestion": "Add MkDocs Material admonitions for important notes",
+      "detail": "The 'Important' note about parallel:true default could use an admonition block for better visibility"
+    },
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "suggestion": "Add code annotations to YAML examples",
+      "detail": "MkDocs Material supports code annotations that could enhance the examples with inline explanations"
+    }
+  ],
+  "cross_references": [
+    {
+      "target": "../mapreduce/index.md",
+      "status": "valid",
+      "context": "Link to MapReduce documentation for large-scale processing"
+    }
+  ],
+  "source_verification": {
+    "verified_references": [
+      {
+        "doc_reference": "src/config/command.rs:191-211",
+        "actual_location": "src/config/command.rs:189-211",
+        "status": "accurate",
+        "content": "ForeachConfig struct definition"
+      },
+      {
+        "doc_reference": "src/config/command.rs:193-194",
+        "actual_location": "src/config/command.rs:213-221",
+        "status": "accurate",
+        "content": "ForeachInput enum definition"
+      },
+      {
+        "doc_reference": "src/config/command.rs:196-198",
+        "actual_location": "src/config/command.rs:196-198",
+        "status": "accurate",
+        "content": "ParallelConfig field"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach.rs:81",
+        "actual_location": "src/cook/execution/foreach.rs:81",
+        "status": "accurate",
+        "content": "Default parallelism of 10"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach.rs:88",
+        "actual_location": "src/cook/execution/foreach.rs:88",
+        "status": "accurate",
+        "content": "Progress bar creation"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach.rs:201-206",
+        "actual_location": "src/cook/execution/foreach.rs:201-206",
+        "status": "accurate",
+        "content": "Line splitting logic for command output"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach.rs:223-225",
+        "actual_location": "src/cook/execution/foreach.rs:223-225",
+        "status": "accurate",
+        "content": "Variable interpolation (item, index, total)"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach.rs:286-375",
+        "actual_location": "src/cook/execution/foreach.rs:286-375",
+        "status": "accurate",
+        "content": "Command execution (shell, claude, test)"
+      }
+    ],
+    "test_file_references": [
+      {
+        "doc_reference": "src/cook/execution/foreach_tests.rs:16-21",
+        "status": "accurate",
+        "content": "Basic foreach test"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach_tests.rs:59-64",
+        "status": "accurate",
+        "content": "Command input test"
+      },
+      {
+        "doc_reference": "src/cook/execution/foreach_tests.rs:102-114",
+        "status": "accurate",
+        "content": "Parallel execution test"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "foreach iteration",
+      "parallel execution",
+      "variable interpolation",
+      "error handling",
+      "command types"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "features_analyzed": [
+      "command_types.foreach"
+    ]
+  }
+}
