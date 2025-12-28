@@ -37,7 +37,7 @@ let config = RetryConfig {
     jitter_factor: 0.1,
     retry_on: vec![ErrorMatcher::Network, ErrorMatcher::Timeout],
     retry_budget: Some(Duration::from_secs(300)),
-    on_failure: FailureAction::Fail,
+    on_failure: FailureAction::Stop,
 };
 ```
 
@@ -55,7 +55,7 @@ Simpler retry configuration used at the workflow level:
   - `Exponential { initial, multiplier }`: Exponential backoff with configurable base
   - `Fibonacci { initial }`: Fibonacci sequence starting from initial delay
 
-- **WorkflowErrorPolicy struct** (lines 131-140+): Workflow-level error handling with:
+- **WorkflowErrorPolicy struct** (lines 131-161): Workflow-level error handling with:
   - `on_item_failure`: Action to take when items fail
   - `continue_on_failure`: Whether to continue processing after failures
 
@@ -69,7 +69,33 @@ retry_config:
       multiplier: 2.0
 ```
 
-#### Command Metadata (`src/config/command.rs:135`)
+#### Retry Executor (`src/cook/retry_v2.rs:167-172`)
+
+The main entry point for executing operations with retry logic:
+
+- **RetryExecutor struct** (lines 167-172): Orchestrates retry execution with:
+  - `config`: RetryConfig with all retry settings
+  - `metrics`: Arc-wrapped RetryMetrics for observability
+  - `circuit_breaker`: Optional circuit breaker for failure protection
+
+The RetryExecutor provides the primary interface for wrapping operations with retry behavior, automatically applying backoff strategies, jitter, and circuit breaker logic.
+
+**Example usage** (from src/cook/retry_v2.rs):
+```rust
+// Source: src/cook/retry_v2.rs:167-180
+let executor = RetryExecutor::new(config);
+
+// Optionally add circuit breaker protection
+let executor = executor.with_circuit_breaker(5, Duration::from_secs(30));
+
+// Execute with retry logic
+let result = executor.execute(|| async {
+    // Your operation here
+    perform_network_call().await
+}).await?;
+```
+
+#### Command Metadata (`src/config/command.rs:132-154`)
 
 Command-level retry override configuration:
 
@@ -168,12 +194,11 @@ match operation().await {
 
 Tracking retry behavior for monitoring:
 
-- **RetryMetrics struct** (lines 399-422): Statistics collection including:
+- **RetryMetrics struct** (lines 399-406): Statistics collection including:
   - `total_attempts`: Total retry attempts made
   - `successful_attempts`: Number of successful retries
   - `failed_attempts`: Number of failed retries
-  - `total_delay`: Cumulative delay time across all retries
-  - Additional timing and success rate metrics
+  - `retries`: Vec of `(attempt, Duration)` pairs tracking retry delays
 
 These metrics enable monitoring of retry effectiveness, identifying problematic operations, and tuning retry configurations for optimal performance.
 
@@ -192,6 +217,7 @@ The retry system is organized into logical components:
 
 **Core Retry System**:
 - Main retry configuration and execution (src/cook/retry_v2.rs)
+- RetryExecutor entry point (src/cook/retry_v2.rs:167-172)
 - Workflow-level configuration (src/cook/workflow/error_policy.rs)
 - Command-level overrides (src/config/command.rs)
 
