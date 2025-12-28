@@ -19,6 +19,50 @@ Both systems support two syntax options:
 
 Understanding which variables are available in each workflow phase prevents interpolation errors:
 
+```mermaid
+graph LR
+    subgraph Setup["Setup Phase"]
+        direction TB
+        S1["Standard Variables"]
+        S2["Computed Variables"]
+        S3["Git Context"]
+    end
+
+    subgraph Map["Map Phase"]
+        direction TB
+        M1["Standard Variables"]
+        M2["Computed Variables"]
+        M3["Git Context"]
+        M4["Item Variables ★"]
+        M5["Worker Variables ★"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction TB
+        R1["Standard Variables"]
+        R2["Computed Variables"]
+        R3["Git Context"]
+        R4["Map Aggregation ★"]
+    end
+
+    subgraph Merge["Merge Phase"]
+        direction TB
+        MG1["Standard Variables"]
+        MG2["Computed Variables"]
+        MG3["Git Context"]
+        MG4["Merge Variables ★"]
+    end
+
+    Setup --> Map --> Reduce --> Merge
+
+    style M4 fill:#fff3e0
+    style M5 fill:#fff3e0
+    style R4 fill:#e1f5ff
+    style MG4 fill:#f3e5f5
+```
+
+**Figure**: Variable availability across workflow phases. Items marked with ★ are phase-specific variables.
+
 | Variable Category | Setup | Map | Reduce | Merge |
 |------------------|:-----:|:---:|:------:|:-----:|
 | **Standard Variables** (`last.output`, `shell.output`, etc.) | ✓ | ✓ | ✓ | ✓ |
@@ -43,25 +87,25 @@ Understanding which variables are available in each workflow phase prevents inte
 ## Quick Example
 
 ```yaml title="Variable usage across phases"
-# Source: Example workflow demonstrating variable scoping
 name: example-workflow
 mode: mapreduce
 
 setup:
-  # Standard and computed variables available
-  - shell: "echo 'Build: ${cmd:git rev-parse --short HEAD}'"
+  - shell: "echo 'Build: ${cmd:git rev-parse --short HEAD}'" # (1)!
 
 map:
   input: "items.json"
   agent_template:
-    # Item variables available in map phase
-    - shell: "echo 'Processing ${item.name} by worker ${worker.id}'"
+    - shell: "echo 'Processing ${item.name} by worker ${worker.id}'" # (2)!
 
 reduce:
-  # Map aggregation variables available in reduce phase
-  - shell: "echo 'Processed ${map.successful}/${map.total} items'"
+  - shell: "echo 'Processed ${map.successful}/${map.total} items'" # (3)!
   - shell: "echo 'Success rate: ${map.success_rate}%'"
 ```
+
+1. **Computed variable** — `${cmd:...}` executes a shell command and interpolates the output
+2. **Item & worker variables** — Only available in map phase; `${item.*}` accesses work item fields
+3. **Map aggregation** — Only available in reduce phase; provides statistics from completed map agents
 
 ## Additional Topics
 
