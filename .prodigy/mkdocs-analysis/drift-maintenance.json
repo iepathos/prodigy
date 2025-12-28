@@ -1,0 +1,87 @@
+{
+  "item_type": "page",
+  "page_id": "maintenance",
+  "page_title": "maintenance",
+  "page_file": "docs/advanced/storage/maintenance.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has incorrect CLI command examples that will cause user errors when executed",
+  "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Cleanup Commands",
+      "description": "prodigy sessions clean --completed uses non-existent --completed flag",
+      "current_content": "prodigy sessions clean --completed",
+      "should_be": "prodigy sessions clean --all (with optional --force to skip confirmation)",
+      "fix_suggestion": "Update to use actual CLI flags: --all for all sessions, --force to skip confirmation",
+      "source_reference": "src/cli/args.rs:SessionCommands::Clean"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Cleanup Commands",
+      "description": "prodigy dlq clear uses job_id but actual command expects workflow_id",
+      "current_content": "prodigy dlq clear <job_id>",
+      "should_be": "prodigy dlq clear <workflow_id> --yes",
+      "fix_suggestion": "Update to use correct parameter name 'workflow_id' and add optional --yes flag",
+      "source_reference": "src/cli/args.rs:DlqCommands::Clear"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Data Loss Prevention",
+      "description": "prodigy events show command does not exist",
+      "current_content": "prodigy events show <job_id> | tail -1 | jq '.type'",
+      "should_be": "prodigy events ls --job_id <job_id> --limit 1 | jq '.type'",
+      "fix_suggestion": "Replace 'events show' with 'events ls' and use --job_id flag to filter. Available commands: ls, stats, search, follow, clean, export",
+      "source_reference": "src/cli/args.rs:EventCommands"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Cleanup Commands",
+      "description": "Code annotation (2) says 'preserves failed/paused' but actual command has no such filtering",
+      "current_content": "Removes session files for completed workflows (preserves failed/paused)",
+      "should_be": "Removes session files based on age or forces removal of all sessions",
+      "fix_suggestion": "Update annotation to accurately describe the actual behavior of the clean command",
+      "source_reference": "src/cli/args.rs:SessionCommands::Clean"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material admonitions (tip, warning, example)",
+    "Well-structured performance comparison table with JSONL vs Batch",
+    "Good use of code annotations for command explanations",
+    "Clear organization into logical sections",
+    "Helpful storage access pattern documentation",
+    "Good migration guidance from local to global storage"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference to the DLQ commands page for detailed DLQ management",
+    "Include link to session management documentation",
+    "Add example output for storage usage commands",
+    "Consider adding a retention policy section with recommended cleanup schedules"
+  ],
+  "cross_references": [
+    "docs/mapreduce/dlq/commands.md",
+    "docs/advanced/sessions.md",
+    "docs/mapreduce/global-storage-architecture.md"
+  ],
+  "internal_links_validated": {
+    "total_internal_links": 0,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:43:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "JSONL streaming",
+      "storage access patterns",
+      "cleanup commands",
+      "storage usage monitoring",
+      "migration from local storage"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

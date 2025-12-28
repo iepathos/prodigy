@@ -8,6 +8,27 @@ This page covers performance characteristics, storage benefits, maintenance proc
 
 Prodigy uses JSONL (JSON Lines) format for event storage to enable efficient streaming:
 
+```mermaid
+flowchart LR
+    Start[Read Events] --> Size{"Event count?"}
+    Size -->|"< 1K events"| Batch["Batch Read
+    jq -s '.'"]
+    Size -->|"> 10K events"| Stream["Streaming Read
+    while read line"]
+    Size -->|"1K-10K"| Concurrent{"Concurrent
+    writers?"}
+    Concurrent -->|Yes| Stream
+    Concurrent -->|No| RealTime{"Real-time
+    monitoring?"}
+    RealTime -->|Yes| Stream
+    RealTime -->|No| Batch
+
+    style Batch fill:#e8f5e9
+    style Stream fill:#e1f5ff
+```
+
+**Figure**: Decision flow for choosing between streaming and batch event processing.
+
 **JSONL Streaming Benefits**:
 - **Incremental writes**: Events append without reading entire file
 - **Memory efficient**: Process one event at a time
@@ -77,6 +98,46 @@ cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | jq -s '.'
 
 ### Cross-Worktree Data Sharing
 
+```mermaid
+graph LR
+    subgraph Global["~/.prodigy/ (Global Storage)"]
+        direction LR
+        Events["events/
+        Event logs"]
+        State["state/
+        Checkpoints"]
+        DLQ["dlq/
+        Failed items"]
+        Sessions["sessions/
+        Session data"]
+    end
+
+    subgraph Worktrees["Parallel Worktrees"]
+        direction LR
+        W1["Agent 1
+        worktree"]
+        W2["Agent 2
+        worktree"]
+        W3["Agent N
+        worktree"]
+    end
+
+    W1 -->|Read/Write| Events
+    W2 -->|Read/Write| Events
+    W3 -->|Read/Write| Events
+    W1 -->|Read/Write| State
+    W2 -->|Read/Write| State
+    W3 -->|Read/Write| State
+
+    style Global fill:#e1f5ff
+    style Events fill:#fff3e0
+    style State fill:#fff3e0
+    style DLQ fill:#fff3e0
+    style Sessions fill:#fff3e0
+```
+
+**Figure**: Multiple worktrees share centralized storage, enabling parallel execution visibility and consistent state management.
+
 Multiple worktrees working on same job share:
 - Event logs
 - DLQ items
@@ -117,26 +178,26 @@ Deduplication across worktrees:
 # Clean old events (30+ days)
 find ~/.prodigy/events -name "*.jsonl" -mtime +30 -delete  # (1)!
 
-# Clean completed sessions
-prodigy sessions clean --completed  # (2)!
+# Clean all sessions
+prodigy sessions clean --all  # (2)!
 
 # Clean orphaned worktrees
 prodigy worktree clean-orphaned <job_id>  # (3)!
 
 # Clean DLQ after successful retry
-prodigy dlq clear <job_id>  # (4)!
+prodigy dlq clear <workflow_id> --yes  # (4)!
 ```
 
 1. Removes event logs older than 30 days to prevent unbounded growth
-2. Removes session files for completed workflows (preserves failed/paused)
+2. Removes all session files. Add `--force` to skip confirmation prompt
 3. Cleans up worktrees that failed to cleanup during agent execution
-4. Removes DLQ items after successful retry (only use after verifying retry succeeded)
+4. Removes DLQ items for the specified workflow. Use `--yes` to skip confirmation
 
 !!! warning "Data Loss Prevention"
     Always verify jobs are complete before cleaning:
     ```bash
     # Check if job is truly complete
-    prodigy events show <job_id> | tail -1 | jq '.type'
+    prodigy events ls --job_id <job_id> --limit 1 | jq '.type'
     # Should show "JobCompleted" or "JobFailed"
     ```
 
@@ -155,6 +216,9 @@ du -sh ~/.prodigy/worktrees
 ```
 
 ## Migration from Local Storage
+
+!!! note "Migration Status"
+    Local storage is deprecated. New installations automatically use global storage at `~/.prodigy/`. Existing local storage is preserved but no longer updated.
 
 Legacy local storage (deprecated):
 ```
