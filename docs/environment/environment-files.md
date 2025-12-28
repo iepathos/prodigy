@@ -13,11 +13,12 @@ commands:
   - shell: "echo $DATABASE_URL"
 ```
 
-**Environment File Format:**
+### Environment File Format
 
 Environment files use the standard `.env` format with `KEY=value` pairs:
 
 ```bash
+# Source: Example .env file format
 # .env file example
 DATABASE_URL=postgresql://localhost:5432/mydb
 REDIS_HOST=localhost
@@ -28,13 +29,11 @@ API_KEY=secret-key-here
 
 # Empty lines are ignored
 
-# Multi-line values use quotes
-PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBg...
------END PRIVATE KEY-----"
+# Quotes are optional but stripped if present
+QUOTED_VALUE="my value with spaces"
 ```
 
-**Quote Handling:**
+### Quote Handling
 
 Prodigy automatically strips both single and double quotes from the start and end of values during parsing:
 
@@ -44,16 +43,23 @@ KEY1=myvalue
 KEY2="myvalue"
 KEY3='myvalue'
 
-# For multi-line values, quotes are required but will be stripped
-PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBg...
------END PRIVATE KEY-----"
-# Resulting value does NOT include the surrounding quotes
+# Quotes are useful for values with leading/trailing spaces
+PADDED="  value with spaces  "
+# Resulting value: "  value with spaces  " (inner spaces preserved, outer quotes stripped)
 ```
 
 **Source:** `src/cook/environment/manager.rs:200-207`
 
-**Parsing Rules:**
+!!! warning "Multi-line Values Not Supported"
+    The current implementation processes environment files line-by-line and does **not** support true multi-line values with embedded newlines. Each line is parsed independently.
+
+    For multi-line content like certificates or keys, use one of these alternatives:
+
+    - **Base64 encoding:** Encode the content and decode at runtime
+    - **File reference:** Store in a separate file and reference the path
+    - **Escaped newlines:** Use `\n` literals in a single-line value
+
+### Parsing Rules
 
 - Lines starting with `#` are treated as comments and skipped
 - Empty lines are ignored
@@ -64,9 +70,10 @@ MIIEvQIBADANBg...
 
 **Source:** `src/cook/environment/manager.rs:190-211`
 
-**Loading Order and Precedence:**
+### Loading Order and Precedence
 
-Environment files are loaded in order (if they exist), with later files overriding earlier files. Missing files are silently skipped with debug logging. This enables layered configuration:
+!!! note "Missing Files Are Silently Skipped"
+    Environment files are loaded in order (if they exist), with later files overriding earlier files. Missing files are silently skipped with debug logging. This enables layered configuration where optional files don't cause errors.
 
 ```yaml
 env_files:
@@ -75,43 +82,97 @@ env_files:
   - .env.production     # Environment-specific settings
 ```
 
-Example override behavior:
+=== ".env (base)"
+    ```bash
+    # Base configuration
+    DATABASE_URL=postgresql://localhost:5432/dev
+    API_TIMEOUT=30
+    MAX_WORKERS=5
+    ```
 
-```bash
-# .env (base)
-DATABASE_URL=postgresql://localhost:5432/dev
-API_TIMEOUT=30
+=== ".env.production (overrides)"
+    ```bash
+    # Production overrides
+    DATABASE_URL=postgresql://prod-server:5432/app
+    MAX_WORKERS=20
+    # API_TIMEOUT remains 30 from base file
+    ```
 
-# .env.production (overrides)
-DATABASE_URL=postgresql://prod-server:5432/app
-# API_TIMEOUT remains 30 from base file
-```
+=== "Final Values"
+    ```bash
+    # Merged result
+    DATABASE_URL=postgresql://prod-server:5432/app  # from .env.production
+    API_TIMEOUT=30                                   # from .env
+    MAX_WORKERS=20                                   # from .env.production
+    ```
 
-Precedence order (highest to lowest):
+**Precedence order** (highest to lowest):
+
 1. Global `env` field in workflow YAML
 2. Later files in `env_files` list
 3. Earlier files in `env_files` list
 4. Parent process environment
 
-**File Paths and Resolution:**
+```mermaid
+graph LR
+    subgraph Sources["Environment Sources"]
+        direction LR
+        P["Parent Process
+        Environment"] --> E1["Earlier env_files
+        (.env)"]
+        E1 --> E2["Later env_files
+        (.env.local)"]
+        E2 --> Y["Workflow YAML
+        env: block"]
+    end
+
+    Y --> R["Resolved
+    Value"]
+
+    style P fill:#f5f5f5,stroke:#999
+    style E1 fill:#e3f2fd,stroke:#1976d2
+    style E2 fill:#bbdefb,stroke:#1976d2
+    style Y fill:#c8e6c9,stroke:#388e3c
+    style R fill:#fff9c4,stroke:#f9a825
+```
+
+**Figure**: Environment value resolution flow - later sources override earlier ones.
+
+### File Paths and Resolution
 
 Environment file paths can be:
+
 - **Absolute paths:** `/etc/myapp/.env`
 - **Relative paths:** Resolved relative to the workflow file location (e.g., `.env`, `config/.env.production`)
 
 **Source:** `src/cook/environment/manager.rs:182-215`
 
-**Error Handling:**
+### Error Handling
 
 Prodigy handles environment files with the following behavior:
 
-- **Missing files:** Silently skipped with debug logging (`"Environment file not found: {path}"`). This allows optional configuration files and environment-specific files that may not exist in all contexts.
-- **File read errors:** Will halt workflow execution with an error (e.g., permission denied)
-- **Invalid syntax:** Will halt workflow execution with an error (e.g., malformed `.env` format)
+| Condition | Behavior |
+|-----------|----------|
+| Missing file | Silently skipped with debug logging |
+| Permission denied | Halts workflow execution with error |
+| Invalid syntax | Halts workflow execution with error |
+
+!!! tip "Debugging File Loading"
+    To verify which env files are being loaded, run Prodigy with verbose logging:
+
+    ```bash
+    RUST_LOG=debug prodigy run workflow.yml
+    ```
+
+    You'll see messages like:
+    ```
+    DEBUG prodigy::cook::environment - Environment file not found: .env.local
+    INFO  prodigy::cook::environment - Loaded environment from: .env
+    ```
 
 **Source:** `src/cook/environment/manager.rs:184-186`
 
-**Example with missing file:**
+**Example with optional files:**
 
 ```yaml
 env_files:
@@ -120,56 +181,51 @@ env_files:
   - .env.${ENVIRONMENT}     # May not exist (environment-specific)
 ```
 
-In this example, if `.env.local` doesn't exist, Prodigy logs a debug message and continues. Only `.env` needs to exist. This is useful for:
+This pattern is useful for:
+
 - Personal configuration files that are gitignored
 - Environment-specific files (`.env.production`, `.env.staging`)
 - Optional feature flags or overrides
 
-**Troubleshooting:**
+### Common Syntax Errors
 
-To verify which env files are being loaded, run Prodigy with verbose logging:
+!!! warning "These Errors Halt Workflow Execution"
+    Invalid syntax in environment files will cause workflow execution to fail immediately.
 
-```bash
-# Enable debug logging to see which files are loaded/skipped
-RUST_LOG=debug prodigy run workflow.yml
-```
+=== "Invalid Syntax"
+    ```bash
+    # INVALID - No = character
+    INVALID_LINE
 
-You'll see messages like:
-```
-DEBUG prodigy::cook::environment - Environment file not found: .env.local
-INFO  prodigy::cook::environment - Loaded environment from: .env
-```
+    # INVALID - Unbalanced quotes
+    BAD_QUOTE="unclosed value
 
-**Common Syntax Errors:**
+    # INVALID - Mixed quotes
+    MIXED_QUOTES="value'
+    ```
 
-These will cause workflow execution to halt:
+=== "Valid Syntax"
+    ```bash
+    # VALID - Value can be empty
+    EMPTY_VALUE=
 
-```bash
-# INVALID - No = character
-INVALID_LINE
+    # VALID - Quotes must match
+    GOOD_QUOTE_1="value with spaces"
+    GOOD_QUOTE_2='single quoted value'
 
-# VALID - Value can be empty
-EMPTY_VALUE=
-
-# INVALID - Unbalanced quotes (opening quote without closing)
-BAD_QUOTE="unclosed value
-
-# VALID - Quotes must match
-GOOD_QUOTE_1="value with spaces"
-GOOD_QUOTE_2='single quoted value'
-
-# INVALID - Mixed quotes
-MIXED_QUOTES="value'
-
-# VALID - Embedded quotes of opposite type
-EMBEDDED="value with 'single' quotes inside"
-```
+    # VALID - Embedded quotes of opposite type
+    EMBEDDED="value with 'single' quotes inside"
+    ```
 
 ---
 
 ### Integration with Profiles and Secrets
 
-Environment files work seamlessly with other environment features like profiles and secrets management.
+Environment files work seamlessly with other environment features. For comprehensive coverage, see:
+
+- [Environment Profiles](environment-profiles.md) - Profile-based configuration switching
+- [Secrets Management](secrets-management.md) - Secure handling of sensitive values
+- [Environment Precedence](environment-precedence.md) - Complete precedence rules
 
 **Combining env_files with profiles:**
 
@@ -191,22 +247,13 @@ commands:
   - shell: "echo $API_URL"  # Uses profile value if active, otherwise .env value
 ```
 
-The precedence order is:
-1. Profile-specific values (if profile active)
-2. Global `env` field values
-3. Environment file values (later files override earlier)
-4. Parent process environment
-
 **Loading secrets from env_files:**
 
-Environment files can contain secrets, but you must explicitly mark them as secrets in the workflow configuration:
+!!! note "Secrets Require Explicit Declaration"
+    Variables loaded from env_files are **not** automatically masked. You must explicitly mark them as secrets in the `secrets` section for masking in logs.
 
 ```yaml
-# .env.secrets file
-API_KEY=sk-abc123xyz
-DATABASE_PASSWORD=secret-password
-
-# Workflow configuration
+# .env.secrets file contains sensitive values
 env_files:
   - .env.secrets
 
@@ -216,16 +263,15 @@ secrets:
   DATABASE_PASSWORD: "${env:DATABASE_PASSWORD}"
 ```
 
-**Note:** Variables loaded from env_files are NOT automatically masked. You must explicitly mark them as secrets in the `secrets` section for masking in logs.
-
 **Complete integration example:**
 
 ```yaml
+# Source: Example layered configuration strategy
 # Layered configuration strategy
 env_files:
-  - .env                # Base configuration
-  - .env.local          # Local overrides (gitignored)
-  - .env.${ENVIRONMENT} # Environment-specific (e.g., .env.production)
+  - .env                # (1)!
+  - .env.local          # (2)!
+  - .env.${ENVIRONMENT} # (3)!
 
 env:
   PROJECT_NAME: my-project
@@ -247,45 +293,19 @@ profiles:
 commands:
   - shell: "echo 'Project: $PROJECT_NAME v$VERSION'"
   - shell: "echo 'Workers: $MAX_WORKERS, Timeout: $TIMEOUT'"
-  - shell: "curl -H 'Authorization: Bearer ***' $API_URL"  # API_KEY masked
 ```
 
-**Best practices for organizing env files:**
+1. Base configuration - safe to commit (no secrets)
+2. Local overrides - add to `.gitignore`
+3. Environment-specific - e.g., `.env.production`
 
-1. **.env**: Base configuration, safe to commit (no secrets)
-2. **.env.local**: Personal overrides, add to .gitignore
-3. **.env.production / .env.staging / .env.dev**: Environment-specific, may contain encrypted secrets
-4. **.env.secrets**: Sensitive values, NEVER commit, always in .gitignore
+### Organizing Environment Files
 
-**Precedence example:**
-
-```bash
-# .env (base)
-API_URL=http://localhost:3000
-MAX_WORKERS=5
-TIMEOUT=30
-
-# .env.production (overrides)
-API_URL=https://api.production.com
-MAX_WORKERS=20
-```
-
-```yaml
-env_files:
-  - .env
-  - .env.production  # Overrides API_URL and MAX_WORKERS
-
-env:
-  TIMEOUT: "60"      # Overrides TIMEOUT from both files
-
-profiles:
-  prod:
-    MAX_WORKERS: "50"  # Overrides MAX_WORKERS when --profile prod used
-```
-
-Final values when running with `--profile prod`:
-- `API_URL`: `https://api.production.com` (from .env.production)
-- `MAX_WORKERS`: `50` (from prod profile - highest precedence)
-- `TIMEOUT`: `60` (from global env field - overrides files)
+| File | Purpose | Git Status |
+|------|---------|------------|
+| `.env` | Base configuration, safe defaults | Commit |
+| `.env.local` | Personal overrides | `.gitignore` |
+| `.env.production` / `.env.staging` | Environment-specific | May contain encrypted secrets |
+| `.env.secrets` | Sensitive values only | **Never commit** |
 
 ---
