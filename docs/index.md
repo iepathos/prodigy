@@ -92,14 +92,14 @@ This book itself is maintained using Prodigy's automated documentation system! L
 
 ## Key Concepts
 
-- **Workflows**: YAML files defining sequences of commands
-- **Commands**: Shell commands, Claude AI invocations, or control flow
-- **Variables**: Capture output from commands and use throughout workflow with `${VAR}` syntax. Supports nested fields, defaults, and environment variables. See [Environment Variables](environment/index.md) for details
-- **Environment**: Configuration with secrets management and profile-based values
-- **MapReduce**: Parallel processing across multiple git worktrees
-- **Checkpoints**: Save and resume workflow state for long-running operations
-- **Validation**: Workflow structure and syntax validation, implementation completeness checking with the validate command, and runtime validation. See [Command Types](commands.md) for details
-- **Observability**: Event tracking, Claude execution logs, and comprehensive debugging tools
+- **[Workflows](workflow-basics/index.md)**: YAML files defining sequences of commands
+- **[Commands](commands.md)**: Shell commands, Claude AI invocations, or control flow
+- **[Variables](environment/index.md)**: Capture output from commands and use throughout workflow with `${VAR}` syntax. Supports nested fields, defaults, and environment variables
+- **[Environment](environment/index.md)**: Configuration with secrets management and profile-based values
+- **[MapReduce](mapreduce/index.md)**: Parallel processing across multiple git worktrees
+- **[Checkpoints](mapreduce/checkpoint-and-resume.md)**: Save and resume workflow state for long-running operations
+- **[Validation](commands.md)**: Workflow structure and syntax validation, implementation completeness checking with the validate command, and runtime validation
+- **[Observability](mapreduce/event-tracking.md)**: Event tracking, Claude execution logs, and comprehensive debugging tools
 
 !!! tip "Start Simple, Scale Up"
     Begin with simple sequential workflows to learn the basics, then progress to MapReduce for parallel processing when you need to handle 10+ similar tasks concurrently.
