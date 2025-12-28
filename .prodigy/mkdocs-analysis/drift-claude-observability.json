@@ -1,0 +1,90 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "claude-observability",
+  "page_title": "claude observability",
+  "page_file": "docs/advanced/observability/claude-observability.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Critical drift in JSON log location path - documentation shows outdated path that will mislead users",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "JSON Log Location",
+      "description": "Documentation shows incorrect Claude log path. Path format has changed from legacy storage to project-based storage.",
+      "current_content": "~/.local/state/claude/logs/session-{session_id}.json",
+      "should_be": "~/.claude/projects/{sanitized-project-path}/{session-id}.jsonl",
+      "fix_suggestion": "Update the log location to reflect Claude's actual storage: ~/.claude/projects/{project-path}/{session-id}.jsonl. Note the .jsonl extension (not .json) and project-based organization.",
+      "source_reference": "src/cook/execution/claude_log_detection.rs:95-100"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Accessing JSON Logs",
+      "description": "The example output shows incorrect log path format. The path shown would not match real Claude log locations.",
+      "current_content": "Claude JSON log: /Users/user/.local/state/claude/logs/session-abc123.json",
+      "should_be": "Claude JSON log: /Users/user/.claude/projects/{project-path}/{session-id}.jsonl",
+      "fix_suggestion": "Update example to show realistic project-based path",
+      "source_reference": "src/cook/execution/claude_log_detection.rs:63"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "Analyzing JSON Logs",
+      "description": "All jq command examples use incorrect log path format and .json extension instead of .jsonl",
+      "current_content": "cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'",
+      "should_be": "cat ~/.claude/projects/.../{session-id}.jsonl | jq -c 'select(.type == \"assistant\")'",
+      "fix_suggestion": "Update all jq examples to use correct path pattern. Note that .jsonl files contain JSONL (newline-delimited JSON), not standard JSON, so jq commands may need adjustment (e.g., use jq -c for each line).",
+      "source_reference": "src/cook/execution/claude_log_detection.rs:95-100"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "JSON Log Location",
+      "description": "Missing explanation of how project paths are sanitized for log directories",
+      "fix_suggestion": "Add explanation that Claude sanitizes project paths by replacing '/' with '-' (e.g., /Users/glen/prodigy becomes Users-glen-prodigy). Reference src/cook/execution/claude_log_detection.rs:sanitize_project_path()",
+      "source_reference": "src/cook/execution/claude_log_detection.rs:127-134"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Log Detection",
+      "description": "Documentation doesn't explain the multiple strategies used to detect Claude log locations",
+      "fix_suggestion": "Add section explaining that Prodigy uses multiple detection strategies: 1) Parse log location from Claude CLI output, 2) Search for recently created .jsonl files, 3) Infer from project path",
+      "source_reference": "src/cook/execution/claude_log_detection.rs:25-57"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Verbosity Control",
+      "description": "Missing documentation for PRODIGY_CLAUDE_STREAMING environment variable",
+      "fix_suggestion": "Document PRODIGY_CLAUDE_STREAMING alongside PRODIGY_CLAUDE_CONSOLE_OUTPUT. PRODIGY_CLAUDE_STREAMING controls JSON streaming while PRODIGY_CLAUDE_CONSOLE_OUTPUT forces console output.",
+      "source_reference": "src/cook/execution/claude.rs:89-95"
+    }
+  ],
+  "positive_aspects": [
+    "Clear organization with logical sections (Location, Contents, Accessing, Analyzing, Verbosity)",
+    "Good use of MkDocs admonitions (example, tip) for visual distinction",
+    "Comprehensive verbosity levels documentation with clear progression",
+    "Practical jq examples for log analysis (though paths need fixing)",
+    "Good integration points covered (MapReduce events, DLQ items)"
+  ],
+  "improvement_suggestions": [
+    "Add a troubleshooting subsection for common log access issues",
+    "Include prodigy logs --latest command as the recommended way to find logs",
+    "Add cross-reference to log-management.md for cleanup and rotation",
+    "Consider adding a visual diagram showing log flow from Claude to storage",
+    "Add note about JSONL format vs standard JSON parsing differences"
+  ],
+  "cross_references": [
+    "log-management",
+    "event-tracking",
+    "debugging"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T14:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["claude logs", "json streaming", "verbosity", "debugging"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
