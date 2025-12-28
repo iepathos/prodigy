@@ -11,12 +11,14 @@ The `retry_budget` field accepts human-readable duration formats using the `huma
 ```yaml
 retry_config:
   attempts: 10
-  retry_budget: "5m"        # 5 minutes
+  retry_budget: "5m"        # (1)!
   backoff:
     exponential:
       base: 2.0
   initial_delay: "1s"
 ```
+
+1. Time limit for cumulative delay time between retries (not total execution time)
 
 **Supported Duration Formats**:
 - Seconds: `"30s"`, `"300s"`
@@ -97,35 +99,41 @@ retry_budget_expires_at: config
 
 ### Interaction with Attempts and Backoff
 
-**Critical behavior**: Retries stop when **EITHER** the attempts limit **OR** the retry budget is exceeded, whichever comes first.
+!!! warning "Dual Limit Behavior"
+    Retries stop when **EITHER** the attempts limit **OR** the retry budget is exceeded, whichever comes first. With exponential backoff, the budget often triggers before attempts are exhausted.
 
-**Example 1: Budget Limits Before Attempts**
-```yaml
-retry_config:
-  attempts: 100           # High attempt limit
-  retry_budget: "2m"      # Budget will be hit first
-  backoff:
-    exponential:
-      base: 2.0
-  initial_delay: "1s"
-```
+!!! example "Budget Limits Before Attempts"
 
-With exponential backoff (1s, 2s, 4s, 8s, 16s, 32s, 64s...), delays sum to ~2 minutes after 7-8 attempts. The budget stops retries at **~8 attempts** even though 100 are allowed.
+    ```yaml
+    retry_config:
+      attempts: 100           # High attempt limit
+      retry_budget: "2m"      # Budget will be hit first
+      backoff:
+        exponential:
+          base: 2.0
+      initial_delay: "1s"
+    ```
 
-**Example 2: Attempts Limit Before Budget**
-```yaml
-retry_config:
-  attempts: 3             # Attempts will be hit first
-  retry_budget: "10m"     # Budget won't be reached
-  backoff: fixed
-  initial_delay: "5s"
-```
+    With exponential backoff (1s, 2s, 4s, 8s, 16s, 32s, 64s...), delays sum to ~2 minutes after 7-8 attempts. The budget stops retries at **~8 attempts** even though 100 are allowed.
 
-Total delay: 5s + 5s + 5s = 15 seconds, well under the 10-minute budget. Stops after **3 attempts**.
+!!! example "Attempts Limit Before Budget"
+
+    ```yaml
+    retry_config:
+      attempts: 3             # Attempts will be hit first
+      retry_budget: "10m"     # Budget won't be reached
+      backoff: fixed
+      initial_delay: "5s"
+    ```
+
+    Total delay: 5s + 5s + 5s = 15 seconds, well under the 10-minute budget. Stops after **3 attempts**.
 
 **Source**: Dual checking logic in `src/cook/retry_v2.rs:238-244` and `src/cook/retry_state.rs:337-347`
 
 ### What Time is Counted?
+
+!!! note "Key Distinction"
+    The retry budget measures **delay time** (waiting between retries), not total elapsed time. Long-running commands don't consume the budget while executing.
 
 **Included in Budget**:
 - ✅ Backoff delay time (waiting between retries)
@@ -173,6 +181,9 @@ sequenceDiagram
 ```
 
 If `retry_budget: "5s"`, the workflow would fail at the third retry (1+2+4 = 7s > 5s budget).
+
+!!! tip "Choosing a Budget Value"
+    Set the budget based on how long you're willing to wait for retries, not based on attempt count. For exponential backoff, calculate the sum of delays: with base 2 and 1s initial delay, 8 attempts consume ~4 minutes of delay time.
 
 ---
 
