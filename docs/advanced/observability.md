@@ -57,17 +57,23 @@ All workflow operations are logged to JSONL event files:
 
 **AgentStarted** - Agent execution begins:
 ```json
+// Source: src/cook/execution/events/event_types.rs:41-47
 {
   "type": "AgentStarted",
   "job_id": "mapreduce-123",
   "agent_id": "agent-1",
   "item_id": "item-1",
-  "timestamp": "2025-01-11T12:00:00Z"
+  "worktree": "agent-1-worktree",  // (1)!
+  "attempt": 1  // (2)!
 }
 ```
 
+1. Git worktree where this agent executes
+2. Attempt number (increments on retry)
+
 **AgentCompleted** - Agent finishes successfully:
 ```json
+// Source: src/cook/execution/events/event_types.rs:54-60
 {
   "type": "AgentCompleted",  // (1)!
   "job_id": "mapreduce-123",  // (2)!
@@ -87,36 +93,47 @@ All workflow operations are logged to JSONL event files:
 
 **AgentFailed** - Agent encounters errors:
 ```json
+// Source: src/cook/execution/events/event_types.rs:61-66
 {
   "type": "AgentFailed",
   "job_id": "mapreduce-123",
   "agent_id": "agent-1",
-  "error": "Timeout after 300 seconds",
-  "json_log_location": "/path/to/logs/session-xyz.json"
+  "error": "Timeout after 300 seconds",  // (1)!
+  "retry_eligible": true  // (2)!
 }
 ```
 
-**WorkItemProcessed** - Item completion:
+1. Error message describing the failure
+2. Whether the agent can be retried via DLQ
+
+!!! tip "Getting Full Error Context"
+    For detailed error context including Claude conversation history and tool invocations, check the `json_log_location` field in `AgentCompleted` events or query the DLQ directly with `prodigy dlq show <job_id>`.
+
+**AgentProgress** - Agent execution progress:
 ```json
+// Source: src/cook/execution/events/event_types.rs:48-53
 {
-  "type": "WorkItemProcessed",
+  "type": "AgentProgress",
   "job_id": "mapreduce-123",
-  "item_id": "item-1",
-  "status": "completed",
-  "result": {...}
+  "agent_id": "agent-1",
+  "step": "Analyzing files",
+  "progress_pct": 45.0
 }
 ```
 
-**CheckpointSaved** - State persistence:
+**CheckpointCreated** - State persistence:
 ```json
+// Source: src/cook/execution/events/event_types.rs:75-79
 {
-  "type": "CheckpointSaved",
+  "type": "CheckpointCreated",
   "job_id": "mapreduce-123",
-  "phase": "map",
-  "checkpoint_path": "/path/to/checkpoint.json",
-  "timestamp": "2025-01-11T12:05:00Z"
+  "version": 3,  // (1)!
+  "agents_completed": 15  // (2)!
 }
 ```
+
+1. Checkpoint version number (increments with each checkpoint)
+2. Number of agents that have completed at checkpoint time
 
 **ClaudeMessage** - Claude interaction messages:
 ```json
