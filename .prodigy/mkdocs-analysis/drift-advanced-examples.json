@@ -1,0 +1,77 @@
+{
+  "item_type": "page",
+  "page_id": "advanced-examples",
+  "page_title": "advanced examples",
+  "page_file": "docs/examples/advanced-examples.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is well-structured with accurate source references and working code examples. Minor updates needed for source line references and visual enhancements could be added.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Working Directory Usage",
+      "description": "Source reference mentions line 40 but the actual working_dir field definition is on line 40 of src/commands/handlers/shell.rs. Reference is accurate but could include additional context about the function.",
+      "current_content": "**Source**: Field definition from src/commands/handlers/shell.rs:40",
+      "should_be": "**Source**: Field definition from src/commands/handlers/shell.rs:40 (`schema.add_optional(\"working_dir\", ...)`)",
+      "fix_suggestion": "Add function context to source reference for clearer navigation.",
+      "source_reference": "src/commands/handlers/shell.rs:40"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Advanced Retry Configuration",
+      "description": "The code annotation syntax used (numbered comments like `# (1)!`) is a MkDocs Material feature that requires the pymdownx.superfences and pymdownx.inlinehilite extensions. The annotations are placed correctly but users may not see them rendered if extensions aren't enabled.",
+      "current_content": "Code uses numbered annotation markers",
+      "should_be": "Verify mkdocs.yml has pymdownx.superfences and annotation support configured",
+      "fix_suggestion": "Ensure mkdocs.yml configuration supports code annotations or convert to standard inline comments.",
+      "source_reference": "mkdocs.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Circuit Breaker",
+      "description": "The circuit breaker documentation is accurate but could benefit from a practical troubleshooting section explaining how to debug circuit breaker issues in production.",
+      "feature_reference": "error_handling.advanced_features.circuit_breaker",
+      "fix_suggestion": "Add a brief troubleshooting tip about monitoring circuit breaker state transitions.",
+      "source_reference": "src/cook/workflow/error_policy.rs:251-343"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source references with line numbers for all major features",
+    "Excellent Mermaid state diagram for circuit breaker visualization",
+    "Comprehensive backoff strategy examples with tabbed content",
+    "Clear comparison table for backoff strategies",
+    "Proper cross-references to related documentation pages",
+    "Well-structured examples progressing from basic to advanced",
+    "Git context variables documented with multiple format and filter options",
+    "Working directory usage is fully explained with variable interpolation support"
+  ],
+  "improvement_suggestions": [
+    "Add admonition boxes (info, tip, warning) for key callouts using MkDocs Material syntax",
+    "Consider adding a code group for the circuit breaker YAML example showing different threshold configurations",
+    "The retry_on error types could benefit from a brief description of each matcher type",
+    "Add a visual diagram showing retry timing with different backoff strategies"
+  ],
+  "cross_references": [
+    "workflow-basics/error-handling",
+    "mapreduce/backoff-strategies"
+  ],
+  "broken_links": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "nested error handling",
+      "git context variables",
+      "circuit breakers",
+      "retry configuration",
+      "backoff strategies",
+      "working directory",
+      "conditional execution"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": 2,
+    "internal_links_broken": 0
+  }
+}
