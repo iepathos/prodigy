@@ -46,6 +46,23 @@ flowchart TD
 
 DLQ data is stored in the global Prodigy directory using this structure:
 
+```mermaid
+graph LR
+    Global["~/.prodigy/dlq/"] --> Repo["{repo_name}/"]
+    Repo --> Job["{job_id}/"]
+    Job --> MR["mapreduce/dlq/{job_id}/"]
+    MR --> Items["items/"]
+    MR --> Index["index.json"]
+    Items --> Item1["item-123.json"]
+    Items --> Item2["item-456.json"]
+
+    style Global fill:#e1f5ff
+    style Items fill:#fff3e0
+    style Index fill:#e8f5e9
+```
+
+**Figure**: DLQ storage hierarchy showing path from global storage to individual item files.
+
 ```
 ~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/
 ├── items/                  # Individual item files
@@ -63,10 +80,13 @@ For example:
 └── index.json
 ```
 
+!!! note "Backward Compatibility"
+    The redundant `mapreduce/dlq/{job_id}` subdirectory structure is maintained for backward compatibility with earlier DLQ implementations. This ensures existing DLQ data remains accessible after upgrades.
+
 **Storage Implementation**:
+
 - `GlobalStorage` provides the base path: `~/.prodigy/dlq/{repo_name}/{job_id}` (src/storage/global.rs:47)
 - `DLQStorage` adds subdirectories: `mapreduce/dlq/{job_id}` (src/cook/execution/dlq.rs:529)
-  - **Note**: The redundant `mapreduce/dlq/{job_id}` subdirectory structure is maintained for backward compatibility with earlier DLQ implementations. This ensures existing DLQ data remains accessible after upgrades.
 - Each failed item is stored as a separate JSON file in the `items/` directory (src/cook/execution/dlq.rs:536)
 - File naming: `{item_id}.json` (e.g., `item-123.json`)
 - `index.json` maintains a list of all item IDs and metadata for fast lookups (src/cook/execution/dlq.rs:608-637)
@@ -136,6 +156,10 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
 - `failure_count`: Number of failed attempts (u32)
 - `failure_history`: Array of `FailureDetail` objects capturing each attempt
 - `error_signature`: Simplified error pattern for grouping similar failures
+
+!!! tip "Using Error Signatures"
+    Error signatures help identify systemic issues. When multiple items share the same signature, investigate the root cause rather than retrying each individually.
+
 - `reprocess_eligible`: Whether item can be retried automatically
 - `manual_review_required`: Whether item needs human intervention
 - `worktree_artifacts`: Captured state from failed agent's worktree (Optional)
