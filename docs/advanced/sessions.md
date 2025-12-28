@@ -6,7 +6,7 @@ Prodigy provides unified session tracking and lifecycle management for both stan
 
 Session management features:
 - **Unified tracking**: Single system for workflows and MapReduce
-- **Lifecycle states**: Running, Paused, Completed, Failed, Cancelled
+- **Lifecycle states**: Initializing, Running, Paused, Completed, Failed, Cancelled
 - **State persistence**: Sessions stored in `~/.prodigy/sessions/`
 - **Resume capabilities**: Resume from checkpoints with session or job IDs
 - **Concurrent protection**: Lock-based prevention of simultaneous resumes
@@ -62,17 +62,19 @@ MapReduce job state management:
 
 ### States
 
-1. **Running**: Active execution in progress
-2. **Paused**: Interrupted, ready to resume from checkpoint
-3. **Completed**: Successfully finished
-4. **Failed**: Terminated with errors
-5. **Cancelled**: User-initiated stop
+1. **Initializing**: Session created, execution not yet started
+2. **Running**: Active execution in progress
+3. **Paused**: Interrupted, ready to resume from checkpoint
+4. **Completed**: Successfully finished
+5. **Failed**: Terminated with errors
+6. **Cancelled**: User-initiated stop
 
 ### State Transitions
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Running: Workflow Start
+    [*] --> Initializing: Session Created
+    Initializing --> Running: Start Execution
     Running --> Paused: Interrupt (Ctrl+C)
     Running --> Completed: Success
     Running --> Failed: Error
@@ -84,6 +86,11 @@ stateDiagram-v2
     Completed --> [*]
     Failed --> [*]
     Cancelled --> [*]
+
+    note right of Initializing
+        Session created
+        Ready to execute
+    end note
 
     note right of Running
         Checkpoint created
@@ -255,11 +262,12 @@ Prodigy prevents multiple resumes of the same session:
 
 Lock files contain:
 ```json
+// Source: src/cook/execution/resume_lock.rs:17-22
 {
-  "pid": 12345,
+  "job_id": "session-abc123",
+  "process_id": 12345,
   "hostname": "machine.local",
-  "acquired_at": "2025-01-11T12:00:00Z",
-  "session_id": "session-abc123"
+  "acquired_at": "2025-01-11T12:00:00Z"
 }
 ```
 
@@ -293,10 +301,7 @@ Please wait for the other process to complete.
 # List all sessions
 prodigy sessions list
 
-# Filter by status
-prodigy sessions list --status paused
-
-# Show details
+# Show details for a specific session
 prodigy sessions show session-abc123
 ```
 
@@ -350,8 +355,8 @@ Monitor execution progress:
     # Workflow interrupted during step 3
     ^C
 
-    # List paused sessions
-    prodigy sessions list --status paused
+    # List sessions to find paused ones
+    prodigy sessions list
 
     # Resume from checkpoint
     prodigy resume session-abc123

@@ -1,0 +1,84 @@
+{
+  "item_type": "page",
+  "page_id": "sessions",
+  "page_title": "sessions",
+  "page_file": "docs/advanced/sessions.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good overall documentation with accurate session state tracking, but missing 'Initializing' status and session management commands are documented but not fully implemented",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Session Lifecycle - States",
+      "description": "Missing 'Initializing' state in lifecycle documentation. The codebase defines SessionStatus::Initializing as a valid state (src/unified_session/state.rs:93), but the documentation only shows 5 states: Running, Paused, Completed, Failed, Cancelled.",
+      "current_content": "1. **Running**: Active execution in progress\n2. **Paused**: Interrupted, ready to resume from checkpoint\n3. **Completed**: Successfully finished\n4. **Failed**: Terminated with errors\n5. **Cancelled**: User-initiated stop",
+      "should_be": "1. **Initializing**: Session created, execution not yet started\n2. **Running**: Active execution in progress\n3. **Paused**: Interrupted, ready to resume from checkpoint\n4. **Completed**: Successfully finished\n5. **Failed**: Terminated with errors\n6. **Cancelled**: User-initiated stop",
+      "fix_suggestion": "Add 'Initializing' state to the states list and update the mermaid diagram to include the Initializing → Running transition",
+      "source_reference": "src/unified_session/state.rs:92-99"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "State Transitions - Mermaid Diagram",
+      "description": "The mermaid state diagram should show '[*] --> Initializing: Session Created' then 'Initializing --> Running: Start Execution' to accurately reflect the session lifecycle",
+      "current_content": "[*] --> Running: Workflow Start",
+      "should_be": "[*] --> Initializing: Session Created\nInitializing --> Running: Start Execution",
+      "fix_suggestion": "Update the stateDiagram-v2 to include the Initializing state as the entry point",
+      "source_reference": "src/unified_session/state.rs:92-99"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Session Management Commands",
+      "description": "The session commands (list, show, clean) are documented but the implementation in src/cli/commands/sessions.rs shows they are stub implementations that just print placeholder text without actual functionality",
+      "current_content": "# List all sessions\nprodigy sessions list\n\n# Filter by status\nprodigy sessions list --status paused",
+      "should_be": "The documentation accurately describes the intended behavior, but should note that filtering by status (--status flag) may not be fully implemented",
+      "fix_suggestion": "Either implement the --status filtering in the CLI or note current limitations. The CLI args.rs shows SessionCommands::List has no status filter parameter.",
+      "source_reference": "src/cli/commands/sessions.rs:9-29, src/cli/args.rs:298-316"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Session Management Commands - Filter by status",
+      "description": "The documentation shows 'prodigy sessions list --status paused' but the CLI definition in args.rs shows the List command has no --status argument",
+      "current_content": "# Filter by status\nprodigy sessions list --status paused",
+      "should_be": "Remove this example or implement the --status flag in the CLI",
+      "fix_suggestion": "Either add --status flag to SessionCommands::List in src/cli/args.rs, or remove the example from documentation",
+      "source_reference": "src/cli/args.rs:299-301"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Lock Metadata",
+      "description": "The lock file structure shown in documentation uses 'pid' but the actual struct field in the code is 'process_id'",
+      "current_content": "{\n  \"pid\": 12345,\n  \"hostname\": \"machine.local\",\n  \"acquired_at\": \"2025-01-11T12:00:00Z\",\n  \"session_id\": \"session-abc123\"\n}",
+      "should_be": "{\n  \"job_id\": \"session-abc123\",\n  \"process_id\": 12345,\n  \"hostname\": \"machine.local\",\n  \"acquired_at\": \"2025-01-11T12:00:00Z\"\n}",
+      "fix_suggestion": "Update the JSON example to match the ResumeLockData struct field names: job_id, process_id, hostname, acquired_at",
+      "source_reference": "src/cook/execution/resume_lock.rs:16-22"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material features (admonitions, code annotations, mermaid diagrams)",
+    "Clear explanation of session types (Workflow vs MapReduce)",
+    "Well-structured examples showing common resume scenarios",
+    "Good coverage of concurrent resume protection mechanism",
+    "Accurate documentation of session-job mapping for bidirectional lookup",
+    "Source references in JSON code blocks help developers locate implementation",
+    "State preservation section clearly documents what is preserved across resume",
+    "RAII-based locking explanation is accurate and well-documented"
+  ],
+  "improvement_suggestions": [
+    "Add cross-references to related pages (DLQ, Checkpoints, MapReduce workflows)",
+    "Consider adding troubleshooting section for common session issues",
+    "Include example of viewing session details with 'prodigy sessions show'",
+    "Add note about session expiration or cleanup policies if applicable"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["session management", "lifecycle states", "resume", "concurrent protection", "checkpoints"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
