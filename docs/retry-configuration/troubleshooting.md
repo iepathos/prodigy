@@ -405,7 +405,58 @@ retry_config:
 
 ## Debugging Workflow
 
-When retry behavior is unexpected, follow this checklist:
+When retry behavior is unexpected, use this decision tree to identify the issue:
+
+```mermaid
+flowchart TD
+    Start["Unexpected Retry Behavior"] --> Q1{"Retries not
+    triggering?"}
+
+    Q1 -->|Yes| Check1["Check retry_on matchers
+    and retry_config block"]
+    Q1 -->|No| Q2{"Retries too
+    slow?"}
+
+    Q2 -->|Yes| Check2["Check max_delay
+    and initial_delay"]
+    Q2 -->|No| Q3{"Circuit breaker
+    stuck open?"}
+
+    Q3 -->|Yes| Check3["Check failure threshold
+    and recovery timeout"]
+    Q3 -->|No| Q4{"Thundering herd
+    in parallel?"}
+
+    Q4 -->|Yes| Check4["Enable jitter
+    with jitter_factor"]
+    Q4 -->|No| Q5{"Retrying permanent
+    errors?"}
+
+    Q5 -->|Yes| Check5["Add retry_on matchers
+    for transient errors only"]
+    Q5 -->|No| Check6["Check retry_budget
+    and metrics"]
+
+    Check1 --> Fix["Apply fix from
+    section above"]
+    Check2 --> Fix
+    Check3 --> Fix
+    Check4 --> Fix
+    Check5 --> Fix
+    Check6 --> Fix
+
+    style Start fill:#ffebee
+    style Fix fill:#e8f5e9
+    style Q1 fill:#e1f5ff
+    style Q2 fill:#e1f5ff
+    style Q3 fill:#e1f5ff
+    style Q4 fill:#e1f5ff
+    style Q5 fill:#e1f5ff
+```
+
+**Figure**: Decision tree for diagnosing retry configuration issues.
+
+Then follow this checklist:
 
 ??? note "1. Check retry_on matchers"
     - Verify error message matches configured matchers
