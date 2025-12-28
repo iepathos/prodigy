@@ -14,6 +14,29 @@ All workflow operations are logged to JSONL event files:
 
 Agent events track the lifecycle of individual work item processing.
 
+```mermaid
+stateDiagram-v2
+    [*] --> agent_started: Work item assigned
+    agent_started --> agent_progress: Step update
+    agent_progress --> agent_progress: More progress
+    agent_progress --> agent_completed: Success
+    agent_progress --> agent_failed: Error
+    agent_failed --> agent_retrying: Retry configured
+    agent_retrying --> agent_started: New attempt
+    agent_completed --> [*]
+    agent_failed --> [*]: Max retries exceeded
+
+    note right of agent_started
+        Includes worktree path
+        and attempt number
+    end note
+
+    note right of agent_failed
+        Includes failure_reason
+        and json_log_location
+    end note
+```
+
 **agent_started** - Agent execution begins:
 ```json
 // Source: src/cook/execution/events/event_types.rs:41-47
@@ -152,6 +175,26 @@ Phase events track the overall progress of MapReduce execution stages.
 
 Job events track the overall MapReduce job lifecycle.
 
+```mermaid
+stateDiagram-v2
+    [*] --> job_started: Workflow begins
+    job_started --> map_phase_started: Setup complete
+    map_phase_started --> map_phase_completed: All agents done
+    map_phase_completed --> reduce_phase_started: Begin aggregation
+    reduce_phase_started --> reduce_phase_completed: Reduce done
+    reduce_phase_completed --> job_completed: Success
+
+    job_started --> job_paused: Interrupt (Ctrl+C)
+    map_phase_started --> job_paused: Checkpoint created
+    job_paused --> job_resumed: Resume command
+    job_resumed --> map_phase_started: Continue processing
+
+    map_phase_started --> job_failed: Too many failures
+    reduce_phase_started --> job_failed: Reduce error
+    job_completed --> [*]
+    job_failed --> [*]
+```
+
 **job_started** - Job begins execution:
 ```json
 // Source: src/cook/execution/events/event_types.rs:13-18
@@ -287,6 +330,9 @@ Worktree events track Git worktree lifecycle during agent execution.
 ```
 
 ## DLQ Events
+
+!!! note "Debugging Failed Items"
+    DLQ events are essential for understanding failure patterns. The `error_signature` field groups similar failures, making it easy to identify systemic issues vs. individual item problems.
 
 Dead Letter Queue events track failed items for later retry.
 
@@ -443,6 +489,9 @@ Events are organized by repository and job:
 3. JSONL file with one event per line (append-only)
 
 ## Querying Events
+
+!!! warning "Event File Size"
+    Event files grow with each job execution. For long-running workflows or jobs with many items, files can become large. Consider periodic cleanup of old event files in `~/.prodigy/events/`.
 
 Use `jq` to filter and analyze events:
 
