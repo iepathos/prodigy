@@ -30,12 +30,36 @@ retry_config:
 
 Prodigy uses **two complementary mechanisms** to enforce retry budgets:
 
+```mermaid
+flowchart TD
+    A[Retry Attempt Triggered] --> B{Check Attempt Count}
+    B -->|Attempts Exceeded| C[Stop: Max Attempts]
+    B -->|Within Limits| D{Active Execution?}
+
+    D -->|Yes| E[Duration-Based Check]
+    D -->|Resumed Session| F[Timestamp-Based Check]
+
+    E --> G{total_delay + next_delay > budget?}
+    G -->|Yes| H[Stop: Budget Exhausted]
+    G -->|No| I[Execute Retry]
+
+    F --> J{now >= budget_expires_at?}
+    J -->|Yes| H
+    J -->|No| I
+
+    I --> K[Wait delay period]
+    K --> L[Run Command]
+    L --> M{Success?}
+    M -->|Yes| N[Complete]
+    M -->|No| A
+```
+
 #### 1. Duration-Based Enforcement (Active Execution)
 
 During active command execution, the `RetryExecutor` tracks cumulative delay time and checks the budget before each retry:
 
 ```rust
-// From src/cook/retry_v2.rs:236-244
+// Source: src/cook/retry_v2.rs:238-244
 if let Some(budget) = self.config.retry_budget {
     if total_delay + jittered_delay > budget {
         warn!("Retry budget exhausted for {}", context);
@@ -50,7 +74,7 @@ if let Some(budget) = self.config.retry_budget {
 - If the next retry would exceed the budget, stops immediately
 - Returns error: `"Retry budget exhausted"`
 
-**Source**: `src/cook/retry_v2.rs:236-244`
+**Source**: `src/cook/retry_v2.rs:238-244`
 
 #### 2. Timestamp-Based Enforcement (Stateful Tracking)
 
@@ -99,7 +123,7 @@ retry_config:
 
 Total delay: 5s + 5s + 5s = 15 seconds, well under the 10-minute budget. Stops after **3 attempts**.
 
-**Source**: Dual checking logic in `src/cook/retry_v2.rs:236-244` and `src/cook/retry_state.rs:337-347`
+**Source**: Dual checking logic in `src/cook/retry_v2.rs:238-244` and `src/cook/retry_state.rs:337-347`
 
 ### What Time is Counted?
 
@@ -113,14 +137,48 @@ Total delay: 5s + 5s + 5s = 15 seconds, well under the 10-minute budget. Stops a
 - ❌ Time before first failure
 
 **Example Timeline**:
-```
-Command Start → Execute (30s) → Fail
-                ↓ retry_budget timer starts
-                Wait 1s (counted) → Execute (30s, NOT counted) → Fail
-                Wait 2s (counted) → Execute (30s, NOT counted) → Fail
-                Wait 4s (counted) → Execute (30s, NOT counted) → Success
-Total Time: 30+1+30+2+30+4+30 = 127 seconds
-Budget Used: 1+2+4 = 7 seconds
+
+```mermaid
+sequenceDiagram
+    participant W as Workflow
+    participant C as Command
+    participant B as Budget Tracker
+
+    W->>C: Execute (30s)
+    C-->>W: Fail
+    Note over B: Budget timer starts
+
+    rect rgb(255, 230, 230)
+        Note over B: Wait 1s (counted)
+    end
+    W->>C: Execute (30s)
+    Note over C: NOT counted
+    C-->>W: Fail
+
+    rect rgb(255, 230, 230)
+        Note over B: Wait 2s (counted)
+    end
+    W->>C: Execute (30s)
+    Note over C: NOT counted
+    C-->>W: Fail
+
+    rect rgb(255, 230, 230)
+        Note over B: Wait 4s (counted)
+    end
+    W->>C: Execute (30s)
+    Note over C: NOT counted
+    C-->>W: Success
+
+    Note over W,B: Total Time: 127s | Budget Used: 7s
 ```
 
 If `retry_budget: "5s"`, the workflow would fail at the third retry (1+2+4 = 7s > 5s budget).
+
+---
+
+### Related Topics
+
+- [Backoff Strategies](backoff-strategies.md) - Configure delay patterns between retries
+- [Jitter for Distributed Systems](jitter-for-distributed-systems.md) - Add randomization to prevent thundering herd
+- [Basic Retry Configuration](basic-retry-configuration.md) - Core retry settings overview
+- [Troubleshooting](troubleshooting.md) - Debug retry-related issues
