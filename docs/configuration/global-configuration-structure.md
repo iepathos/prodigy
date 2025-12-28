@@ -44,6 +44,9 @@ Controls logging verbosity for Prodigy operations.
 log_level: debug
 ```
 
+!!! tip "Debugging Tip"
+    Use `debug` or `trace` log levels temporarily when troubleshooting issues. Switch back to `info` for normal operation to reduce log noise.
+
 #### `claude_api_key`
 
 **Type**: String (optional)
@@ -132,25 +135,35 @@ Plugin system configuration. See [Plugin Configuration](#plugin-configuration) b
 
     ```yaml
     # ~/.prodigy/config.yml - All options
-    prodigy_home: /Users/username/.prodigy
-    default_editor: code
-    log_level: info
-    claude_api_key: "sk-ant-api03-..."
-    max_concurrent_specs: 4
-    auto_commit: true
+    prodigy_home: /Users/username/.prodigy  # (1)!
+    default_editor: code  # (2)!
+    log_level: info  # (3)!
+    claude_api_key: "sk-ant-api03-..."  # (4)!
+    max_concurrent_specs: 4  # (5)!
+    auto_commit: true  # (6)!
 
     storage:
-      backend: filesystem
+      backend: filesystem  # (7)!
       base_path: /Users/username/.prodigy
-      compression_level: 0
+      compression_level: 0  # (8)!
 
     plugins:
       enabled: true
       directory: /Users/username/.prodigy/plugins
-      auto_load:
+      auto_load:  # (9)!
         - github-integration
         - slack-notifications
     ```
+
+    1. Base directory for all Prodigy data (events, DLQ, state, worktrees)
+    2. Opens files in VS Code; falls back to `$EDITOR` if not set
+    3. Controls log verbosity: `trace` → `debug` → `info` → `warn` → `error`
+    4. For AI-powered commands; prefer environment variables for security
+    5. Limits parallel spec implementations (1-100)
+    6. Automatically commits changes after successful commands
+    7. Use `filesystem` for production, `memory` for testing only
+    8. Checkpoint compression: 0=none, 9=maximum (slower but smaller)
+    9. Plugins load automatically at startup
 
 ### Plugin Configuration
 
@@ -207,6 +220,26 @@ EOF
 ```
 
 ### Relationship to Project Config
+
+Global and project configurations work together in a layered system:
+
+```mermaid
+graph LR
+    Global["Global Config
+    ~/.prodigy/config.yml"] --> Merge["Merged
+    Configuration"]
+    Project["Project Config
+    .prodigy/config.yml"] --> Merge
+    Env["Environment Variables"] --> Merge
+    Merge --> Runtime["Runtime Settings"]
+
+    style Global fill:#e1f5ff
+    style Project fill:#fff3e0
+    style Env fill:#f3e5f5
+    style Runtime fill:#e8f5e9
+```
+
+**Figure**: Configuration layers with project config overriding global settings.
 
 - Global config applies to **all projects**
 - Project config (`.prodigy/config.yml`) **overrides** global config per field
