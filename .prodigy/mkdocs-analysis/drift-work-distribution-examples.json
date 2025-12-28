@@ -1,0 +1,61 @@
+{
+  "item_type": "section-page",
+  "section_id": "work-distribution",
+  "section_title": "Work Distribution",
+  "page_id": "examples",
+  "page_title": "examples",
+  "page_file": "docs/mapreduce/work-distribution/examples.md",
+  "feature_mappings": [
+    "mapreduce_workflows.core_capabilities.work_distribution"
+  ],
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good quality examples page with accurate work distribution patterns. Minor issue with jq syntax in debugging section.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Troubleshooting > Debugging Tips > Validate JSONPath",
+      "description": "The jq example uses JSONPath syntax ($.items[*]) which is not valid jq syntax. jq uses its own query language, not JSONPath.",
+      "current_content": "jq '$.items[*]' data.json | jq 'length'",
+      "should_be": "jq '.items[]' data.json | jq -s 'length'",
+      "fix_suggestion": "Replace JSONPath syntax with valid jq syntax. Use '.items[]' for array iteration in jq, and add '-s' flag to slurp results for counting.",
+      "source_reference": "jq uses its own query language distinct from JSONPath"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive real-world examples covering debt processing, deduplication, and batched processing",
+    "Excellent use of MkDocs code annotations to explain each configuration field",
+    "Source references link to actual code files for traceability",
+    "Good coverage of all work distribution fields (filter, sort_by, distinct, offset, max_items)",
+    "Integration section clearly shows field relationships within map phase",
+    "Troubleshooting section addresses common issues users encounter",
+    "Examples demonstrate nested field access (unified_score.final_score)"
+  ],
+  "improvement_suggestions": [
+    "Add cross-references to related pages (filtering-sorting.md, pagination.md, input-sources.md)",
+    "Consider adding a visual diagram showing data pipeline flow (extract → filter → sort → distinct → offset → limit)",
+    "Add admonition boxes for tips and warnings in troubleshooting section"
+  ],
+  "cross_references": [
+    "work-distribution/filtering-sorting",
+    "work-distribution/pagination",
+    "work-distribution/input-sources"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "work distribution examples",
+      "filtering and sorting",
+      "deduplication",
+      "pagination",
+      "troubleshooting"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_found": 0,
+    "broken_links_found": 0,
+    "code_blocks_analyzed": 9,
+    "code_annotations_used": true
+  }
+}
