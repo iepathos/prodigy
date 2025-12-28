@@ -1,0 +1,172 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "Troubleshooting Index",
+  "page_file": "docs/troubleshooting/index.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good comprehensive troubleshooting guide with minor improvements needed for MkDocs Material visual features",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Common Issues",
+      "description": "Page lacks MkDocs Material visual enhancements such as admonitions, tabs, and code annotations that would improve readability",
+      "fix_suggestion": "Add admonitions (warning, tip, info boxes) for key troubleshooting steps, use tabs for grouping related solutions, and add code annotations for complex examples",
+      "enhancement_examples": [
+        "Use !!! warning for critical issues like timeout errors",
+        "Use !!! tip for best practice suggestions",
+        "Use tabs to group solutions by severity or approach"
+      ]
+    },
+    {
+      "type": "inconsistent_source_references",
+      "severity": "low",
+      "section": "Multiple sections",
+      "description": "Some sections include source code references (e.g., src/cook/execution/foreach.rs:44-515) while others reference specs or CLAUDE.md. Consistency would improve navigation.",
+      "current_content": "Mixed references: some use 'Source:', others reference CLAUDE.md, some have no source reference",
+      "fix_suggestion": "Standardize source references across all troubleshooting sections with format 'Source: file:line-range'"
+    },
+    {
+      "type": "incomplete_examples",
+      "severity": "low",
+      "section": "Debug Tips",
+      "description": "The 'Use dry-run mode to preview execution' section mentions the feature but lacks an example of dry-run output",
+      "fix_suggestion": "Add example output showing what dry-run mode displays"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common issues with clear Symptoms/Causes/Solutions structure",
+    "Accurate command syntax matches implementation (prodigy run --dry-run, prodigy logs --latest --summary, etc.)",
+    "Good cross-references to related documentation pages",
+    "Source code references link troubleshooting to actual implementation",
+    "Debug tips section provides practical guidance with multiple verbosity levels",
+    "Covers all major feature areas: MapReduce, DLQ, checkpoints, variables, environment, git context",
+    "write_file documentation accurately reflects WriteFileConfig fields (path, content, format, mode, create_dirs)",
+    "foreach documentation accurately shows continue_on_error, parallel, max_items options"
+  ],
+  "improvement_suggestions": [
+    {
+      "section": "Common Issues",
+      "suggestion": "Add MkDocs Material admonitions to highlight severity levels",
+      "example": "!!! danger \"High Impact\"\n    Timeout errors can cause workflow failures..."
+    },
+    {
+      "section": "Debug Tips",
+      "suggestion": "Use tabbed interface to group debug approaches by tool type",
+      "example": "=== \"CLI Commands\"\n    prodigy run --dry-run\n=== \"Log Analysis\"\n    prodigy logs --latest"
+    },
+    {
+      "section": "Code Examples",
+      "suggestion": "Add code annotations to explain key configuration options",
+      "example": "```yaml\nforeach:\n  parallel: 5  # (1)!\n```\n1. Limits concurrent execution to 5 workers"
+    },
+    {
+      "section": "Overall Navigation",
+      "suggestion": "Add a quick reference table at the top mapping symptoms to sections",
+      "example": "| Symptom | Section |\n|---|---|\n| Variables show literal ${...} | [Variables not interpolating](#variables-not-interpolating) |"
+    }
+  ],
+  "links_validated": {
+    "total_internal_links": 5,
+    "broken_links": 0,
+    "valid_links": [
+      {
+        "text": "MapReduce Checkpoint and Resume",
+        "target": "../mapreduce/checkpoint-and-resume.md",
+        "status": "valid"
+      },
+      {
+        "text": "Dead Letter Queue (DLQ)",
+        "target": "../mapreduce/dead-letter-queue-dlq.md",
+        "status": "valid"
+      },
+      {
+        "text": "Environment Variables",
+        "target": "../environment/index.md",
+        "status": "valid"
+      },
+      {
+        "text": "Advanced Git Context",
+        "target": "../git-context-advanced.md",
+        "status": "valid"
+      },
+      {
+        "text": "Common Error Messages",
+        "target": "common-error-messages.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "accuracy_validation": {
+    "cli_commands_verified": [
+      {
+        "command": "prodigy run workflow.yml --dry-run",
+        "status": "accurate",
+        "source": "src/cli/args.rs:59-61"
+      },
+      {
+        "command": "prodigy run workflow.yml -v",
+        "status": "accurate",
+        "source": "src/cli/args.rs (verbosity flags)"
+      },
+      {
+        "command": "prodigy logs --latest --summary",
+        "status": "accurate",
+        "source": "src/cli/args.rs:259-269"
+      },
+      {
+        "command": "prodigy dlq show <job_id>",
+        "status": "accurate",
+        "source": "CLI DLQ commands"
+      },
+      {
+        "command": "prodigy worktree clean-orphaned <job_id>",
+        "status": "accurate",
+        "source": "src/cli/commands/worktree/orphaned_cleanup.rs"
+      }
+    ],
+    "configuration_options_verified": [
+      {
+        "option": "write_file.create_dirs",
+        "status": "accurate",
+        "source": "src/config/command.rs:295-297"
+      },
+      {
+        "option": "write_file.mode",
+        "status": "accurate",
+        "source": "src/config/command.rs:291-293"
+      },
+      {
+        "option": "foreach.continue_on_error",
+        "status": "accurate",
+        "source": "src/cook/execution/foreach.rs"
+      },
+      {
+        "option": "agent_timeout_secs",
+        "status": "accurate",
+        "source": "src/config/mapreduce.rs"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T23:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "variable interpolation",
+      "MapReduce troubleshooting",
+      "timeout errors",
+      "checkpoint resume",
+      "DLQ management",
+      "worktree cleanup",
+      "environment variables",
+      "git context",
+      "foreach iteration",
+      "workflow composition",
+      "validate command",
+      "write_file command",
+      "debug techniques"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
