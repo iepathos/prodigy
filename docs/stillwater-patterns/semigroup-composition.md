@@ -49,6 +49,33 @@ All 15 aggregate types available in Prodigy:
 
 Aggregations use a two-phase approach: `combine` for merging state (associative), then `finalize` for computing the final result.
 
+```mermaid
+flowchart LR
+    subgraph Phase1["Phase 1: Combine (Associative)"]
+        direction LR
+        A1["Agent 1
+        Average(10, 2)"] --> C1[Combine]
+        A2["Agent 2
+        Average(20, 3)"] --> C1
+        C1 --> I["Intermediate
+        Average(30, 5)"]
+    end
+
+    subgraph Phase2["Phase 2: Finalize"]
+        direction LR
+        I2["Average(30, 5)"] --> F[Finalize]
+        F --> R["Result: 6.0
+        (30 ÷ 5)"]
+    end
+
+    I --> I2
+
+    style Phase1 fill:#e1f5ff
+    style Phase2 fill:#e8f5e9
+```
+
+This pattern ensures associativity during parallel execution while deferring complex computations to the finalization step.
+
 ```rust
 // Source: src/cook/execution/variables/semigroup.rs:97-195
 impl Semigroup for AggregateResult {
