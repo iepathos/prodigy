@@ -30,10 +30,10 @@ filter: "priority > 5"
 filter: "priority >= 5"  # (2)!
 filter: "priority < 10"
 filter: "priority <= 10"
+```
 
 1. Single `=` also works for equality checks
 2. Inclusive comparison - items with priority of 5 will be included
-```
 
 **Logical operators:**
 ```yaml
@@ -48,16 +48,24 @@ filter: "severity == 'high' OR severity == 'critical'"  # (2)!
 # NOT
 filter: "!(status == 'archived')"
 filter: "!is_null(optional_field)"
+```
 
 1. Word-based `AND` operator is also supported
 2. Word-based `OR` operator is also supported
-```
 
 **Nested field access:**
 ```yaml
 # Source: src/cook/execution/data_pipeline/mod.rs:298-300
 filter: "unified_score.final_score >= 5"
 filter: "location.coordinates.lat > 40.0"
+```
+
+**Array index access:**
+```yaml
+# Source: src/cook/execution/data_pipeline/filter.rs:451-461
+filter: "tags[0] == 'important'"         # First element of tags array
+filter: "results[2].score > 80"          # Third result's score
+filter: "matrix[0][1] == 42"             # Nested array access
 ```
 
 **IN operator:**
@@ -221,3 +229,42 @@ Items with null values in the distinct field are treated as having the value `"n
 
 !!! note
     The correct field name is `distinct`, not `deduplicate_by`. The deduplication happens after filtering and sorting but before offset and limit.
+
+## Processing Order
+
+Filtering, sorting, and deduplication are part of a larger data processing pipeline. The complete order is:
+
+```mermaid
+graph LR
+    A["JSONPath
+    Extraction"] --> B["Filtering
+    (this page)"]
+    B --> C["Sorting
+    (this page)"]
+    C --> D["Deduplication
+    (this page)"]
+    D --> E["Offset"]
+    E --> F["Limit"]
+
+    style B fill:#e1f5ff
+    style C fill:#e1f5ff
+    style D fill:#e1f5ff
+```
+
+**Figure**: Data processing pipeline showing where filtering, sorting, and deduplication fit in the overall flow.
+
+Each stage processes the output of the previous stage:
+
+- **JSONPath Extraction**: Selects items from input using JSONPath expressions
+- **Filtering**: Removes items that don't match the filter criteria
+- **Sorting**: Orders remaining items by specified fields
+- **Deduplication**: Removes duplicate items based on a key field
+- **Offset/Limit**: Controls pagination of final results
+
+See [Pagination](pagination.md#processing-pipeline-order) for the full pipeline details and examples showing how these operations combine.
+
+## Related Topics
+
+- [Pagination](pagination.md) - Control output size with offset and limit
+- [Input Sources](input-sources.md) - Define where work items come from
+- [Examples](examples.md) - Complete workflow examples with filtering and sorting
