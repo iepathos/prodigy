@@ -1,6 +1,39 @@
 # Command Types
 
+Prodigy workflows execute commands in sequence, with each command type offering different capabilities for shell execution, AI-assisted operations, iteration, file manipulation, and validation.
+
+```mermaid
+graph LR
+    Start[Execute Command] --> Success{Success?}
+    Success -->|Yes| Next[Next Command]
+    Success -->|No| Handler{"on_failure
+    defined?"}
+    Handler -->|No| Fail[Fail Workflow]
+    Handler -->|Yes| RunHandler[Run Handler]
+    RunHandler --> Retry{"retry_original
+    enabled?"}
+    Retry -->|Yes| RetryCmd[Retry Command]
+    RetryCmd --> MaxCheck{"max_retries
+    exceeded?"}
+    MaxCheck -->|No| Start
+    MaxCheck -->|Yes| FailCheck
+    Retry -->|No| FailCheck{"fail_workflow
+    = true?"}
+    FailCheck -->|Yes| Fail
+    FailCheck -->|No| Next
+
+    style Success fill:#e8f5e9
+    style Handler fill:#fff3e0
+    style Retry fill:#e1f5ff
+    style Fail fill:#ffebee
+```
+
+**Figure**: Command execution flow showing error handling and retry logic.
+
 ## 1. Shell Commands
+
+!!! tip "Shell Command Best Practices"
+    Use `capture_output` with a descriptive variable name to make outputs available to subsequent commands. Chain commands with `&&` for dependent operations, and always include `on_failure` handlers for critical commands.
 
 ```yaml
 # Simple shell command
@@ -56,6 +89,9 @@
 ```
 
 ## 3. Foreach Commands
+
+!!! example "When to Use Foreach vs MapReduce"
+    Use `foreach` for simple iteration within a single workflow (e.g., running tests on multiple packages). Use [MapReduce](./mapreduce/index.md) when you need full agent isolation, checkpointing, and DLQ support for complex parallel operations.
 
 Iterate over a list with optional parallelism.
 
@@ -159,20 +195,26 @@ Validate implementation completeness with automatic retry.
 ```yaml
 - claude: "/implement-auth-spec"
   validate:
-    shell: "debtmap validate --spec auth.md --output result.json"
-    result_file: "result.json"
-    threshold: 95  # Percentage completion required (default: 100.0)
+    shell: "debtmap validate --spec auth.md --output result.json" # (1)!
+    result_file: "result.json" # (2)!
+    threshold: 95 # (3)!
     timeout: 60
-    expected_schema: "validation-schema.json"  # Optional JSON schema
+    expected_schema: "validation-schema.json" # (4)!
 
-    # What to do if incomplete
-    on_incomplete:
+    on_incomplete: # (5)!
       claude: "/complete-implementation ${validation.gaps}"
-      max_attempts: 3
+      max_attempts: 3 # (6)!
       fail_workflow: true
       commit_required: true
-      prompt: "Implementation incomplete. Continue?"  # Optional interactive prompt
+      prompt: "Implementation incomplete. Continue?"
 ```
+
+1. Validation command that checks implementation completeness
+2. JSON file where validation results are written
+3. Minimum percentage required (default: 100.0)
+4. Optional JSON schema to validate the result structure
+5. Handler configuration when validation threshold not met
+6. Maximum retry attempts before giving up (default: 2)
 
 **ValidationConfig Fields:**
 - `shell` or `claude` - Single validation command (use `shell`, not deprecated `command`)
