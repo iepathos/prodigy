@@ -2,6 +2,9 @@
 
 This section provides pointers to the source code implementing the retry system. These references are useful for developers who want to understand implementation details, extend the retry functionality, or troubleshoot issues.
 
+!!! tip "Developer Quick Reference"
+    For most retry customization needs, start with `src/cook/retry_v2.rs`. For workflow-level settings, see `src/cook/workflow/error_policy.rs`. Command-level overrides are in `src/config/command.rs`.
+
 ### Core Retry System
 
 #### Enhanced Retry Configuration (`src/cook/retry_v2.rs:14-461`)
@@ -161,6 +164,33 @@ Protection against cascading failures:
   - `Open { until }`: Failing, requests blocked until timeout
   - `HalfOpen`: Testing recovery, limited requests allowed
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: Initialize
+
+    Closed --> Open: Failures >= threshold
+    Open --> HalfOpen: Recovery timeout elapsed
+    HalfOpen --> Closed: Request succeeds
+    HalfOpen --> Open: Request fails
+
+    note right of Closed
+        Normal operation
+        All requests allowed
+    end note
+
+    note right of Open
+        Circuit tripped
+        Requests blocked
+    end note
+
+    note right of HalfOpen
+        Testing recovery
+        Limited requests
+    end note
+```
+
+**Figure**: Circuit breaker state machine showing transitions between Closed, Open, and HalfOpen states.
+
 - **State transitions**:
   - `is_open()` (lines 351-367): Check state and transition from Open to HalfOpen after timeout
   - `record_success()` (lines 369-379): Reset failures, close circuit if in HalfOpen
@@ -214,6 +244,33 @@ println!("Success rate: {}/{}",
 ## Organization by Component
 
 The retry system is organized into logical components:
+
+```mermaid
+graph LR
+    subgraph Configuration["Configuration Layer"]
+        direction LR
+        WF[Workflow Config] --> CMD[Command Override]
+        CMD --> RC[RetryConfig]
+    end
+
+    subgraph Execution["Execution Layer"]
+        direction LR
+        RC --> RE[RetryExecutor]
+        RE --> EM[ErrorMatcher]
+        RE --> CB[CircuitBreaker]
+    end
+
+    subgraph Observability["Observability Layer"]
+        direction LR
+        RE --> RM[RetryMetrics]
+    end
+
+    style Configuration fill:#e1f5ff
+    style Execution fill:#fff3e0
+    style Observability fill:#f3e5f5
+```
+
+**Figure**: Retry system architecture showing configuration flow through execution to observability.
 
 **Core Retry System**:
 - Main retry configuration and execution (src/cook/retry_v2.rs)
