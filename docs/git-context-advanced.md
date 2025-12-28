@@ -22,15 +22,21 @@ Prodigy automatically tracks git changes throughout workflow execution and expos
 
 ```mermaid
 flowchart LR
-    A[Workflow Start] --> B[GitChangeTracker<br/>Initialized]
+    A[Workflow Start] --> B["GitChangeTracker
+    Initialized"]
     B --> C[begin_step]
-    C --> D[Command<br/>Execution]
+    C --> D["Command
+    Execution"]
     D --> E[complete_step]
-    E --> F[StepChanges<br/>Captured]
-    F --> G[Variables Added to<br/>InterpolationContext]
-    G --> H{More<br/>Steps?}
+    E --> F["StepChanges
+    Captured"]
+    F --> G["Variables Added to
+    InterpolationContext"]
+    G --> H{"More
+    Steps?"}
     H -->|Yes| C
-    H -->|No| I[Workflow<br/>Complete]
+    H -->|No| I["Workflow
+    Complete"]
 
     style B fill:#f9f,stroke:#333
     style F fill:#9ff,stroke:#333
@@ -71,6 +77,29 @@ Git tracking is **not** active in:
 - Workflows without git integration
 
 ## Git Context Variables
+
+Git context is available at two scopes: **step-level** (current command) and **workflow-level** (cumulative across all steps).
+
+```mermaid
+flowchart LR
+    subgraph Workflow["Workflow Scope"]
+        direction LR
+        S1["Step 1"] --> S2["Step 2"] --> S3["Step 3"]
+    end
+
+    S1 -.->|"step.files_changed"| S1V["src/main.rs"]
+    S2 -.->|"step.files_changed"| S2V["tests/test.rs"]
+    S3 -.->|"step.files_changed"| S3V["README.md"]
+
+    Workflow -.->|"workflow.files_changed"| WV["src/main.rs
+    tests/test.rs
+    README.md"]
+
+    style Workflow fill:#e1f5ff
+    style WV fill:#e8f5e9
+```
+
+**Figure**: Step variables track changes per command; workflow variables accumulate all changes.
 
 ### Step-Level Variables
 
@@ -136,6 +165,33 @@ Track cumulative changes across all steps:
 ## Shell-Based Filtering and Formatting
 
 Since git context variables are provided as space-separated strings, all filtering and formatting must be done using shell commands. This section shows practical patterns for common tasks.
+
+```mermaid
+flowchart LR
+    Input["${step.files_changed}
+    (space-separated)"] --> TR["tr ' ' '\\n'
+    (to lines)"]
+    TR --> Filter["grep '\.rs$'
+    (filter)"]
+    Filter --> Format{"Output
+    Format?"}
+    Format -->|JSON| JQ["jq -R | jq -s"]
+    Format -->|CSV| CSV["tr '\\n' ','"]
+    Format -->|Lines| Lines["(already lines)"]
+
+    JQ --> JSON["[\"a.rs\",\"b.rs\"]"]
+    CSV --> CSVOut["a.rs,b.rs"]
+    Lines --> LinesOut["a.rs
+    b.rs"]
+
+    style Input fill:#fff3e0
+    style Filter fill:#e1f5ff
+    style JSON fill:#e8f5e9
+    style CSVOut fill:#e8f5e9
+    style LinesOut fill:#e8f5e9
+```
+
+**Figure**: Shell pipeline pattern for filtering and formatting git context variables.
 
 !!! tip "Quick Reference"
 
