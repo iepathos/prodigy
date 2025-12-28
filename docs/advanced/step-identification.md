@@ -2,6 +2,14 @@
 
 Assign unique IDs to steps for explicit output referencing. This is particularly useful in complex workflows where multiple steps produce outputs and you need to reference specific results.
 
+!!! tip "When to Use Step IDs"
+    Step IDs are most valuable when you need to:
+
+    - Reference specific step outputs in conditionals
+    - Pass outputs from one step to another
+    - Implement error handling based on step results
+    - Create multi-step conditional logic
+
 ### Available Step Reference Fields
 
 When you assign an ID to a step, you can reference multiple fields from that step's execution:
@@ -18,7 +26,7 @@ These fields are automatically available for any step with an `id` field. They'r
 
 ### Basic Step IDs with Auto-Captured Fields
 
-```yaml
+```yaml title="Basic step ID usage"
 - shell: "cargo test"
   id: "test-step"
 
@@ -29,13 +37,20 @@ These fields are automatically available for any step with an `id` field. They'r
   when: "${test-step.exit_code != 0}"
 ```
 
-**Note**: The `.output`, `.exit_code`, and `.success` fields are automatically captured for any step with an `id`. You don't need to explicitly configure output capture for these standard fields.
+!!! warning "Step ID Naming Conventions"
+    Step IDs should use alphanumeric characters and hyphens only. Avoid spaces, special characters, and dots in step IDs as they may conflict with field access syntax.
+
+    **Good:** `test-step`, `build`, `lint-check`, `step1`
+    **Avoid:** `test.step`, `build step`, `lint@check`
+
+!!! note
+    The `.output`, `.exit_code`, and `.success` fields are automatically captured for any step with an `id`. You don't need to explicitly configure output capture for these standard fields.
 
 ### Custom Output Fields
 
 For capturing specific files or structured data, use the `outputs` field:
 
-```yaml
+```yaml title="Custom output fields"
 - claude: "/prodigy-code-review"
   id: "review"
   outputs:
@@ -49,7 +64,13 @@ For capturing specific files or structured data, use the `outputs` field:
 
 **Source**: Real example from `src/cook/mod_tests.rs:223-228` and `src/config/command.rs:1049`
 
+!!! note "Standard vs Custom Outputs"
+    **Standard fields** (`.output`, `.exit_code`, `.success`) are automatically captured execution metadata.
+
+    **Custom outputs** with `file_pattern` are resolved as file paths matching the pattern from the step's working directory.
+
 Custom outputs are useful for:
+
 - Capturing generated files (specs, reports, configs)
 - Passing structured data between steps
 - Referencing specific artifacts by name
@@ -60,7 +81,7 @@ Custom outputs are useful for:
 
 Step IDs enable precise control flow using the auto-captured `.exit_code` and `.success` fields:
 
-```yaml
+```yaml title="Conditional execution with step IDs"
 - shell: "cargo test --lib"
   id: "unit-tests"
 
@@ -75,13 +96,13 @@ Step IDs enable precise control flow using the auto-captured `.exit_code` and `.
   when: "${integration-tests.exit_code != 0}"
 ```
 
-**Source**: Conditional evaluation from `src/cook/workflow/conditional_tests.rs:95-97`
+**Source**: Conditional evaluation from `src/cook/workflow/conditional_tests.rs:92-97`
 
 **2. Error Handling with Step-Specific Outputs**
 
 Use step IDs to pass the exact output from a failed step to error handlers:
 
-```yaml
+```yaml title="Error handling with step-specific outputs"
 - shell: "npm run build"
   id: "build"
 
@@ -96,13 +117,13 @@ Use step IDs to pass the exact output from a failed step to error handlers:
   when: "${build.exit_code != 0}"
 ```
 
-**Source**: Real pattern from `src/cook/mod.rs:721` and `src/cook/execution/mapreduce_integration_tests.rs:230`
+**Source**: Pattern derived from `on_failure` handling in `src/cook/mod.rs:717-721` (uses `${shell.output}` for generic step reference)
 
 **3. Multi-Step Conditional Logic**
 
 Combine multiple step results to control workflow execution:
 
-```yaml
+```yaml title="Multi-step conditional logic"
 - shell: "cargo clippy"
   id: "clippy-check"
 
@@ -124,7 +145,7 @@ Combine multiple step results to control workflow execution:
 
 Reference earlier step outputs in later commands, including in `on_failure` handlers:
 
-```yaml
+```yaml title="Passing outputs to subsequent commands"
 - shell: "cargo test"
   id: "test"
   on_failure:
@@ -145,15 +166,14 @@ Step IDs add complexity, so skip them when:
 - **No output references**: If you never reference a step's output, exit code, or success status
 - **Simple sequential execution**: Steps that always run in order without conditionals
 
-**Example of when step IDs are unnecessary:**
+!!! example "When step IDs are unnecessary"
+    ```yaml
+    - shell: "cargo build"
+    - shell: "cargo test"
+    - shell: "cargo clippy"
+    ```
 
-```yaml
-- shell: "cargo build"
-- shell: "cargo test"
-- shell: "cargo clippy"
-```
-
-None of these steps reference each other, so IDs would add no value.
+    None of these steps reference each other, so IDs would add no value.
 
 ### Implementation Details
 
@@ -169,7 +189,10 @@ None of these steps reference each other, so IDs would add no value.
 
 3. Variable resolution happens at runtime when constructing subsequent commands
 
-**Source**: Implementation in `src/cook/expression/mod.rs:187-200` and `src/cook/orchestrator/execution_pipeline.rs:650-654`
+**Source**: Implementation in `src/cook/expression/mod.rs:187-200` (see `set_step_result` function)
+
+!!! info "Related Documentation"
+    For complete variable interpolation syntax and additional variable types, see the [Variables](../workflow-basics/variables.md) documentation.
 
 ### Troubleshooting
 
