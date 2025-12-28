@@ -13,23 +13,34 @@ These variables capture output from the most recently executed command:
 | `${shell.output}` | Output from the last shell command specifically | `echo ${shell.output}` |
 | `${claude.output}` | Output from the last Claude command specifically | `echo ${claude.output}` |
 
-**Note:** Use `${last.output}` when you need output from any command type. Use `${shell.output}` or `${claude.output}` when you specifically want output from that command type.
+!!! tip "Choosing Output Variables"
+    - Use `${last.output}` when you need output from any command type - it's always set after every command
+    - Use `${shell.output}` when you specifically need the shell command output, even if Claude commands ran after
+    - Use `${claude.output}` when you specifically need the Claude response, even if shell commands ran after
 
-**Example:**
+### Output Variable Behavior
+
+The type-specific variables (`shell.output`, `claude.output`) are only updated when their respective command types execute:
+
 ```yaml
+# Source: Example workflow demonstrating output variable scoping
+
+# shell.output is set here
 - shell: "cargo test --lib"
 - shell: "echo 'Test output: ${shell.output}'"
 
-# last.output works with any command type
+# claude.output is set here, shell.output still has test output
 - claude: "/analyze-code"
-- shell: "echo 'Claude analysis: ${last.output}'"
+- shell: "echo 'Claude analysis: ${claude.output}'"
+- shell: "echo 'Original test output still available: ${shell.output}'"
 ```
+
+!!! note "last.output Updates on Every Command"
+    The `${last.output}` variable is updated after every command execution, regardless of type. Use the type-specific variables when you need to preserve output across different command types.
 
 ## Computed Variables
 
 Computed variables are dynamically evaluated at runtime, providing access to external data sources and generated values. These variables are prefixed with specific identifiers that trigger their evaluation.
-
-**Source:** src/cook/execution/variables.rs:100-305
 
 | Variable Type | Syntax | Description | Cached | Example |
 |---------------|--------|-------------|--------|---------|
@@ -40,13 +51,13 @@ Computed variables are dynamically evaluated at runtime, providing access to ext
 | **Date Format** | `${date:format}` | Current date/time with format | No | `${date:%Y-%m-%d}`, `${date:%H:%M:%S}` |
 | **UUID** | `${uuid}` | Generate random UUID v4 | No | `${uuid}` (always unique) |
 
-**Available in:** All phases
+**Available in:** All phases (setup, map, reduce, merge)
 
 ### Environment Variables (`env.*`)
 
 Access environment variables at runtime. Useful for reading system configuration or secrets.
 
-**Source:** src/cook/execution/variables.rs:160-187
+<!-- Source: src/cook/execution/variables.rs - EnvVariable struct at lines 169-196 -->
 
 **Examples:**
 ```yaml
@@ -60,13 +71,14 @@ Access environment variables at runtime. Useful for reading system configuration
 - shell: "curl -H 'Authorization: Bearer ${env.API_TOKEN}' https://api.example.com"
 ```
 
-**Caching:** Environment variable reads are cached for performance (LRU cache, 100 entries).
+!!! info "Caching Behavior"
+    Environment variable reads are cached for performance using an LRU cache (100 entries maximum). This means the value is read once and reused within the same workflow execution.
 
 ### File Content (`file:`)
 
 Read file contents directly into variables. Useful for configuration, templates, or data files.
 
-**Source:** src/cook/execution/variables.rs:189-216
+<!-- Source: src/cook/execution/variables.rs - FileVariable struct at lines 198-225 -->
 
 **Examples:**
 ```yaml
@@ -80,15 +92,17 @@ Read file contents directly into variables. Useful for configuration, templates,
 - shell: "echo '${file:config.json}' | jq '.database.host'"
 ```
 
-**Caching:** File reads are cached (file content is expensive to read repeatedly).
+!!! info "Caching Behavior"
+    File reads are cached because file I/O is expensive. The content is read once and reused within the same workflow execution.
 
-**Note:** File paths are relative to workflow execution directory.
+!!! note "Path Resolution"
+    File paths are relative to the workflow execution directory.
 
 ### Command Output (`cmd:`)
 
 Execute shell commands and capture their output as variable values. Powerful for dynamic configuration.
 
-**Source:** src/cook/execution/variables.rs:218-256
+<!-- Source: src/cook/execution/variables.rs - CommandVariable struct at lines 227-265 -->
 
 **Examples:**
 ```yaml
@@ -105,15 +119,17 @@ Execute shell commands and capture their output as variable values. Powerful for
 - shell: "cargo build --jobs ${cmd:nproc}"
 ```
 
-**Caching:** Command execution results are cached (commands are expensive to execute repeatedly).
+!!! info "Caching Behavior"
+    Command execution results are cached because shell execution is expensive. The command runs once and the result is reused within the same workflow execution.
 
-**Security Warning:** Be cautious with `cmd:` variables in untrusted workflows - they execute arbitrary shell commands.
+!!! warning "Security Consideration"
+    Be cautious with `cmd:` variables in untrusted workflows - they execute arbitrary shell commands. Only use in workflows you control and trust.
 
 ### JSON Path Extraction (`json:`)
 
 Extract values from JSON data using JSONPath syntax. Useful for processing complex JSON structures.
 
-**Source:** src/cook/execution/variables.rs:350-379
+<!-- Source: src/cook/execution/variables.rs - JsonPathVariable struct at lines 362-391 -->
 
 **Syntax:** `${json:path:from:source_variable}`
 
@@ -122,24 +138,29 @@ Extract values from JSON data using JSONPath syntax. Useful for processing compl
 # Extract from captured variable
 - shell: "curl https://api.example.com/data"
   capture_output: "api_response"
-- shell: "echo 'ID: ${json:$.id:from:api_response}'"
+- shell: "echo 'ID: ${json:id:from:api_response}'"
 
-# Extract array element
-- shell: "echo 'First item: ${json:$.items[0].name:from:api_response}'"
+# Extract array element (using dot notation for indices)
+- shell: "echo 'First item: ${json:items.0.name:from:api_response}'"
 
 # Extract nested field
-- shell: "echo 'Author: ${json:$.metadata.author:from:config}'"
+- shell: "echo 'Author: ${json:metadata.author:from:config}'"
+
+# Bracket notation for array access
+- shell: "echo 'Second item: ${json:items[1].name:from:api_response}'"
 ```
 
-**Not Cached:** JSON path extraction is fast and not cached.
+!!! note "Path Syntax"
+    Prodigy uses simple dot-notation path syntax (not full JSONPath with `$`). Use `field.nested.value` for objects and `items.0` or `items[0]` for arrays.
 
-**Requires:** Source variable must contain valid JSON.
+!!! info "Caching"
+    JSON path extraction is **not cached** because parsing is fast and results may change if the source variable is updated.
 
 ### Date Formatting (`date:`)
 
 Generate current date/time with custom formatting using chrono format specifiers.
 
-**Source:** src/cook/execution/variables.rs:278-305
+<!-- Source: src/cook/execution/variables.rs - DateVariable struct at lines 287-314 -->
 
 **Syntax:** `${date:format}` (uses chrono format specifiers)
 
@@ -159,22 +180,26 @@ Generate current date/time with custom formatting using chrono format specifiers
 ```
 
 **Common Format Specifiers:**
-- `%Y` - 4-digit year (2025)
-- `%m` - Month (01-12)
-- `%d` - Day (01-31)
-- `%H` - Hour 24h (00-23)
-- `%M` - Minute (00-59)
-- `%S` - Second (00-59)
-- `%F` - ISO 8601 date (2025-01-15)
-- `%T` - ISO 8601 time (14:30:45)
 
-**Not Cached:** Date values change over time and are not cached.
+| Specifier | Description | Example |
+|-----------|-------------|---------|
+| `%Y` | 4-digit year | 2025 |
+| `%m` | Month (01-12) | 01 |
+| `%d` | Day (01-31) | 15 |
+| `%H` | Hour 24h (00-23) | 14 |
+| `%M` | Minute (00-59) | 30 |
+| `%S` | Second (00-59) | 45 |
+| `%F` | ISO 8601 date | 2025-01-15 |
+| `%T` | ISO 8601 time | 14:30:45 |
+
+!!! info "Caching"
+    Date values are **not cached** because they change over time. Each reference evaluates to the current timestamp.
 
 ### UUID Generation (`uuid`)
 
 Generate a random UUID version 4. Useful for unique identifiers, temporary filenames, or correlation IDs.
 
-**Source:** src/cook/execution/variables.rs:258-276
+<!-- Source: src/cook/execution/variables.rs - UuidVariable struct at lines 267-285 -->
 
 **Examples:**
 ```yaml
@@ -191,36 +216,46 @@ Generate a random UUID version 4. Useful for unique identifiers, temporary filen
 - shell: "cargo test -- --test-id ${uuid}"
 ```
 
-**Not Cached:** Each `${uuid}` reference generates a NEW unique UUID. If you need the same UUID multiple times, capture it first:
+!!! warning "Each Reference Creates a New UUID"
+    Each `${uuid}` reference generates a **NEW** unique UUID. If you need the same UUID multiple times, capture it first:
 
-```yaml
-- shell: "echo '${uuid}'"
-  capture_output: "run_id"
-- shell: "echo 'Run ID: ${run_id}'"  # Same UUID
-- shell: "echo 'Same ID: ${run_id}'" # Still same UUID
-```
+    ```yaml
+    - shell: "echo '${uuid}'"
+      capture_output: "run_id"
+    - shell: "echo 'Run ID: ${run_id}'"  # Same UUID
+    - shell: "echo 'Same ID: ${run_id}'" # Still same UUID
+    ```
 
 ## Computed Variable Caching
 
 Computed variables have different caching behaviors based on their expense and volatility:
 
-**Cached (Expensive Operations):**
-- `env.*` - Environment variable reads
-- `file:*` - File system operations
-- `cmd:*` - Shell command execution
+=== "Cached (Expensive Operations)"
 
-**Not Cached (Fast or Volatile):**
-- `json:*` - JSON parsing is fast
-- `date:*` - Values change over time
-- `uuid` - Must be unique each time
+    | Variable Type | Reason |
+    |---------------|--------|
+    | `env.*` | Environment variable reads |
+    | `file:*` | File system operations |
+    | `cmd:*` | Shell command execution |
+
+=== "Not Cached (Fast or Volatile)"
+
+    | Variable Type | Reason |
+    |---------------|--------|
+    | `json:*` | JSON parsing is fast |
+    | `date:*` | Values change over time |
+    | `uuid` | Must be unique each time |
 
 **Cache Details:**
-- **Type:** LRU (Least Recently Used) cache
-- **Size:** 100 entries maximum
-- **Scope:** Per workflow execution
-- **Thread Safety:** Async RwLock protection
 
-**Source:** src/cook/execution/variables.rs:218-256 (caching implementation)
+| Property | Value |
+|----------|-------|
+| **Type** | LRU (Least Recently Used) cache |
+| **Size** | 100 entries maximum |
+| **Scope** | Per workflow execution |
+| **Thread Safety** | Async RwLock protection |
+
+<!-- Source: src/cook/execution/variables.rs - VariableContext cache implementation -->
 
 ## Workflow Context Variables
 
@@ -247,12 +282,38 @@ Variables providing information about the current execution step:
 
 ## Validation Variables
 
-Variables for workflow validation and completion tracking:
+Variables for workflow validation and completion tracking. These are populated by validation commands and provide feedback on requirement completion.
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `${validation.completion}` | Completion percentage (0-100) | `echo "${validation.completion}%"` |
 | `${validation.gaps}` | Array of missing requirements | `echo '${validation.gaps}'` |
+| `${validation.missing}` | Human-readable list of missing items | `echo "${validation.missing}"` |
 | `${validation.status}` | Status: complete/incomplete/failed | `if [ "${validation.status}" = "complete" ]` |
 
-**Available in:** Validation phases
+!!! note "When Validation Variables Are Available"
+    These variables are only populated **after** a validation command executes. They are typically used in `on_incomplete` handlers to provide context for fix attempts.
+
+**Example with on_incomplete handler:**
+
+```yaml
+# Source: Example validation workflow with gap handling
+validate:
+  command: "cargo test"
+  threshold: 90
+  on_incomplete:
+    - claude: "/prodigy-fix-tests ${validation.gaps}"
+      max_attempts: 3
+      fail_workflow: false
+```
+
+**The `validation.gaps` structure** contains an array of objects describing what's missing:
+
+```json
+[
+  {"requirement": "test coverage", "current": 85, "threshold": 90},
+  {"requirement": "documentation", "missing": ["module_a", "module_b"]}
+]
+```
+
+**Available in:** Validation phases and `on_incomplete` handlers
