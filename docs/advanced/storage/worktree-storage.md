@@ -14,7 +14,55 @@ Git worktrees are created per session:
     └── agent-2/                # MapReduce agent worktree
 ```
 
+```mermaid
+graph TD
+    Repo["Repository Root
+    ~/.prodigy/worktrees/{repo}"] --> Session1["Session Worktree
+    session-abc123"]
+    Repo --> SessionMR["MapReduce Parent
+    session-mapreduce-xyz"]
+    SessionMR --> Agent1["Agent 1
+    agent-1"]
+    SessionMR --> Agent2["Agent 2
+    agent-2"]
+    SessionMR --> AgentN["Agent N
+    agent-n"]
+
+    Agent1 -->|Merge| SessionMR
+    Agent2 -->|Merge| SessionMR
+    AgentN -->|Merge| SessionMR
+
+    style Repo fill:#e8f5e9
+    style Session1 fill:#e1f5ff
+    style SessionMR fill:#e1f5ff
+    style Agent1 fill:#fff3e0
+    style Agent2 fill:#fff3e0
+    style AgentN fill:#fff3e0
+```
+
+**Figure**: Worktree hierarchy showing how MapReduce agents branch from the parent session worktree and merge changes back.
+
 ### Worktree Lifecycle
+
+```mermaid
+graph LR
+    Create["Creation
+    Workflow starts"] --> Execute["Execution
+    Commands run"]
+    Execute --> Persist["Persistence
+    Until merge/cleanup"]
+    Persist --> Success{Merge<br/>Success?}
+    Success -->|Yes| Cleanup["Cleanup
+    Worktree removed"]
+    Success -->|No| Orphan["Orphaned
+    Tracked for later"]
+
+    style Create fill:#e1f5ff
+    style Execute fill:#fff3e0
+    style Persist fill:#f3e5f5
+    style Cleanup fill:#e8f5e9
+    style Orphan fill:#ffebee
+```
 
 1. **Creation**: Worktree created when workflow starts
 2. **Execution**: All commands run in worktree context
@@ -112,6 +160,30 @@ When resuming a workflow:
 2. Prodigy looks for `{id}.json` in the mappings directory
 3. The full mapping is loaded to get both IDs
 4. Resume proceeds with complete session context
+
+```mermaid
+flowchart LR
+    User["User Input"] --> SessionID["prodigy resume
+    session-mapreduce-xyz"]
+    User --> JobID["prodigy resume
+    mapreduce-123"]
+
+    SessionID --> Lookup1["Load
+    session-mapreduce-xyz.json"]
+    JobID --> Lookup2["Load
+    mapreduce-123.json"]
+
+    Lookup1 --> Mapping["Session-Job Mapping
+    (same data)"]
+    Lookup2 --> Mapping
+
+    Mapping --> Resume["Resume Workflow
+    with full context"]
+
+    style User fill:#e1f5ff
+    style Mapping fill:#fff3e0
+    style Resume fill:#e8f5e9
+```
 
 ```bash
 # Resume using session ID
