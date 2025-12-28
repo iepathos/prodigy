@@ -1,0 +1,66 @@
+{
+  "item_type": "page",
+  "page_id": "work-distribution",
+  "page_title": "work distribution",
+  "page_file": "docs/mapreduce/work-distribution.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent comprehensive documentation of work distribution features with accurate code references and examples",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive mermaid diagram showing the complete data pipeline flow",
+    "Accurate source code references throughout (e.g., src/cook/execution/data_pipeline/mod.rs:127-201)",
+    "All documented filter functions (is_null, is_not_null, is_number, is_string, is_bool, is_array, is_object, contains, starts_with, ends_with, length, matches) match the implementation",
+    "Correct pipeline order documented: JSONPath → Filter → Sort → Dedup → Offset → Limit (matches process() implementation at lines 128-204)",
+    "IN operator syntax accurately documented",
+    "Both && and AND, || and OR logical operators correctly documented (lines 124-141 in filter.rs)",
+    "Nested field access with dot notation accurately described",
+    "Null handling behavior correctly documented for deduplication",
+    "NULLS FIRST/LAST sort options properly explained",
+    "MkDocs Material features used effectively (admonitions, code annotations, tips, warnings)",
+    "Multiple real-world example workflows from actual codebase",
+    "Clear troubleshooting section with debugging tips"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference links to related pages (DLQ, checkpoint-resume, overview) for better navigation",
+    "Consider adding a link to the map phase parallelism documentation for max_parallel details",
+    "Could add example showing array index access in filter paths (e.g., tags[0].name) which is supported but not documented",
+    "Consider adding interactive example showing before/after of pipeline transformations"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "JSONPath extraction",
+      "Filtering with boolean expressions",
+      "Sorting by field values",
+      "Deduplication by field",
+      "Offset and limit pagination",
+      "Work distribution pipeline"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_verification": {
+      "filter_functions_verified": [
+        "is_null",
+        "is_not_null",
+        "is_number",
+        "is_string",
+        "is_bool",
+        "is_array",
+        "is_object",
+        "contains",
+        "starts_with",
+        "ends_with",
+        "length",
+        "matches"
+      ],
+      "pipeline_order_verified": true,
+      "logical_operators_verified": ["&&", "AND", "||", "OR", "!"],
+      "comparison_operators_verified": ["==", "!=", ">", "<", ">=", "<=", "="],
+      "in_operator_verified": true,
+      "null_handling_verified": true
+    },
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
