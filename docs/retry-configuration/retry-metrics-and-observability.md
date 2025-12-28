@@ -26,10 +26,14 @@ flowchart TB
     end
 
     subgraph Decision["Retry Decision"]
-        CHECK_CB{Circuit<br/>Breaker<br/>Open?}
-        CHECK_BUDGET{Budget<br/>Remaining?}
-        CHECK_ATTEMPTS{Attempts<br/>Left?}
-        CHECK_ERROR{Retryable<br/>Error?}
+        CHECK_CB{"Circuit Breaker
+        Open?"}
+        CHECK_BUDGET{"Budget
+        Remaining?"}
+        CHECK_ATTEMPTS{"Attempts
+        Left?"}
+        CHECK_ERROR{"Retryable
+        Error?"}
     end
 
     subgraph Actions["Actions"]
