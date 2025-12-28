@@ -38,6 +38,48 @@ Workflow composition allows you to:
 
 These features promote code reuse, maintainability, and consistency across your automation workflows.
 
+```mermaid
+graph LR
+    subgraph Sources["Composition Sources"]
+        direction TB
+        Files["External Files"]
+        Templates["Template Registry"]
+        Base["Base Workflows"]
+    end
+
+    subgraph Features["Composition Features"]
+        direction TB
+        Import["imports:
+        Reference external files"]
+        Extend["extends:
+        Inherit from base"]
+        Template["template:
+        Use registered pattern"]
+        Params["parameters:
+        Type-validated inputs"]
+    end
+
+    subgraph Output["Result"]
+        Final["Composed
+        Workflow"]
+    end
+
+    Files --> Import
+    Templates --> Template
+    Base --> Extend
+
+    Import --> Final
+    Extend --> Final
+    Template --> Final
+    Params --> Final
+
+    style Sources fill:#e1f5ff
+    style Features fill:#fff3e0
+    style Output fill:#e8f5e9
+```
+
+**Figure**: How composition features combine sources into a final workflow.
+
 ### When to Use Composition
 
 !!! info "Composition vs. Direct YAML"
@@ -99,6 +141,37 @@ When a workflow is imported:
 3. If selective is specified, only named workflows are included
 4. Imported workflows are merged into the current workflow's configuration
 5. Circular dependencies are detected and prevented
+
+```mermaid
+flowchart LR
+    Load["Load External
+    File"] --> Parse["Parse
+    YAML"]
+    Parse --> Alias{"Alias
+    specified?"}
+    Alias -->|Yes| NS["Apply
+    Namespace"]
+    Alias -->|No| Select
+    NS --> Select{"Selective
+    import?"}
+    Select -->|Yes| Filter["Filter to
+    Named Items"]
+    Select -->|No| Merge
+    Filter --> Merge["Merge into
+    Workflow"]
+    Merge --> Check{"Circular
+    Dependency?"}
+    Check -->|Yes| Error["Reject
+    Import"]
+    Check -->|No| Done["Import
+    Complete"]
+
+    style Load fill:#e1f5ff
+    style Done fill:#e8f5e9
+    style Error fill:#ffebee
+```
+
+**Figure**: Import processing flow with namespace aliasing and circular dependency detection.
 
 **Implementation**: Import processing in src/cook/workflow/composition/composer.rs:98-133 (`process_imports` function)
 **Circular dependency detection**: src/cook/workflow/composition/composer.rs:56 and validation in `validate_composition` (lines 259-273)
@@ -234,6 +307,24 @@ Templates are stored in `~/.prodigy/templates/` with the following structure:
 ## Implementation Roadmap
 
 This section clarifies what's implemented, what's in progress, and what's planned for workflow composition features.
+
+```mermaid
+graph LR
+    P1["Phase 1
+    Core Engine"] --> P2["Phase 2
+    CLI & Templates"]
+    P2 --> P3["Phase 3
+    Execution Integration"]
+    P3 --> P4["Phase 4
+    Advanced Features"]
+
+    style P1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style P2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style P3 fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    style P4 fill:#ffebee,stroke:#f44336,stroke-width:2px
+```
+
+**Legend**: :white_check_mark: Complete (green) | :hourglass_flowing_sand: Partial (orange) | :x: Planned (red)
 
 ### Phase 1: Core Composition Engine (✅ Complete)
 
