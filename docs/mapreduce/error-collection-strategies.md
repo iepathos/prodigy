@@ -2,6 +2,33 @@
 
 The `error_collection` field controls how errors are reported during workflow execution.
 
+```mermaid
+flowchart LR
+    subgraph Aggregate["Aggregate Strategy"]
+        direction LR
+        A1[Error Occurs] --> A2[Store in Memory] --> A3[Workflow Ends] --> A4[Report All Errors]
+    end
+
+    subgraph Immediate["Immediate Strategy"]
+        direction LR
+        I1[Error Occurs] --> I2[Log Immediately] --> I3[Continue Execution]
+    end
+
+    subgraph Batched["Batched Strategy"]
+        direction LR
+        B1[Error Occurs] --> B2[Add to Buffer] --> B3{Buffer Full?}
+        B3 -->|Yes| B4[Log Batch and Clear]
+        B3 -->|No| B5[Continue]
+        B4 --> B5
+    end
+
+    style Aggregate fill:#e8f5e9
+    style Immediate fill:#fff3e0
+    style Batched fill:#e1f5ff
+```
+
+**Figure**: Error collection strategies showing when errors are logged and reported.
+
 ### Syntax Flexibility
 
 Error collection can be configured in two ways for backward compatibility:
@@ -102,17 +129,10 @@ name: data-processing
 mode: mapreduce
 
 error_policy:
-  # Report errors in batches of 5
-  error_collection: batched:5
-
-  # Send failed items to DLQ instead of failing workflow
-  on_item_failure: dlq
-
-  # Continue processing even if items fail
-  continue_on_failure: true
-
-  # Stop if failure rate exceeds 30%
-  failure_threshold: 0.3
+  error_collection: batched:5  # (1)!
+  on_item_failure: dlq         # (2)!
+  continue_on_failure: true    # (3)!
+  failure_threshold: 0.3       # (4)!
 
 map:
   input: "items.json"
@@ -120,6 +140,11 @@ map:
   agent_template:
     - claude: "/process '${item}'"
 ```
+
+1. Report errors in batches of 5 - balances noise with visibility
+2. Send failed items to Dead Letter Queue for later retry
+3. Continue processing remaining items even when some fail
+4. Stop workflow if more than 30% of items fail
 
 !!! note "Default behavior"
     If `error_collection` is not specified, the default behavior is `aggregate`.
