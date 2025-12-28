@@ -31,30 +31,34 @@ Secrets are defined in a dedicated `secrets:` block (separate from `env:`).
 
 **Source**: `src/config/workflow.rs:24-26` - WorkflowConfig with `secrets: HashMap<String, SecretValue>` field
 
-**Simple Secret Syntax (Recommended for most cases):**
+=== "Simple Syntax (Recommended)"
 
-```yaml
-secrets:
-  # Reference to environment variable
-  API_KEY: "${env:SECRET_API_KEY}"
+    ```yaml
+    secrets:
+      # Reference to environment variable
+      API_KEY: "${env:SECRET_API_KEY}"
 
-  # Direct secret value (not recommended - use env refs instead)
-  DB_PASSWORD: "my-secret-password"
-```
+      # Direct secret value (not recommended - use env refs instead)
+      DB_PASSWORD: "my-secret-password"
+    ```
 
-**Provider-Based Secret Syntax:**
+    Use simple syntax when referencing environment variables or for straightforward secret values.
 
-```yaml
-secrets:
-  API_TOKEN:
-    provider: env
-    key: "GITHUB_TOKEN"
+=== "Provider-Based Syntax"
 
-  AWS_SECRET:
-    provider: aws
-    key: "prod/api/credentials"
-    version: "v1"  # Optional version
-```
+    ```yaml
+    secrets:
+      API_TOKEN:
+        provider: env
+        key: "GITHUB_TOKEN"
+
+      AWS_SECRET:
+        provider: aws
+        key: "prod/api/credentials"
+        version: "v1"  # Optional version
+    ```
+
+    Use provider-based syntax for external secret stores (Vault, AWS) or when you need version control.
 
 **Source**: `src/cook/environment/config.rs:86-96` - SecretValue enum with Simple and Provider variants
 
@@ -228,22 +232,18 @@ MAX_WORKERS=10 prodigy run workflow.yml --profile prod
 name: configurable-mapreduce
 mode: mapreduce
 
-# Basic environment variables
-env:
+env:  # (1)!
   PROJECT_NAME: "data-pipeline"
   VERSION: "1.0.0"
   OUTPUT_DIR: "output"
 
-# Secrets (masked in logs)
-secrets:
+secrets:  # (2)!
   API_KEY: "${env:SECRET_API_KEY}"
 
-# Environment files
-env_files:
+env_files:  # (3)!
   - ".env"
 
-# Multi-environment profiles
-profiles:
+profiles:  # (4)!
   dev:
     MAX_WORKERS: "5"
     API_URL: "http://localhost:3000"
@@ -257,14 +257,14 @@ profiles:
 setup:
   timeout: 300
   commands:
-    - shell: "echo Processing $PROJECT_NAME v$VERSION"
+    - shell: "echo Processing $PROJECT_NAME v$VERSION"  # (5)!
     - shell: "mkdir -p $OUTPUT_DIR"
-    - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $API_URL/init"
+    - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $API_URL/init"  # (6)!
 
 map:
   input: "items.json"
   json_path: "$[*]"
-  max_parallel: ${MAX_WORKERS}
+  max_parallel: ${MAX_WORKERS}  # (7)!
   agent_template:
     - claude: "/process ${item} --project $PROJECT_NAME"
     - shell: "curl -H 'Authorization: Bearer ${API_KEY}' $API_URL/items"
@@ -273,6 +273,14 @@ reduce:
   - claude: "/summarize ${map.results} --project $PROJECT_NAME"
   - shell: "cp summary.json $OUTPUT_DIR/${PROJECT_NAME}-summary.json"
 ```
+
+1. **Base environment** - Static variables available throughout the workflow
+2. **Secrets** - Automatically masked in logs, events, and checkpoints
+3. **Environment files** - Loaded in order; later files override earlier ones
+4. **Profiles** - Activate with `--profile dev` or `--profile prod`
+5. **Simple syntax** - Use `$VAR` for basic variable expansion
+6. **Bracketed syntax** - Use `${VAR}` when embedding in strings or paths
+7. **Dynamic configuration** - Control parallelism from profile variables
 
 **Source**: Based on `workflows/mapreduce-env-example.yml:1-94` with structure validated against `src/config/mapreduce.rs:15-82`
 
