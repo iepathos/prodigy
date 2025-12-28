@@ -1,0 +1,127 @@
+{
+  "item_type": "page",
+  "page_id": "error-context-migration-guide",
+  "page_title": "error context migration guide",
+  "page_file": "docs/error-context-migration-guide.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is technically accurate but incomplete - missing coverage of Stillwater's ContextError pattern used in cook module and lacks MkDocs Material visual enhancements",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Key Concepts",
+      "description": "Missing documentation for Stillwater's ContextError<E> pattern used in cook module",
+      "current_content": "Documentation only covers ProdigyError.context() pattern",
+      "should_include": "The codebase has TWO distinct context patterns: 1) ProdigyError.context() in src/error/ module, 2) Stillwater's ContextError<E> with ResultExt trait in src/cook/error/ module. The cook module uses a different import: `use prodigy::cook::error::{ResultExt, ContextResult}` with methods like `.context()` and `.with_context()` that wrap errors in ContextError<E>.",
+      "fix_suggestion": "Add a section explaining that there are two error context patterns in the codebase and when to use each: ProdigyError.context() for general error handling and cook::error::ResultExt for cook module operations",
+      "source_reference": "src/cook/error/ext.rs:20-81"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Migration Patterns",
+      "description": "Pattern 3 uses .with_context() inconsistently with actual implementation",
+      "current_content": "Line 139 shows `.map_err(|e| e.with_context(format!(...)))` but line 143 shows `.map_err(|e| e.context(...))`",
+      "should_be": "The implementation (src/error/mod.rs:522-536) shows `.with_context()` takes a Display and modifies the message string inline, while `.context()` (line 539-557) adds to a context chain. The example mixes these inconsistently.",
+      "fix_suggestion": "Clarify that `.with_context()` is the legacy method that modifies the message, while `.context()` is the preferred method that adds to the context chain. Update Pattern 3 to use consistent method calls.",
+      "source_reference": "src/error/mod.rs:522-557"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Getting Help",
+      "description": "Documentation references 'docs/specs/' which does not exist",
+      "current_content": "See the migration guide in `docs/specs/` for comprehensive examples.",
+      "should_be": "The docs/specs/ directory does not exist. The migration guide IS this document.",
+      "fix_suggestion": "Remove or update the reference to docs/specs/ - this is a self-referential or orphaned link",
+      "source_reference": null
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Key Concepts",
+      "description": "Missing documentation for ErrorExt trait helper methods",
+      "current_content": "Only shows .context() method usage",
+      "should_include": "The ErrorExt trait (src/error/helpers.rs:5-14) provides convenient conversion methods: .to_prodigy(), .to_config_error(), .to_storage_error(), .to_execution_error(), .to_session_error(). These are shown in migration_example.rs but not documented in this guide.",
+      "fix_suggestion": "Add a section documenting the ErrorExt trait and its convenience methods for error type conversion",
+      "source_reference": "src/error/helpers.rs:5-39"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Key Concepts",
+      "description": "Missing documentation for prodigy_error! macro",
+      "current_content": "No mention of the macro",
+      "should_include": "The prodigy_error! macro (src/error/helpers.rs:121-152) provides quick error creation: `prodigy_error!(config: \"message\")` or `prodigy_error!(storage: \"message\", source_error)`. This is demonstrated in migration_example.rs:87-98.",
+      "fix_suggestion": "Add a section documenting the prodigy_error! macro for quick error creation",
+      "source_reference": "src/error/helpers.rs:121-152"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Key Concepts",
+      "description": "Missing documentation for .context_at() method with source location tracking",
+      "current_content": "Only mentions .context() without location tracking",
+      "should_include": "The .context_at() method (src/error/mod.rs:560-580) automatically captures the caller's source file location using #[track_caller], providing better debugging context.",
+      "fix_suggestion": "Add a subsection explaining .context_at() for location-tracked context",
+      "source_reference": "src/error/mod.rs:560-580"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire Document",
+      "description": "Document lacks MkDocs Material visual enhancements",
+      "current_content": "Plain markdown without admonitions, tabs, or code annotations",
+      "should_include": "MkDocs Material features like admonitions (tip, warning, info), tabbed code examples for before/after patterns, and code block annotations for key concepts",
+      "fix_suggestion": "Enhance with: 1) Warning admonition for common mistakes, 2) Tip admonitions for best practices, 3) Tabbed examples for before/after migration patterns, 4) Info admonitions for key concepts like effect boundaries",
+      "source_reference": null
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of effect boundaries concept",
+    "Good before/after migration pattern examples",
+    "Practical code examples showing real usage patterns",
+    "Comprehensive 'Common Mistakes to Avoid' section with good/bad examples",
+    "Well-structured gradual migration strategy with phases",
+    "Testing section shows how to verify context preservation",
+    "Referenced source files (migration_example.rs, error_context_preservation_test.rs) all exist and match documentation",
+    "The ProdigyError.context() pattern is accurately documented"
+  ],
+  "improvement_suggestions": [
+    "Add section explaining the two error context patterns (ProdigyError vs Stillwater ContextError)",
+    "Document ErrorExt trait convenience methods",
+    "Add prodigy_error! macro documentation",
+    "Document .context_at() for location tracking",
+    "Enhance with MkDocs Material features (admonitions, tabs, code annotations)",
+    "Fix orphaned reference to docs/specs/",
+    "Add cross-reference to Stillwater documentation for ContextError pattern",
+    "Consider adding a decision flowchart for when to use each error pattern"
+  ],
+  "cross_references": [
+    "stillwater-patterns",
+    "stillwater-validation-migration",
+    "troubleshooting"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "error handling",
+      "context chaining",
+      "migration patterns",
+      "ProdigyError",
+      "effect boundaries"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "spec_reference": "Spec 165",
+    "related_source_files": [
+      "src/error/mod.rs",
+      "src/error/helpers.rs",
+      "src/error/migration_example.rs",
+      "src/cook/error/mod.rs",
+      "src/cook/error/ext.rs",
+      "tests/error_context_preservation_test.rs"
+    ]
+  }
+}
