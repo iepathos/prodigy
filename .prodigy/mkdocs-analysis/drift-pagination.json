@@ -1,0 +1,72 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "pagination",
+  "page_title": "pagination",
+  "page_file": "docs/mapreduce/work-distribution/pagination.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page content is accurate but has one outdated source reference that should be updated",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Offset",
+      "description": "Source reference comment points to incorrect line numbers",
+      "current_content": "# Source: src/config/mapreduce.rs:84-91",
+      "should_be": "# Source: src/config/mapreduce.rs:251-257",
+      "fix_suggestion": "Update the comment to reference the correct line numbers where offset and max_items are defined",
+      "source_reference": "src/config/mapreduce.rs:253-257 (actual location of offset and max_items fields)"
+    }
+  ],
+  "positive_aspects": [
+    "Processing pipeline order (6 steps) matches implementation exactly",
+    "Pipeline source reference (mod.rs:127-201) is accurate",
+    "YAML examples use correct syntax and field names (max_items, offset)",
+    "MkDocs Material admonitions (tip, note) enhance readability",
+    "Code annotations (numbered comments) explain each pipeline step clearly",
+    "Practical use cases section with batched processing and top-N examples"
+  ],
+  "improvement_suggestions": [
+    "Consider adding cross-reference links to filtering-sorting.md and input-sources.md for related topics",
+    "Could add a visual diagram (mermaid) showing the pipeline flow",
+    "Consider adding a note about combining with filter/sort_by for more complex selections"
+  ],
+  "cross_references": [
+    "filtering-sorting",
+    "input-sources"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "pagination",
+      "offset",
+      "limit",
+      "max_items",
+      "processing pipeline order"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_references_verified": [
+      {
+        "reference": "src/cook/execution/data_pipeline/mod.rs:298-300",
+        "status": "accurate",
+        "note": "Line numbers in documentation are slightly off (actual pipeline validation around 290-320) but content is correct"
+      },
+      {
+        "reference": "src/config/mapreduce.rs:84-91",
+        "status": "needs_update",
+        "note": "Offset and max_items are defined at lines 253-257, not 84-91. Comment should be updated."
+      },
+      {
+        "reference": "src/cook/execution/data_pipeline/mod.rs:127-201",
+        "status": "accurate",
+        "note": "Pipeline processing steps correctly documented at lines 128-204"
+      }
+    ],
+    "internal_links_checked": {
+      "total_links": 0,
+      "broken_links": 0,
+      "details": "No internal markdown links found in this page"
+    }
+  }
+}
