@@ -158,6 +158,43 @@ Gap reports vary based on the analysis outcome. Below are examples for different
     }
     ```
 
+## Gap Severity and Actions
+
+The gap detection system categorizes findings and takes appropriate actions based on severity:
+
+```mermaid
+flowchart LR
+    subgraph Detection["Gap Detection"]
+        A[Analyze Feature] --> B{Documented?}
+    end
+
+    subgraph Classification["Classification"]
+        B -->|No| C[Missing Chapter]
+        B -->|Partial| D[Missing Subsection]
+        B -->|Yes| E{Structure OK?}
+        E -->|No| F[Structure Mismatch]
+        E -->|Yes| G[Fully Documented]
+    end
+
+    subgraph Actions["Actions Taken"]
+        C --> H[Create Stub File]
+        C --> I[Add to SUMMARY.md]
+        D --> J[Create Subsection]
+        F --> K[Auto-Migrate Structure]
+        G --> L[No Action Needed]
+    end
+
+    style C fill:#ffcdd2
+    style D fill:#fff3e0
+    style F fill:#fff9c4
+    style G fill:#c8e6c9
+```
+
+!!! info "Severity Levels"
+    - **High**: Missing chapter - feature has no documentation coverage
+    - **Medium**: Missing subsection - feature partially documented but needs expansion
+    - **Low**: Structure mismatch - documentation exists but needs reorganization
+
 ## Execution Progress
 
 When gap detection runs, it displays progress through multiple phases:
@@ -267,6 +304,9 @@ Next Steps:
     ```
 
     Error details are added to the gap report for debugging.
+
+!!! tip "Idempotent Operation"
+    Gap detection is designed to be idempotent - running it multiple times produces the same result. Already-documented features are skipped, and existing stub files are preserved. This makes it safe to run as part of automated CI/CD pipelines.
 
 ## Testing
 
