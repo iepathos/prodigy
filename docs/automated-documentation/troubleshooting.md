@@ -4,6 +4,41 @@ This guide helps you diagnose and fix issues when running automated MkDocs docum
 
 **Source**: Based on `workflows/mkdocs-drift.yml` MapReduce workflow implementation and command definitions in `.claude/commands/prodigy-*-mkdocs*.md`
 
+```mermaid
+flowchart LR
+    subgraph Setup["Setup Phase"]
+        direction TB
+        S1[Analyze Codebase] --> S2[Detect Gaps]
+        S2 --> S3[Generate Work Items]
+    end
+
+    subgraph Map["Map Phase"]
+        direction TB
+        M1[Analyze Drift] --> M2[Fix Pages]
+        M2 --> M3[Validate Changes]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction TB
+        R1[Build Documentation] --> R2[Validate Structure]
+        R2 --> R3[Cleanup]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+
+    Setup -.->|"Failures: config, gaps"| DLQ[Dead Letter Queue]
+    Map -.->|"Failures: validation, drift"| DLQ
+    Reduce -.->|"Failures: build, links"| DLQ
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style DLQ fill:#ffebee
+```
+
+**Figure**: Workflow phases and their failure points. Failed items go to the DLQ for retry.
+
 ## Common Issues by Phase
 
 ### Setup Phase Issues
@@ -147,11 +182,24 @@ cat .prodigy/mkdocs-analysis/features.json | jq 'keys'
 - System resource exhaustion (disk space, memory)
 
 **Solution**:
-```bash
-# 1. Check system resources
-df -h  # Disk space
-free -h  # Memory (Linux) or vm_stat (macOS)
 
+=== "Linux"
+    ```bash
+    # Check system resources
+    df -h       # Disk space
+    free -h     # Memory usage
+    top -b -n1  # CPU and processes
+    ```
+
+=== "macOS"
+    ```bash
+    # Check system resources
+    df -h       # Disk space
+    vm_stat     # Memory usage
+    top -l 1    # CPU and processes
+    ```
+
+```bash
 # 2. Review error collection
 prodigy events ls --job-id <job_id> --event-type AgentFailed
 
@@ -367,6 +415,22 @@ prodigy events search "error" --job-id <job_id>
 ### Checking Dead Letter Queue (DLQ)
 
 Failed work items are sent to the DLQ for review and retry:
+
+```mermaid
+flowchart LR
+    Fail[Agent Fails] --> List["prodigy dlq list"]
+    List --> Inspect["prodigy dlq inspect"]
+    Inspect --> Analyze{Fixable?}
+    Analyze -->|Yes| Fix[Fix Configuration]
+    Analyze -->|No| Skip[Mark as Skipped]
+    Fix --> Retry["prodigy dlq retry"]
+    Retry --> Success{Success?}
+    Success -->|Yes| Done[Complete]
+    Success -->|No| Inspect
+
+    style Fail fill:#ffebee
+    style Done fill:#e8f5e9
+```
 
 ```bash
 # List all failed items for a job
