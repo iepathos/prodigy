@@ -13,7 +13,8 @@ The work distribution system processes data through a multi-stage pipeline:
 5. **Deduplication** - Remove duplicate items
 6. **Pagination** - Apply offset and limit for testing or batching
 
-Each stage is optional and can be configured independently to build the exact work distribution strategy you need.
+!!! tip "Configurable Pipeline"
+    Each stage is optional and can be configured independently. You can use any combination of stages to build the exact work distribution strategy you need.
 
 ```mermaid
 flowchart LR
@@ -35,9 +36,35 @@ flowchart LR
     style Agents fill:#ffebee
 ```
 
-**Figure**: Work distribution pipeline showing data flow from input source through transformation stages to parallel agents.
+**Figure**: Work distribution pipeline showing data flow from input source through transformation stages to parallel agents. Implementation: [`DataPipeline.process()`](https://github.com/prodigy/src/cook/execution/data_pipeline/mod.rs#L129-L193).
+
+!!! warning "Pipeline Order Matters"
+    Stages execute in a fixed order: filter → sort → deduplicate → offset → limit. This means filtering happens before sorting, and deduplication sees the sorted results. Plan your configuration accordingly.
+
+## Quick Example
+
+!!! example "Minimal Configuration"
+    A minimal map phase configuration demonstrating work distribution:
+
+```yaml title="Minimal work distribution configuration"
+# Source: workflows/mapreduce-example.yml
+map:
+  input: items.json           # Input source (Step 1)
+  json_path: "$.items[*]"     # JSONPath extraction (Step 2)
+  filter: "priority == 'high'" # Filtering (Step 3)
+  sort_by: "created_at DESC"  # Sorting (Step 4)
+  distinct: "id"              # Deduplication (Step 5)
+  limit: 100                  # Pagination (Step 6)
+  max_parallel: 10
+
+  agent_template:
+    - claude: "/process ${item.name}"
+```
 
 ## Subpages
+
+!!! note "Detailed Documentation"
+    Each pipeline stage has dedicated documentation. Start with **Input Sources** to understand data loading, then explore filtering, sorting, and pagination as needed.
 
 This section is organized into the following pages:
 
