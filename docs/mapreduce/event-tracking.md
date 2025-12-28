@@ -131,26 +131,32 @@ Each event is wrapped in an `EventRecord` with rich metadata:
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "550e8400-e29b-41d4-a716-446655440000", // (1)!
   "timestamp": "2024-01-01T12:00:00Z",
-  "correlation_id": "workflow-abc123",
+  "correlation_id": "workflow-abc123", // (2)!
   "event": {
-    "event_type": "agent_completed",
+    "event_type": "agent_completed", // (3)!
     "job_id": "mapreduce-xyz789",
     "agent_id": "agent-1",
     "item_id": "item-1",
     "duration": { "secs": 45, "nanos": 0 },
     "cleanup_status": "Success",
     "commits": ["a1b2c3d"],
-    "json_log_location": "/home/user/.local/state/claude/logs/session-xyz.json"
+    "json_log_location": "/home/user/.local/state/claude/logs/session-xyz.json" // (4)!
   },
-  "metadata": {
+  "metadata": { // (5)!
     "host": "worker-01",
     "pid": 12345,
     "thread": "tokio-runtime-worker"
   }
 }
 ```
+
+1. Unique UUID for deduplication and tracing
+2. Links all events from the same workflow execution
+3. Tagged enum discriminator - determines event-specific fields
+4. Path to full Claude JSON log for debugging
+5. Extensible runtime context - add custom fields via `log_with_metadata`
 
 !!! note "Serialization Format"
     The `event_type` field is serialized using serde's tagged enum format (`#[serde(tag = "event_type", rename_all = "snake_case")]`), which means it appears as a sibling field alongside other event-specific fields within the `event` object.
@@ -173,6 +179,31 @@ Each event is wrapped in an `EventRecord` with rich metadata:
 **Format:**
 Events are stored in JSONL (JSON Lines) format with one event per line.
 
+#### Buffering and Rotation Flow
+
+```mermaid
+flowchart LR
+    subgraph Buffering["In-Memory Buffer"]
+        direction LR
+        E1[Event 1] --> B["Buffer
+        (max 1000)"]
+        E2[Event 2] --> B
+        EN[Event N] --> B
+    end
+
+    B -->|"Flush Trigger"| F{"Flush
+    Condition"}
+    F -->|"Buffer Full"| W[Write to Disk]
+    F -->|"5s Interval"| W
+    F -->|"Shutdown"| W
+
+    W --> File["events-{ts}.jsonl"]
+    File -->|"Size > 100MB"| R[Rotate]
+    R --> Archived["events-{ts}.jsonl.rotated"]
+```
+
+**Figure**: Event buffering flow showing in-memory collection, flush triggers, and file rotation.
+
 **Buffering:**
 
 - Events are buffered in memory before being written to disk
@@ -182,6 +213,9 @@ Events are stored in JSONL (JSON Lines) format with one event per line.
 - Buffer size and flush interval are configurable
 
 **Source**: EventLogger configuration in `src/cook/execution/events/event_logger.rs:44-45`
+
+!!! tip "Performance Consideration"
+    Buffering reduces disk I/O during high-throughput MapReduce jobs. Events are guaranteed to flush on graceful shutdown, but an unexpected crash may lose buffered events.
 
 **File Rotation:**
 
