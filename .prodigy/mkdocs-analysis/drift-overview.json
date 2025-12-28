@@ -1,0 +1,66 @@
+{
+  "item_type": "page",
+  "page_id": "overview",
+  "page_title": "overview",
+  "page_file": "docs/automated-documentation/gap-detection/overview.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has accurate content but contains inaccurate source file line references that could mislead users trying to verify details. Missing MkDocs Material visual enhancements.",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "medium",
+      "section": "Overview",
+      "description": "Workflow file line reference is inaccurate",
+      "current_content": "(workflows/book-docs-drift.yml:31-34)",
+      "should_be": "(workflows/book-docs-drift.yml:31-35)",
+      "fix_suggestion": "Update line reference to correctly span the setup phase gap detection command",
+      "source_reference": "workflows/book-docs-drift.yml:31-35"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "medium",
+      "section": "Gap Severity Classification",
+      "description": "Command file line reference for severity classification is inaccurate",
+      "current_content": "(.claude/commands/prodigy-detect-documentation-gaps.md:66-112)",
+      "should_be": "(.claude/commands/prodigy-detect-documentation-gaps.md:57-97)",
+      "fix_suggestion": "Update to reflect actual line numbers where severity classification logic is defined",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:57-97"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire page",
+      "description": "Page lacks MkDocs Material visual enhancements",
+      "current_content": "Standard markdown without visual features",
+      "should_be": "Enhanced with admonitions, code annotations, and other Material features",
+      "fix_suggestion": "Add admonitions for important notes (e.g., tip for severity classification, warning for high severity gaps), add code annotations to YAML examples, consider tabs for different severity levels"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of gap detection functionality in 7-step overview",
+    "Accurate command usage example with proper parameter syntax",
+    "Well-structured severity classification with clear criteria for High, Medium, and Low",
+    "Good integration with workflow context showing setup phase placement",
+    "Comprehensive coverage of all severity levels with actionable recommendations",
+    "Good use of JSON examples for gap report structure"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions to highlight important concepts",
+    "Consider using tabs to show severity levels in a more interactive format",
+    "Add code annotations to the YAML workflow examples",
+    "Verify all source file line references are accurate and update as needed",
+    "Add a visual diagram showing the gap detection flow using Mermaid"
+  ],
+  "cross_references": [
+    "validation-phases",
+    "topic-normalization",
+    "gap-report"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:22:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["gap detection", "severity classification", "feature coverage analysis"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
