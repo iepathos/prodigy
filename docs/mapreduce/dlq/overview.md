@@ -46,6 +46,23 @@ flowchart TD
 
 DLQ data is stored in the global Prodigy directory using this structure:
 
+```mermaid
+graph LR
+    Global["~/.prodigy/dlq/"] --> Repo["{repo_name}/"]
+    Repo --> Job["{job_id}/"]
+    Job --> MR["mapreduce/dlq/{job_id}/"]
+    MR --> Items["items/"]
+    MR --> Index["index.json"]
+    Items --> Item1["item-123.json"]
+    Items --> Item2["item-456.json"]
+
+    style Global fill:#e1f5ff
+    style Items fill:#fff3e0
+    style Index fill:#e8f5e9
+```
+
+**Figure**: DLQ storage hierarchy showing path from global storage to individual item files.
+
 ```
 ~/.prodigy/dlq/{repo_name}/{job_id}/mapreduce/dlq/{job_id}/
 ├── items/                  # Individual item files
@@ -63,10 +80,13 @@ For example:
 └── index.json
 ```
 
+!!! note "Backward Compatibility"
+    The redundant `mapreduce/dlq/{job_id}` subdirectory structure is maintained for backward compatibility with earlier DLQ implementations. This ensures existing DLQ data remains accessible after upgrades.
+
 **Storage Implementation**:
+
 - `GlobalStorage` provides the base path: `~/.prodigy/dlq/{repo_name}/{job_id}` (src/storage/global.rs:47)
 - `DLQStorage` adds subdirectories: `mapreduce/dlq/{job_id}` (src/cook/execution/dlq.rs:529)
-  - **Note**: The redundant `mapreduce/dlq/{job_id}` subdirectory structure is maintained for backward compatibility with earlier DLQ implementations. This ensures existing DLQ data remains accessible after upgrades.
 - Each failed item is stored as a separate JSON file in the `items/` directory (src/cook/execution/dlq.rs:536)
 - File naming: `{item_id}.json` (e.g., `item-123.json`)
 - `index.json` maintains a list of all item IDs and metadata for fast lookups (src/cook/execution/dlq.rs:608-637)
@@ -136,21 +156,30 @@ Each failed item in the DLQ is stored as a `DeadLetteredItem` with comprehensive
 - `failure_count`: Number of failed attempts (u32)
 - `failure_history`: Array of `FailureDetail` objects capturing each attempt
 - `error_signature`: Simplified error pattern for grouping similar failures
+
+!!! tip "Using Error Signatures"
+    Error signatures help identify systemic issues. When multiple items share the same signature, investigate the root cause rather than retrying each individually.
+
 - `reprocess_eligible`: Whether item can be retried automatically
 - `manual_review_required`: Whether item needs human intervention
 - `worktree_artifacts`: Captured state from failed agent's worktree (Optional)
 
 ### Failure Detail Fields
 
-Each attempt in `failure_history` is a `FailureDetail` object (src/cook/execution/dlq.rs:46-59):
+Each attempt in `failure_history` is a `FailureDetail` object (src/cook/execution/dlq.rs:46-62):
 
 ```json
-# Source: src/cook/execution/dlq.rs:46-59 (FailureDetail struct)
+# Source: src/cook/execution/dlq.rs:46-62 (FailureDetail struct)
 {
   "attempt_number": 1,
   "timestamp": "2025-01-11T10:30:00Z",
   "error_type": { "CommandFailed": { "exit_code": 101 } },
   "error_message": "cargo test failed with exit code 101",
+  "error_context": [
+    "Processing work item item-123",
+    "Executing agent commands",
+    "Running shell command: cargo test"
+  ],
   "stack_trace": "thread 'main' panicked at src/main.rs:42...",
   "agent_id": "agent-1",
   "step_failed": "claude: /process '${item}'",
@@ -164,6 +193,7 @@ Each attempt in `failure_history` is a `FailureDetail` object (src/cook/executio
 - `timestamp`: When this attempt occurred (DateTime<Utc>)
 - `error_type`: Error classification (see Error Types below)
 - `error_message`: Human-readable error description
+- `error_context`: Full error context trail showing operation stack (Optional). This field contains a list of context strings that trace the operation path leading to the failure, making it easier to understand where in the workflow the error occurred.
 - `stack_trace`: Optional detailed stack trace
 - `agent_id`: ID of the agent that failed
 - `step_failed`: Command string that failed (e.g., "shell: cargo test")
@@ -172,7 +202,7 @@ Each attempt in `failure_history` is a `FailureDetail` object (src/cook/executio
 
 #### Error Types
 
-The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-71):
+The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:65-78):
 
 === "Execution Errors"
     **`Timeout`**: Agent execution exceeded timeout limit
@@ -193,6 +223,17 @@ The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-7
 
     Common when multiple agents modify the same files.
 
+    **`CommitValidationFailed`**: Required commit was not created
+
+    Occurs when a command has `commit_required: true` but the agent completes without creating any commits (Spec 163). The HEAD SHA is checked before and after command execution to detect new commits.
+
+    !!! tip "Handling CommitValidationFailed"
+        Check your agent template to ensure the command creates a commit. Common causes:
+
+        - Agent made changes but forgot to commit
+        - Pre-commit hooks rejected the commit
+        - No changes were made (nothing to commit)
+
 === "System Errors"
     **`ResourceExhausted`**: System resources (memory, disk) exhausted
 
@@ -202,7 +243,7 @@ The `error_type` field uses the `ErrorType` enum (src/cook/execution/dlq.rs:62-7
 
 ### Worktree Artifacts
 
-The `WorktreeArtifacts` structure captures the agent's execution environment (src/cook/execution/dlq.rs:74-80):
+The `WorktreeArtifacts` structure captures the agent's execution environment (src/cook/execution/dlq.rs:81-87):
 
 - `worktree_path`: Path to agent's isolated worktree (PathBuf)
 - `branch_name`: Git branch created for agent (String)
