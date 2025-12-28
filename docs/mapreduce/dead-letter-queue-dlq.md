@@ -486,23 +486,13 @@ map:
 
 ### Failure Flow
 
-```
-Work Item Processing
-       ↓
-   Command Failed
-       ↓
-  Retry Attempts (if configured)
-       ↓
-   Still Failing?
-       ↓
-on_item_failure: dlq
-       ↓
-Create DeadLetteredItem
-       ↓
-Save to ~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/items/{item_id}.json
-       ↓
-Continue Processing Other Items
-```
+The DLQ failure flow is illustrated in the diagram at the [top of this page](#overview). When a work item fails:
+
+1. **Retry attempts** are made based on the configured retry policy
+2. **After exhausting retries**, the `on_item_failure` policy determines the next action
+3. **With `dlq` policy** (default), a `DeadLetteredItem` is created with full failure context
+4. **The item is saved** to `~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/items/{item_id}.json`
+5. **Processing continues** with remaining work items
 
 ## Best Practices
 
