@@ -4,9 +4,67 @@
 
 This document maps specific Prodigy architectural problems to Stillwater solutions.
 
+```mermaid
+graph LR
+    subgraph Problems["Prodigy Problems"]
+        P1["Sequential Validation"]
+        P2["Coupled I/O"]
+        P3["Generic Errors"]
+        P4["Mixed State"]
+        P5["Duplicated Logic"]
+    end
+
+    subgraph Patterns["Stillwater Patterns"]
+        S1["Validation&lt;T, E&gt;"]
+        S2["Effect&lt;T, E, Env&gt;"]
+        S3["ContextError&lt;E&gt;"]
+        S4["Pure Functions"]
+        S5["Semigroup"]
+    end
+
+    subgraph Benefits["Benefits"]
+        B1["All Errors at Once"]
+        B2["Testable Logic"]
+        B3["Full Context Trail"]
+        B4["Immutable Updates"]
+        B5["Composable Ops"]
+    end
+
+    P1 --> S1 --> B1
+    P2 --> S2 --> B2
+    P3 --> S3 --> B3
+    P4 --> S4 --> B4
+    P5 --> S5 --> B5
+
+    style Problems fill:#ffebee
+    style Patterns fill:#e1f5ff
+    style Benefits fill:#e8f5e9
+```
+
 ---
 
 ## 1. Error Accumulation: Work Item Validation
+
+```mermaid
+graph LR
+    subgraph FailFast["Fail-Fast (Current)"]
+        direction LR
+        FF1["Item 1"] -->|"Error"| FFStop["STOP"]
+        FF2["Item 2"] -.->|"Not checked"| FFSkip["..."]
+        FF3["Item N"] -.->|"Not checked"| FFSkip
+    end
+
+    subgraph Accumulate["Accumulating (Stillwater)"]
+        direction LR
+        AC1["Item 1"] -->|"Error 1"| ACCollect["Collect All"]
+        AC2["Item 2"] -->|"OK"| ACCollect
+        AC3["Item N"] -->|"Error 2"| ACCollect
+        ACCollect --> ACReport["Report All Errors"]
+    end
+
+    style FFStop fill:#ffebee
+    style ACReport fill:#e8f5e9
+```
 
 !!! warning "Current Problem"
 
@@ -89,6 +147,31 @@ pub fn validate_and_load_items(path: &Path) -> Result<Vec<ValidWorkItem>> {
 ---
 
 ## 2. Testability: Orchestrator Without Mocks
+
+```mermaid
+graph TD
+    subgraph Shell["Imperative Shell (I/O)"]
+        Entry["run_workflow()"] --> Effect["Effect::run()"]
+        Effect --> SM["SessionManager"]
+        Effect --> Git["GitOperations"]
+        Effect --> Exec["CommandExecutor"]
+    end
+
+    subgraph Core["Pure Core (Testable)"]
+        Classify["classify_workflow()"]
+        Validate["validate_config()"]
+        NextStep["next_step()"]
+        Complete["is_complete()"]
+    end
+
+    Entry -.->|"calls"| Classify
+    Entry -.->|"calls"| Validate
+    Effect -.->|"uses"| NextStep
+    Effect -.->|"uses"| Complete
+
+    style Shell fill:#fff3e0
+    style Core fill:#e8f5e9
+```
 
 !!! warning "Current Problem"
 
@@ -298,6 +381,30 @@ async fn test_workflow_handles_git_failure() {
 
 ## 3. Error Context: Debugging MapReduce Failures
 
+```mermaid
+graph LR
+    subgraph Trail["Context Trail (ContextError)"]
+        direction LR
+        Root["File not found"]
+        C1["Executing commands"]
+        C2["Processing item-42"]
+        C3["Map phase job-123"]
+        Root --> C1 --> C2 --> C3
+    end
+
+    subgraph Display["Error Display"]
+        Msg["Error: File not found
+        → Executing commands for item-42
+        → Processing work item item-42
+        → Executing map phase job-123"]
+    end
+
+    Trail --> Display
+
+    style Root fill:#ffebee
+    style Display fill:#e1f5ff
+```
+
 !!! warning "Current Problem"
 
 **Location**: `src/cook/execution/mapreduce/coordination/executor.rs:400-598`
@@ -403,6 +510,28 @@ prodigy dlq show job-123
 ---
 
 ## 4. State Management: Pure Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Job Created
+    Pending --> Map: Items Loaded
+
+    state Map {
+        [*] --> Active
+        Active --> Active: Agent Completes
+        Active --> [*]: All Done
+    }
+
+    Map --> Reduce: Pure Transition
+    Reduce --> Completed: Results Merged
+
+    note right of Map
+        Pure: apply_agent_result()
+        I/O: save_checkpoint()
+    end note
+
+    Completed --> [*]
+```
 
 !!! warning "Current Problem"
 
@@ -610,6 +739,28 @@ async fn test_save_checkpoint() {
 
 ## 5. Variable Aggregation: Semigroup Composition
 
+```mermaid
+graph LR
+    subgraph Agents["Parallel Agents"]
+        A1["Agent 1: Count(5)"]
+        A2["Agent 2: Count(3)"]
+        A3["Agent 3: Count(2)"]
+    end
+
+    subgraph Combine["Semigroup::combine"]
+        C1["5 + 3 = 8"]
+        C2["8 + 2 = 10"]
+    end
+
+    A1 --> C1
+    A2 --> C1
+    C1 --> C2
+    A3 --> C2
+    C2 --> Result["Count(10)"]
+
+    style Result fill:#e8f5e9
+```
+
 !!! warning "Current Problem"
 
 **Location**: `src/cook/execution/variables/semigroup.rs`
@@ -782,6 +933,9 @@ mod tests {
 ---
 
 ## Recommended Starting Point
+
+!!! note "Adoption Strategy"
+    Start with low-effort, high-impact patterns to build confidence and demonstrate value before tackling architectural changes.
 
 !!! tip "Quick Win: Error Context (ContextError<E>)"
 
