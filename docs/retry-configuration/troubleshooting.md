@@ -1,177 +1,198 @@
-## Troubleshooting
+# Troubleshooting
 
 Common retry configuration issues and their solutions.
 
-### Issue: Retries Not Triggering
+!!! tip "Quick Reference"
+    | Issue | Common Cause | Quick Fix |
+    |-------|--------------|-----------|
+    | Retries not triggering | `retry_on` matchers too specific | Add broader patterns or check error message |
+    | Retries too slow | No `max_delay` cap | Set `max_delay: "30s"` |
+    | Circuit breaker stuck open | Threshold too low | Increase failure threshold |
+    | Thundering herd | No jitter | Enable `jitter: true` |
+    | Retrying permanent errors | Empty `retry_on` | Add specific error matchers |
 
-**Symptoms**:
-- Command fails immediately without retry
-- Only see one attempt in logs
-- Expected retries don't happen
+---
 
-**Possible Causes and Solutions**:
+## Retries Not Triggering
 
-#### 1. retry_on Matchers Too Specific
+!!! danger "Symptoms"
+    - Command fails immediately without retry
+    - Only see one attempt in logs
+    - Expected retries don't happen
 
-```yaml
-# Problem: Error doesn't match any configured matcher
+### retry_on Matchers Too Specific
+
+```yaml title="Problem: Error doesn't match configured matchers"
 retry_config:
   attempts: 5
   retry_on:
-    - network
-    # Error is "connection timeout" but matcher only catches "network"
+    - network  # (1)!
 ```
 
-**Solution**: Use broader matchers or add custom patterns
+1. Error is "connection timeout" but matcher only catches "network"
 
-```yaml
-retry_config:
-  attempts: 5
-  retry_on:
-    - network
-    - timeout      # Add timeout matcher
-    - pattern: "connection.*timeout"  # Or custom pattern
-```
+!!! success "Solution"
+    Use broader matchers or add custom patterns:
 
-**Debug**: Check actual error message in logs and verify it matches one of your configured matchers (remember: matching is case-insensitive).
+    ```yaml title="Solution: Add timeout matcher"
+    retry_config:
+      attempts: 5
+      retry_on:
+        - network
+        - timeout      # Add timeout matcher
+        - pattern: "connection.*timeout"  # Or custom pattern
+    ```
 
-**Source**: ErrorMatcher matching logic in src/cook/retry_v2.rs:128-149
+!!! tip "Debug Tip"
+    Check actual error message in logs and verify it matches one of your configured matchers. Remember: matching is case-insensitive.
 
-#### 2. Empty retry_on with Unexpected Error Filtering
+**Source**: ErrorMatcher matching logic in `src/cook/retry_v2.rs:128-149`
 
-```yaml
-# Misconception: Empty retry_on means "don't retry"
-# Reality: Empty retry_on means "retry ALL errors"
+### Empty retry_on with Unexpected Error Filtering
+
+```yaml title="Misconception: Empty retry_on behavior"
 retry_config:
   attempts: 3
-  # retry_on is empty - retries everything!
+  # retry_on is empty - retries everything!  # (1)!
 ```
 
-**Solution**: If you see retries happening when you don't expect them, check if `retry_on` is empty.
+1. **Reality**: Empty `retry_on` means "retry ALL errors", not "don't retry"
 
-**Source**: Default behavior in src/cook/retry_v2.rs:42-43
+!!! success "Solution"
+    If you see retries happening when you don't expect them, check if `retry_on` is empty. Add specific matchers to control which errors are retried.
 
-#### 3. retry_config Missing Entirely
+**Source**: Default behavior in `src/cook/retry_v2.rs:42-43`
 
-```yaml
+### retry_config Missing Entirely
+
+```yaml title="Problem: No retry_config block"
 commands:
   - shell: "curl https://api.example.com"
     # No retry_config - no retry happens
 ```
 
-**Solution**: Add `retry_config` block to enable retry.
+!!! success "Solution"
+    Add `retry_config` block to enable retry:
+
+    ```yaml
+    commands:
+      - shell: "curl https://api.example.com"
+        retry_config:
+          attempts: 3
+    ```
 
 ---
 
-### Issue: Retries Happening But Taking Too Long
+## Retries Taking Too Long
 
-**Symptoms**:
-- Workflow hangs during retries
-- Total retry time exceeds expectations
-- Delays grow too large
+!!! danger "Symptoms"
+    - Workflow hangs during retries
+    - Total retry time exceeds expectations
+    - Delays grow too large
 
-**Possible Causes and Solutions**:
+### Exponential Backoff Without max_delay
 
-#### 1. Exponential Backoff Without max_delay
-
-```yaml
-# Problem: Exponential growth uncapped
+```yaml title="Problem: Exponential growth uncapped"
 retry_config:
   attempts: 10
   backoff: exponential
   initial_delay: "1s"
-  # No max_delay - delay can grow to minutes!
+  # No max_delay - delay can grow to minutes!  # (1)!
 ```
 
-**Solution**: Always set `max_delay`
+1. Without a cap, delay doubles each time: 1s → 2s → 4s → 8s → 16s → 32s → 64s...
 
-```yaml
-retry_config:
-  attempts: 10
-  backoff: exponential
-  initial_delay: "1s"
-  max_delay: "30s"  # Cap delays at 30 seconds
-```
+!!! success "Solution"
+    Always set `max_delay`:
 
-**Default**: max_delay defaults to 30 seconds if not specified (src/cook/retry_v2.rs:64)
+    ```yaml title="Solution: Cap delays at 30 seconds"
+    retry_config:
+      attempts: 10
+      backoff: exponential
+      initial_delay: "1s"
+      max_delay: "30s"  # Cap delays at 30 seconds
+    ```
 
-#### 2. Too Many Attempts Without retry_budget
+!!! note "Default Behavior"
+    `max_delay` defaults to 30 seconds if not specified.
 
-```yaml
-# Problem: High attempts can retry for hours
+    **Source**: `src/cook/retry_v2.rs:451` (`default_max_delay()` function)
+
+### Too Many Attempts Without retry_budget
+
+```yaml title="Problem: High attempts can retry for hours"
 retry_config:
   attempts: 100
   backoff: exponential
 ```
 
-**Solution**: Use `retry_budget` to cap total time
+!!! success "Solution"
+    Use `retry_budget` to cap total time:
 
-```yaml
-retry_config:
-  attempts: 100
-  backoff: exponential
-  retry_budget: "10m"  # Never exceed 10 minutes total
-```
+    ```yaml title="Solution: Cap total retry time"
+    retry_config:
+      attempts: 100
+      backoff: exponential
+      retry_budget: "10m"  # Never exceed 10 minutes total
+    ```
 
-**Source**: retry_budget enforcement in tests at src/cook/retry_v2.rs:675-708
+**Source**: retry_budget enforcement in tests at `src/cook/retry_v2.rs:727-747`
 
-#### 3. Initial Delay Too High
+### Initial Delay Too High
 
-```yaml
-# Problem: First retry waits too long
+```yaml title="Problem: First retry waits too long"
 retry_config:
   attempts: 3
   initial_delay: "60s"  # 1-minute delay before first retry!
 ```
 
-**Solution**: Use shorter initial delay, let backoff grow
+!!! success "Solution"
+    Use shorter initial delay, let backoff grow:
 
-```yaml
-retry_config:
-  attempts: 3
-  initial_delay: "1s"   # Start small
-  backoff: exponential  # Let it grow
-  max_delay: "30s"
-```
+    ```yaml title="Solution: Start small, let it grow"
+    retry_config:
+      attempts: 3
+      initial_delay: "1s"   # Start small
+      backoff: exponential  # Let it grow
+      max_delay: "30s"
+    ```
 
 ---
 
-### Issue: Circuit Breaker Always Open
+## Circuit Breaker Issues
 
-**Symptoms**:
-- Circuit breaker trips and stays open
-- Requests fail immediately after threshold
-- Recovery doesn't happen
+!!! danger "Symptoms"
+    - Circuit breaker trips and stays open
+    - Requests fail immediately after threshold
+    - Recovery doesn't happen
 
-**Possible Causes and Solutions**:
+### Failure Threshold Too Low
 
-#### 1. Failure Threshold Too Low
-
-```rust
-// Problem: Circuit opens too easily
+```rust title="Problem: Circuit opens too easily"
+// Source: src/cook/retry_v2.rs:325-397
 let executor = RetryExecutor::new(config)
     .with_circuit_breaker(
-        1,                          // Opens after single failure!
+        1,                          // Opens after single failure!  // (1)!
         Duration::from_secs(30)
     );
 ```
 
-**Solution**: Use appropriate threshold for failure rate
+1. A threshold of 1 means the circuit opens immediately on any failure
 
-```rust
-let executor = RetryExecutor::new(config)
-    .with_circuit_breaker(
-        5,                          // Open after 5 consecutive failures
-        Duration::from_secs(30)
-    );
-```
+!!! success "Solution"
+    Use appropriate threshold for failure rate:
 
-**Source**: CircuitBreaker implementation in src/cook/retry_v2.rs:325-397
+    ```rust title="Solution: Require multiple failures"
+    let executor = RetryExecutor::new(config)
+        .with_circuit_breaker(
+            5,                          // Open after 5 consecutive failures
+            Duration::from_secs(30)
+        );
+    ```
 
-#### 2. Recovery Timeout Too Long
+### Recovery Timeout Too Long
 
-```rust
-// Problem: Circuit stays open too long
+```rust title="Problem: Circuit stays open too long"
 let executor = RetryExecutor::new(config)
     .with_circuit_breaker(
         5,
@@ -179,37 +200,37 @@ let executor = RetryExecutor::new(config)
     );
 ```
 
-**Solution**: Use shorter recovery timeout for faster testing
+!!! success "Solution"
+    Use shorter recovery timeout for faster testing:
 
-```rust
-let executor = RetryExecutor::new(config)
-    .with_circuit_breaker(
-        5,
-        Duration::from_secs(30)     // 30-second recovery attempts
-    );
-```
+    ```rust title="Solution: 30-second recovery attempts"
+    let executor = RetryExecutor::new(config)
+        .with_circuit_breaker(
+            5,
+            Duration::from_secs(30)     // 30-second recovery attempts
+        );
+    ```
 
-#### 3. No Success to Close Circuit
+### No Success to Close Circuit
 
-**Problem**: Circuit opens but downstream never recovers, so circuit never closes
+!!! warning "Problem"
+    Circuit opens but downstream never recovers, so circuit never closes.
 
-**Solution**:
-- Check if downstream service is actually recovering
-- Verify circuit enters HalfOpen state and test requests succeed
-- Monitor circuit state transitions with logging
+!!! success "Solution"
+    - Check if downstream service is actually recovering
+    - Verify circuit enters HalfOpen state and test requests succeed
+    - Monitor circuit state transitions with logging
 
 ---
 
-### Issue: Thundering Herd (Multiple Parallel Agents Retrying Simultaneously)
+## Thundering Herd
 
-**Symptoms**:
-- Service overwhelmed during recovery
-- All parallel agents retry at same time
-- Cascading failures
+!!! danger "Symptoms"
+    - Service overwhelmed during recovery
+    - All parallel agents retry at same time
+    - Cascading failures
 
-**Problem**:
-
-```yaml
+```yaml title="Problem: No jitter in parallel execution"
 # MapReduce with 10 parallel agents, no jitter
 map:
   max_parallel: 10
@@ -218,105 +239,112 @@ map:
       retry_config:
         attempts: 5
         backoff: exponential
-        jitter: false  # All agents retry at same time!
+        jitter: false  # All agents retry at same time!  # (1)!
 ```
 
-**Solution**: Enable jitter
+1. Without jitter, all 10 agents calculate the same exponential delay and retry simultaneously
 
-```yaml
-map:
-  max_parallel: 10
-  agent_template:
-    - shell: "api-call.sh"
-      retry_config:
-        attempts: 5
-        backoff: exponential
-        jitter: true          # Randomize retry timing
-        jitter_factor: 0.3    # 30% randomization
-```
+!!! success "Solution"
+    Enable jitter to randomize retry timing:
 
-**Why**: Without jitter, all 10 agents calculate the same exponential delay and retry simultaneously.
+    ```yaml title="Solution: Enable jitter"
+    map:
+      max_parallel: 10
+      agent_template:
+        - shell: "api-call.sh"
+          retry_config:
+            attempts: 5
+            backoff: exponential
+            jitter: true          # Randomize retry timing
+            jitter_factor: 0.3    # 30% randomization
+    ```
 
-**Source**: Jitter application in src/cook/retry_v2.rs:308-317
+**Source**: Jitter application in `src/cook/retry_v2.rs:308-317`
+
+!!! tip "See Also"
+    For detailed jitter configuration, see [Jitter for Distributed Systems](jitter-for-distributed-systems.md).
 
 ---
 
-### Issue: Retrying Non-Transient Errors
+## Retrying Non-Transient Errors
 
-**Symptoms**:
-- Retrying 404 Not Found errors
-- Retrying authentication failures (401)
-- Wasting time on permanent failures
+!!! danger "Symptoms"
+    - Retrying 404 Not Found errors
+    - Retrying authentication failures (401)
+    - Wasting time on permanent failures
 
-**Problem**:
-
-```yaml
-# Empty retry_on retries everything
+```yaml title="Problem: Empty retry_on retries everything"
 retry_config:
   attempts: 5
   # Retries 404, 401, 400, etc. - permanent errors!
 ```
 
-**Solution**: Use selective retry with error matchers
+!!! success "Solution"
+    Use selective retry with error matchers:
 
-```yaml
-retry_config:
-  attempts: 5
-  retry_on:
-    - network        # Transient
-    - timeout        # Transient
-    - server_error   # Transient (5xx)
-    # Don't retry 404, 401, 400, etc.
-```
+    ```yaml title="Solution: Only retry transient errors"
+    retry_config:
+      attempts: 5
+      retry_on:
+        - network        # Transient
+        - timeout        # Transient
+        - server_error   # Transient (5xx)
+        # Don't retry 404, 401, 400, etc.
+    ```
 
-**Best Practice**: Only retry errors that might succeed on next attempt.
+!!! tip "Best Practice"
+    Only retry errors that might succeed on next attempt.
+
+!!! tip "See Also"
+    For detailed error matcher configuration, see [Conditional Retry with Error Matchers](conditional-retry-with-error-matchers.md).
 
 ---
 
-### Issue: Retry Budget Not Working as Expected
+## Retry Budget Issues
 
-**Symptoms**:
-- Retries exceed configured budget
-- Budget seems ignored
+!!! danger "Symptoms"
+    - Retries exceed configured budget
+    - Budget seems ignored
 
-**Possible Cause**: Misunderstanding retry_budget behavior
+!!! info "How retry_budget Works"
+    - Budget is checked **before each retry**
+    - If budget would be exceeded, retry stops
+    - Budget includes backoff delay time
+    - Budget does **NOT** include time for command execution itself
 
-**How retry_budget Works**:
-- Budget is checked **before each retry**
-- If budget would be exceeded, retry stops
-- Budget includes backoff delay time
-- Budget does NOT include time for command execution itself
-
-**Example**:
-
-```yaml
+```yaml title="Example: Retry budget behavior"
 retry_config:
   attempts: 10
   backoff: exponential
   initial_delay: "1s"
   max_delay: "60s"
-  retry_budget: "2m"  # 2-minute budget
+  retry_budget: "2m"  # 2-minute budget  # (1)!
 ```
 
-**Behavior**:
-- If accumulated delays + next delay > 2 minutes → Stop
-- Command execution time is NOT counted in budget
-- If command takes 1 minute to execute each time, total time could be: 2m (budget) + (attempts * 1m execution) = ~12 minutes
+1. Budget only counts delay time, not command execution time
 
-**Source**: retry_budget field in src/cook/retry_v2.rs:46-47, tests at lines 675-708
+!!! warning "Important"
+    **Behavior**:
+
+    - If accumulated delays + next delay > 2 minutes → Stop
+    - Command execution time is NOT counted in budget
+    - If command takes 1 minute to execute each time, total time could be: 2m (budget) + (attempts × 1m execution) = ~12 minutes
+
+**Source**: `retry_budget` field in `src/cook/retry_v2.rs:46-47`, tests at lines 727-747
+
+!!! tip "See Also"
+    For detailed retry budget configuration, see [Retry Budget](retry-budget.md).
 
 ---
 
-### Issue: Fallback Command Also Failing
+## Fallback Command Failures
 
-**Symptoms**:
-- Primary command fails after retries
-- Fallback command executes but also fails
-- Workflow stops
+!!! danger "Symptoms"
+    - Primary command fails after retries
+    - Fallback command executes but also fails
+    - Workflow stops
 
-**Problem**: Fallback command isn't reliable
-
-```yaml
+```yaml title="Problem: Fallback isn't reliable"
 retry_config:
   attempts: 3
   on_failure:
@@ -324,89 +352,104 @@ retry_config:
       command: "curl https://backup-api.com/data"  # This can also fail!
 ```
 
-**Solution**: Make fallback truly reliable
+!!! success "Solution"
+    Make fallback truly reliable:
 
-```yaml
-retry_config:
-  attempts: 3
-  on_failure:
-    fallback:
-      command: "cat /cache/data.json"  # Local cache, very reliable
-```
+    ```yaml title="Solution: Use local cache"
+    retry_config:
+      attempts: 3
+      on_failure:
+        fallback:
+          command: "cat /cache/data.json"  # Local cache, very reliable
+    ```
 
-**Best Practice**: Fallback commands should be:
-- Local operations (file reads, not network calls)
-- Idempotent
-- Very unlikely to fail
-- Fast
+!!! tip "Best Practice"
+    Fallback commands should be:
 
----
+    - Local operations (file reads, not network calls)
+    - Idempotent
+    - Very unlikely to fail
+    - Fast
 
-### Issue: Retry Metrics Not Matching Expectations
-
-**Symptoms**:
-- Metrics show different attempt count than configured
-- Unexpected success/failure counts
-
-**Debugging**:
-
-```rust
-// Access retry metrics for debugging
-let metrics = executor.metrics();
-println!("Total attempts: {}", metrics.total_attempts);
-println!("Successful: {}", metrics.successful_attempts);
-println!("Failed: {}", metrics.failed_attempts);
-println!("Retries: {:?}", metrics.retries);  // Vec<(attempt, delay)>
-```
-
-**Source**: RetryMetrics struct in src/cook/retry_v2.rs:399-422
-
-**Check**:
-- `total_attempts` = successful + failed
-- `retries` vector shows actual delays used
-- Compare with configured backoff strategy
+!!! tip "See Also"
+    For detailed failure action configuration, see [Failure Actions](failure-actions.md).
 
 ---
 
-### Debugging Workflow
+## Retry Metrics Mismatch
 
-When retry behavior is unexpected:
+!!! danger "Symptoms"
+    - Metrics show different attempt count than configured
+    - Unexpected success/failure counts
 
-1. **Check retry_on matchers**:
-   - Verify error message matches configured matchers
-   - Remember matching is case-insensitive
-   - Empty `retry_on` = retry all errors
+??? example "Debugging with RetryMetrics"
+    ```rust title="Access retry metrics"
+    // Source: src/cook/retry_v2.rs:399-422
+    let metrics = executor.metrics();
+    println!("Total attempts: {}", metrics.total_attempts);
+    println!("Successful: {}", metrics.successful_attempts);
+    println!("Failed: {}", metrics.failed_attempts);
+    println!("Retries: {:?}", metrics.retries);  // Vec<(attempt, delay)>
+    ```
 
-2. **Check backoff configuration**:
-   - Verify `max_delay` is set
-   - Check `initial_delay` isn't too high
-   - Ensure `backoff` strategy matches intent
+    **Check**:
 
-3. **Check retry_budget**:
-   - Remember budget is delay time, not total time
-   - Budget checked before each retry
-   - Command execution time NOT included
+    - `total_attempts` = successful + failed
+    - `retries` vector shows actual delays used
+    - Compare with configured backoff strategy
 
-4. **Enable jitter for parallel workflows**:
-   - Always use jitter in MapReduce
-   - Set `jitter_factor` between 0.1 and 0.5
-
-5. **Use selective retry**:
-   - Don't retry permanent errors (404, 401, 400)
-   - Use `retry_on` to specify transient errors only
-
-6. **Monitor metrics**:
-   - Access `RetryMetrics` for actual attempt counts
-   - Verify delays match expectations
-   - Check circuit breaker state transitions
+!!! tip "See Also"
+    For detailed metrics and observability, see [Retry Metrics and Observability](retry-metrics-and-observability.md).
 
 ---
 
-### Getting Help
+## Debugging Workflow
+
+When retry behavior is unexpected, follow this checklist:
+
+??? note "1. Check retry_on matchers"
+    - Verify error message matches configured matchers
+    - Remember matching is case-insensitive
+    - Empty `retry_on` = retry all errors
+
+??? note "2. Check backoff configuration"
+    - Verify `max_delay` is set
+    - Check `initial_delay` isn't too high
+    - Ensure `backoff` strategy matches intent
+
+??? note "3. Check retry_budget"
+    - Remember budget is delay time, not total time
+    - Budget checked before each retry
+    - Command execution time NOT included
+
+??? note "4. Enable jitter for parallel workflows"
+    - Always use jitter in MapReduce
+    - Set `jitter_factor` between 0.1 and 0.5
+
+??? note "5. Use selective retry"
+    - Don't retry permanent errors (404, 401, 400)
+    - Use `retry_on` to specify transient errors only
+
+??? note "6. Monitor metrics"
+    - Access `RetryMetrics` for actual attempt counts
+    - Verify delays match expectations
+    - Check circuit breaker state transitions
+
+---
+
+## Getting Help
 
 If retry behavior is still unclear:
 
-1. **Check retry_v2.rs implementation**: src/cook/retry_v2.rs
-2. **Review tests**: src/cook/retry_v2.rs:463-748 (comprehensive test coverage)
+1. **Check retry_v2.rs implementation**: `src/cook/retry_v2.rs`
+2. **Review tests**: `src/cook/retry_v2.rs:463-749` (comprehensive test coverage)
 3. **Enable verbose logging**: Add logging around retry logic to see what's happening
 4. **Test with simple cases**: Start with fixed backoff and 2-3 attempts to isolate issue
+
+!!! tip "Related Documentation"
+    - [Backoff Strategies](backoff-strategies.md) - Detailed backoff configuration
+    - [Conditional Retry with Error Matchers](conditional-retry-with-error-matchers.md) - Error matching patterns
+    - [Jitter for Distributed Systems](jitter-for-distributed-systems.md) - Preventing thundering herd
+    - [Retry Budget](retry-budget.md) - Budget configuration
+    - [Failure Actions](failure-actions.md) - Fallback and failure handling
+    - [Retry Metrics and Observability](retry-metrics-and-observability.md) - Monitoring retries
