@@ -1,0 +1,57 @@
+{
+  "item_type": "page",
+  "page_id": "storage-index",
+  "page_title": "Storage Architecture Index",
+  "page_file": "docs/advanced/storage/index.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is mostly accurate but missing two storage directories that exist in the codebase",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Quick Reference",
+      "description": "Quick Reference directory listing is missing 'resume_locks/' directory which is used for concurrent resume protection (Spec 140)",
+      "current_content": "The directory listing shows only: events/, dlq/, state/, sessions/, worktrees/, orphaned_worktrees/",
+      "should_be": "Should also include: resume_locks/ - Resume lock files for concurrent protection",
+      "fix_suggestion": "Add '├── resume_locks/               # Concurrent resume protection' to the Quick Reference directory tree",
+      "source_reference": "src/cook/execution/resume_lock.rs:52"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Quick Reference",
+      "description": "Quick Reference directory listing is missing 'logs/' directory which is created by GlobalStorage for per-repository log storage",
+      "current_content": "The directory listing shows only: events/, dlq/, state/, sessions/, worktrees/, orphaned_worktrees/",
+      "should_be": "Should also include: logs/ - Per-repository log storage",
+      "fix_suggestion": "Add '├── logs/                       # Per-repository logs' to the Quick Reference directory tree",
+      "source_reference": "src/storage/global.rs:148"
+    }
+  ],
+  "positive_aspects": [
+    "Clear and concise overview of global storage architecture",
+    "Well-organized section links to detailed sub-pages",
+    "Key benefits clearly stated (centralized, repository organization, cross-worktree sharing, persistent state, deduplication)",
+    "Quick Reference provides helpful at-a-glance directory structure",
+    "All internal links to sub-pages are valid and functional"
+  ],
+  "improvement_suggestions": [
+    "Add resume_locks/ and logs/ directories to Quick Reference for completeness",
+    "Consider adding a brief mention of PRODIGY_HOME override for custom storage locations",
+    "Could add visual diagram using MkDocs Material Mermaid integration for enhanced presentation"
+  ],
+  "cross_references": [
+    "structure",
+    "session-dlq",
+    "worktree-storage",
+    "maintenance"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["storage architecture", "global storage", "directory structure"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_count": 0
+  }
+}
