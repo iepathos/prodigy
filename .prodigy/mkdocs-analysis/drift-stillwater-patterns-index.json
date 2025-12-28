@@ -1,0 +1,147 @@
+{
+  "item_type": "page",
+  "page_id": "stillwater-patterns-index",
+  "page_title": "Stillwater Pattern Mapping for Prodigy",
+  "page_file": "docs/stillwater-patterns/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides good overview of Stillwater patterns but lacks visual diagrams, contains time estimates that violate documentation guidelines, and presents patterns as future work when some are already implemented",
+  "issues": [
+    {
+      "type": "guideline_violation",
+      "severity": "medium",
+      "section": "Recommended Starting Point",
+      "description": "Page contains time estimates ('Timeline: 3-5 days', 'Timeline: 2-3 days', 'Timeline: 2-3 weeks') which violates CLAUDE.md guideline: 'Never suggest timelines... Focus on what needs to be done, not when'",
+      "current_content": "- **Timeline**: 3-5 days\n- **Timeline**: 2-3 days\n- **Timeline**: 2-3 weeks",
+      "should_be": "Remove all timeline estimates. Focus on concrete implementation steps and effort levels instead.",
+      "fix_suggestion": "Remove 'Timeline' lines from Quick Win, High Impact, and Long Term sections. Replace with step counts or complexity indicators if needed.",
+      "source_reference": "CLAUDE.md: 'Planning without timelines' section"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Pattern Documentation section and Summary",
+      "description": "The page presents all patterns as 'problems to be solved' but Validation<T, E>, Effect<T, E, Env>, ContextError<E>, and Semigroup patterns are already implemented in the codebase",
+      "current_content": "Maps patterns as future implementation recommendations",
+      "should_be": "Mark which patterns are already implemented vs still planned. Add 'Status: Implemented' indicators",
+      "fix_suggestion": "Add implementation status to each pattern. Validation is in src/cook/execution/mapreduce/validation.rs, Effect is in src/cook/execution/mapreduce/effects/, ContextError is in src/cook/error/mod.rs, Semigroup is in src/cook/execution/variables/semigroup.rs",
+      "source_reference": "Multiple files using stillwater imports throughout codebase"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire page",
+      "description": "As an index page for a major section, lacks Mermaid diagrams that would enhance understanding of pattern relationships. Other docs in codebase extensively use Mermaid (135+ files).",
+      "fix_suggestion": "Add Mermaid diagram showing: 1) Pattern-to-problem flow, 2) Implementation dependency graph showing which patterns depend on others, 3) Visual representation of the Impact Matrix",
+      "source_reference": "Other docs extensively use Mermaid diagrams"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Impact Matrix",
+      "description": "The 'Effort' column (Low-medium, High, Medium, Low-medium) lacks explanation of what these levels mean in concrete terms",
+      "fix_suggestion": "Add footnote or legend explaining effort levels (e.g., Low = few files touched, Medium = architectural changes to single module, High = cross-cutting changes)",
+      "source_reference": null
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Introduction",
+      "description": "No explanation of what Stillwater is or link to Stillwater documentation. New readers may not understand the context.",
+      "fix_suggestion": "Add brief introduction explaining Stillwater is a functional programming crate providing Validation, Effect, and other patterns for clean error handling and testability",
+      "source_reference": "https://crates.io/crates/stillwater or repository docs"
+    }
+  ],
+  "positive_aspects": [
+    "Clear pattern-to-problem mapping structure",
+    "Good use of Impact Matrix table for summarizing patterns",
+    "All links to sub-pages are valid and functional",
+    "Consistent documentation structure across pattern pages",
+    "Recommended Starting Point section helps prioritize adoption",
+    "Concrete file/line references in sub-pages help developers locate code"
+  ],
+  "improvement_suggestions": [
+    "Add Mermaid diagram showing pattern relationships and dependencies",
+    "Mark patterns with implementation status (Implemented/Planned)",
+    "Remove time estimates per CLAUDE.md guidelines",
+    "Add MkDocs Material admonitions for quick-win vs high-effort patterns",
+    "Add brief Stillwater introduction for context",
+    "Consider adding 'Migration Progress' section showing current implementation state",
+    "Add links to actual Stillwater crate documentation"
+  ],
+  "cross_references": [
+    "error-accumulation.md",
+    "testability.md",
+    "error-context.md",
+    "state-management.md",
+    "semigroup-composition.md"
+  ],
+  "internal_links_validation": {
+    "total_internal_links": 5,
+    "broken_links": 0,
+    "valid_links": [
+      {"text": "Error Accumulation: Work Item Validation", "target": "error-accumulation.md", "exists": true},
+      {"text": "Testability: Orchestrator Without Mocks", "target": "testability.md", "exists": true},
+      {"text": "Error Context: Debugging MapReduce Failures", "target": "error-context.md", "exists": true},
+      {"text": "State Management: Pure Transitions", "target": "state-management.md", "exists": true},
+      {"text": "Variable Aggregation: Semigroup Composition", "target": "semigroup-composition.md", "exists": true}
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Stillwater patterns",
+      "Validation",
+      "Effect",
+      "ContextError",
+      "Pure functions",
+      "Semigroup",
+      "Error accumulation",
+      "Testability"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "stillwater_features_in_codebase": {
+      "Validation_T_E": {
+        "status": "implemented",
+        "files": [
+          "src/cook/execution/data_pipeline/validation.rs",
+          "src/cook/execution/mapreduce/validation.rs",
+          "src/cook/orchestrator/pure.rs",
+          "src/core/validation/mod.rs",
+          "src/cli/validation.rs"
+        ]
+      },
+      "Effect_T_E_Env": {
+        "status": "implemented",
+        "files": [
+          "src/cook/execution/mapreduce/effects/mod.rs",
+          "src/cook/execution/mapreduce/effects/worktree.rs",
+          "src/cook/execution/mapreduce/effects/commands.rs",
+          "src/cook/execution/mapreduce/effects/merge.rs",
+          "src/cook/workflow/effects/mod.rs",
+          "src/cook/orchestrator/effects.rs",
+          "src/unified_session/effects.rs"
+        ]
+      },
+      "ContextError_E": {
+        "status": "implemented",
+        "files": [
+          "src/cook/error/mod.rs",
+          "src/cook/error/ext.rs"
+        ]
+      },
+      "Semigroup": {
+        "status": "implemented",
+        "files": [
+          "src/cook/execution/variables/semigroup.rs"
+        ]
+      }
+    },
+    "mkdocs_material_features_missing": [
+      "mermaid diagrams",
+      "admonitions",
+      "code annotations"
+    ]
+  }
+}
