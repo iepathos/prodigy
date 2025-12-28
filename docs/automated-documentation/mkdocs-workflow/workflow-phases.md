@@ -309,19 +309,40 @@ Removes temporary analysis files while preserving validation reports:
 
 The workflow includes an error policy for handling failures:
 
+```mermaid
+flowchart LR
+    Process["Process Page"] --> Result{Success?}
+    Result -->|Yes| NextPage["Next Page"]
+    Result -->|No| DLQ["Add to DLQ"]
+    DLQ --> Check{"Consecutive
+    Failures ≥ 2?"}
+    Check -->|No| NextPage
+    Check -->|Yes| Stop["Stop Workflow"]
+    NextPage --> More{More Pages?}
+    More -->|Yes| Process
+    More -->|No| Report["Aggregate Error Report"]
+
+    style DLQ fill:#fff3e0
+    style Stop fill:#ffebee
+    style Report fill:#e1f5ff
+```
+
 ```yaml
 # Source: workflows/mkdocs-drift.yml:127-131
 error_policy:
-  on_item_failure: dlq
-  continue_on_failure: true
-  max_failures: 2
-  error_collection: aggregate
+  on_item_failure: dlq        # (1)!
+  continue_on_failure: true   # (2)!
+  max_failures: 2             # (3)!
+  error_collection: aggregate # (4)!
 ```
 
-- **on_item_failure: dlq** - Failed items are sent to the Dead Letter Queue for later retry
-- **continue_on_failure: true** - Workflow continues even if some pages fail
-- **max_failures: 2** - Stops after 2 consecutive failures to prevent runaway issues
-- **error_collection: aggregate** - Collects all errors for a summary report
+1. Failed items are sent to the Dead Letter Queue for later retry
+2. Workflow continues even if some pages fail
+3. Stops after 2 consecutive failures to prevent runaway issues
+4. Collects all errors for a summary report
+
+!!! tip "Retrying Failed Items"
+    After the workflow completes, use `prodigy dlq retry <job_id>` to reprocess items that failed. This is useful when failures were due to transient issues like rate limits or network errors.
 
 ## Workflow Commands Reference
 
