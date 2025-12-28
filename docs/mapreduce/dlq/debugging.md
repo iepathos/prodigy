@@ -180,33 +180,40 @@ Calculate success rate from events:
 
 ```bash
 # Get completion counts
-SUCCESSFUL=$(prodigy events list --job-id $JOB_ID --type agent_completed | wc -l)
-FAILED=$(prodigy events list --job-id $JOB_ID --type agent_failed | wc -l)
+SUCCESSFUL=$(prodigy events list --job-id $JOB_ID --type agent_completed | wc -l) # (1)!
+FAILED=$(prodigy events list --job-id $JOB_ID --type agent_failed | wc -l) # (2)!
 TOTAL=$((SUCCESSFUL + FAILED))
 
 # Calculate success rate
-echo "Success rate: $((SUCCESSFUL * 100 / TOTAL))%"
+echo "Success rate: $((SUCCESSFUL * 100 / TOTAL))%" # (3)!
 ```
+
+1. Count events where agents completed successfully
+2. Count events where agents failed after all retries
+3. Integer division gives approximate percentage
 
 ## Integration with MapReduce
 
 The DLQ is tightly integrated with MapReduce workflows through the `on_item_failure` policy:
 
 ```yaml
-# Source: Workflow configuration (see src/config/mapreduce.rs for MapConfig schema)
 name: my-workflow
 mode: mapreduce
 
 map:
-  input: "items.json"
-  json_path: "$.items[*]"
+  input: "items.json"    # (1)!
+  json_path: "$.items[*]" # (2)!
 
-  # Default policy: send failures to DLQ
-  on_item_failure: dlq
+  on_item_failure: dlq   # (3)!
 
   agent_template:
-    - claude: "/process '${item}'"
+    - claude: "/process '${item}'" # (4)!
 ```
+
+1. JSON file containing work items to process
+2. JSONPath expression to extract individual items
+3. Send failed items to DLQ instead of stopping workflow
+4. Each agent processes one item in an isolated worktree
 
 ### Available Policies
 
@@ -222,7 +229,8 @@ map:
 flowchart TD
     A[Work Item Processing] --> B{Command Failed?}
     B -->|No| C[Continue to Next Item]
-    B -->|Yes| D[Retry Attempts<br/>if configured]
+    B -->|Yes| D["Retry Attempts
+    if configured"]
     D --> E{Still Failing?}
     E -->|No| C
     E -->|Yes| F{on_item_failure}
