@@ -1,0 +1,75 @@
+{
+  "item_type": "page",
+  "page_id": "step-identification",
+  "page_title": "step identification",
+  "page_file": "docs/advanced/step-identification.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Well-structured documentation with accurate source references. Minor inaccuracies in source line references need updating.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Implementation Details",
+      "description": "Source reference to execution_pipeline.rs:650-654 is inaccurate - this location contains resume workflow code, not step result variable resolution",
+      "current_content": "**Source**: Implementation in `src/cook/expression/mod.rs:187-200` and `src/cook/orchestrator/execution_pipeline.rs:650-654`",
+      "should_be": "**Source**: Implementation in `src/cook/expression/mod.rs:187-200`",
+      "fix_suggestion": "Remove the execution_pipeline.rs reference as the variable context is set in expression/mod.rs, or find the correct location where step results are stored during execution",
+      "source_reference": "src/cook/orchestrator/execution_pipeline.rs:650-654"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Error Handling with Step-Specific Outputs (Use Case 2)",
+      "description": "Source reference to mod.rs:721 and mapreduce_integration_tests.rs:230 shows shell.output pattern, not step ID pattern",
+      "current_content": "**Source**: Real pattern from `src/cook/mod.rs:721` and `src/cook/execution/mapreduce_integration_tests.rs:230`",
+      "should_be": "Either update source references to point to actual step ID pattern usage or acknowledge this shows generic on_failure pattern",
+      "fix_suggestion": "The actual code at mod.rs:721 uses ${shell.output} not ${build.output}. Either find a better source reference or note this is a generalized example of the pattern",
+      "source_reference": "src/cook/mod.rs:719-721"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Custom Output Fields",
+      "description": "The outputs field example uses spec but doesn't show how outputs are resolved or the difference between standard and custom outputs",
+      "current_content": "Custom outputs are useful for: Capturing generated files...",
+      "fix_suggestion": "Add clarification that custom outputs with file_pattern are resolved as file paths, while standard .output/.exit_code/.success are execution metadata",
+      "source_reference": "src/config/command.rs:163"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive reference table for available step fields (.output, .exit_code, .success)",
+    "Accurate primary source reference to src/cook/expression/mod.rs:187-200 for set_step_result",
+    "Clear distinction between auto-captured fields and custom outputs",
+    "Practical use case examples with when clauses and on_failure handlers",
+    "Good troubleshooting section for common issues",
+    "Clean section organization from basic to advanced usage",
+    "Correct source reference for conditional tests at src/cook/workflow/conditional_tests.rs:95-97"
+  ],
+  "improvement_suggestions": [
+    "Add a diagram showing the step execution lifecycle and when variables become available",
+    "Include an admonition about step ID naming conventions (alphanumeric, no spaces)",
+    "Add cross-reference to the variables page for full interpolation syntax",
+    "Consider adding MkDocs Material tabs to show side-by-side comparisons of with/without step IDs"
+  ],
+  "cross_references": [
+    "variables",
+    "conditional-execution",
+    "error-handling"
+  ],
+  "internal_links_validated": true,
+  "broken_links": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "step identification",
+      "step IDs",
+      "output capture",
+      "exit codes",
+      "conditional execution",
+      "on_failure handlers"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
