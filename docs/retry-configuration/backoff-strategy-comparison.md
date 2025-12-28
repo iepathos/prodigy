@@ -202,6 +202,32 @@ See [Jitter for Distributed Systems](jitter-for-distributed-systems.md) for when
 
 ### Choosing the Right Strategy
 
+Use this decision flowchart to select the optimal backoff strategy for your use case:
+
+```mermaid
+flowchart LR
+    Start[Need Retry Strategy] --> Q1{Need<br/>predictable<br/>timing?}
+    Q1 -->|Yes| Fixed[Fixed]
+    Q1 -->|No| Q2{Dealing with<br/>rate limits?}
+    Q2 -->|Yes| Q3{Distributed<br/>system?}
+    Q3 -->|Yes| FibJitter[Fibonacci + Jitter]
+    Q3 -->|No| Fib[Fibonacci or Linear]
+    Q2 -->|No| Q4{Custom delay<br/>pattern needed?}
+    Q4 -->|Yes| Custom[Custom]
+    Q4 -->|No| Q5{High network<br/>flakiness?}
+    Q5 -->|Yes| ExpJitter[Exponential + Jitter]
+    Q5 -->|No| Exp[Exponential]
+
+    style Fixed fill:#e1f5ff
+    style Fib fill:#fff3e0
+    style FibJitter fill:#fff3e0
+    style Custom fill:#f3e5f5
+    style Exp fill:#e8f5e9
+    style ExpJitter fill:#e8f5e9
+```
+
+**Figure**: Decision tree for selecting the optimal backoff strategy based on your use case.
+
 | Use Case | Recommended Strategy | Reasoning |
 |----------|---------------------|-----------|
 | **Temporary service outage** | Exponential (base 2.0) | Quickly backs off to avoid overwhelming recovering service |
