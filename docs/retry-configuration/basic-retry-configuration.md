@@ -2,7 +2,8 @@
 
 The enhanced retry system (`retry_v2`) provides command-level retry capabilities with sophisticated backoff strategies and error handling. This subsection covers the basic retry configuration options.
 
-> **Note**: This documents the enhanced retry system (`retry_v2::RetryConfig`). For workflow-level retry configuration, see [Workflow-Level vs Command-Level Retry](./workflow-level-vs-command-level-retry.md).
+!!! note "Enhanced Retry System"
+    This documents the enhanced retry system (`retry_v2::RetryConfig`). For workflow-level retry configuration, see [Workflow-Level vs Command-Level Retry](./workflow-level-vs-command-level-retry.md).
 
 ### Where Retry Config is Used
 
@@ -18,10 +19,13 @@ The simplest retry configuration uses just the attempts field:
 commands:
   - shell: "curl https://api.example.com/data"
     retry_config:
-      attempts: 3
+      attempts: 3  # (1)!
 ```
 
+1. Only `attempts` is required - all other fields use sensible defaults
+
 This configuration will:
+
 - Retry the command up to 3 times on failure
 - Use exponential backoff with base 2.0 (default)
 - Start with 1 second initial delay (default)
@@ -36,13 +40,19 @@ For more control, you can specify all basic retry parameters:
 commands:
   - shell: "make test"
     retry_config:
-      attempts: 5              # Maximum retry attempts (default: 3)
-      initial_delay: "2s"      # Initial delay between retries (default: 1s)
-      max_delay: "60s"         # Maximum delay cap (default: 30s)
-      backoff: exponential     # Backoff strategy (default: exponential)
+      attempts: 5              # (1)!
+      initial_delay: "2s"      # (2)!
+      max_delay: "60s"         # (3)!
+      backoff: exponential     # (4)!
 ```
 
+1. Maximum retry attempts (default: 3)
+2. Initial delay between retries (default: 1s)
+3. Maximum delay cap (default: 30s)
+4. Backoff strategy - `exponential`, `linear`, `fibonacci`, or `fixed` (default: exponential)
+
 **Field Reference** (from `src/cook/retry_v2.rs:54-68`):
+
 - `attempts: u32` - Maximum number of retry attempts (default: 3)
 - `initial_delay: Duration` - Starting delay between retries (default: 1 second)
 - `max_delay: Duration` - Maximum delay ceiling (default: 30 seconds)
@@ -50,10 +60,13 @@ commands:
 
 ### Default Behavior
 
+!!! tip "Start Simple"
+    Begin with just `attempts: 3` and add additional configuration only as needed. The defaults are designed for common transient failure scenarios like network timeouts and temporary service unavailability.
+
 When `retry_config` is omitted entirely, commands run **without retry**. When `retry_config` is present but fields are omitted, defaults from `RetryConfig::default()` apply:
 
 ```rust
-// Default values (src/cook/retry_v2.rs:54-68)
+// Source: src/cook/retry_v2.rs:54-68
 RetryConfig {
     attempts: 3,
     backoff: BackoffStrategy::Exponential { base: 2.0 },
@@ -71,13 +84,28 @@ RetryConfig {
 
 When a command with `retry_config` fails, the `RetryExecutor` orchestrates the retry logic:
 
+```mermaid
+flowchart TD
+    A[Execute Command] --> B{Success?}
+    B -->|Yes| C[Return Result]
+    B -->|No| D{Budget<br/>Exceeded?}
+    D -->|Yes| E[Return Failure]
+    D -->|No| F{Max Attempts<br/>Reached?}
+    F -->|Yes| E
+    F -->|No| G[Calculate Delay<br/>using backoff strategy]
+    G --> H[Wait<br/>with optional jitter]
+    H --> A
+```
+
+**Execution Steps:**
+
 1. **Execute Command**: Run the shell/Claude command
 2. **Check Result**: If successful, return immediately
 3. **Check Retry Budget**: If set, ensure budget not exceeded
-4. **Calculate Delay**: Use backoff strategy to determine next delay
-5. **Wait**: Sleep for calculated delay (with optional jitter)
-6. **Retry**: Execute command again
-7. **Repeat**: Continue until success, max attempts reached, or budget exhausted
+4. **Check Attempts**: Verify max attempts not reached
+5. **Calculate Delay**: Use backoff strategy to determine next delay
+6. **Wait**: Sleep for calculated delay (with optional jitter)
+7. **Retry**: Execute command again
 
 **Source**: `src/cook/retry_v2.rs:191-262` (RetryExecutor::execute_with_retry)
 
@@ -101,24 +129,45 @@ All YAML retry configuration maps directly to the `RetryConfig` struct fields:
 
 ### Minimal vs Full Configuration
 
-**Minimal** (use defaults for most fields):
-```yaml
-retry_config:
-  attempts: 5
-```
+=== "Minimal"
 
-**Full** (explicit control over all parameters):
-```yaml
-retry_config:
-  attempts: 10
-  backoff: fibonacci
-  initial_delay: "500ms"
-  max_delay: "2m"
-  jitter: true
-  jitter_factor: 0.5
-  retry_budget: "10m"
-  retry_on:
-    - network
-    - timeout
-  on_failure: continue
-```
+    Use defaults for most fields - only specify what you need:
+
+    ```yaml
+    retry_config:
+      attempts: 5
+    ```
+
+    This uses exponential backoff with 1s initial delay, 30s max delay, no jitter, and retries on all errors.
+
+!!! warning "Jitter for Distributed Systems"
+    When multiple agents may retry the same service simultaneously, enable `jitter: true` to prevent the "thundering herd" problem where all retries hit the service at the same time.
+
+=== "Full"
+
+    Explicit control over all parameters:
+
+    ```yaml
+    retry_config:
+      attempts: 10
+      backoff: fibonacci
+      initial_delay: "500ms"
+      max_delay: "2m"
+      jitter: true
+      jitter_factor: 0.5
+      retry_budget: "10m"
+      retry_on:
+        - network
+        - timeout
+      on_failure: continue
+    ```
+
+    This configures:
+
+    - Up to 10 retry attempts
+    - Fibonacci backoff strategy
+    - Starting at 500ms delay, capped at 2 minutes
+    - Random jitter of ±50% added to delays
+    - 10-minute total retry budget
+    - Only retry network and timeout errors
+    - Continue workflow even if retries exhausted
