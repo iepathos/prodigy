@@ -10,11 +10,80 @@ Retry operations are observable through three primary mechanisms:
 2. **Tracing Infrastructure** - Controlled by verbosity flags
 3. **Event Tracking** - Recorded for MapReduce workflows
 
+The following diagram illustrates how retry observability integrates with Prodigy's execution pipeline:
+
+```mermaid
+flowchart TB
+    subgraph Execution["Command Execution"]
+        CMD[Command Runs]
+        RESULT{Success?}
+    end
+
+    subgraph Observability["Observability Layer"]
+        CONSOLE[Console Logs]
+        TRACE[Tracing Events]
+        METRICS[Internal Metrics]
+    end
+
+    subgraph Decision["Retry Decision"]
+        CHECK_CB{"Circuit Breaker
+        Open?"}
+        CHECK_BUDGET{"Budget
+        Remaining?"}
+        CHECK_ATTEMPTS{"Attempts
+        Left?"}
+        CHECK_ERROR{"Retryable
+        Error?"}
+    end
+
+    subgraph Actions["Actions"]
+        RETRY[Wait & Retry]
+        FAIL[Report Failure]
+        HANDLER[on_failure Handler]
+        DLQ[Dead Letter Queue]
+    end
+
+    CMD --> RESULT
+    RESULT -->|Yes| CONSOLE
+    RESULT -->|No| CONSOLE
+    CONSOLE --> TRACE
+    TRACE --> METRICS
+
+    RESULT -->|No| CHECK_CB
+    CHECK_CB -->|Yes| FAIL
+    CHECK_CB -->|No| CHECK_ERROR
+    CHECK_ERROR -->|No| HANDLER
+    CHECK_ERROR -->|Yes| CHECK_BUDGET
+    CHECK_BUDGET -->|No| HANDLER
+    CHECK_BUDGET -->|Yes| CHECK_ATTEMPTS
+    CHECK_ATTEMPTS -->|No| HANDLER
+    CHECK_ATTEMPTS -->|Yes| RETRY
+    RETRY --> CMD
+
+    HANDLER -->|Success| CONSOLE
+    HANDLER -->|Failure| DLQ
+
+    style Observability fill:#e1f5fe
+    style Decision fill:#fff3e0
+    style Actions fill:#f3e5f5
+```
+
 ### Internal Metrics Structure
 
-While retry metrics are tracked internally via the `RetryMetrics` structure (src/cook/retry_v2.rs:399-422), this data is **not exposed** as a queryable API for workflow users. Instead, metrics are surfaced through logging at key decision points.
+While retry metrics are tracked internally via the `RetryMetrics` structure, this data is **not exposed** as a queryable API for workflow users. Instead, metrics are surfaced through logging at key decision points.
+
+```rust
+// Source: src/cook/retry_v2.rs:400-422
+pub struct RetryMetrics {
+    pub total_attempts: u32,
+    pub successful_attempts: u32,
+    pub failed_attempts: u32,
+    pub retries: Vec<(u32, Duration)>,
+}
+```
 
 The internal structure tracks:
+
 - `total_attempts` - Total number of attempts made
 - `successful_attempts` - Number of successful operations
 - `failed_attempts` - Number of failed operations
@@ -31,7 +100,8 @@ Retrying <operation> (attempt 2/5) after 200ms
 Retrying <operation> (attempt 3/5) after 400ms
 ```
 
-**Source**: These messages come from the retry executor's logging (src/cook/retry_v2.rs:247-250).
+!!! info "Source Reference"
+    These messages come from the retry executor's logging at `src/cook/retry_v2.rs:247-250`.
 
 ### Verbosity Flags for Detailed Logs
 
@@ -49,6 +119,7 @@ prodigy run workflow.yml -vv
 ```
 
 With `-v` or higher verbosity, you'll see:
+
 - Retry attempt counts and delays
 - Circuit breaker state transitions
 - Retry budget consumption
@@ -62,22 +133,56 @@ When retry budget is exhausted, a warning is logged:
 Retry budget exhausted for <operation>
 ```
 
-**Source**: src/cook/retry_v2.rs:238-243
+!!! warning "Budget Limit Reached"
+    This indicates the total retry delay exceeded the configured `retry_budget`, preventing further attempts even if `max_attempts` hasn't been reached.
 
-This indicates the total retry delay exceeded the configured `retry_budget`, preventing further attempts even if `max_attempts` hasn't been reached.
+    **Source**: `src/cook/retry_v2.rs:238-243`
 
 ## Circuit Breaker Observability
+
+The circuit breaker follows a state machine pattern that protects downstream services from cascading failures:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: Initial State
+
+    Closed --> Closed: Success / Reset failures
+    Closed --> Open: Failure threshold reached
+
+    Open --> Open: Timeout not expired
+    Open --> HalfOpen: Recovery timeout expired
+
+    HalfOpen --> Closed: Test request succeeds
+    HalfOpen --> Open: Test request fails
+
+    note right of Closed
+        Normal operation
+        Requests flow through
+    end note
+
+    note right of Open
+        Circuit tripped
+        Requests blocked
+    end note
+
+    note right of HalfOpen
+        Testing recovery
+        One request allowed
+    end note
+```
 
 Circuit breaker state changes are logged automatically:
 
 ### Circuit Breaker Opens
+
 ```
 Circuit breaker opened after 5 consecutive failures
 ```
 
-**Source**: src/cook/retry_v2.rs:391
+!!! danger "Circuit Open"
+    When the failure threshold is exceeded, the circuit breaker opens and blocks further retry attempts until the recovery timeout expires.
 
-When the failure threshold is exceeded, the circuit breaker opens and blocks further retry attempts until the recovery timeout expires.
+    **Source**: `src/cook/retry_v2.rs:391-394`
 
 ### Circuit Breaker Transitions
 
@@ -86,11 +191,12 @@ Circuit breaker transitioning to half-open
 Circuit breaker closed after successful operation
 ```
 
-**Source**: src/cook/retry_v2.rs:359, 377
-
 These debug-level messages show circuit breaker recovery:
-- **Half-open**: Testing if failures have cleared (one attempt allowed)
-- **Closed**: Normal operation resumed after successful attempt
+
+| State | Description | Source |
+|-------|-------------|--------|
+| **Half-Open** | Testing if failures have cleared (one attempt allowed) | `src/cook/retry_v2.rs:359` |
+| **Closed** | Normal operation resumed after successful attempt | `src/cook/retry_v2.rs:377` |
 
 ## Workflow-Level Observability
 
@@ -106,6 +212,7 @@ When retries are configured via `on_failure` handlers, you'll see:
 ```
 
 **Workflow output** shows:
+
 1. Initial command failure
 2. Retry attempt messages with delays
 3. Handler command execution
@@ -131,6 +238,7 @@ prodigy events show <job_id>
 ```
 
 Events include:
+
 - Retry attempt counts per work item
 - Individual agent retry behavior
 - Correlation between retries and DLQ items
@@ -141,14 +249,13 @@ See [Event Tracking](../mapreduce/event-tracking.md) for comprehensive event det
 
 ### Identifying Retry Configuration Issues
 
-**Problem**: Commands retry unnecessarily on non-transient errors
-
-**Check logs for**:
-```
-Retrying (attempt 2/5) after 100ms
-Retrying (attempt 3/5) after 200ms
-...
-```
+!!! question "Problem: Commands retry unnecessarily on non-transient errors"
+    **Check logs for**:
+    ```
+    Retrying (attempt 2/5) after 100ms
+    Retrying (attempt 3/5) after 200ms
+    ...
+    ```
 
 **Solution**: Configure `retry_on` error matchers to only retry specific errors:
 
@@ -164,12 +271,11 @@ See [Conditional Retry with Error Matchers](conditional-retry-with-error-matcher
 
 ### Debugging Circuit Breaker Behavior
 
-**Problem**: Circuit breaker opening too aggressively
-
-**Check logs for**:
-```
-Circuit breaker opened after 3 consecutive failures
-```
+!!! question "Problem: Circuit breaker opening too aggressively"
+    **Check logs for**:
+    ```
+    Circuit breaker opened after 3 consecutive failures
+    ```
 
 **Solution**: Adjust `failure_threshold` and `recovery_timeout`:
 
@@ -181,12 +287,11 @@ circuit_breaker:
 
 ### Analyzing Retry Budget Exhaustion
 
-**Problem**: Retries stop before `max_attempts` reached
-
-**Check logs for**:
-```
-Retry budget exhausted for <operation>
-```
+!!! question "Problem: Retries stop before `max_attempts` reached"
+    **Check logs for**:
+    ```
+    Retry budget exhausted for <operation>
+    ```
 
 **Solution**: Increase `retry_budget` or reduce `max_delay_ms`:
 
@@ -201,6 +306,33 @@ See [Retry Budget](retry-budget.md).
 ## Integration with Error Handling
 
 Retry observability integrates with Prodigy's error handling pipeline:
+
+```mermaid
+sequenceDiagram
+    participant C as Command
+    participant R as Retry Executor
+    participant H as on_failure Handler
+    participant D as Dead Letter Queue
+
+    C->>R: Execute
+    R->>R: Attempt 1 fails
+    Note over R: Log: Retrying (attempt 2/3)
+    R->>R: Attempt 2 fails
+    Note over R: Log: Retrying (attempt 3/3)
+    R->>R: Attempt 3 fails
+    Note over R: Log: Retries exhausted
+
+    R->>H: Execute handler
+    alt Handler succeeds
+        H-->>R: Success
+        Note over R: Log: Handler succeeded
+    else Handler fails
+        H-->>D: Add to DLQ
+        Note over D: Preserve retry history
+    end
+```
+
+The three-level defense:
 
 1. **Retry** - First line of defense for transient failures
 2. **On-Failure Handlers** - Second line when retries exhausted
@@ -240,6 +372,7 @@ prodigy dlq show <job_id>
 ```
 
 Each DLQ item preserves:
+
 - Number of retry attempts made
 - Final error message
 - Retry delays used
