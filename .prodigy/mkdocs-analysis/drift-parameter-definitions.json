@@ -1,0 +1,109 @@
+{
+  "item_type": "page",
+  "page_id": "parameter-definitions",
+  "page_title": "parameter definitions",
+  "page_file": "docs/composition/parameter-definitions.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is well-written and accurate. Minor source code line number references are slightly off, and the page could benefit from MkDocs Material visual features like admonitions and tabs.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Parameter Structure",
+      "description": "Source code line reference slightly inaccurate: says 'mod.rs:97-107' but actual is lines 99-107",
+      "current_content": "**Source**: `ParameterDefinitions` structure in src/cook/workflow/composition/mod.rs:97-107",
+      "should_be": "**Source**: `ParameterDefinitions` structure in src/cook/workflow/composition/mod.rs:99-107",
+      "fix_suggestion": "Update line number reference from 97-107 to 99-107",
+      "source_reference": "src/cook/workflow/composition/mod.rs:99"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Parameter Types",
+      "description": "Source code line reference slightly inaccurate: says 'mod.rs:131-141' but actual is lines 134-141",
+      "current_content": "defined in src/cook/workflow/composition/mod.rs:131-141",
+      "should_be": "defined in src/cook/workflow/composition/mod.rs:134-141",
+      "fix_suggestion": "Update line number reference from 131-141 to 134-141",
+      "source_reference": "src/cook/workflow/composition/mod.rs:134"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Page lacks MkDocs Material visual features that would improve readability",
+      "fix_suggestion": "Add admonitions for tips, warnings and notes. Consider using tabs for showing alternative syntax examples. Add info callouts for implementation status section.",
+      "enhancement_type": "visual_features"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all 6 parameter types with clear examples",
+    "Well-documented parameter precedence with clear hierarchy",
+    "Source code references provided for key structures",
+    "Complete example showing realistic use case",
+    "Clear implementation status section with checkmarks",
+    "Good progression from basic to advanced concepts",
+    "Accurate type validation behavior documented",
+    "CLI parameter type inference behavior well explained"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions (info, tip, warning) for better visual hierarchy",
+    "Use tabs to show YAML vs JSON parameter file examples side by side",
+    "Add a 'tip' callout for the type inference behavior explanation",
+    "Consider adding a 'warning' admonition about custom validation not being evaluated yet",
+    "Add code annotations for the complete example to explain each part",
+    "Consider adding a section on parameter validation error debugging"
+  ],
+  "cross_references": [
+    "template-system",
+    "default-values"
+  ],
+  "internal_links_validated": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "all_valid": true,
+    "validated_links": [
+      {
+        "link_text": "Template System",
+        "target": "template-system.md",
+        "exists": true
+      },
+      {
+        "link_text": "Default Values",
+        "target": "default-values.md",
+        "exists": true
+      },
+      {
+        "link_text": "Providing Parameter Values",
+        "target": "#providing-parameter-values",
+        "type": "anchor",
+        "exists": true
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:17:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "parameter definitions",
+      "type validation",
+      "default values",
+      "CLI parameters",
+      "parameter precedence",
+      "workflow composition"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_checked": [
+      "src/cook/workflow/composition/mod.rs",
+      "src/cli/params.rs"
+    ],
+    "documentation_accuracy": {
+      "parameter_types": "accurate",
+      "type_validation": "accurate",
+      "default_values": "accurate",
+      "cli_parsing": "accurate",
+      "precedence_rules": "accurate",
+      "implementation_status": "accurate"
+    }
+  }
+}
