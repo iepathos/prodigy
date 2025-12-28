@@ -14,6 +14,33 @@ This section covers workflow composition (preview feature) and custom merge work
 !!! warning "Preview Feature"
     Workflow composition features are partially implemented. Core composition logic exists but CLI integration is pending (Spec 131-133). This example shows the planned syntax.
 
+```mermaid
+graph LR
+    subgraph Fragments["Reusable Fragments"]
+        direction TB
+        TestSuite["test-suite.yml"]
+        Deploy["deploy.yml"]
+    end
+
+    subgraph Base["Base Workflow"]
+        BaseCi["base-ci.yml"]
+    end
+
+    subgraph Final["Extended Workflow"]
+        direction TB
+        Templates["Templates
+        (rust_test, deploy_to_env)"]
+        Steps["Workflow Steps"]
+    end
+
+    TestSuite -->|imports| Final
+    Deploy -->|imports| Final
+    BaseCi -->|extends| Final
+    Templates --> Steps
+```
+
+**Figure**: Workflow composition showing imports, extends, and template usage.
+
 ```yaml title="extended-ci-workflow.yml"
 # Source: Composition architecture from features.json:workflow_composition
 # Import reusable workflow fragments
