@@ -4,6 +4,32 @@ This section covers advanced workflow features including nested error handling, 
 
 ## Example 9: Advanced Features
 
+### Nested Error Handling Flow
+
+```mermaid
+flowchart LR
+    Start[Execute Command] --> Success{Success?}
+    Success -->|Yes| OnSuccess[Run on_success Handler]
+    Success -->|No| OnFailure[Run on_failure Handler]
+
+    OnFailure --> Recovery{Recovery Success?}
+    Recovery -->|Yes| NestedSuccess[Run Nested on_success]
+    Recovery -->|No| Fail[Command Failed]
+
+    NestedSuccess --> Retry{max_attempts > 0?}
+    Retry -->|Yes| RetryCmd[Retry Original Command]
+    Retry -->|No| Continue[Continue Workflow]
+
+    RetryCmd --> Start
+    OnSuccess --> Continue
+
+    style Success fill:#e8f5e9
+    style OnFailure fill:#fff3e0
+    style Fail fill:#ffebee
+```
+
+**Figure**: Nested error handling showing how `on_failure` and `on_success` handlers chain together with retry logic.
+
 ```yaml
 # Nested error handling with retry configuration
 - shell: "cargo build --release"
@@ -33,17 +59,17 @@ This section covers advanced workflow features including nested error handling, 
   when: "${test_output} contains 'passed' and ${build_output} contains 'Finished'"
 ```
 
-**Note:** Advanced features currently supported:
-- **Nested handlers**: Chain `on_failure` and `on_success` handlers for complex error recovery
-- **Max attempts**: Combine with conditional execution for automatic retry logic
-- **Conditional execution**: Use `when` clauses with captured output or variables
-- **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
-- **Working directory**: Per-command directory control using `working_dir` field
-- **Git context variables**: Automatic tracking of file changes during workflow execution
+!!! info "Advanced Features"
+    - **Nested handlers**: Chain `on_failure` and `on_success` handlers for complex error recovery
+    - **Max attempts**: Combine with conditional execution for automatic retry logic
+    - **Conditional execution**: Use `when` clauses with captured output or variables
+    - **Complex conditionals**: Combine multiple conditions with `and`/`or` operators
+    - **Working directory**: Per-command directory control using `working_dir` field
+    - **Git context variables**: Automatic tracking of file changes during workflow execution
 
 ### Working Directory Usage
 
-**Source**: Field definition from src/commands/handlers/shell.rs:40, examples from workflows/environment-example.yml:52-64
+**Source**: Field definition from src/commands/handlers/shell.rs:40 (`schema.add_optional("working_dir", ...)`), examples from workflows/environment-example.yml:52-64
 
 ```yaml
 # Run command in specific directory
@@ -64,16 +90,48 @@ This section covers advanced workflow features including nested error handling, 
   working_dir: "${env.DEPLOY_DIR}"  # Path from environment variable
 ```
 
-**Note:** The `working_dir` field is fully implemented and production-ready:
-- Accepts relative or absolute paths
-- Supports variable interpolation (e.g., `"${env.PROJECT_DIR}"`)
-- Falls back to current execution context if not specified
-- Paths are resolved to absolute paths automatically
-- Relative paths are resolved via the workflow execution context
+!!! note "Working Directory Capabilities"
+    The `working_dir` field is fully implemented and production-ready:
+
+    - Accepts relative or absolute paths
+    - Supports variable interpolation (e.g., `"${env.PROJECT_DIR}"`)
+    - Falls back to current execution context if not specified
+    - Paths are resolved to absolute paths automatically
+    - Relative paths are resolved via the workflow execution context
 
 ### Git Context Variables (Spec 122)
 
 Prodigy automatically tracks file changes during workflow execution and exposes them as variables:
+
+```mermaid
+graph LR
+    subgraph Step["Step Scope"]
+        direction LR
+        SA[files_added] --> SM[files_modified]
+        SM --> SD[files_deleted]
+        SD --> SC[commits]
+    end
+
+    subgraph Workflow["Workflow Scope"]
+        direction LR
+        WC[commit_count] --> WM[files_modified]
+    end
+
+    subgraph Git["Git Scope"]
+        direction LR
+        GS[staged_files] --> GU[unstaged_files]
+        GU --> GM[modified_files]
+    end
+
+    Step -->|Aggregates to| Workflow
+    Git -->|Live state| Step
+
+    style Step fill:#e1f5ff
+    style Workflow fill:#f3e5f5
+    style Git fill:#fff3e0
+```
+
+**Figure**: Git context variable scopes showing how step-level changes aggregate to workflow-level and how git state feeds into tracking.
 
 ```yaml
 # Access files changed in current step
@@ -122,13 +180,18 @@ Prodigy automatically tracks file changes during workflow execution and exposes 
 - `|pattern:**/*.rs` - Alternative syntax for glob pattern filtering (equivalent to `:pattern`)
 - `|basename` - Extract just file names without paths
 
-**Note:** Both `:pattern` and `|pattern:` syntaxes are valid and equivalent. Use whichever is more readable in your context:
-- `${git.modified_files:*.rs}` - Colon syntax (more concise)
-- `${git.modified_files|pattern:**/*.rs}` - Pipe syntax (more explicit)
+!!! tip "Pattern Syntax Options"
+    Both `:pattern` and `|pattern:` syntaxes are valid and equivalent. Use whichever is more readable in your context:
+
+    - `${git.modified_files:*.rs}` - Colon syntax (more concise)
+    - `${git.modified_files|pattern:**/*.rs}` - Pipe syntax (more explicit)
 
 **Source**: Git context tracking from src/cook/workflow/git_context.rs:1-120, variable resolution from src/cook/workflow/git_context.rs:36-42
 
 ### Troubleshooting MapReduce Cleanup
+
+!!! warning "Cleanup Failures Don't Affect Results"
+    Agent execution status is independent of cleanup status. If an agent completes successfully but cleanup fails, the agent is still marked as successful and all results are preserved. Don't retry agents just because cleanup failed.
 
 If agent worktree cleanup fails (due to disk full, permission errors, etc.), use the orphaned worktree cleanup command:
 ```bash
@@ -228,11 +291,45 @@ stateDiagram-v2
 - `timeout: 30s` - Typical recovery time for transient issues
 - `half_open_requests: 3` - Minimal testing before full recovery
 
+!!! tip "Debugging Circuit Breaker State"
+    Monitor circuit breaker state transitions in verbose mode (`-v`). Look for log messages:
+
+    - `"Circuit breaker opened after N failures"` - Circuit opened, requests will be rejected
+    - `"Circuit breaker closed after N successes"` - Recovery complete, normal operation resumed
+    - `"Circuit breaker re-opened after test failures"` - Recovery failed during half-open testing
+
+    If the circuit keeps opening, check if the external service is healthy before adjusting thresholds.
+
 **See Also**: [Error Handling Guide](../workflow-basics/error-handling.md) for comprehensive error handling patterns
 
 ---
 
 ## Example 11: Retry Configuration with Backoff Strategies
+
+### Retry Flow with Backoff
+
+```mermaid
+flowchart LR
+    Execute[Execute Command] --> Check{Success?}
+    Check -->|Yes| Done[Complete]
+    Check -->|No| Attempts{Attempts Left?}
+
+    Attempts -->|No| Action{on_failure}
+    Action -->|continue| Next[Next Command]
+    Action -->|fail| Fail[Workflow Failed]
+    Action -->|dlq| DLQ[Send to DLQ]
+
+    Attempts -->|Yes| Backoff[Calculate Backoff]
+    Backoff --> Wait["Wait
+    (with jitter)"]
+    Wait --> Execute
+
+    style Done fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Backoff fill:#e1f5ff
+```
+
+**Figure**: Retry flow showing backoff calculation, jitter, and exhaustion handling.
 
 ```yaml
 name: resilient-deployment
@@ -325,10 +422,10 @@ error_policy:
     jitter_factor: 0.3                      # (7)!
     retry_budget: 300s                      # (8)!
     retry_on:                               # (9)!
-      - network
-      - timeout
-      - server_error
-      - rate_limit
+      - network         # Connection failures, DNS errors
+      - timeout         # Command exceeded timeout duration
+      - server_error    # HTTP 5xx responses
+      - rate_limit      # HTTP 429 responses
     on_failure: continue                    # (10)!
 
 1. Maximum number of retry attempts before giving up
@@ -354,6 +451,15 @@ error_policy:
 | **Fibonacci** | Gradual backoff | Fibonacci(n) × initial | 1s, 1s, 2s, 3s, 5s |
 | **Fixed** | Rate limiting, polling | constant | 5s, 5s, 5s, 5s |
 | **Custom** | Complex SLA requirements | user-defined | 1s, 5s, 15s, 60s |
+
+!!! example "Common Retry Patterns"
+    **API calls with rate limits**: Use exponential backoff with `retry_on: [rate_limit]` to respect 429 responses.
+
+    **Database connections**: Use fibonacci backoff for gradual recovery during connection pool exhaustion.
+
+    **Health checks**: Use fixed backoff with short delays for consistent polling intervals.
+
+    **Deployment scripts**: Use custom delays like `[5s, 30s, 120s]` to match deployment verification windows.
 
 **Jitter Benefits** (from retry_v2.rs:644-659):
 - Prevents thundering herd when multiple agents retry simultaneously
