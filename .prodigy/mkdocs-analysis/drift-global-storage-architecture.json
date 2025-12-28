@@ -1,0 +1,115 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "global-storage-architecture",
+  "page_title": "global storage architecture",
+  "page_file": "docs/mapreduce/global-storage-architecture.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good documentation with accurate information and useful examples. Minor issues with missing session state and missing MkDocs Material visual features.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Sessions",
+      "description": "Missing 'Initializing' session state. The code defines 6 session states (Initializing, Running, Paused, Completed, Failed, Cancelled) but documentation only lists 5 states.",
+      "feature_reference": "session_management.lifecycle.states",
+      "current_content": "Session status (Running, Paused, Completed, Failed)",
+      "should_be": "Session status (Initializing, Running, Paused, Completed, Failed, Cancelled)",
+      "fix_suggestion": "Update the session status list to include 'Initializing' state",
+      "source_reference": "src/unified_session/state.rs:91-99"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Sessions",
+      "description": "The sessions section mentions Cancelled state in prose but the path pattern section doesn't show it in the content description list",
+      "fix_suggestion": "Ensure all 6 session states are documented consistently"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall",
+      "description": "Page lacks MkDocs Material visual features. Could benefit from admonitions, tabs for different use cases, and code annotations for the directory structure.",
+      "fix_suggestion": "Add admonition blocks for important notes (e.g., PRODIGY_HOME override), use tabs to organize Examples section, add annotations to the directory structure diagram"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Directory Structure",
+      "description": "The directory tree could be enhanced with a Mermaid diagram showing the hierarchical relationship between storage components",
+      "fix_suggestion": "Add a Mermaid diagram showing storage component relationships and data flow"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "DLQ Commands",
+      "description": "The DLQ commands list references line numbers (src/cli/args.rs:578-675) but actual definition starts at line 534. Minor source reference inaccuracy.",
+      "current_content": "(src/cli/args.rs:578-675)",
+      "should_be": "(src/cli/args.rs:534-631)",
+      "fix_suggestion": "Update line number references to match current code location"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive directory structure documentation with clear path patterns",
+    "Good explanation of repository isolation and canonicalization",
+    "Useful examples for inspecting and maintaining storage",
+    "Accurate source code references for key functions (extract_repo_name, unified_session)",
+    "Clear explanation of PRODIGY_HOME environment variable override",
+    "Proper cross-references to related documentation (Event Tracking, DLQ, Checkpoint and Resume)",
+    "Complete list of DLQ CLI commands with accurate descriptions",
+    "Good note about health_check() being internal-only"
+  ],
+  "improvement_suggestions": [
+    "Add admonition boxes for important information (e.g., '!!! tip' for PRODIGY_HOME usage)",
+    "Use tabbed content to organize the Examples section (Inspecting, Maintenance, Monitoring)",
+    "Add a Mermaid diagram showing the storage component hierarchy and data flow",
+    "Include code annotations in the directory structure to explain each component inline",
+    "Add a decision flowchart for when to use different storage maintenance commands",
+    "Consider adding troubleshooting tips for common storage issues"
+  ],
+  "cross_references": [
+    {
+      "link": "./event-tracking.md",
+      "status": "valid",
+      "target_exists": true
+    },
+    {
+      "link": "./dead-letter-queue-dlq.md",
+      "status": "valid",
+      "target_exists": true
+    },
+    {
+      "link": "./checkpoint-and-resume.md",
+      "status": "valid",
+      "target_exists": true
+    },
+    {
+      "link": "../mapreduce-worktree-architecture.md",
+      "status": "valid",
+      "target_exists": true
+    }
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T11:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "global storage",
+      "directory structure",
+      "events",
+      "DLQ",
+      "state management",
+      "sessions",
+      "worktrees",
+      "resume locks",
+      "repository isolation",
+      "PRODIGY_HOME",
+      "storage maintenance"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
