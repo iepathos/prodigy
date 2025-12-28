@@ -1,0 +1,103 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "checkpoint-and-resume",
+  "page_title": "checkpoint and resume",
+  "page_file": "docs/mapreduce/checkpoint-and-resume.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Comprehensive documentation with excellent diagrams and code examples. Minor inaccuracies in CLI command references and code line numbers.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Available checkpoint commands",
+      "description": "The checkpoint commands note references src/cli/args.rs:363-413, but the actual lines are around 137-390. The commands listed are accurate but the line reference is outdated.",
+      "current_content": "Available checkpoint commands (src/cli/args.rs:363-413)",
+      "should_be": "Available checkpoint commands (src/cli/args.rs:137-390)",
+      "fix_suggestion": "Update the source reference to reflect actual line numbers.",
+      "source_reference": "src/cli/args.rs:137-390"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Checkpoint Interval Configuration",
+      "description": "MapReduce checkpoint types.rs reference mentions lines 242-264, but the CheckpointConfig structure with defaults is at lines 242-264 which is accurate. However, the RetentionPolicy defaults are at lines 266-282.",
+      "current_content": "MapReduce Checkpoints (src/cook/execution/mapreduce/checkpoint/types.rs:242-264)",
+      "should_be": "MapReduce Checkpoints (src/cook/execution/mapreduce/checkpoint/types.rs:242-282)",
+      "fix_suggestion": "Expand the line range to include RetentionPolicy defaults.",
+      "source_reference": "src/cook/execution/mapreduce/checkpoint/types.rs:242-282"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Standard Workflow Checkpoints",
+      "description": "The documentation references src/cook/workflow/checkpoint.rs:20 for default interval, which is close but the actual constant is at line 21.",
+      "current_content": "Standard Workflow Checkpoints (src/cook/workflow/checkpoint.rs:20)",
+      "should_be": "Standard Workflow Checkpoints (src/cook/workflow/checkpoint.rs:21)",
+      "fix_suggestion": "Update line reference to line 21 where DEFAULT_CHECKPOINT_INTERVAL is defined.",
+      "source_reference": "src/cook/workflow/checkpoint.rs:21"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Session-Job Mapping",
+      "description": "The documentation correctly references SessionJobMapping structure at lines 14-26 in session_job_mapping.rs. The actual struct spans lines 13-26 (including doc comment). Minor discrepancy.",
+      "current_content": "SessionJobMapping structure provides bidirectional mapping (src/storage/session_job_mapping.rs:14-26)",
+      "should_be": "SessionJobMapping structure provides bidirectional mapping (src/storage/session_job_mapping.rs:13-26)",
+      "fix_suggestion": "Include the doc comment line in the reference range.",
+      "source_reference": "src/storage/session_job_mapping.rs:13-26"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Checkpoint Commands",
+      "description": "The documentation mentions 'prodigy checkpoints validate <checkpoint_id>' command, but examining the CLI args shows no 'validate' subcommand for checkpoints. The available commands are: list, clean, show, mapreduce.",
+      "current_content": "prodigy checkpoints validate <checkpoint_id> - Verify checkpoint integrity",
+      "should_be": "Remove the validate command reference or note it's not yet implemented",
+      "fix_suggestion": "Remove the non-existent 'validate' command from the checkpoint commands list, or document it if it should be added.",
+      "source_reference": "src/cli/args.rs:318-390"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent Mermaid diagrams for checkpoint flow and concurrent resume protection lifecycle",
+    "Comprehensive coverage of checkpoint behavior across all three phases (setup, map, reduce)",
+    "Clear explanation of checkpoint interval configuration with annotated YAML example",
+    "Detailed session-job mapping documentation with storage location and fields",
+    "Thorough concurrent resume protection section with lock behavior, metadata, and error messages",
+    "Practical troubleshooting section for stale locks with platform-specific details",
+    "Well-structured best practices section with tips for idempotent setup commands",
+    "Excellent example resume workflow scenario with step-by-step recovery process",
+    "Good use of MkDocs Material admonitions (tip, note, warning, example)",
+    "Code annotations in YAML examples provide clear explanations"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference link to the DLQ documentation page for failed item handling",
+    "Consider adding a diagram showing the checkpoint file structure and relationships",
+    "Add example of inspecting checkpoint files using jq for debugging",
+    "Consider adding section on checkpoint cleanup and disk space management"
+  ],
+  "cross_references": [
+    "dlq",
+    "global-storage-architecture",
+    "event-tracking",
+    "sessions"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "checkpoints",
+      "resume",
+      "recovery",
+      "session-job mapping",
+      "concurrent resume protection",
+      "stale locks",
+      "checkpoint intervals",
+      "state preservation"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "internal_links_found": 0,
+    "broken_links": []
+  }
+}
