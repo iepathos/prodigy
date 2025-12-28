@@ -315,6 +315,40 @@ mdbook serve --open
 
 The automated documentation workflow uses Prodigy's MapReduce pattern with three phases:
 
+```mermaid
+graph LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        S1[Analyze Codebase] --> S2[Detect Gaps]
+        S2 --> S3[Split Chapters]
+        S3 --> S4[Generate Work Items]
+    end
+
+    subgraph Map["Map Phase (Parallel)"]
+        direction TB
+        M1["Agent 1<br/>Chapter A"]
+        M2["Agent 2<br/>Chapter B"]
+        M3["Agent N<br/>Chapter N"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1[Build Book] --> R2[Holistic Validation]
+        R2 --> R3[Cleanup]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+    Reduce --> Complete[Ready to Merge]
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style Complete fill:#e8f5e9
+```
+
+**Figure**: The three-phase documentation workflow—setup prepares work items, map processes chapters in parallel, reduce validates the complete book.
+
 #### Setup Phase
 
 **Purpose**: Analyze your codebase, optimize chapter structure, and prepare work items
@@ -346,9 +380,35 @@ The automated documentation workflow uses Prodigy's MapReduce pattern with three
 3. Validation - Ensure documentation meets quality standards (100% threshold)
 4. Gap filling - If validation fails, run completion attempts (max 3)
 
+!!! example "Validation Flow"
+    Each chapter goes through: **Analyze → Fix → Validate → Complete (if needed)**
+
+    If validation fails, the `on_incomplete` handler runs up to 3 times to address gaps before moving on.
+
 **Parallelism**: Configured via `max_parallel: 3` - three chapters processed simultaneously
 
 **Isolation**: Each chapter processed in its own git worktree, merged back to parent automatically
+
+```mermaid
+graph TD
+    Parent["Parent Worktree<br/>session-xxx"] --> A1["Agent 1 Worktree<br/>Chapter: Getting Started"]
+    Parent --> A2["Agent 2 Worktree<br/>Chapter: Advanced"]
+    Parent --> A3["Agent 3 Worktree<br/>Chapter: API Reference"]
+
+    A1 -->|"Merge Changes"| Parent
+    A2 -->|"Merge Changes"| Parent
+    A3 -->|"Merge Changes"| Parent
+
+    Parent -->|"User Approval"| Main["Original Branch<br/>main/master"]
+
+    style Parent fill:#e1f5ff
+    style A1 fill:#fff3e0
+    style A2 fill:#fff3e0
+    style A3 fill:#fff3e0
+    style Main fill:#e8f5e9
+```
+
+**Figure**: Worktree isolation—each agent works in its own worktree, merging changes back to the parent before final user-approved merge.
 
 **Source**: Map phase from `workflows/book-docs-drift.yml:51-74`
 
