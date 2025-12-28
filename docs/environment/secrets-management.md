@@ -112,7 +112,35 @@ flowchart TD
 
 ### Secret Masking
 
-Secret values are masked in logs and command output to prevent accidental exposure:
+Secret values are masked in logs and command output to prevent accidental exposure.
+
+```mermaid
+flowchart LR
+    subgraph Input["Command Execution"]
+        Cmd["curl -H 'Bearer sk-abc123'"]
+    end
+
+    subgraph Masking["Masking Engine"]
+        Check{"Is value
+        in secrets?"}
+        Replace["Replace with ***"]
+    end
+
+    subgraph Output["Log Output"]
+        Masked["curl -H 'Bearer ***'"]
+    end
+
+    Cmd --> Check
+    Check -->|Yes| Replace
+    Replace --> Masked
+    Check -->|No| Masked
+
+    style Input fill:#fff3e0
+    style Masking fill:#e1f5ff
+    style Output fill:#e8f5e9
+```
+
+**Figure**: Secret masking flow - values defined in `secrets:` are automatically masked in logs.
 
 ```yaml
 secrets:
@@ -134,6 +162,40 @@ $ curl -H 'Authorization: Bearer ***' https://api.github.com
 ### SecretStore Architecture
 
 For extensibility, Prodigy provides a `SecretStore` system that supports custom secret providers (`src/cook/environment/secret_store.rs:27-107`):
+
+```mermaid
+graph LR
+    subgraph SecretStore["SecretStore"]
+        direction TB
+        Registry["Provider Registry"]
+    end
+
+    subgraph Providers["Secret Providers"]
+        direction TB
+        Env["EnvSecretProvider
+        Environment Variables"]
+        File["FileSecretProvider
+        Filesystem"]
+        Custom["Custom Providers
+        (Extensible)"]
+    end
+
+    Request["get_secret(key)"] --> SecretStore
+    SecretStore --> Registry
+    Registry --> Env
+    Registry --> File
+    Registry --> Custom
+
+    Env --> Result["Secret Value"]
+    File --> Result
+    Custom --> Result
+
+    style SecretStore fill:#e1f5ff
+    style Providers fill:#f3e5f5
+    style Result fill:#e8f5e9
+```
+
+**Figure**: SecretStore architecture showing provider-based extensibility.
 
 **Built-in Providers**:
 
@@ -268,6 +330,9 @@ commands:
    - Use different secret sources per profile
 
 ### Troubleshooting
+
+!!! tip "Debug Secret Resolution"
+    Run your workflow with `-vv` to see detailed secret resolution logs without exposing actual values.
 
 #### Issue: "Secret not found in environment"
 
