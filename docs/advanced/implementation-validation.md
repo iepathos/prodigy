@@ -2,6 +2,29 @@
 
 Validate that implementations meet requirements using the `validate` field.
 
+```mermaid
+flowchart LR
+    Exec[Execute Command] --> Valid[Run Validation]
+    Valid --> Check{"% ≥ Threshold?"}
+    Check -->|Yes| Pass[✓ Continue]
+    Check -->|No| Incomplete{"on_incomplete
+    defined?"}
+    Incomplete -->|No| Fail[✗ Fail Workflow]
+    Incomplete -->|Yes| Remediate[Run Remediation]
+    Remediate --> Attempt{"Attempts
+    < max?"}
+    Attempt -->|Yes| Valid
+    Attempt -->|No| FailCheck{"fail_workflow?"}
+    FailCheck -->|Yes| Fail
+    FailCheck -->|No| Pass
+
+    style Pass fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Remediate fill:#fff3e0
+```
+
+**Figure**: Validation flow showing threshold checking, remediation loop, and failure handling.
+
 ### Basic Validation
 
 Run validation commands after a step completes:
