@@ -1,0 +1,111 @@
+{
+  "item_type": "page",
+  "page_id": "troubleshooting",
+  "page_title": "Troubleshooting",
+  "page_file": "docs/configuration/troubleshooting.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Comprehensive troubleshooting page with accurate content covering configuration issues, YAML syntax, environment variables, storage, workflow, API authentication, and performance. Minor enhancements needed for visual features and some command verification.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "API Key Format",
+      "description": "Documentation claims API key should start with 'sk-ant-' but the codebase does not validate this prefix. The format verification suggestion may be incorrect.",
+      "current_content": "Verify key format (should start with `sk-ant-`):\n```bash\necho $PRODIGY_CLAUDE_API_KEY | head -c 10\n# Should show: sk-ant-api\n```",
+      "should_be": "Note that the key format depends on your Anthropic API key type. Verify the key is set correctly without assuming a specific prefix format.",
+      "fix_suggestion": "Update to reflect that API key format may vary and avoid hardcoding expected prefixes that aren't validated in code.",
+      "source_reference": "src/config/prodigy_config.rs - no prefix validation found"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Storage Growing Too Large - DLQ Clean Command",
+      "description": "Documentation references 'prodigy dlq clean --completed' but DLQ module has 'clear' subcommand, not 'clean'.",
+      "current_content": "# Clean DLQ for completed jobs\nprodigy dlq clean --completed",
+      "should_be": "# Clear processed DLQ items\nprodigy dlq clear <workflow_id>",
+      "fix_suggestion": "Update to use correct CLI subcommand 'clear' instead of 'clean'.",
+      "source_reference": "src/cli/commands/dlq.rs:DlqCommands::Clear"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Page Visual Enhancement",
+      "description": "Page is auto-discovered and lacks MkDocs Material visual features (admonitions, tabs, icons) that enhance readability.",
+      "fix_suggestion": "Add admonitions for warnings, tips, and danger sections. Use tabs for multi-option solutions. Add icons for quick visual reference."
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common configuration issues",
+    "Clear symptom -> cause -> solution structure for each issue",
+    "Good use of code examples and YAML snippets",
+    "Helpful summary table of common error messages",
+    "Covers all major configuration areas: YAML, environment, storage, workflow, API, performance",
+    "Includes debugging tools section with verbosity levels",
+    "Valid cross-references to related documentation pages",
+    "Actionable solutions with shell commands",
+    "References correct file locations for config files",
+    "Good explanation of configuration precedence"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions (note, tip, warning, danger) for key points",
+    "Use collapsible sections for detailed troubleshooting steps",
+    "Add visual icons or tags for severity levels",
+    "Consider adding a quick diagnostic flowchart",
+    "Verify DLQ command syntax matches current CLI implementation",
+    "Add section on MapReduce-specific troubleshooting (DLQ inspection, resume issues)",
+    "Include links to Claude observability features for debugging",
+    "Remove assumption about specific API key prefix format"
+  ],
+  "cross_references": [
+    "global-configuration-structure",
+    "project-configuration-structure",
+    "../workflow-basics/index"
+  ],
+  "links_validated": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      {
+        "link_text": "Global Configuration Structure",
+        "target": "global-configuration-structure.md",
+        "exists": true
+      },
+      {
+        "link_text": "Project Configuration Structure",
+        "target": "project-configuration-structure.md",
+        "exists": true
+      },
+      {
+        "link_text": "Configuration Structure",
+        "target": "global-configuration-structure.md",
+        "exists": true
+      },
+      {
+        "link_text": "Workflow Basics",
+        "target": "../workflow-basics/index.md",
+        "exists": true
+      }
+    ],
+    "external_links_skipped": [
+      "https://console.anthropic.com/",
+      "https://github.com/anthropics/prodigy/issues"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "configuration errors",
+      "YAML syntax",
+      "environment variables",
+      "storage issues",
+      "workflow configuration",
+      "API authentication",
+      "performance tuning",
+      "debugging"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
