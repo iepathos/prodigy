@@ -1,0 +1,103 @@
+{
+  "item_type": "page",
+  "page_id": "configuration-precedence-rules",
+  "page_title": "configuration precedence rules",
+  "page_file": "docs/configuration/configuration-precedence-rules.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page references outdated line numbers and documents legacy configuration system without mentioning the newer ProdigyConfig. Core defaults have changed.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Default Values",
+      "description": "max_concurrent_specs default documented as 1, but ProdigyConfig uses 4",
+      "current_content": "max_concurrent_specs: Some(1)",
+      "should_be": "max_concurrent_specs: 4 (in ProdigyConfig)",
+      "fix_suggestion": "Update default value to reflect ProdigyConfig's default of 4",
+      "source_reference": "src/config/prodigy_config.rs:193 default_max_concurrent()"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Source References",
+      "description": "Line number references are incorrect - GlobalConfig::default() is at lines 108-120, not 88-100",
+      "current_content": "src/config/mod.rs:88-100",
+      "should_be": "src/config/mod.rs:108-120",
+      "fix_suggestion": "Update all line number references to match current source locations",
+      "source_reference": "src/config/mod.rs:108-120"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Configuration Loading Implementation",
+      "description": "Getter method line numbers are incorrect - they are at lines 205-218, not 133-154",
+      "current_content": "src/config/mod.rs:133-154",
+      "should_be": "src/config/mod.rs:205-218",
+      "fix_suggestion": "Update line number references for getter methods",
+      "source_reference": "src/config/mod.rs:205-218 get_claude_api_key(), get_auto_commit()"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Configuration Systems",
+      "description": "Documentation only covers legacy Config/GlobalConfig system, missing the newer ProdigyConfig system with premortem integration",
+      "feature_reference": "configuration_system",
+      "fix_suggestion": "Add section explaining ProdigyConfig as the recommended configuration system, with its Stillwater validation integration",
+      "source_reference": "src/config/prodigy_config.rs:37-89 ProdigyConfig struct"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Configuration Loading",
+      "description": "ProdigyConfig loading via load_prodigy_config() and layered source loading not documented",
+      "feature_reference": "configuration_system.configuration_sources",
+      "fix_suggestion": "Add example using load_prodigy_config() from src/config/builder.rs",
+      "source_reference": "src/config/builder.rs load_prodigy_config functions"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Test Coverage",
+      "description": "Test line number references are incorrect",
+      "current_content": "src/config/loader.rs:113-334",
+      "should_be": "Tests are in loader.rs and mod.rs but at different line numbers",
+      "fix_suggestion": "Update or remove specific line number references that may become stale",
+      "source_reference": "src/config/loader.rs:113+, src/config/mod.rs:228+"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Precedence Hierarchy",
+      "description": "Precedence documented as only project config and defaults, but ProdigyConfig supports 4 levels including global config and environment variables",
+      "current_content": "From highest to lowest priority: 1. Project Config, 2. Defaults",
+      "should_be": "1. Environment variables (PRODIGY_*), 2. Project config, 3. Global config (~/.prodigy/config.yml), 4. Defaults",
+      "fix_suggestion": "Update precedence hierarchy to reflect full ProdigyConfig layered loading",
+      "source_reference": "src/config/prodigy_config.rs:40-46 precedence documentation"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of field-level precedence concept",
+    "Good code examples showing getter pattern",
+    "Well-structured with progressive examples",
+    "Accurately documents the legacy Config system",
+    "Good distinction between project config and defaults"
+  ],
+  "improvement_suggestions": [
+    "Add diagram showing configuration source hierarchy",
+    "Include ProdigyConfig as the recommended approach with load_prodigy_config()",
+    "Consider removing hard-coded line number references that become stale",
+    "Add visual admonitions for important notes about legacy vs new systems",
+    "Include validation error accumulation feature of ProdigyConfig"
+  ],
+  "cross_references": [
+    "global-config",
+    "project-config"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["configuration", "precedence", "settings", "defaults"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

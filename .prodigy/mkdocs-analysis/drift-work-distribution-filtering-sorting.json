@@ -1,0 +1,88 @@
+{
+  "item_type": "auto-discovered",
+  "section_id": "work-distribution",
+  "section_title": "Work Distribution",
+  "page_id": "filtering-sorting",
+  "page_title": "Filtering & Sorting",
+  "page_file": "docs/mapreduce/work-distribution/filtering-sorting.md",
+  "feature_mappings": [
+    "mapreduce_workflows.core_capabilities.work_distribution.features.filtering",
+    "mapreduce_workflows.core_capabilities.work_distribution.features.sorting",
+    "mapreduce_workflows.core_capabilities.work_distribution.features.deduplication"
+  ],
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Good - Documentation accurately reflects the implementation with comprehensive coverage of filtering, sorting, and deduplication features",
+  "issues": [
+    {
+      "type": "minor_improvement",
+      "severity": "low",
+      "section": "Code Annotations",
+      "description": "Code annotations in YAML blocks (e.g., '# (1)!') are placed incorrectly - they appear inside the code block but are meant to be MkDocs Material annotations which require specific formatting",
+      "current_content": "```yaml\n# Equality\nfilter: \"status == 'active'\"\nfilter: \"status = 'active'\"  # (1)!",
+      "should_be": "Code annotations should be on separate lines after the code block closes, or the annotation syntax should match MkDocs Material requirements",
+      "fix_suggestion": "Review MkDocs Material code annotation syntax to ensure annotations render properly in the built documentation",
+      "source_reference": "docs/mapreduce/work-distribution/filtering-sorting.md:23-36"
+    },
+    {
+      "type": "minor_improvement",
+      "severity": "low",
+      "section": "Filter Functions",
+      "description": "Documentation mentions 'is_empty' function in the module docstring but it's not explicitly demonstrated in the Filter Functions section",
+      "current_content": "Filter functions list includes is_null, is_not_null, type checks, string operations, length, and matches",
+      "should_be": "Consider adding is_empty function example if it exists, or remove reference if not implemented",
+      "fix_suggestion": "Verify if is_empty function is implemented and add documentation example if so",
+      "source_reference": "src/cook/execution/data_pipeline/filter.rs:5"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all comparison operators (==, !=, >, <, >=, <=) with both symbolic and word-based alternatives (= for equality)",
+    "Excellent documentation of logical operators with both symbol (&&, ||) and word-based (AND, OR) syntax",
+    "Clear examples of nested field access (unified_score.final_score, location.coordinates.lat)",
+    "Well-documented IN operator with array syntax",
+    "Complete coverage of filter functions: is_null, is_not_null, type checks, string operations, length, matches",
+    "Proper documentation of sort syntax with ASC/DESC, multiple fields, and nested field support",
+    "Accurate documentation of NULLS FIRST/LAST behavior matching the implementation",
+    "Clear explanation of deduplication with the distinct field including null handling",
+    "Helpful warnings about field non-existence behavior",
+    "Accurate source references pointing to actual implementation locations",
+    "Good use of MkDocs Material admonitions (warning, tip, note) for important information"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference to the pagination.md page since offset/limit are related to work item processing order",
+    "Consider adding a 'Processing Order' section explaining the pipeline order: filter → sort → distinct → offset → limit",
+    "Add cross-reference to examples.md for more complex filtering scenarios",
+    "Consider adding array index access examples (e.g., tags[0]) since the implementation supports this pattern"
+  ],
+  "cross_references": [
+    "pagination",
+    "examples",
+    "input-sources",
+    "index"
+  ],
+  "links_validated": {
+    "total_internal_links": 0,
+    "broken_links": [],
+    "status": "No internal links found in document"
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "filter expressions",
+      "comparison operators",
+      "logical operators",
+      "filter functions",
+      "sort syntax",
+      "null handling in sort",
+      "deduplication",
+      "nested field access"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "implementation_files_checked": [
+      "src/cook/execution/data_pipeline/filter.rs",
+      "src/cook/execution/data_pipeline/sorter.rs",
+      "src/cook/execution/data_pipeline/mod.rs"
+    ]
+  }
+}

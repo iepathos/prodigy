@@ -1,0 +1,103 @@
+{
+  "item_type": "page",
+  "page_id": "state-management",
+  "page_title": "state management",
+  "page_file": "docs/stillwater-patterns/state-management.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page correctly illustrates the conceptual approach (pure state transitions + Effect-based I/O) but contains synthetic examples that don't match the actual implementation. The pattern is accurately described but the specific code examples should reference real implementation.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Stillwater Solution: Pure State + Effect I/O",
+      "description": "Documentation uses simplified 'JobState' struct while actual implementation uses 'MapReduceJobState' with different field structure",
+      "current_content": "pub struct JobState { pub pending_items: Vec<WorkItem>, pub active_agents: HashMap<String, AgentInfo>... }",
+      "should_be": "pub struct MapReduceJobState { pub job_id: String, pub config: MapReduceConfig, pub work_items: Vec<Value>, pub agent_results: HashMap<String, AgentResult>... }",
+      "fix_suggestion": "Update struct example to reference actual MapReduceJobState from src/cook/execution/state_pure/types.rs or add note that this is a simplified conceptual example",
+      "source_reference": "src/cook/execution/state_pure/types.rs:60-113"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Effect I/O Section",
+      "description": "StateEnv fields don't match actual implementation - documentation shows only 'storage' but actual implementation has both 'storage' and 'event_log'",
+      "current_content": "pub struct StateEnv { pub storage: Arc<dyn StorageBackend>, }",
+      "should_be": "pub struct StateEnv { pub storage: Arc<dyn StorageBackend>, pub event_log: Arc<dyn EventLog>, }",
+      "fix_suggestion": "Update StateEnv example to match actual implementation in src/cook/execution/state_pure/io.rs",
+      "source_reference": "src/cook/execution/state_pure/io.rs:30-34"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "low",
+      "section": "Effect I/O Section",
+      "description": "Documentation uses 'Effect::from_async' directly but actual implementation uses 'from_async' imported from stillwater and then calls .boxed()",
+      "current_content": "Effect::from_async(|env: &StateEnv| async move {...})",
+      "should_be": "from_async(|env: &StateEnv| {...async move {...}}).boxed()",
+      "fix_suggestion": "Update Effect construction pattern to match actual usage pattern from stillwater crate",
+      "source_reference": "src/cook/execution/state_pure/io.rs:40-60"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Phase Enum",
+      "description": "Documentation shows Phase enum with values like 'Phase::Reduce' but actual implementation uses 'PhaseType' with values like 'PhaseType::Reduce', 'PhaseType::Completed', 'PhaseType::Failed'",
+      "current_content": "if state.pending_items.is_empty() { state.phase = Phase::Reduce; }",
+      "should_be": "PhaseType enum with Setup, Map, Reduce, Completed, Failed variants",
+      "fix_suggestion": "Update phase references to use actual PhaseType enum",
+      "source_reference": "src/cook/execution/mapreduce/state/transitions.rs:5"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Work Item State Machine",
+      "description": "Documentation does not mention the pure work item state machine implementation with WorkItemStatus and WorkItemEvent types",
+      "feature_reference": "mapreduce_workflows.core_capabilities.state_management",
+      "fix_suggestion": "Add section showing the work item state machine from src/cook/execution/mapreduce/checkpoint/pure/state_transitions.rs which demonstrates the same pure transition pattern at the item level",
+      "source_reference": "src/cook/execution/mapreduce/checkpoint/pure/state_transitions.rs:10-68"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Composition Section",
+      "description": "Documentation doesn't show the full composition pattern used in actual implementation - e.g., 'complete_batch' which chains pure updates with I/O saves",
+      "feature_reference": "Effect-based composition patterns",
+      "fix_suggestion": "Add example showing complete_batch function as real-world composition example",
+      "source_reference": "src/cook/execution/state_pure/io.rs:93-115"
+    }
+  ],
+  "positive_aspects": [
+    "Correctly illustrates the 'pure core, imperative shell' architecture pattern",
+    "Clear before/after comparison showing benefits of the approach",
+    "Well-structured presentation with problem, solution, benefits sections",
+    "Test examples demonstrate the key advantage: pure function tests need no I/O setup",
+    "Impact metrics at the end highlight practical benefits",
+    "ASCII diagram of pure vs I/O separation in module header matches actual architecture"
+  ],
+  "improvement_suggestions": [
+    "Add note at top that examples are conceptual and may differ from actual implementation details",
+    "Link to actual source files for reference",
+    "Add cross-reference to work item state machine documentation",
+    "Consider adding a 'Real Implementation' section with actual code snippets from src/cook/execution/state_pure/",
+    "Add MkDocs admonitions (info, tip, note) to enhance readability",
+    "Include a state machine diagram showing actual PhaseType transitions"
+  ],
+  "cross_references": [
+    "testability",
+    "error-context",
+    "semigroup-composition"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["state management", "pure functions", "Effect pattern", "testing", "I/O separation"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "actual_implementation_files": [
+      "src/cook/execution/state_pure/mod.rs",
+      "src/cook/execution/state_pure/types.rs",
+      "src/cook/execution/state_pure/io.rs",
+      "src/cook/execution/state_pure/pure.rs",
+      "src/cook/execution/mapreduce/checkpoint/pure/state_transitions.rs"
+    ]
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "item_type": "section-page",
+  "section_id": "retry-configuration",
+  "section_title": "Retry Configuration",
+  "page_id": "index",
+  "page_title": "index",
+  "page_file": "docs/retry-configuration/index.md",
+  "feature_mappings": [
+    "error_handling.retry_configuration"
+  ],
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is technically accurate and comprehensive. Content aligns well with codebase implementation. Missing MkDocs Material visual features that would enhance readability and user experience.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire Page",
+      "description": "Page lacks MkDocs Material visual enhancements (admonitions, tabs, code annotations) that would improve readability",
+      "fix_suggestion": "Add visual features: (1) Use admonitions for 'When to Use' sections, (2) Add info callouts for important notes, (3) Use tabbed content for backoff strategy examples, (4) Add a mermaid diagram for circuit breaker states",
+      "source_reference": "MkDocs Material documentation features"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Matchers",
+      "description": "The retry_on YAML example doesn't include all available error matchers. Missing 'rate_limit' and 'pattern' (custom regex) options",
+      "current_content": "retry_on:\n  - network\n  - timeout\n  - server_error",
+      "should_be": "Include rate_limit and pattern matchers in the comprehensive list",
+      "fix_suggestion": "Add a complete reference of all available ErrorMatcher variants: network, timeout, server_error, rate_limit, pattern (with regex example)",
+      "source_reference": "src/cook/retry_v2.rs:100-114 - ErrorMatcher enum"
+    },
+    {
+      "type": "missing_best_practices",
+      "severity": "low",
+      "section": "Overview",
+      "description": "Index page for Retry Configuration chapter should include key best practices or link to a best practices subsection",
+      "fix_suggestion": "Add a 'Quick Tips' or 'Best Practices' section covering: (1) Start with conservative retry counts, (2) Always use jitter for distributed systems, (3) Set retry budgets for time-sensitive operations, (4) Use circuit breakers for external APIs",
+      "source_reference": "Common retry patterns in distributed systems"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Circuit Breakers",
+      "description": "Circuit breaker section mentions states but doesn't include a visual state diagram",
+      "fix_suggestion": "Add a mermaid state diagram showing: Closed -> (failures >= threshold) -> Open -> (timeout) -> HalfOpen -> (success) -> Closed or (failure) -> Open",
+      "source_reference": "src/cook/retry_v2.rs:325-397 - CircuitBreaker implementation"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate documentation of RetryConfig struct with correct defaults matching src/cook/retry_v2.rs",
+    "Clear distinction between Enhanced Retry (retry_v2) and Workflow-Level Retry (error_policy)",
+    "Comprehensive table showing all configuration fields with types, defaults, and descriptions",
+    "Correct YAML syntax examples that match the serde rename_all = 'snake_case' attribute",
+    "Accurate source code references with line numbers",
+    "Good cross-references to related chapters and subsections",
+    "All internal links to subsection pages are valid",
+    "All internal links to related chapters are valid"
+  ],
+  "improvement_suggestions": [
+    "Add admonition boxes (tip, warning, note) to highlight important information",
+    "Use tabbed content blocks to show different backoff strategies side-by-side",
+    "Add a mermaid flowchart showing the retry decision flow",
+    "Add a mermaid state diagram for circuit breaker states",
+    "Include a quick reference card at the top for common configurations",
+    "Add code annotations to YAML examples explaining each field inline"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "backoff-strategies",
+    "backoff-strategy-comparison",
+    "jitter-for-distributed-systems",
+    "conditional-retry-with-error-matchers",
+    "retry-budget",
+    "failure-actions",
+    "complete-examples",
+    "workflow-level-vs-command-level-retry",
+    "retry-metrics-and-observability",
+    "troubleshooting",
+    "implementation-references"
+  ],
+  "link_validation": {
+    "internal_links_checked": 17,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      "./basic-retry-configuration.md",
+      "./backoff-strategies.md",
+      "./backoff-strategy-comparison.md",
+      "./jitter-for-distributed-systems.md",
+      "./conditional-retry-with-error-matchers.md",
+      "./retry-budget.md",
+      "./failure-actions.md",
+      "./complete-examples.md",
+      "./workflow-level-vs-command-level-retry.md",
+      "./retry-metrics-and-observability.md",
+      "./troubleshooting.md",
+      "./implementation-references.md",
+      "../workflow-basics/error-handling.md",
+      "../configuration/workflow-configuration.md",
+      "../mapreduce/index.md",
+      "../mapreduce/dead-letter-queue-dlq.md",
+      "../environment/index.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Retry configuration",
+      "Backoff strategies",
+      "Circuit breakers",
+      "Error matchers",
+      "Jitter",
+      "Retry budget",
+      "Failure actions"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

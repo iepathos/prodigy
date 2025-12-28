@@ -1,0 +1,115 @@
+{
+  "item_type": "page",
+  "page_id": "complete-examples",
+  "page_title": "complete examples",
+  "page_file": "docs/retry-configuration/complete-examples.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "High-quality comprehensive examples page with accurate code references; minor improvements possible for consistency and completeness",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Example 9: Fibonacci Backoff",
+      "description": "Source reference states 'Fibonacci calculation in src/cook/retry_v2.rs:424-440' but function is at line 425-440",
+      "current_content": "**Source**: Fibonacci calculation in src/cook/retry_v2.rs:424-440",
+      "should_be": "**Source**: Fibonacci calculation in src/cook/retry_v2.rs:425-440",
+      "fix_suggestion": "Update line number reference to match actual implementation location",
+      "source_reference": "src/cook/retry_v2.rs:425"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 2: Exponential Backoff with Jitter",
+      "description": "Retry sequence example shows approximate delays but doesn't explain the jitter randomization range. With 30% jitter factor, the actual delay would be plus or minus 15% of the calculated value.",
+      "current_content": "No explanation of how jitter affects the delay sequence",
+      "should_be": "Add note: 'With jitter_factor: 0.3, actual delays will vary by plus or minus 15% (e.g., 2s delay becomes 1.7s-2.3s)'",
+      "fix_suggestion": "Add clarifying note about jitter range calculation to help users understand actual behavior",
+      "source_reference": "src/cook/retry_v2.rs:307-317"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 10: Linear Backoff",
+      "description": "The delay sequence comment states 'initial + n * increment' but the actual formula is 'initial + (attempt-1) * increment' as shown in the code",
+      "current_content": "**Delay sequence**: 1s, 4s, 7s, 10s, 13s (initial + n * increment)",
+      "should_be": "**Delay sequence**: 1s, 4s, 7s, 10s, 13s (initial + (attempt-1) * increment)",
+      "fix_suggestion": "Correct the formula notation to match implementation",
+      "source_reference": "src/cook/retry_v2.rs:287-289"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Example 13: MapReduce with DLQ and Retry",
+      "description": "Source reference points to 'src/cook/workflow/error_policy.rs:90-129' but the relevant WorkflowErrorPolicy struct is at lines 132-161",
+      "current_content": "**Source**: Workflow-level retry in src/cook/workflow/error_policy.rs:90-129",
+      "should_be": "**Source**: WorkflowErrorPolicy in src/cook/workflow/error_policy.rs:132-178",
+      "fix_suggestion": "Update source reference to point to the actual WorkflowErrorPolicy struct definition",
+      "source_reference": "src/cook/workflow/error_policy.rs:132-178"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 1: Basic Retry with Exponential Backoff",
+      "description": "Retry sequence shows delay before each retry but the first attempt is immediate (no delay). The sequence should clarify that delays apply after failures, not before attempts.",
+      "current_content": "**Retry sequence**:\n- Attempt 1: Immediate\n- Attempt 2: ~2s delay\n- Attempt 3: ~4s delay",
+      "should_be": "**Retry sequence** (delay before each retry):\n- Attempt 1: Immediate (no prior failure)\n- Attempt 2: ~2s delay after attempt 1 fails\n- Attempt 3: ~4s delay after attempt 2 fails",
+      "fix_suggestion": "Clarify that delays occur after failures, not before attempts",
+      "source_reference": "src/cook/retry_v2.rs:252-254"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive collection of 13 real-world examples covering all major retry scenarios",
+    "Excellent source code references throughout linking examples to implementation",
+    "Clear 'When it's useful' and 'Why' explanations for each example",
+    "Good progression from simple to complex examples",
+    "Helpful test script for validating retry behavior (fail-then-succeed.sh)",
+    "MapReduce integration example with DLQ demonstrates complete workflow",
+    "All internal links are valid - related documentation exists at referenced paths",
+    "Code examples are syntactically correct and match actual implementation patterns",
+    "Delay sequences accurately reflect the implementation formulas"
+  ],
+  "improvement_suggestions": [
+    "Add a visual decision tree or flowchart helping users choose the right retry strategy for their use case",
+    "Include an example showing circuit breaker integration with retry configuration",
+    "Add example demonstrating custom delay sequence for specialized scenarios",
+    "Consider adding expected total time calculation for each example (sum of all delays)",
+    "Add cross-reference to the troubleshooting page for common retry configuration mistakes"
+  ],
+  "cross_references": [
+    "basic-retry-configuration",
+    "backoff-strategies",
+    "jitter-for-distributed-systems",
+    "failure-actions",
+    "conditional-retry-with-error-matchers",
+    "retry-budget",
+    "workflow-level-vs-command-level-retry",
+    "mapreduce/dead-letter-queue-dlq"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "exponential backoff",
+      "jitter",
+      "error matchers",
+      "retry budget",
+      "fallback commands",
+      "continue on failure",
+      "rate limiting",
+      "pattern matching",
+      "fibonacci backoff",
+      "linear backoff",
+      "fixed backoff",
+      "mapreduce retry",
+      "dlq integration"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/retry_v2.rs",
+      "src/cook/workflow/error_policy.rs"
+    ],
+    "internal_links_validated": true,
+    "all_links_valid": true
+  }
+}

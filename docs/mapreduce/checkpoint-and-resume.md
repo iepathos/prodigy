@@ -67,12 +67,12 @@ flowchart TD
 
 Prodigy controls when checkpoints are created through configurable intervals. The checkpoint strategy differs between workflow types:
 
-**Standard Workflow Checkpoints** (src/cook/workflow/checkpoint.rs:20):
+**Standard Workflow Checkpoints** (src/cook/workflow/checkpoint.rs:21):
 - **Default interval**: 60 seconds between checkpoints
 - **Configurable**: Use `.with_interval(Duration)` in checkpoint manager builder
 - **Decision logic**: Compares elapsed time since last checkpoint
 
-**MapReduce Checkpoints** (src/cook/execution/mapreduce/checkpoint/types.rs:242-264):
+**MapReduce Checkpoints** (src/cook/execution/mapreduce/checkpoint/types.rs:242-282):
 - **Default `interval_items`**: 100 work items per checkpoint
 - **Default `interval_duration`**: 300 seconds (5 minutes) per checkpoint
 - **Dual triggers**: Checkpoint created when either item count OR duration threshold is reached
@@ -123,7 +123,7 @@ prodigy resume mapreduce-1234567890
 
 **Session-Job Mapping**:
 
-The `SessionJobMapping` structure provides bidirectional mapping between session and job identifiers (src/storage/session_job_mapping.rs:14-26):
+The `SessionJobMapping` structure provides bidirectional mapping between session and job identifiers (src/storage/session_job_mapping.rs:12-26):
 
 - **Storage location**: `~/.prodigy/state/{repo_name}/mappings/`
 - **Mapping fields**:
@@ -165,6 +165,26 @@ All critical state is preserved across resume operations:
 ### Resume Strategies
 
 Based on checkpoint state and phase, different resume strategies apply:
+
+```mermaid
+flowchart LR
+    Resume[Resume Command] --> Validate[Validate Checkpoint]
+    Validate --> PhaseCheck{Which Phase?}
+
+    PhaseCheck -->|Setup| SetupStrategy["Restart from Beginning
+    (idempotent ops)"]
+    PhaseCheck -->|Map| MapStrategy["Continue from Checkpoint
+    Re-process in-progress"]
+    PhaseCheck -->|Reduce| ReduceStrategy["Continue from
+    Last Completed Step"]
+
+    style Resume fill:#e1f5ff
+    style SetupStrategy fill:#fff3e0
+    style MapStrategy fill:#fff3e0
+    style ReduceStrategy fill:#fff3e0
+```
+
+**Figure**: Resume strategy selection based on interrupted phase.
 
 - **Setup Phase**: Restart setup from beginning (idempotent operations recommended)
 - **Map Phase**: Continue from last checkpoint, re-process in-progress items
@@ -501,10 +521,17 @@ If the holding process is no longer running, the lock is automatically removed a
 
 **Manual Lock Removal** (last resort):
 
+!!! danger "Manual Lock Removal - Use with Caution"
+    Only remove lock files manually if you are **absolutely certain** the holding process is no longer running. Removing an active lock can cause:
+
+    - **Data corruption** from concurrent checkpoint writes
+    - **Duplicate work processing** by multiple agents
+    - **Inconsistent workflow state**
+
 If automatic cleanup fails (rare), you can manually remove the lock:
 
 ```bash
-# ⚠️ Only do this if you're certain the process is dead!
+# Only do this if you're certain the process is dead!
 rm ~/.prodigy/resume_locks/mapreduce-1234567890.lock
 
 # Then retry resume
@@ -527,7 +554,7 @@ Test coverage (tests/concurrent_resume_test.rs:77-105) validates stale lock dete
 3. Confirm platform-specific process check is working (`kill -0` on Unix, `tasklist` on Windows)
 4. Report issue with lock file contents and platform details
 
-**Available checkpoint commands** (src/cli/args.rs:363-413):
+**Available checkpoint commands** (src/cli/args.rs:318-395):
 
 !!! note "Checkpoint Management Commands"
     - `prodigy checkpoints list` - List all available checkpoints

@@ -1,0 +1,143 @@
+{
+  "item_type": "page",
+  "page_id": "observability",
+  "page_title": "observability",
+  "page_file": "docs/advanced/observability.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "The page has excellent coverage of observability features with comprehensive examples and explanations. However, there are two documented event types (WorkItemProcessed and CheckpointSaved) that do not exist in the actual codebase MapReduce event types. The code uses CheckpointCreated instead of CheckpointSaved. The page already uses many MkDocs Material features well.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Event Types",
+      "description": "WorkItemProcessed event type is documented (lines 99-108) but does not exist in the MapReduceEvent enum in src/cook/execution/events/event_types.rs. The enum contains AgentStarted, AgentProgress, AgentCompleted, AgentFailed, AgentRetrying and various other events, but not WorkItemProcessed.",
+      "current_content": "\"type\": \"WorkItemProcessed\" (line 102)",
+      "should_be": "This event type should either be removed from documentation or implemented in the codebase. The closest equivalent might be capturing item completion via AgentCompleted events.",
+      "fix_suggestion": "Remove the WorkItemProcessed event section or add a note that this is a planned future event type, or implement it in the codebase.",
+      "source_reference": "src/cook/execution/events/event_types.rs:11-170 (MapReduceEvent enum)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Event Types",
+      "description": "CheckpointSaved event type is documented (lines 110-119) with 'type': 'CheckpointSaved', but the actual MapReduceEvent enum uses CheckpointCreated (not CheckpointSaved). The field is also named 'version' in code, not 'checkpoint_path'.",
+      "current_content": "\"type\": \"CheckpointSaved\", \"checkpoint_path\": \"...\" (lines 113, 116)",
+      "should_be": "\"type\": \"CheckpointCreated\", \"version\": <u32>",
+      "fix_suggestion": "Update event type from 'CheckpointSaved' to 'CheckpointCreated' and update the JSON structure to match the actual implementation with 'version' field instead of 'checkpoint_path'.",
+      "source_reference": "src/cook/execution/events/event_types.rs:74-79 (CheckpointCreated variant)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Event Types",
+      "description": "Several event types that exist in the codebase are not documented: AgentProgress, AgentRetrying, CheckpointLoaded, CheckpointFailed, WorktreeCreated, WorktreeMerged, WorktreeCleaned, QueueDepthChanged, MemoryPressure, DLQ events (DLQItemAdded, DLQItemRemoved, DLQItemsReprocessed, DLQItemsEvicted, DLQAnalysisGenerated), and additional Claude events (ClaudeToolInvoked, ClaudeTokenUsage, ClaudeSessionStarted).",
+      "fix_suggestion": "Consider documenting additional event types or adding a note that only the most commonly used events are documented here.",
+      "source_reference": "src/cook/execution/events/event_types.rs:41-170"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "AgentFailed Event",
+      "description": "The documented AgentFailed event (lines 89-97) shows 'item_id' field, but the actual implementation does not include item_id directly - it uses 'error' and 'retry_eligible' fields. The documentation also shows 'json_log_location' which is correctly documented.",
+      "current_content": "item_id field in AgentFailed",
+      "should_be": "AgentFailed contains: job_id, agent_id, error, retry_eligible (no item_id)",
+      "fix_suggestion": "Update the AgentFailed JSON example to match the actual struct fields: error and retry_eligible instead of item_id.",
+      "source_reference": "src/cook/execution/events/event_types.rs:61-66"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material features: mermaid diagrams (lines 14-40, 291-321), code annotations with numbered callouts (lines 70-87, 138-147), tabbed content sections (lines 448-491), and admonition boxes (tips, warnings, examples)",
+    "Claude observability section thoroughly covers json_log_location tracking per Spec 121",
+    "Verbosity control levels clearly explained with practical usage examples",
+    "Correlation ID documentation with accurate code references and practical query examples (lines 379-413)",
+    "Practical debugging examples for MapReduce failures with step-by-step workflow diagram",
+    "Complete log analysis examples with jq commands (lines 209-229)",
+    "Performance metrics section covers token usage and timing accurately",
+    "Log management section with cleanup commands",
+    "Event organization structure matches global storage architecture (~/.prodigy/events/{repo_name}/{job_id}/)",
+    "Code annotations throughout examples enhance understanding"
+  ],
+  "improvement_suggestions": [
+    "Update event types to match actual codebase (CheckpointCreated instead of CheckpointSaved)",
+    "Remove or mark WorkItemProcessed as planned/future feature",
+    "Consider adding AgentProgress and AgentRetrying events which exist in codebase",
+    "Document the retry_eligible field on AgentFailed events",
+    "Consider adding a reference table of all event types for quick lookup",
+    "Add cross-reference links to DLQ documentation for DLQ-related events"
+  ],
+  "cross_references": [
+    "../mapreduce/event-tracking.md",
+    "../mapreduce/dead-letter-queue-dlq.md",
+    "sessions.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 0,
+    "broken_links": [],
+    "all_links_valid": true,
+    "note": "Page does not contain explicit markdown links. Cross-references are conceptual only."
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Event tracking",
+      "Claude observability",
+      "Verbosity control",
+      "Log analysis",
+      "Performance metrics",
+      "Correlation IDs",
+      "MapReduce debugging",
+      "Log management"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "event_types_in_docs": [
+      "AgentStarted",
+      "AgentCompleted",
+      "AgentFailed",
+      "WorkItemProcessed",
+      "CheckpointSaved",
+      "ClaudeMessage"
+    ],
+    "event_types_in_code": [
+      "JobStarted",
+      "JobCompleted",
+      "JobFailed",
+      "JobPaused",
+      "JobResumed",
+      "AgentStarted",
+      "AgentProgress",
+      "AgentCompleted",
+      "AgentFailed",
+      "AgentRetrying",
+      "CheckpointCreated",
+      "CheckpointLoaded",
+      "CheckpointFailed",
+      "WorktreeCreated",
+      "WorktreeMerged",
+      "WorktreeCleaned",
+      "QueueDepthChanged",
+      "MemoryPressure",
+      "DLQItemAdded",
+      "DLQItemRemoved",
+      "DLQItemsReprocessed",
+      "DLQItemsEvicted",
+      "DLQAnalysisGenerated",
+      "ClaudeToolInvoked",
+      "ClaudeTokenUsage",
+      "ClaudeSessionStarted",
+      "ClaudeMessage"
+    ],
+    "code_references_verified": [
+      "src/cook/execution/events/event_types.rs",
+      "src/storage/types.rs",
+      "src/cook/execution/events/filter.rs"
+    ],
+    "mkdocs_material_features_used": [
+      "mermaid diagrams",
+      "code annotations with callouts",
+      "tabbed content",
+      "admonitions (tip, warning, example)"
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "workflow-level-vs-command-level-retry",
+  "page_title": "workflow level vs command level retry",
+  "page_file": "docs/retry-configuration/workflow-level-vs-command-level-retry.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Comprehensive and accurate documentation comparing both retry systems. All source references are valid and examples work correctly.",
+  "issues": [],
+  "positive_aspects": [
+    "Clear side-by-side comparison table showing feature differences",
+    "Accurate source code references with line numbers (retry_v2.rs:14-52, error_policy.rs:131-179)",
+    "Well-structured decision tree for choosing between systems",
+    "Three complete examples showing: command-level only, workflow-level only, and combined usage",
+    "Detailed explanation of how both systems work together",
+    "Comprehensive feature comparison table (backoff, jitter, DLQ, circuit breakers)",
+    "Accurate documentation of all ErrorMatcher types (Network, Timeout, ServerError, RateLimit, Pattern)",
+    "Correct FailureAction enum values (Stop, Continue, Fallback)",
+    "Clear retry flow explanation with numbered steps"
+  ],
+  "improvement_suggestions": [
+    "Add cross-references to related DLQ documentation page",
+    "Consider adding a visual diagram showing retry flow (mermaid flowchart)",
+    "Add admonition boxes highlighting key differences (MkDocs Material feature)",
+    "Could add code annotations to YAML examples for better clarity",
+    "Consider adding a 'Common Gotchas' section for common misconfiguration patterns"
+  ],
+  "cross_references": [
+    "mapreduce/dead-letter-queue-dlq",
+    "mapreduce/dlq/index",
+    "retry-configuration/index"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:12:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "command-level retry",
+      "workflow-level retry",
+      "error_policy",
+      "retry_config",
+      "backoff strategies",
+      "circuit breakers",
+      "DLQ integration",
+      "error matchers",
+      "failure thresholds"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/retry_v2.rs",
+      "src/cook/workflow/error_policy.rs"
+    ],
+    "code_accuracy": {
+      "RetryConfig_fields": "verified at lines 14-52 in retry_v2.rs",
+      "WorkflowErrorPolicy_fields": "verified at lines 131-179 in error_policy.rs",
+      "BackoffStrategy_variants": "verified - Fixed, Linear, Exponential, Fibonacci, Custom",
+      "ErrorMatcher_variants": "verified - Network, Timeout, ServerError, RateLimit, Pattern",
+      "FailureAction_variants": "verified - Stop, Continue, Fallback"
+    },
+    "internal_links_validated": true,
+    "internal_links_count": 0,
+    "broken_links_count": 0
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "mapreduce-environment-variables",
+  "page_title": "mapreduce environment variables",
+  "page_file": "docs/environment/mapreduce-environment-variables.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good foundational documentation with accurate source references, but missing coverage of advanced environment features like secrets providers, dynamic values, and profiles",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Secrets Management",
+      "description": "Documentation mentions secrets briefly but doesn't show secret providers available in MapReduce workflows. The codebase supports multiple providers: Env, File, Vault, AWS, and Custom.",
+      "feature_reference": "environment_management.secrets",
+      "fix_suggestion": "Add a section showing secret provider configuration in MapReduce workflows with examples for each provider type",
+      "source_reference": "src/cook/environment/config.rs:84-112 (SecretValue, SecretProvider)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Dynamic Environment Values",
+      "description": "The codebase supports dynamic environment values computed from command output (DynamicEnv) and conditional values based on expressions (ConditionalEnv), but these are not documented",
+      "feature_reference": "environment_management.dynamic_values",
+      "fix_suggestion": "Add examples showing dynamic command-based environment values and conditional environment configuration",
+      "source_reference": "src/cook/environment/config.rs:62-81 (DynamicEnv, ConditionalEnv)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Environment Files",
+      "description": "The codebase supports loading environment variables from .env files via env_files configuration, but this is not shown in MapReduce context",
+      "feature_reference": "environment_management.env_files",
+      "fix_suggestion": "Add an example showing how to use env_files to load environment variables from .env files in MapReduce workflows",
+      "source_reference": "src/cook/environment/config.rs:22-23 (env_files field)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Profile Usage",
+      "description": "While profiles are mentioned conceptually, the documentation doesn't show MapReduce-specific profile usage with the --profile flag and profile-specific variable overrides",
+      "feature_reference": "environment_management.profiles",
+      "fix_suggestion": "Add a complete example showing environment profiles in MapReduce with runtime profile selection via --profile flag",
+      "source_reference": "src/cook/environment/config.rs:114-124 (EnvProfile)"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Throughout Document",
+      "description": "Document lacks MkDocs Material visual enhancements such as admonitions for warnings/tips, tabbed examples for different use cases, and code annotations for complex examples",
+      "fix_suggestion": "Add admonitions (info, warning, tip) for key points, use tabbed examples to show static vs dynamic environment values, and add code annotations to complex YAML examples"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source code references (src/config/mapreduce.rs:527-540, src/config/command.rs:303-314)",
+    "Clear explanation of parse-time vs execution-time resolution difference",
+    "Good coverage of all four MapReduce phases (setup, map, reduce, merge)",
+    "Helpful complete example showing parameterized workflow",
+    "Correct explanation of WriteFileFormat enum limitations",
+    "Good integration examples showing MapReduce variables with environment variables"
+  ],
+  "improvement_suggestions": [
+    "Add admonition boxes to highlight important timing differences (parse-time vs execution-time)",
+    "Include tabbed examples showing workflow env vs system env precedence",
+    "Add cross-references to related pages (environment-precedence, secrets, profiles)",
+    "Add a troubleshooting section for common environment variable issues",
+    "Add visual diagram showing environment variable resolution flow"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T09:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["environment variables", "mapreduce", "parameterization", "secrets", "profiles"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}

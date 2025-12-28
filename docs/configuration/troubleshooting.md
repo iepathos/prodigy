@@ -1,175 +1,278 @@
 ## Troubleshooting
 
-Common configuration issues and their solutions.
+This page covers common configuration issues and their solutions, organized by category.
+
+### Quick Diagnostic Flow
+
+Use this flowchart to identify which section to consult based on your symptoms:
+
+```mermaid
+flowchart LR
+    Start[Error Occurred] --> Type{"What type
+    of error?"}
+
+    Type -->|"Config not found
+    or invalid YAML"| Config[Configuration
+    File Issues]
+    Type -->|"Variable not found
+    or secret exposed"| Env[Environment
+    Variable Issues]
+    Type -->|"Permission denied
+    or lock timeout"| Storage[Storage
+    Issues]
+    Type -->|"Workflow not
+    interpolating"| Workflow[Workflow
+    Configuration]
+    Type -->|"API key
+    invalid"| API[API and
+    Authentication]
+    Type -->|"Running slow
+    or disk full"| Perf[Performance
+    Issues]
+
+    Config --> Fix1[Check file location
+    and YAML syntax]
+    Env --> Fix2[Check variable definition
+    and precedence]
+    Storage --> Fix3[Check permissions
+    and lock files]
+    Workflow --> Fix4[Check syntax and
+    JSONPath expressions]
+    API --> Fix5[Verify API key
+    at Anthropic Console]
+    Perf --> Fix6[Adjust parallelism
+    and enable caching]
+
+    style Start fill:#ffebee
+    style Config fill:#e1f5ff
+    style Env fill:#e1f5ff
+    style Storage fill:#e1f5ff
+    style Workflow fill:#e1f5ff
+    style API fill:#e1f5ff
+    style Perf fill:#e1f5ff
+    style Fix1 fill:#e8f5e9
+    style Fix2 fill:#e8f5e9
+    style Fix3 fill:#e8f5e9
+    style Fix4 fill:#e8f5e9
+    style Fix5 fill:#e8f5e9
+    style Fix6 fill:#e8f5e9
+```
+
+---
 
 ### Configuration File Issues
 
 #### "Configuration file not found"
 
-**Symptoms**:
-```
-Error: Configuration file not found at ~/.prodigy/config.yml
-```
+!!! failure "Error Message"
+    ```
+    Error: Configuration file not found at ~/.prodigy/config.yml
+    ```
 
-**Causes**:
+**Causes:**
+
 - Config file doesn't exist
 - Wrong file extension (`.yaml` instead of `.yml`, or `.toml` instead of `.yml`)
 - File is in the wrong location
 
-**Solutions**:
-1. Create the file:
-   ```bash
-   mkdir -p ~/.prodigy
-   cat > ~/.prodigy/config.yml << 'EOF'
-   log_level: info
-   auto_commit: true
-   EOF
-   ```
+**Solutions:**
 
-2. Check file extension:
-   ```bash
-   ls -la ~/.prodigy/config.*
-   # Should show config.yml, not config.yaml or config.toml
-   ```
+=== "Create the file"
+    ```bash
+    mkdir -p ~/.prodigy
+    cat > ~/.prodigy/config.yml << 'EOF'
+    log_level: info
+    auto_commit: true
+    EOF
+    ```
 
-3. Verify location:
-   ```bash
-   # Global config
-   ls ~/.prodigy/config.yml
+=== "Check file extension"
+    ```bash
+    ls -la ~/.prodigy/config.*
+    # Should show config.yml, not config.yaml or config.toml
+    ```
 
-   # Project config
-   ls .prodigy/config.yml
-   ```
+=== "Verify location"
+    ```bash
+    # Global config
+    ls ~/.prodigy/config.yml
+
+    # Project config
+    ls .prodigy/config.yml
+    ```
 
 #### "Invalid YAML syntax"
 
-**Symptoms**:
-```
-Error: Failed to parse configuration: invalid YAML syntax at line 10
-```
+!!! failure "Error Message"
+    ```
+    Error: Failed to parse configuration: invalid YAML syntax at line 10
+    ```
 
-**Causes**:
+**Causes:**
+
 - Incorrect indentation (must use 2 spaces, no tabs)
 - Missing space after colon (`key:value` instead of `key: value`)
 - Unquoted strings with special characters
 - Mixing TOML and YAML syntax
 
-**Solutions**:
-1. Check indentation (must be 2 spaces):
-   ```yaml
-   # ✗ Wrong (tabs or 4 spaces)
-   storage:
-       backend: file
+**Solutions:**
 
-   # ✓ Correct (2 spaces)
-   storage:
-     backend: file
-   ```
+=== "Fix indentation"
+    ```yaml
+    # Wrong (tabs or 4 spaces)
+    storage:
+        backend: file
 
-2. Add space after colons:
-   ```yaml
-   # ✗ Wrong
-   log_level:debug
+    # Correct (2 spaces)
+    storage:
+      backend: file
+    ```
 
-   # ✓ Correct
-   log_level: debug
-   ```
+=== "Fix colon spacing"
+    ```yaml
+    # Wrong
+    log_level:debug
 
-3. Quote strings with special characters:
-   ```yaml
-   # ✗ Wrong
-   message: Error: something failed
+    # Correct
+    log_level: debug
+    ```
 
-   # ✓ Correct
-   message: "Error: something failed"
-   ```
+=== "Quote special characters"
+    ```yaml
+    # Wrong
+    message: Error: something failed
 
-4. Use a YAML validator:
-   ```bash
-   yamllint ~/.prodigy/config.yml
-   ```
+    # Correct
+    message: "Error: something failed"
+    ```
+
+=== "Validate with yamllint"
+    ```bash
+    yamllint ~/.prodigy/config.yml
+    ```
+
+!!! tip "YAML Best Practice"
+    Always use 2-space indentation consistently. Many editors can be configured to insert spaces instead of tabs automatically.
 
 #### "Unknown field in configuration"
 
-**Symptoms**:
-```
-Warning: Unknown field 'unknown_setting' in configuration
-```
+!!! warning "Warning Message"
+    ```
+    Warning: Unknown field 'unknown_setting' in configuration
+    ```
 
-**Causes**:
+**Causes:**
+
 - Typo in field name
 - Using deprecated field name
 - Field from old TOML format
 
-**Solutions**:
+**Solutions:**
+
 1. Check spelling against [Global Configuration Structure](global-configuration-structure.md) or [Project Configuration Structure](project-configuration-structure.md)
 
 2. Remove deprecated fields:
    ```yaml
-   # ✗ Deprecated TOML-style
+   # Deprecated TOML-style
    [storage]
    backend = "file"
 
-   # ✓ Correct YAML
+   # Correct YAML
    storage:
      backend: file
    ```
 
 3. Update field names from old versions
 
+---
+
 ### Environment Variable Issues
 
 #### "Environment variable not resolving"
 
-**Symptoms**:
-```
-Error: Variable 'API_KEY' not found
-```
+!!! failure "Error Message"
+    ```
+    Error: Variable 'API_KEY' not found
+    ```
 
-**Causes**:
+**Causes:**
+
 - Variable not defined in any configuration source
 - Incorrect variable syntax in workflow
 - Profile not activated
 
-**Solutions**:
-1. Check variable is defined:
-   ```bash
-   # System env
-   echo $PRODIGY_API_KEY
+**Solutions:**
 
-   # Workflow env (check workflow.yml)
-   grep API_KEY workflow.yml
-   ```
+=== "Check variable is defined"
+    ```bash
+    # System env
+    echo $PRODIGY_API_KEY
 
-2. Use correct syntax:
-   ```yaml
-   # ✗ Wrong
-   command: "curl $API_KEY"
+    # Workflow env (check workflow.yml)
+    grep API_KEY workflow.yml
+    ```
 
-   # ✓ Correct
-   command: "curl ${API_KEY}"
-   ```
+=== "Use correct syntax"
+    ```yaml
+    # Wrong
+    command: "curl $API_KEY"
 
-3. Activate profile if using profile-specific values:
-   ```bash
-   prodigy run workflow.yml --profile prod
-   ```
+    # Correct
+    command: "curl ${API_KEY}"
+    ```
 
-4. Check precedence chain: Step env > Profile env > Workflow env > System env
+=== "Activate profile"
+    ```bash
+    prodigy run workflow.yml --profile prod
+    ```
+
+!!! info "Variable Precedence"
+    Variables are resolved in this order (highest to lowest priority):
+
+    1. Step environment
+    2. Profile environment
+    3. Workflow environment
+    4. System environment
+
+```mermaid
+graph LR
+    Lookup["Variable
+    Lookup"] --> Step{"Step
+    env?"}
+    Step -->|Found| Use1[Use Value]
+    Step -->|Not found| Profile{"Profile
+    env?"}
+    Profile -->|Found| Use2[Use Value]
+    Profile -->|Not found| Workflow{"Workflow
+    env?"}
+    Workflow -->|Found| Use3[Use Value]
+    Workflow -->|Not found| System{"System
+    env?"}
+    System -->|Found| Use4[Use Value]
+    System -->|Not found| Error[Error: Not Found]
+
+    style Use1 fill:#e8f5e9
+    style Use2 fill:#e8f5e9
+    style Use3 fill:#e8f5e9
+    style Use4 fill:#e8f5e9
+    style Error fill:#ffebee
+```
 
 #### "Secret not being masked in logs"
 
-**Symptoms**:
-```
-Output: curl -H 'Authorization: Bearer sk-abc123...'
-```
+!!! danger "Security Issue"
+    ```
+    Output: curl -H 'Authorization: Bearer sk-abc123...'
+    ```
 
-**Causes**:
+**Causes:**
+
 - Secret not marked with `secret: true` in workflow env block
 - Using system env vars (not masked automatically)
 
-**Solutions**:
-```yaml
+**Solution:**
+
+```yaml title="workflow.yml"
 # Mark as secret in workflow
 env:
   API_KEY:
@@ -177,274 +280,309 @@ env:
     value: "${PROD_API_KEY}"  # From system env
 ```
 
-**Note**: Only workflow env vars marked as `secret: true` are masked. System environment variables are not automatically masked.
+!!! warning "Important"
+    Only workflow env vars marked as `secret: true` are masked. System environment variables are **not** automatically masked.
+
+---
 
 ### Storage Issues
 
 #### "Storage directory not writable"
 
-**Symptoms**:
-```
-Error: Failed to write to storage: Permission denied
-```
+!!! failure "Error Message"
+    ```
+    Error: Failed to write to storage: Permission denied
+    ```
 
-**Causes**:
+**Causes:**
+
 - Insufficient permissions on `~/.prodigy` directory
 - Directory owned by different user
 - Disk full
 
-**Solutions**:
-1. Check permissions:
-   ```bash
-   ls -ld ~/.prodigy
-   # Should show: drwxr-xr-x username username
-   ```
+**Solutions:**
 
-2. Fix ownership:
-   ```bash
-   sudo chown -R $USER:$USER ~/.prodigy
-   chmod -R u+rwX ~/.prodigy
-   ```
+=== "Check permissions"
+    ```bash
+    ls -ld ~/.prodigy
+    # Should show: drwxr-xr-x username username
+    ```
 
-3. Check disk space:
-   ```bash
-   df -h ~/.prodigy
-   ```
+=== "Fix ownership"
+    ```bash
+    sudo chown -R $USER:$USER ~/.prodigy
+    chmod -R u+rwX ~/.prodigy
+    ```
+
+=== "Check disk space"
+    ```bash
+    df -h ~/.prodigy
+    ```
 
 #### "Failed to acquire storage lock"
 
-**Symptoms**:
-```
-Error: Failed to acquire storage lock after 30s
-```
+!!! failure "Error Message"
+    ```
+    Error: Failed to acquire storage lock after 30s
+    ```
 
-**Causes**:
+**Causes:**
+
 - Another Prodigy process holding the lock
 - Stale lock from crashed process
 - File locking disabled but concurrent access occurring
 
-**Solutions**:
-1. Check for running processes:
-   ```bash
-   ps aux | grep prodigy
-   ```
+**Solutions:**
 
-2. Remove stale lock (if no processes running):
-   ```bash
-   rm ~/.prodigy/storage.lock
-   ```
+=== "Check for running processes"
+    ```bash
+    ps aux | grep prodigy
+    ```
 
-3. Wait for lock release (if process is running)
+=== "Remove stale lock"
+    Only if no processes are running:
+    ```bash
+    rm ~/.prodigy/storage.lock
+    ```
 
-4. Disable locking temporarily (not recommended for production):
-   ```yaml
-   storage:
-     enable_locking: false
-   ```
+=== "Wait for lock release"
+    If a process is running, wait for it to complete.
+
+=== "Disable locking (temporary)"
+    ```yaml title="config.yml"
+    storage:
+      enable_locking: false
+    ```
+
+    !!! danger "Not Recommended"
+        Disabling locking can cause data corruption with concurrent access. Only use for debugging.
+
+---
 
 ### Workflow Configuration Issues
 
 #### "Workflow variables not interpolating"
 
-**Symptoms**:
-```
-Output: Deploying ${PROJECT_NAME} to ${ENVIRONMENT}
-```
+!!! failure "Symptom"
+    ```
+    Output: Deploying ${PROJECT_NAME} to ${ENVIRONMENT}
+    ```
 
-**Causes**:
+**Causes:**
+
 - Incorrect variable syntax
 - Variable not defined in workflow or config
 - Using project config variables instead of workflow env
 
-**Solutions**:
-1. Use correct syntax:
-   ```yaml
-   # ✓ Workflow env vars
-   env:
-     PROJECT_NAME: myapp
-   commands:
-     - shell: "echo ${PROJECT_NAME}"
+**Solutions:**
 
-   # ✗ Project config variables (different namespace)
-   # .prodigy/config.yml
-   variables:
-     PROJECT_NAME: myapp  # Not available in workflows
-   ```
+=== "Use correct syntax"
+    ```yaml title="workflow.yml"
+    # Workflow env vars
+    env:
+      PROJECT_NAME: myapp
+    commands:
+      - shell: "echo ${PROJECT_NAME}"
+    ```
 
-2. Define variable in workflow `env:` block or as system env
+    !!! warning "Project Config Variables"
+        Variables in `.prodigy/config.yml` are **not** available in workflows:
+        ```yaml title=".prodigy/config.yml"
+        variables:
+          PROJECT_NAME: myapp  # Not available in workflows
+        ```
 
-3. Check variable exists:
-   ```bash
-   prodigy run workflow.yml -vv  # Verbose mode shows variable resolution
-   ```
+=== "Check variable exists"
+    ```bash
+    prodigy run workflow.yml -vv  # Verbose mode shows variable resolution
+    ```
 
 #### "MapReduce items not found"
 
-**Symptoms**:
-```
-Error: No items found at JSONPath: $.items[*]
-```
+!!! failure "Error Message"
+    ```
+    Error: No items found at JSONPath: $.items[*]
+    ```
 
-**Causes**:
+**Causes:**
+
 - Incorrect JSONPath expression
 - Input file not generated in setup phase
 - JSON structure doesn't match path
 
-**Solutions**:
-1. Validate JSONPath:
-   ```bash
-   cat items.json | jq '.items[0]'
-   ```
+**Solutions:**
 
-2. Check setup phase output:
-   ```yaml
-   setup:
-     - shell: "generate-items.sh > items.json"
-     - shell: "cat items.json"  # Verify file exists and has content
-   ```
+=== "Validate JSONPath"
+    ```bash
+    cat items.json | jq '.items[0]'
+    ```
 
-3. Test JSONPath expression:
-   ```bash
-   # Use jq to test
-   cat items.json | jq '$[*]'  # Root array
-   cat items.json | jq '.items[*]'  # Nested array
-   ```
+=== "Check setup phase output"
+    ```yaml title="workflow.yml"
+    setup:
+      - shell: "generate-items.sh > items.json"
+      - shell: "cat items.json"  # Verify file exists and has content
+    ```
+
+=== "Test JSONPath expression"
+    ```bash
+    # Use jq to test
+    cat items.json | jq '.[*]'      # Root array
+    cat items.json | jq '.items[*]' # Nested array
+    ```
 
 #### "Validation always fails"
 
-**Symptoms**:
-```
-Error: Validation failed: completion_percentage 85 below threshold 100
-```
+!!! failure "Error Message"
+    ```
+    Error: Validation failed: completion_percentage 85 below threshold 100
+    ```
 
-**Causes**:
+**Causes:**
+
 - Threshold set too high (default: 100)
 - Validation command not returning expected format
 - Expected schema mismatch
 
-**Solutions**:
-1. Adjust threshold:
-   ```yaml
-   validate:
-     threshold: 80  # Accept 80% instead of 100%
-   ```
+**Solutions:**
 
-2. Check validation output format:
-   ```bash
-   # Validation must output:
-   {
-     "completion_percentage": 85,
-     "status": "incomplete",
-     "gaps": ["Missing feature X", "Incomplete test Y"]
-   }
-   ```
+=== "Adjust threshold"
+    ```yaml title="workflow.yml"
+    validate:
+      threshold: 80  # Accept 80% instead of 100%
+    ```
 
-3. Test validation command manually:
-   ```bash
-   # Run validation command outside workflow
-   ./validate-script.sh
-   ```
+=== "Check validation output format"
+    Validation must output JSON in this format:
+    ```json
+    {
+      "completion_percentage": 85,
+      "status": "incomplete",
+      "gaps": ["Missing feature X", "Incomplete test Y"]
+    }
+    ```
+
+=== "Test validation manually"
+    ```bash
+    # Run validation command outside workflow
+    ./validate-script.sh
+    ```
+
+---
 
 ### API and Authentication Issues
 
 #### "Claude API key not recognized"
 
-**Symptoms**:
-```
-Error: Invalid Claude API key
-```
+!!! failure "Error Message"
+    ```
+    Error: Invalid Claude API key
+    ```
 
-**Causes**:
+**Causes:**
+
 - API key not set
 - Key set in wrong location
-- Invalid key format
 - Key expired or revoked
 
-**Solutions**:
-1. Check key is set (precedence order):
-   ```bash
-   # Highest precedence: Environment variable
-   echo $PRODIGY_CLAUDE_API_KEY
+**Solutions:**
 
-   # Project config
-   grep claude_api_key .prodigy/config.yml
+=== "Check key is set"
+    Keys are checked in this precedence order:
+    ```bash
+    # Highest precedence: Environment variable
+    echo $PRODIGY_CLAUDE_API_KEY
 
-   # Global config
-   grep claude_api_key ~/.prodigy/config.yml
-   ```
+    # Project config
+    grep claude_api_key .prodigy/config.yml
 
-2. Verify key format (should start with `sk-ant-`):
-   ```bash
-   echo $PRODIGY_CLAUDE_API_KEY | head -c 10
-   # Should show: sk-ant-api
-   ```
+    # Global config
+    grep claude_api_key ~/.prodigy/config.yml
+    ```
 
-3. Use environment variable (recommended):
-   ```bash
-   export PRODIGY_CLAUDE_API_KEY="sk-ant-api03-..."
-   ```
+=== "Use environment variable"
+    Setting via environment variable is recommended:
+    ```bash
+    export PRODIGY_CLAUDE_API_KEY="your-api-key-here"
+    ```
 
-4. Verify key is valid at [Anthropic Console](https://console.anthropic.com/)
+=== "Verify key is valid"
+    Check your key at the [Anthropic Console](https://console.anthropic.com/)
+
+!!! tip "API Key Precedence"
+    Environment variable > Project config > Global config
+
+---
 
 ### Performance Issues
 
 #### "Workflow running slowly"
 
-**Causes**:
+**Causes:**
+
 - Excessive parallelism exhausting resources
 - Large work items in MapReduce
 - Slow validation commands
 
-**Solutions**:
-1. Reduce parallelism:
-   ```yaml
-   map:
-     max_parallel: 3  # Reduce from 10
-   ```
+**Solutions:**
 
-2. Add timeout limits:
-   ```yaml
-   commands:
-     - shell: "long-running-command"
-       timeout: 300  # 5 minutes
-   ```
+=== "Reduce parallelism"
+    ```yaml title="workflow.yml"
+    map:
+      max_parallel: 3  # Reduce from 10
+    ```
 
-3. Enable caching (if available):
-   ```yaml
-   storage:
-     enable_cache: true
-   ```
+=== "Add timeout limits"
+    ```yaml title="workflow.yml"
+    commands:
+      - shell: "long-running-command"
+        timeout: 300  # 5 minutes
+    ```
+
+=== "Enable caching"
+    ```yaml title="config.yml"
+    storage:
+      enable_cache: true
+    ```
 
 #### "Storage growing too large"
 
-**Causes**:
+**Causes:**
+
 - Old events and DLQ data accumulating
 - Large checkpoint files
 - No compression enabled
 
-**Solutions**:
-1. Clean up old data:
-   ```bash
-   # Remove old events (older than 30 days)
-   find ~/.prodigy/events -type f -mtime +30 -delete
+**Solutions:**
 
-   # Clean DLQ for completed jobs
-   prodigy dlq clean --completed
-   ```
+=== "Clean up old data"
+    ```bash
+    # Remove old events (older than 30 days)
+    find ~/.prodigy/events -type f -mtime +30 -delete
 
-2. Enable compression:
-   ```yaml
-   storage:
-     backend_config:
-       enable_compression: true
-   ```
+    # Clear processed DLQ items for a workflow
+    # Source: src/cli/args.rs:622-630
+    prodigy dlq clear <workflow_id>
 
-3. Reduce file retention:
-   ```yaml
-   storage:
-     backend_config:
-       max_file_size: 52428800  # 50MB instead of 100MB
-   ```
+    # Purge old DLQ items
+    prodigy dlq purge --older-than-days 30
+    ```
+
+=== "Enable compression"
+    ```yaml title="config.yml"
+    storage:
+      backend_config:
+        enable_compression: true
+    ```
+
+=== "Reduce file retention"
+    ```yaml title="config.yml"
+    storage:
+      backend_config:
+        max_file_size: 52428800  # 50MB instead of 100MB
+    ```
+
+---
 
 ### Debugging Tools
 
@@ -458,22 +596,21 @@ prodigy config show
 
 #### Verbose Logging
 
-Enable detailed logging:
+Enable detailed logging with verbosity flags:
+
+| Flag | Level | Shows |
+|------|-------|-------|
+| `-v` | Verbose | Claude streaming output |
+| `-vv` | Debug | Variable resolution |
+| `-vvv` | Trace | All internal operations |
 
 ```bash
-# Verbose mode (shows Claude streaming)
-prodigy run workflow.yml -v
-
-# Debug mode (shows variable resolution)
 prodigy run workflow.yml -vv
-
-# Trace mode (shows all internal operations)
-prodigy run workflow.yml -vvv
 ```
 
 Or set log level in config:
 
-```yaml
+```yaml title="config.yml"
 log_level: debug  # trace, debug, info, warn, error
 ```
 
@@ -503,7 +640,14 @@ prodigy logs --latest --tail
 cat ~/.local/state/claude/logs/session-abc123.json | jq
 ```
 
-### Common Error Messages
+!!! tip "Claude Observability"
+    Claude logs contain complete message history, tool invocations, and token usage. See the [Claude Observability](../advanced/observability.md) documentation for more details.
+
+---
+
+### Quick Reference
+
+#### Common Error Messages
 
 | Error Message | Likely Cause | Solution |
 |--------------|-------------|----------|
@@ -514,17 +658,23 @@ cat ~/.local/state/claude/logs/session-abc123.json | jq
 | "Storage lock timeout" | Concurrent access | Wait or remove stale lock |
 | "Permission denied" | Insufficient permissions | Fix ownership/permissions on `~/.prodigy` |
 | "JSONPath not found" | Wrong path or missing data | Verify JSON structure and path |
-| "API key invalid" | Wrong or expired key | Check key format and validity |
+| "API key invalid" | Wrong or expired key | Verify key at Anthropic Console |
+
+---
 
 ### Getting Help
 
 If you can't resolve an issue:
 
-1. **Check logs**: Use `-vvv` for maximum verbosity
-2. **Verify config**: Run `prodigy config show`
-3. **Check docs**: See [Configuration Structure](global-configuration-structure.md) and [Workflow Basics](../workflow-basics/index.md)
-4. **File an issue**: [Prodigy GitHub Issues](https://github.com/anthropics/prodigy/issues) with:
-   - Error message (redact secrets)
-   - Relevant config snippets
-   - Prodigy version (`prodigy --version`)
-   - Operating system
+!!! info "Debugging Checklist"
+    1. **Check logs**: Use `-vvv` for maximum verbosity
+    2. **Verify config**: Run `prodigy config show`
+    3. **Check docs**: See [Configuration Structure](global-configuration-structure.md) and [Workflow Basics](../workflow-basics/index.md)
+
+!!! question "Filing an Issue"
+    If the issue persists, file an issue at [Prodigy GitHub Issues](https://github.com/anthropics/prodigy/issues) with:
+
+    - Error message (redact secrets)
+    - Relevant config snippets
+    - Prodigy version (`prodigy --version`)
+    - Operating system

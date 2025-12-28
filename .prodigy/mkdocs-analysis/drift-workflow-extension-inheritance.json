@@ -1,0 +1,116 @@
+{
+  "item_type": "page",
+  "page_id": "workflow-extension-inheritance",
+  "page_title": "workflow extension inheritance",
+  "page_file": "docs/composition/workflow-extension-inheritance.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good documentation with accurate technical content, minor line number references are outdated but functionality is correctly described",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Merge Behavior - Environment Variables",
+      "description": "Source line reference (325-355) is inaccurate. The merge_workflows_with_inheritance function is at lines 326-356.",
+      "current_content": "**Source**: Environment variables inherit the object deep merge behavior (src/cook/workflow/composition/composer.rs:325-355)",
+      "should_be": "**Source**: Environment variables inherit the object deep merge behavior (src/cook/workflow/composition/composer.rs:326-356)",
+      "fix_suggestion": "Update line number reference to 326-356",
+      "source_reference": "src/cook/workflow/composition/composer.rs:326"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Merge Behavior - Arrays",
+      "description": "Source line reference (335-337) is slightly off. The relevant code is at lines 336-338.",
+      "current_content": "**Source**: In inheritance mode (`extends`), non-empty child command arrays replace parent arrays entirely (src/cook/workflow/composition/composer.rs:335-337)",
+      "should_be": "**Source**: In inheritance mode (`extends`), non-empty child command arrays replace parent arrays entirely (src/cook/workflow/composition/composer.rs:336-338)",
+      "fix_suggestion": "Update line number reference to 336-338",
+      "source_reference": "src/cook/workflow/composition/composer.rs:336"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Merge Behavior - Note",
+      "description": "Source line reference (275-323) for merge_workflows function is correct but references import behavior correctly",
+      "current_content": "**Note**: This behavior differs from imports, where `merge_workflows` extends arrays instead of replacing them (src/cook/workflow/composition/composer.rs:275-323)",
+      "should_be": "Reference is accurate - merge_workflows is at lines 276-323",
+      "fix_suggestion": "Update line number reference to 276-323",
+      "source_reference": "src/cook/workflow/composition/composer.rs:276"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Path Resolution",
+      "description": "Source line reference (625-642) is outdated. The resolve_base_path function is at lines 612-625.",
+      "current_content": "**Source**: Path resolution implementation in src/cook/workflow/composition/composer.rs:625-642",
+      "should_be": "**Source**: Path resolution implementation in src/cook/workflow/composition/composer.rs:612-625",
+      "fix_suggestion": "Update line number reference to 612-625",
+      "source_reference": "src/cook/workflow/composition/composer.rs:612"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Implementation Status - Workflow caching",
+      "description": "Source line reference (662-698) is outdated. The WorkflowLoader cache is at lines 646-681.",
+      "current_content": "✅ Workflow caching - Files are cached during composition to improve performance and avoid redundant file system reads (src/cook/workflow/composition/composer.rs:662-698)",
+      "should_be": "✅ Workflow caching - Files are cached during composition to improve performance and avoid redundant file system reads (src/cook/workflow/composition/composer.rs:646-681)",
+      "fix_suggestion": "Update line number reference to 646-681",
+      "source_reference": "src/cook/workflow/composition/composer.rs:646"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Page Visual Features",
+      "description": "Page lacks MkDocs Material visual features like admonitions, tabs, or code annotations that would enhance readability",
+      "fix_suggestion": "Consider adding: info admonitions for tips, warning admonitions for important caveats, tabs for multi-environment examples, and code annotations for complex YAML"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of workflow extension/inheritance feature",
+    "Clear explanation of merge behavior for scalars, objects, and arrays",
+    "Excellent multi-environment deployment example",
+    "Good comparison table between Extension and Imports",
+    "Accurate circular dependency protection documentation",
+    "Layered extension examples are helpful",
+    "Debugging section is informative and practical",
+    "Implementation status tracking is transparent"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions (info, warning, tip) for key concepts and caveats",
+    "Consider adding tabs to group related examples (dev/staging/production)",
+    "Add code annotations to explain complex YAML fields",
+    "Include a visual diagram of the inheritance/merge flow",
+    "Add a quick reference table summarizing merge behaviors"
+  ],
+  "cross_references": [
+    {
+      "link": "index.md#workflow-imports",
+      "target_exists": true,
+      "description": "Link to Workflow Imports in composition index"
+    },
+    {
+      "link": "template-system.md",
+      "target_exists": true,
+      "description": "Link to Template System documentation"
+    },
+    {
+      "link": "composition-metadata.md",
+      "target_exists": true,
+      "description": "Link to Composition Metadata documentation"
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "workflow inheritance",
+      "extends keyword",
+      "deep merge behavior",
+      "environment overrides",
+      "path resolution",
+      "circular dependency detection"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "feature_reference": "workflow_composition.inheritance"
+  }
+}

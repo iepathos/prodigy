@@ -1,0 +1,95 @@
+{
+  "item_type": "page",
+  "page_id": "retry-metrics-and-observability",
+  "page_title": "retry metrics and observability",
+  "page_file": "docs/retry-configuration/retry-metrics-and-observability.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive. Minor line number drift in source references and could benefit from visual features.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Internal Metrics Structure",
+      "description": "Source reference line numbers are incorrect for RetryMetrics structure",
+      "current_content": "src/cook/retry_v2.rs:399-422",
+      "should_be": "src/cook/retry_v2.rs:399-422 is close but RetryMetrics is on lines 400-406, not 399-422",
+      "fix_suggestion": "Update to src/cook/retry_v2.rs:400-406 for the struct definition, or src/cook/retry_v2.rs:400-421 to include the impl block",
+      "source_reference": "src/cook/retry_v2.rs:400-421"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Console Output During Retries",
+      "description": "Source reference line numbers are slightly off",
+      "current_content": "src/cook/retry_v2.rs:247-250",
+      "should_be": "Line numbers should be approximately 247-250 which is accurate",
+      "fix_suggestion": "This reference is accurate - no change needed",
+      "source_reference": "src/cook/retry_v2.rs:247-250"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Observing Retry Behavior",
+      "description": "Missing visual diagrams showing retry flow and state transitions",
+      "fix_suggestion": "Add Mermaid diagrams showing: 1) Retry decision flow, 2) Circuit breaker state machine, 3) Integration with DLQ and error handling pipeline",
+      "source_reference": "src/cook/retry_v2.rs"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Circuit Breaker Observability",
+      "description": "Could benefit from a state diagram showing circuit breaker transitions",
+      "fix_suggestion": "Add a Mermaid state diagram: Closed -> (failure threshold reached) -> Open -> (recovery timeout) -> HalfOpen -> (success) -> Closed or (failure) -> Open",
+      "source_reference": "src/cook/retry_v2.rs:333-338"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent coverage of retry observability mechanisms",
+    "Accurate source code references with line numbers",
+    "Good practical troubleshooting section with problem/solution format",
+    "Clear explanation of the three observability levels (console, tracing, events)",
+    "Well-structured progression from simple to advanced topics",
+    "Useful bash command examples for monitoring retry patterns",
+    "Strong integration context with error handling and DLQ",
+    "All cross-references to related pages are valid"
+  ],
+  "improvement_suggestions": [
+    "Add a Mermaid flowchart showing the retry decision process",
+    "Add a state diagram for circuit breaker state transitions (Closed -> Open -> HalfOpen -> Closed)",
+    "Add a sequence diagram showing the retry -> on_failure -> DLQ progression",
+    "Consider adding MkDocs Material admonitions for tips and warnings",
+    "Could add a practical example showing full log output from a real retry scenario",
+    "Add code annotations to the YAML examples using MkDocs Material syntax"
+  ],
+  "cross_references": [
+    "conditional-retry-with-error-matchers",
+    "retry-budget",
+    "basic-retry-configuration",
+    "backoff-strategies",
+    "troubleshooting",
+    "../mapreduce/event-tracking",
+    "../mapreduce/dead-letter-queue-dlq"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "retry metrics",
+      "observability",
+      "console logging",
+      "tracing infrastructure",
+      "circuit breaker state",
+      "workflow-level observability",
+      "MapReduce event tracking",
+      "DLQ integration",
+      "troubleshooting"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/retry_v2.rs"
+    ],
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}

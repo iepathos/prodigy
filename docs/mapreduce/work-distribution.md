@@ -2,6 +2,11 @@
 
 Work distribution is the process of extracting, filtering, sorting, and distributing work items to parallel agents in MapReduce workflows. The data pipeline provides powerful capabilities for selecting and organizing work items from various input sources.
 
+!!! tip "Related Documentation"
+    - [MapReduce Overview](overview.md) - Introduction to MapReduce workflows
+    - [Checkpoint and Resume](checkpoint-and-resume.md) - Resuming interrupted workflows
+    - [Dead Letter Queue](dead-letter-queue-dlq.md) - Handling failed work items
+
 ## Overview
 
 The work distribution system processes data through a multi-stage pipeline:
@@ -17,13 +22,21 @@ Each stage is optional and can be configured independently to build the exact wo
 
 ```mermaid
 flowchart LR
-    Input[Input Source<br/>JSON file or command] --> JSONPath[JSONPath Extraction<br/>$.items[*]]
-    JSONPath --> Filter[Filtering<br/>score >= 5]
-    Filter --> Sort[Sorting<br/>priority DESC]
-    Sort --> Dedup[Deduplication<br/>distinct: id]
-    Dedup --> Offset[Offset<br/>skip first N]
-    Offset --> Limit[Limit<br/>take M items]
-    Limit --> Agents[Distribute to<br/>Parallel Agents]
+    Input["Input Source
+    JSON file or command"] --> JSONPath["JSONPath Extraction
+    $.items[*]"]
+    JSONPath --> Filter["Filtering
+    score >= 5"]
+    Filter --> Sort["Sorting
+    priority DESC"]
+    Sort --> Dedup["Deduplication
+    distinct: id"]
+    Dedup --> Offset["Offset
+    skip first N"]
+    Offset --> Limit["Limit
+    take M items"]
+    Limit --> Agents["Distribute to
+    Parallel Agents"]
 
     style Input fill:#e1f5ff
     style JSONPath fill:#fff3e0
@@ -181,6 +194,18 @@ filter: "!is_null(optional_field)"
 filter: "unified_score.final_score >= 5"
 filter: "location.coordinates.lat > 40.0"
 ```
+
+**Array index access:**
+```yaml
+# Source: src/cook/execution/data_pipeline/filter.rs:393
+# Access specific array elements by index
+filter: "tags[0] == 'urgent'"
+filter: "data.items[0].name == 'first'"
+filter: "metadata.tags[1] == 'important'"
+```
+
+!!! note "Array Index Syntax"
+    Array indices are zero-based. Use `field[0]` for the first element, `field[1]` for the second, etc. Array access can be combined with nested field access (e.g., `data.items[0].name`).
 
 **IN operator:**
 ```yaml
@@ -416,6 +441,57 @@ Understanding the order of operations is important for building effective work d
 
 !!! note "Optimization Tip"
     Place expensive filtering early in the pipeline to reduce the number of items for subsequent operations. Sort only after filtering to minimize sort cost.
+
+### Pipeline Transformation Example
+
+To understand how each stage transforms data, consider this example:
+
+=== "Input Data"
+
+    ```json
+    {
+      "items": [
+        {"id": "A", "category": "docs", "score": 8},
+        {"id": "B", "category": "code", "score": 3},
+        {"id": "C", "category": "docs", "score": 6},
+        {"id": "D", "category": "docs", "score": 9},
+        {"id": "E", "category": "code", "score": 7},
+        {"id": "F", "category": "docs", "score": 4}
+      ]
+    }
+    ```
+
+=== "Pipeline Config"
+
+    ```yaml
+    map:
+      input: data.json
+      json_path: "$.items[*]"
+      filter: "score >= 5"
+      sort_by: "score DESC"
+      distinct: "category"
+      offset: 1
+      max_items: 2
+    ```
+
+=== "Stage by Stage"
+
+    | Stage | Items | Result |
+    |-------|-------|--------|
+    | **1. JSONPath** | 6 items | All items extracted |
+    | **2. Filter** | 4 items | A(8), C(6), D(9), E(7) - score ≥ 5 |
+    | **3. Sort** | 4 items | D(9), A(8), E(7), C(6) - by score DESC |
+    | **4. Distinct** | 2 items | D(docs), E(code) - first of each category |
+    | **5. Offset** | 1 item | E(code) - skip first 1 |
+    | **6. Limit** | 1 item | E(code) - take up to 2 |
+
+=== "Final Result"
+
+    ```json
+    [
+      {"id": "E", "category": "code", "score": 7}
+    ]
+    ```
 
 ```yaml
 # Source: src/cook/execution/data_pipeline/mod.rs:127-201

@@ -1,0 +1,70 @@
+{
+  "item_type": "page",
+  "page_id": "installation",
+  "page_title": "installation",
+  "page_file": "docs/installation.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is well-structured with comprehensive coverage but contains an outdated version reference that needs updating",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Using Cargo (Recommended)",
+      "description": "Version number in expected output is outdated (shows 0.2.7, actual is 0.4.4)",
+      "current_content": "# Expected output: prodigy 0.2.7",
+      "should_be": "# Expected output: prodigy 0.4.4",
+      "fix_suggestion": "Update the expected version output comment to reflect the current version 0.4.4",
+      "source_reference": "Cargo.toml:3 (version = \"0.4.4\")"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Optional: Man Pages",
+      "description": "Documentation states man pages install to /usr/local/share/man/man1/ but script also supports user-local installation to ~/.local/share/man/man1 when not running as root",
+      "fix_suggestion": "Add note about user-local installation option: 'If running without sudo, man pages install to ~/.local/share/man/man1'",
+      "source_reference": "scripts/install-man-pages.sh:31-34"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive prerequisite documentation with verification commands",
+    "Clear distinction between required and optional dependencies",
+    "Platform-specific notes for macOS, Linux, and Windows",
+    "Good troubleshooting section covering common installation issues",
+    "Accurate source references to README.md and Cargo.toml",
+    "Git version requirement correctly documented for worktree support",
+    "All internal links are valid and point to existing files",
+    "Clear next steps section with relevant page links"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a visual installation diagram or checklist using MkDocs Material admonitions",
+    "Add a 'Quick Install' section at the top for experienced users (one-liner: curl | sh pattern if available)",
+    "Consider using tabs for platform-specific installation steps",
+    "Add estimated installation time for from-source builds"
+  ],
+  "cross_references": [
+    "index",
+    "workflow-basics",
+    "automated-documentation",
+    "mapreduce",
+    "examples"
+  ],
+  "link_validation": {
+    "total_internal_links": 5,
+    "broken_links": 0,
+    "validated_links": [
+      {"text": "Introduction", "target": "index.md", "status": "valid"},
+      {"text": "Workflow Basics", "target": "workflow-basics/index.md", "status": "valid"},
+      {"text": "Automated Documentation", "target": "automated-documentation/index.md", "status": "valid"},
+      {"text": "MapReduce Workflows", "target": "mapreduce/index.md", "status": "valid"},
+      {"text": "Examples", "target": "examples.md", "status": "valid"}
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["installation", "prerequisites", "cargo", "source build", "man pages", "troubleshooting", "platform support"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "current_project_version": "0.4.4"
+  }
+}

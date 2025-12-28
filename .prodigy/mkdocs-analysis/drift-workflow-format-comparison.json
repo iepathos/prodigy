@@ -1,0 +1,104 @@
+{
+  "item_type": "page",
+  "page_id": "workflow-format-comparison",
+  "page_title": "workflow format comparison",
+  "page_file": "docs/mapreduce/workflow-format-comparison.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides good comparison of workflow formats but has one outdated source reference and could benefit from MkDocs Material visual enhancements",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "medium",
+      "section": "Full Configuration Format",
+      "description": "Source reference mentions 'workflows/mapreduce-env-example.yml:23-26' for secrets example, but that file uses inline 'secret: true' format within env block, not the separate 'secrets:' top-level block documented here. The env: field in code accepts HashMap<String, String>, not complex objects.",
+      "current_content": "**Source**: Example workflow at `workflows/mapreduce-env-example.yml:23-26`",
+      "should_be": "Either update the source reference to point to a workflow that actually uses the secrets: top-level block, or add a note clarifying that this is a different pattern from the example workflow",
+      "fix_suggestion": "Remove or correct the source reference since the example file format doesn't match the documented secrets: block pattern",
+      "source_reference": "src/config/mapreduce.rs:26-30, workflows/mapreduce-env-example.yml:22-25"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of the two standard workflow formats (simple array vs full configuration)",
+    "Excellent coverage of MapReduce syntax evolution with preferred vs deprecated patterns",
+    "Accurate deprecation warnings with correct source line references (src/config/mapreduce.rs:310, 347)",
+    "Helpful migration guide with before/after examples",
+    "Decision tree format helps users choose the right format",
+    "Accurate secret format documentation matching src/cook/environment/config.rs:86-95 for SecretValue enum",
+    "All cross-referenced pages exist and links are valid"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions: 'info' for format recommendations, 'warning' for deprecation notices, 'tip' for migration steps",
+    "Add tabbed code examples using MkDocs Material content tabs to show old vs new format side-by-side",
+    "Consider adding a visual comparison table showing feature availability in each format",
+    "Add code annotations to the YAML examples explaining key parts",
+    "Add an anchor link from deprecation section to migration guide for easy navigation"
+  ],
+  "cross_references_validated": [
+    {
+      "link": "../environment/secrets-management.md",
+      "exists": true,
+      "valid": true
+    },
+    {
+      "link": "./environment-variables-in-configuration.md",
+      "exists": true,
+      "valid": true
+    },
+    {
+      "link": "./setup-phase-advanced.md",
+      "exists": true,
+      "valid": true
+    },
+    {
+      "link": "./index.md",
+      "exists": true,
+      "valid": true
+    },
+    {
+      "link": "../workflow-basics/full-workflow-structure.md",
+      "exists": true,
+      "valid": true
+    }
+  ],
+  "source_references_validated": [
+    {
+      "reference": "src/cook/environment/config.rs:86-95",
+      "description": "SecretValue enum definition",
+      "valid": true,
+      "notes": "Correctly documents Simple(String) and Provider { provider, key, version } variants"
+    },
+    {
+      "reference": "src/cook/environment/config.rs:101-109",
+      "description": "SecretProvider enum",
+      "valid": true,
+      "notes": "Correctly documents Env, File, Vault, Aws providers"
+    },
+    {
+      "reference": "src/config/mapreduce.rs:310, 347",
+      "description": "Deprecation warnings for nested commands syntax",
+      "valid": true,
+      "notes": "Exact line numbers match the deprecation warning locations"
+    },
+    {
+      "reference": "workflows/mapreduce-env-example.yml:23-26",
+      "description": "Example workflow secrets",
+      "valid": false,
+      "notes": "File uses inline 'secret: true' within env: block, not the documented 'secrets:' top-level block format"
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "workflow formats",
+      "simple array format",
+      "full configuration format",
+      "mapreduce syntax",
+      "deprecated syntax",
+      "migration guide",
+      "secrets configuration"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

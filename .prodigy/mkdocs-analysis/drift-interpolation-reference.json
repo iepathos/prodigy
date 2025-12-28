@@ -1,0 +1,120 @@
+{
+  "item_type": "page",
+  "page_id": "interpolation-reference",
+  "page_title": "interpolation reference",
+  "page_file": "docs/variables/available-variables/interpolation-reference.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is comprehensive but has several inaccuracies in source references and caching details. Some documented features use different line numbers than claimed.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Interpolation Modes",
+      "description": "Source reference line numbers are inaccurate. Documentation claims 'src/cook/execution/interpolation.rs:16-17, 104-137' but the InterpolationEngine struct starts at line 15 and strict mode handling is at different lines (106-136 for resolve_template_segments).",
+      "current_content": "src/cook/execution/interpolation.rs:16-17, 104-137",
+      "should_be": "src/cook/execution/interpolation.rs:15-22 (struct definition), 80-139 (resolve_template_segments with strict mode handling)",
+      "fix_suggestion": "Update source references to accurate line numbers based on current codebase",
+      "source_reference": "src/cook/execution/interpolation.rs:InterpolationEngine"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Default Values",
+      "description": "Source reference line number is inaccurate. Documentation claims 'src/cook/execution/interpolation.rs:277' but parse_variable_expression which handles ':-' default syntax is at lines 276-290.",
+      "current_content": "src/cook/execution/interpolation.rs:277",
+      "should_be": "src/cook/execution/interpolation.rs:276-290 (parse_variable_expression function)",
+      "fix_suggestion": "Update source reference to point to correct line range",
+      "source_reference": "src/cook/execution/interpolation.rs:parse_variable_expression"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Parent Context Resolution",
+      "description": "Source reference line numbers are inaccurate. Documentation claims 'src/cook/execution/interpolation.rs:200-226, InterpolationContext struct at :376-381' but InterpolationContext is at lines 376-383 and resolve_path is at 421-438.",
+      "current_content": "src/cook/execution/interpolation.rs:200-226, InterpolationContext struct at :376-381",
+      "should_be": "src/cook/execution/interpolation.rs:376-383 (InterpolationContext struct), 421-438 (resolve_path with parent resolution)",
+      "fix_suggestion": "Update source references to accurate line numbers",
+      "source_reference": "src/cook/execution/interpolation.rs:InterpolationContext"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Performance: Template Caching",
+      "description": "Source reference claims 'src/cook/execution/interpolation.rs:18-19, 68-75; src/cook/execution/variables.rs:218-256' but actual cache implementation is at interpolation.rs:68-77 (get_or_parse_template) and variables.rs has operation caching at line 444 (LRU cache initialization with size 100).",
+      "current_content": "src/cook/execution/interpolation.rs:18-19, 68-75; src/cook/execution/variables.rs:218-256",
+      "should_be": "src/cook/execution/interpolation.rs:68-77 (template cache), src/cook/execution/variables.rs:428-451 (VariableContext with LRU cache)",
+      "fix_suggestion": "Update source references to accurate line numbers for caching implementation",
+      "source_reference": "src/cook/execution/variables.rs:VariableContext"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Variable Scoping and Precedence",
+      "description": "Documentation mentions computed variables (env.*, file:*, cmd:*, json:*, date:*, uuid) have lowest precedence but doesn't explain that these are handled by a separate VariableContext (src/cook/execution/variables.rs) rather than InterpolationContext (src/cook/execution/interpolation.rs). The two systems work together but have distinct implementations.",
+      "fix_suggestion": "Add clarification that two interpolation systems exist: InterpolationEngine for basic variable resolution and VariableContext for computed variables with scoping and caching",
+      "source_reference": "src/cook/execution/variables.rs:VariableContext, src/cook/execution/interpolation.rs:InterpolationEngine"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Computed Variable Caching",
+      "description": "Documentation states 'json:path:from:var' parsing is not cached because it's fast, but the actual implementation uses json:path format (json: prefix followed by path). The syntax description is slightly misleading.",
+      "current_content": "${json:path:from:var}",
+      "should_be": "${json:path} where path navigates the JSON structure",
+      "fix_suggestion": "Update JSON variable syntax example to match actual implementation",
+      "source_reference": "src/cook/execution/variables.rs:JsonPathVariable"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Scoping and Precedence",
+      "description": "Missing documentation for ScopeLevel enum (Local, Phase, Global) that controls variable precedence in VariableContext. The actual precedence order is Local > Phase > Global.",
+      "fix_suggestion": "Add section explaining the three scope levels (Local, Phase, Global) and how they work in VariableContext",
+      "source_reference": "src/cook/execution/variables.rs:ScopeLevel enum at lines 394-399"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of interpolation syntax (${VAR} and $VAR)",
+    "Good explanation of default value syntax (:-) with practical examples",
+    "Clear documentation of legacy variable aliases for backwards compatibility",
+    "Well-structured scope and precedence documentation",
+    "Excellent parent context resolution explanation with visual hierarchy diagram",
+    "Good performance section explaining both template parsing cache and operation result cache",
+    "Practical examples throughout demonstrating real-world usage"
+  ],
+  "improvement_suggestions": [
+    "Add visual diagram showing the relationship between InterpolationEngine and VariableContext",
+    "Include MkDocs Material admonitions for important notes and warnings",
+    "Add tabbed examples showing equivalent syntax in different contexts",
+    "Consider adding code annotations for longer YAML examples",
+    "Add cross-references to related pages (standard-variables.md, mapreduce-variables.md)",
+    "Update all source references to use accurate line numbers",
+    "Add note about the distinction between the two interpolation systems"
+  ],
+  "cross_references": [
+    "standard-variables.md",
+    "mapreduce-variables.md",
+    "custom-variable-capture.md",
+    "troubleshooting-variable-interpolation.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "variable interpolation syntax",
+      "legacy aliases",
+      "default values",
+      "interpolation modes",
+      "variable scoping",
+      "precedence rules",
+      "parent context resolution",
+      "template caching",
+      "computed variable caching"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "internal_links_found": 0,
+    "broken_links": []
+  }
+}

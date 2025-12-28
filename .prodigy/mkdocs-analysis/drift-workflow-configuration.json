@@ -1,0 +1,116 @@
+{
+  "item_type": "page",
+  "page_id": "workflow-configuration",
+  "page_title": "workflow configuration",
+  "page_file": "docs/configuration/workflow-configuration.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides basic workflow configuration information but lacks MkDocs Material visual enhancements and could benefit from expanded content on advanced features",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Workflow Features",
+      "description": "Missing documentation for 'validate' command type which is supported per src/config/command.rs",
+      "feature_reference": "command_types.validate",
+      "fix_suggestion": "Add section documenting the validate command for implementation completeness checking",
+      "source_reference": "src/config/command.rs:133-143"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Workflow Features",
+      "description": "Missing documentation for 'write_file' command type",
+      "feature_reference": "command_types.write_file",
+      "fix_suggestion": "Add section documenting write_file command for file creation with format support",
+      "source_reference": "src/config/command.rs:145-154"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Advanced Workflow Features",
+      "description": "Missing documentation for 'goal_seek' command type for iterative refinement",
+      "feature_reference": "command_types.goal_seek",
+      "fix_suggestion": "Add section documenting goal_seek for score-based validation workflows",
+      "source_reference": "src/config/command.rs:114-120"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Structured Commands",
+      "description": "Missing documentation for capture_output, capture_format, capture_streams, and output_file options",
+      "feature_reference": "variable_system.capture_variables",
+      "fix_suggestion": "Add examples showing output capture configuration options",
+      "source_reference": "src/config/command.rs:362-396"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Handling",
+      "description": "Missing documentation for on_success handler which allows chaining commands on success",
+      "feature_reference": "conditional_execution.on_success",
+      "fix_suggestion": "Add on_success example alongside on_failure documentation",
+      "source_reference": "src/config/command.rs:371-372"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Conditional Execution",
+      "description": "Missing documentation for 'when' clause conditional execution",
+      "feature_reference": "conditional_execution.when_clauses",
+      "fix_suggestion": "Add section explaining when clause syntax with boolean expressions",
+      "source_reference": "src/config/command.rs:384"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Environment Variables in Workflows",
+      "description": "Documentation mentions profiles but doesn't explain active_profile field usage in workflows",
+      "feature_reference": "environment_management.profiles",
+      "fix_suggestion": "Show how to set active_profile in workflow YAML and explain profile selection",
+      "source_reference": "src/config/workflow.rs:34"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Page Structure",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve readability",
+      "fix_suggestion": "Add: (1) Quick reference admonitions at top, (2) Tabbed examples for different workflow types, (3) Code annotations for complex YAML examples, (4) Grid cards linking to related pages"
+    }
+  ],
+  "positive_aspects": [
+    "Clear introduction explaining workflow purpose",
+    "Good basic structure with overview and command examples",
+    "Accurate command syntax for claude, shell, and foreach",
+    "Correct workflow precedence documentation",
+    "Proper cross-references to related documentation (workflow-basics, environment-variables, mapreduce)",
+    "Accurate metadata structure for error handling (continue_on_error, retries, timeout)",
+    "All internal links are valid"
+  ],
+  "improvement_suggestions": [
+    "Add quick reference card summarizing available command types (claude, shell, analyze, test, foreach, write_file, validate, goal_seek)",
+    "Add tabbed examples showing simple vs advanced workflow configurations",
+    "Include code annotations explaining key YAML fields",
+    "Add visual diagram showing workflow execution flow",
+    "Document env_files configuration option for loading .env files",
+    "Add troubleshooting section for common workflow errors"
+  ],
+  "cross_references": [
+    "workflow-basics",
+    "environment-variables",
+    "mapreduce"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "workflow configuration",
+      "command types",
+      "structured commands",
+      "error handling",
+      "environment variables",
+      "MapReduce workflows"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

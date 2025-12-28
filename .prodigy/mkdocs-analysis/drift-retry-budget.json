@@ -1,0 +1,84 @@
+{
+  "item_type": "page",
+  "page_id": "retry-budget",
+  "page_title": "retry budget",
+  "page_file": "docs/retry-configuration/retry-budget.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and well-structured. Minor improvements needed for cross-references and visual enhancements.",
+  "issues": [
+    {
+      "type": "minor_inaccuracy",
+      "severity": "low",
+      "section": "Duration-Based Enforcement",
+      "description": "Line number reference is off by 1. Documentation says lines 236-244 but actual code is at lines 237-244.",
+      "current_content": "// From src/cook/retry_v2.rs:236-244",
+      "should_be": "// From src/cook/retry_v2.rs:237-244",
+      "fix_suggestion": "Update the line number reference from 236-244 to 237-244.",
+      "source_reference": "src/cook/retry_v2.rs:237-244"
+    },
+    {
+      "type": "missing_cross_references",
+      "severity": "low",
+      "section": "Document-wide",
+      "description": "No cross-references to related pages in the retry-configuration section (jitter, backoff strategies, troubleshooting).",
+      "fix_suggestion": "Add 'See Also' or 'Related' section with links to: jitter-for-distributed-systems.md, backoff-strategies.md, troubleshooting.md",
+      "source_reference": "docs/retry-configuration/"
+    },
+    {
+      "type": "missing_visual",
+      "severity": "low",
+      "section": "How It Works",
+      "description": "The dual enforcement mechanisms would benefit from a mermaid diagram showing the decision flow.",
+      "fix_suggestion": "Add a flowchart showing: 1) Duration-based check before retry 2) Timestamp-based check for resume scenarios 3) How both mechanisms interact",
+      "source_reference": "src/cook/retry_v2.rs, src/cook/retry_state.rs"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "What Time is Counted?",
+      "description": "The timeline example could be enhanced with a mermaid sequence diagram for better visualization.",
+      "fix_suggestion": "Convert the text timeline to a mermaid sequence diagram showing command execution vs budget time tracking.",
+      "source_reference": "N/A"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source references with specific line numbers",
+    "Clear explanation of dual enforcement mechanisms (Duration-based and Timestamp-based)",
+    "Well-structured YAML configuration examples matching actual code",
+    "Excellent 'What Time is Counted?' section explaining budget scope",
+    "Practical examples showing budget vs attempts interaction",
+    "Correct humantime_serde duration format documentation"
+  ],
+  "improvement_suggestions": [
+    "Add cross-references to jitter and backoff strategy pages",
+    "Include a 'Common Pitfalls' admonition about budget vs execution time confusion",
+    "Add mermaid diagram for the budget enforcement flow",
+    "Consider adding a 'When to Use Retry Budget' section with use case examples"
+  ],
+  "cross_references": [
+    "jitter-for-distributed-systems",
+    "backoff-strategies",
+    "troubleshooting",
+    "basic-retry-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:14:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "retry budget",
+      "time-based retry limits",
+      "duration enforcement",
+      "timestamp enforcement",
+      "checkpoint/resume scenarios"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/retry_v2.rs",
+      "src/cook/retry_state.rs"
+    ],
+    "documentation_accuracy": "high",
+    "code_examples_valid": true,
+    "internal_links_valid": true
+  }
+}

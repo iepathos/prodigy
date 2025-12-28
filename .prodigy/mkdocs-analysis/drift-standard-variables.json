@@ -1,0 +1,95 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "standard-variables",
+  "page_title": "standard variables",
+  "page_file": "docs/variables/available-variables/standard-variables.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is comprehensive for computed variables but has some source reference accuracy issues and missing integration with other variable pages",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Source References",
+      "description": "Line numbers in source references are inaccurate and do not match current codebase structure",
+      "current_content": "**Source:** src/cook/execution/variables.rs:100-305, src/cook/execution/variables.rs:160-187, src/cook/execution/variables.rs:189-216, etc.",
+      "should_be": "Source references should reflect actual line numbers: EnvVariable at lines 169-196, FileVariable at lines 198-225, CommandVariable at lines 227-265, UuidVariable at lines 267-285, DateVariable at lines 287-314, JsonPathVariable at lines 362-391",
+      "fix_suggestion": "Update all source references to reflect current line numbers, or remove specific line numbers in favor of struct/function names which are more stable",
+      "source_reference": "src/cook/execution/variables.rs - compare actual struct locations"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Validation Variables",
+      "description": "Validation variables section lacks detail on when these variables are available and how they are populated",
+      "current_content": "Variables for workflow validation and completion tracking: ${validation.completion}, ${validation.gaps}, ${validation.status}",
+      "should_be": "Add explanation that these variables are available only in validation phases after validation commands execute, and describe the ValidationResult structure that populates them",
+      "fix_suggestion": "Expand the Validation Variables section to explain: (1) These are populated by validate commands, (2) The structure of validation.gaps (array of missing requirements), (3) Example showing actual validation workflow usage",
+      "source_reference": "src/cook/workflow/validation.rs, src/cook/workflow/executor.rs:1655"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Standard Variables",
+      "description": "Missing documentation for type-specific output variables shell.output and claude.output which complement last.output",
+      "feature_reference": "shell.output, claude.output variables",
+      "fix_suggestion": "The documentation mentions shell.output and claude.output briefly but should expand to show when each is populated: shell.output is set after shell commands, claude.output after claude commands, while last.output is always set regardless of command type",
+      "source_reference": "src/cook/common_strings.rs:29-32, src/cook/workflow/executor/types.rs:60-61"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "Page lacks cross-references to related variable documentation pages",
+      "fix_suggestion": "Add 'See Also' section linking to: (1) MapReduce Variables page for map.results, map.key, worker.id, (2) Environment Variables page for env.* configuration, (3) Capture Variables page for output capture formats",
+      "source_reference": "docs/variables/ directory structure"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent comprehensive coverage of computed variables (env, file, cmd, json, date, uuid)",
+    "Clear examples showing practical usage for each variable type",
+    "Good documentation of caching behavior with clear explanation of which variables are cached vs not cached",
+    "Well-organized table format for quick reference",
+    "Good security warning for cmd: variables",
+    "Helpful note about UUID capture pattern for consistent ID usage"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions (tip, warning, note) to highlight important information like security warnings and caching behavior",
+    "Consider adding tabs to show different usage contexts (setup phase, map phase, reduce phase)",
+    "Add diagrams showing variable scope and precedence",
+    "Include links to related pages in the Variables section",
+    "Update source references to use stable identifiers (struct/function names) rather than line numbers"
+  ],
+  "cross_references": [
+    "mapreduce-variables",
+    "environment-configuration",
+    "capture-variables",
+    "variable-interpolation"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "standard output variables",
+      "computed variables",
+      "environment variables",
+      "file content variables",
+      "command output variables",
+      "JSON path extraction",
+      "date formatting",
+      "UUID generation",
+      "variable caching",
+      "workflow context",
+      "step context",
+      "validation variables"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_checked": [
+      "src/cook/execution/variables.rs",
+      "src/cook/workflow/variables.rs",
+      "src/cook/common_strings.rs",
+      "src/cook/workflow/executor.rs",
+      "src/cook/workflow/validation.rs"
+    ]
+  }
+}

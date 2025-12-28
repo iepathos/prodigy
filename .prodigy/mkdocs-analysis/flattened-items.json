@@ -1,361 +1,1378 @@
 [
   {
-    "id": "index",
-    "title": "Home",
-    "file": "docs/index.md",
-    "type": "single-file",
-    "topics": [
-      "Introduction",
-      "Getting started",
-      "Quick start"
-    ],
-    "validation": "Check that home page provides clear introduction and navigation"
-  },
-  {
-    "id": "workflow-structure",
-    "title": "Workflow Structure",
-    "file": "docs/workflow-basics/workflow-structure.md",
-    "section_id": "workflow-basics",
-    "section_title": "Workflow Basics",
-    "type": "section-page",
-    "topics": [
-      "Basic structure",
-      "Command execution",
-      "Available fields"
-    ],
-    "validation": "Check basic workflow syntax and structure documentation"
-  },
-  {
-    "id": "command-types",
-    "title": "Command Types",
-    "file": "docs/workflow-basics/command-types.md",
-    "section_id": "workflow-basics",
-    "section_title": "Workflow Basics",
-    "type": "section-page",
-    "topics": [
-      "Shell commands",
-      "Claude commands",
-      "Goal-seeking",
-      "Foreach"
-    ],
-    "validation": "Check all command types are documented"
-  },
-  {
-    "id": "variables",
-    "title": "Variables and Interpolation",
-    "file": "docs/workflow-basics/variables.md",
-    "section_id": "workflow-basics",
-    "section_title": "Workflow Basics",
-    "type": "section-page",
-    "topics": [
-      "Variable interpolation",
-      "Standard variables",
-      "MapReduce variables",
-      "Capture variables",
-      "Output formats"
-    ],
-    "validation": "Check variable syntax, interpolation engine, and capture formats are documented",
-    "feature_mapping": [
-      "variable_system.standard_variables",
-      "variable_system.mapreduce_variables",
-      "variable_system.capture_variables",
-      "variable_system.interpolation"
-    ],
-    "auto_generated": true,
-    "source_feature": "variable_system"
-  },
-  {
-    "id": "environment",
-    "title": "Environment Variables",
-    "file": "docs/workflow-basics/environment.md",
-    "section_id": "workflow-basics",
-    "section_title": "Workflow Basics",
-    "type": "section-page",
-    "topics": [
-      "Global environment variables",
-      "Secrets management",
-      "Profile support",
-      "Environment files"
-    ],
-    "validation": "Check environment variable configuration, secrets masking, and profile usage are documented",
-    "feature_mapping": [
-      "environment_management.global_env",
-      "environment_management.secrets",
-      "environment_management.profiles",
-      "environment_management.env_files"
-    ],
-    "auto_generated": true,
-    "source_feature": "environment_management"
-  },
-  {
-    "id": "conditional-execution",
-    "title": "Conditional Execution",
-    "file": "docs/workflow-basics/conditional-execution.md",
-    "section_id": "workflow-basics",
-    "section_title": "Workflow Basics",
-    "type": "section-page",
-    "topics": [
-      "When clauses",
-      "On failure handlers",
-      "On success handlers",
-      "Conditional logic"
-    ],
-    "validation": "Check conditional execution syntax and use cases are documented",
-    "feature_mapping": [
-      "conditional_execution.when_clauses",
-      "conditional_execution.on_failure",
-      "conditional_execution.on_success"
-    ],
-    "auto_generated": true,
-    "source_feature": "conditional_execution"
-  },
-  {
-    "id": "error-handling",
-    "title": "Error Handling",
-    "file": "docs/workflow-basics/error-handling.md",
-    "section_id": "workflow-basics",
-    "section_title": "Workflow Basics",
-    "type": "section-page",
-    "topics": [
-      "Workflow-level policies",
-      "Command-level handlers",
-      "Circuit breakers",
-      "Retry strategies"
-    ],
-    "validation": "Check error handling policies, retry configuration, and circuit breakers are documented",
-    "feature_mapping": [
-      "error_handling.workflow_level",
-      "error_handling.command_level",
-      "error_handling.advanced_features.circuit_breaker",
-      "error_handling.advanced_features.retry_configuration"
-    ],
-    "auto_generated": true,
-    "source_feature": "error_handling"
-  },
-  {
-    "id": "mapreduce-overview",
-    "title": "Overview",
-    "file": "docs/mapreduce/overview.md",
-    "section_id": "mapreduce",
-    "section_title": "MapReduce Workflows",
-    "type": "section-page",
-    "topics": [
-      "MapReduce mode",
-      "Setup phase",
-      "Map phase",
-      "Reduce phase"
-    ],
-    "validation": "Check MapReduce overview and concepts"
-  },
-  {
-    "id": "work-distribution",
-    "title": "Work Distribution",
-    "file": "docs/mapreduce/work-distribution.md",
-    "section_id": "mapreduce",
-    "section_title": "MapReduce Workflows",
-    "type": "section-page",
-    "topics": [
-      "JSONPath extraction",
-      "Filtering and sorting",
-      "Pagination",
-      "Deduplication"
-    ],
-    "validation": "Check work item management, JSONPath usage, filtering, and sorting are documented",
-    "feature_mapping": [
-      "mapreduce_workflows.core_capabilities.work_distribution"
-    ],
-    "auto_generated": true,
-    "source_feature": "mapreduce_workflows"
-  },
-  {
-    "id": "checkpoint-resume",
-    "title": "Checkpoint and Resume",
-    "file": "docs/mapreduce/checkpoint-resume.md",
-    "section_id": "mapreduce",
-    "section_title": "MapReduce Workflows",
-    "type": "section-page",
-    "topics": [
-      "Checkpoints",
-      "Resume",
-      "State management"
-    ],
-    "validation": "Check checkpoint structure and resume behavior documented",
-    "feature_mapping": [
-      "mapreduce.checkpoint",
-      "mapreduce.resume"
-    ]
-  },
-  {
-    "id": "dlq",
-    "title": "Dead Letter Queue",
-    "file": "docs/mapreduce/dlq.md",
-    "section_id": "mapreduce",
-    "section_title": "MapReduce Workflows",
-    "type": "section-page",
-    "topics": [
-      "Failed items",
-      "Retry",
-      "DLQ management"
-    ],
-    "validation": "Check DLQ structure and retry commands documented",
-    "feature_mapping": [
-      "mapreduce.dlq",
-      "error_handling.dlq"
-    ]
-  },
-  {
     "id": "composition",
-    "title": "Workflow Composition",
+    "title": "composition",
     "file": "docs/advanced/composition.md",
-    "section_id": "advanced",
-    "section_title": "Advanced Features",
-    "type": "section-page",
-    "topics": [
-      "Imports",
-      "Inheritance",
-      "Templates",
-      "Parameters",
-      "Sub-workflows"
-    ],
-    "validation": "Check workflow composition features including imports, extends, templates, and sub-workflows are documented",
-    "feature_mapping": [
-      "workflow_composition.imports",
-      "workflow_composition.inheritance",
-      "workflow_composition.templates",
-      "workflow_composition.parameters",
-      "workflow_composition.sub_workflows"
-    ],
-    "auto_generated": true,
-    "source_feature": "workflow_composition"
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
     "id": "git-integration",
-    "title": "Git Integration",
+    "title": "git integration",
     "file": "docs/advanced/git-integration.md",
-    "section_id": "advanced",
-    "section_title": "Advanced Features",
-    "type": "section-page",
-    "topics": [
-      "Worktree management",
-      "Commit tracking",
-      "Merge workflows",
-      "Branch tracking"
-    ],
-    "validation": "Check worktree isolation, commit tracking, and merge workflow features are documented",
-    "feature_mapping": [
-      "git_integration.worktree_management",
-      "git_integration.commit_tracking",
-      "git_integration.merge_workflows",
-      "git_integration.branch_tracking"
-    ],
-    "auto_generated": true,
-    "source_feature": "git_integration"
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
-    "id": "sessions",
-    "title": "Session Management",
-    "file": "docs/advanced/sessions.md",
-    "section_id": "advanced",
-    "section_title": "Advanced Features",
-    "type": "section-page",
-    "topics": [
-      "Session types",
-      "Session lifecycle",
-      "Resume capabilities",
-      "State persistence"
-    ],
-    "validation": "Check session tracking, lifecycle states, and resume features are documented",
-    "feature_mapping": [
-      "session_management.session_types",
-      "session_management.lifecycle",
-      "session_management.resume"
-    ],
-    "auto_generated": true,
-    "source_feature": "session_management"
+    "id": "implementation-validation",
+    "title": "implementation validation",
+    "file": "docs/advanced/implementation-validation.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/advanced/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
     "id": "observability",
-    "title": "Observability and Logging",
+    "title": "observability",
     "file": "docs/advanced/observability.md",
-    "section_id": "advanced",
-    "section_title": "Advanced Features",
-    "type": "section-page",
-    "topics": [
-      "Event tracking",
-      "Claude observability",
-      "Verbosity control",
-      "Log analysis"
-    ],
-    "validation": "Check event logging, Claude log tracking, and verbosity settings are documented",
-    "feature_mapping": [
-      "observability.event_tracking",
-      "observability.claude_observability",
-      "observability.verbosity_control"
-    ],
-    "auto_generated": true,
-    "source_feature": "observability"
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "claude-observability",
+    "title": "claude observability",
+    "file": "docs/advanced/observability/claude-observability.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "debugging",
+    "title": "debugging",
+    "file": "docs/advanced/observability/debugging.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "event-tracking",
+    "title": "event tracking",
+    "file": "docs/advanced/observability/event-tracking.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/advanced/observability/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "log-management",
+    "title": "log management",
+    "file": "docs/advanced/observability/log-management.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "parallel-iteration-with-foreach",
+    "title": "parallel iteration with foreach",
+    "file": "docs/advanced/parallel-iteration-with-foreach.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "sessions",
+    "title": "sessions",
+    "file": "docs/advanced/sessions.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "step-identification",
+    "title": "step identification",
+    "file": "docs/advanced/step-identification.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
     "id": "storage",
-    "title": "Storage Architecture",
+    "title": "storage",
     "file": "docs/advanced/storage.md",
-    "section_id": "advanced",
-    "section_title": "Advanced Features",
-    "type": "section-page",
-    "topics": [
-      "Global storage structure",
-      "Cross-repository organization",
-      "Event storage",
-      "State persistence"
-    ],
-    "validation": "Check storage directories, organization structure, and benefits are documented",
-    "feature_mapping": [
-      "storage_architecture.structure",
-      "storage_architecture.benefits"
-    ],
-    "auto_generated": true,
-    "source_feature": "storage_architecture"
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
-    "id": "global-config",
-    "title": "Global Configuration",
-    "file": "docs/configuration/global-config.md",
-    "section_id": "configuration",
-    "section_title": "Configuration",
-    "type": "section-page",
-    "topics": [
-      "Config file locations",
-      "Precedence rules",
-      "Claude settings"
-    ],
-    "validation": "Check configuration structure matches Settings struct"
+    "id": "index",
+    "title": "index",
+    "file": "docs/advanced/storage/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
-    "id": "examples",
-    "title": "Examples",
-    "file": "docs/reference/examples.md",
-    "section_id": "reference",
-    "section_title": "Reference",
-    "type": "section-page",
-    "topics": [
-      "Practical workflows",
-      "Use cases",
-      "Best practices"
-    ],
-    "validation": "Check examples are valid and work with current syntax"
+    "id": "maintenance",
+    "title": "maintenance",
+    "file": "docs/advanced/storage/maintenance.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "session-dlq",
+    "title": "session dlq",
+    "file": "docs/advanced/storage/session-dlq.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "structure",
+    "title": "structure",
+    "file": "docs/advanced/storage/structure.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "worktree-storage",
+    "title": "worktree storage",
+    "file": "docs/advanced/storage/worktree-storage.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "timeout-configuration",
+    "title": "timeout configuration",
+    "file": "docs/advanced/timeout-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "advanced-configuration",
+    "title": "advanced configuration",
+    "file": "docs/automated-documentation/advanced-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "automatic-gap-detection",
+    "title": "automatic gap detection",
+    "file": "docs/automated-documentation/automatic-gap-detection.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "documentation-versioning",
+    "title": "documentation versioning",
+    "file": "docs/automated-documentation/documentation-versioning.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "gap-report",
+    "title": "gap report",
+    "file": "docs/automated-documentation/gap-detection/gap-report.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/automated-documentation/gap-detection/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "overview",
+    "title": "overview",
+    "file": "docs/automated-documentation/gap-detection/overview.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "topic-normalization",
+    "title": "topic normalization",
+    "file": "docs/automated-documentation/gap-detection/topic-normalization.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "validation-phases",
+    "title": "validation phases",
+    "file": "docs/automated-documentation/gap-detection/validation-phases.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "github-actions-integration",
+    "title": "github actions integration",
+    "file": "docs/automated-documentation/github-actions-integration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/automated-documentation/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "mkdocs-workflow",
+    "title": "mkdocs workflow",
+    "file": "docs/automated-documentation/mkdocs-workflow.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "advanced-usage",
+    "title": "advanced usage",
+    "file": "docs/automated-documentation/mkdocs-workflow/advanced-usage.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "getting-started",
+    "title": "getting started",
+    "file": "docs/automated-documentation/mkdocs-workflow/getting-started.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/automated-documentation/mkdocs-workflow/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-phases",
+    "title": "workflow phases",
+    "file": "docs/automated-documentation/mkdocs-workflow/workflow-phases.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "quick-start",
+    "title": "quick start",
+    "file": "docs/automated-documentation/quick-start.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "real-world-example-prodigys-own-documentation",
+    "title": "real world example prodigys own documentation",
+    "file": "docs/automated-documentation/real-world-example-prodigys-own-documentation.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   },
   {
     "id": "troubleshooting",
-    "title": "Troubleshooting",
+    "title": "troubleshooting",
+    "file": "docs/automated-documentation/troubleshooting.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "tutorial",
+    "title": "tutorial",
+    "file": "docs/automated-documentation/tutorial.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "understanding-the-workflow",
+    "title": "understanding the workflow",
+    "file": "docs/automated-documentation/understanding-the-workflow.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "commands",
+    "title": "commands",
+    "file": "docs/commands.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "complete-examples",
+    "title": "complete examples",
+    "file": "docs/composition/complete-examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "composition-metadata",
+    "title": "composition metadata",
+    "file": "docs/composition/composition-metadata.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "default-values",
+    "title": "default values",
+    "file": "docs/composition/default-values.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/composition/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "parameter-definitions",
+    "title": "parameter definitions",
+    "file": "docs/composition/parameter-definitions.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "sub-workflows",
+    "title": "sub workflows",
+    "file": "docs/composition/sub-workflows.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "template-system",
+    "title": "template system",
+    "file": "docs/composition/template-system.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "troubleshooting",
+    "file": "docs/composition/troubleshooting.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-extension-inheritance",
+    "title": "workflow extension inheritance",
+    "file": "docs/composition/workflow-extension-inheritance.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "complete-configuration-examples",
+    "title": "complete configuration examples",
+    "file": "docs/configuration/complete-configuration-examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "configuration-precedence-rules",
+    "title": "configuration precedence rules",
+    "file": "docs/configuration/configuration-precedence-rules.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "default-values-reference",
+    "title": "default values reference",
+    "file": "docs/configuration/default-values-reference.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment-variables",
+    "title": "environment variables",
+    "file": "docs/configuration/environment-variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "global-config",
+    "title": "global config",
+    "file": "docs/configuration/global-config.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "global-configuration-structure",
+    "title": "global configuration structure",
+    "file": "docs/configuration/global-configuration-structure.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/configuration/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "project-configuration-structure",
+    "title": "project configuration structure",
+    "file": "docs/configuration/project-configuration-structure.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "storage-configuration",
+    "title": "storage configuration",
+    "file": "docs/configuration/storage-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "troubleshooting",
+    "file": "docs/configuration/troubleshooting.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-configuration",
+    "title": "workflow configuration",
+    "file": "docs/configuration/workflow-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "common-patterns",
+    "title": "common patterns",
+    "file": "docs/environment/common-patterns.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment-files",
+    "title": "environment files",
+    "file": "docs/environment/environment-files.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment-precedence",
+    "title": "environment precedence",
+    "file": "docs/environment/environment-precedence.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment-profiles",
+    "title": "environment profiles",
+    "file": "docs/environment/environment-profiles.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/environment/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "mapreduce-environment-variables",
+    "title": "mapreduce environment variables",
+    "file": "docs/environment/mapreduce-environment-variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "per-command-environment-overrides",
+    "title": "per command environment overrides",
+    "file": "docs/environment/per-command-environment-overrides.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "secrets-management",
+    "title": "secrets management",
+    "file": "docs/environment/secrets-management.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "error-context-migration-guide",
+    "title": "error context migration guide",
+    "file": "docs/error-context-migration-guide.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "examples",
+    "title": "examples",
+    "file": "docs/examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "advanced-examples",
+    "title": "advanced examples",
+    "file": "docs/examples/advanced-examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "basic-workflows",
+    "title": "basic workflows",
+    "file": "docs/examples/basic-workflows.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "composition-examples",
+    "title": "composition examples",
+    "file": "docs/examples/composition-examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "conditional-workflows",
+    "title": "conditional workflows",
+    "file": "docs/examples/conditional-workflows.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/examples/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "mapreduce-examples",
+    "title": "mapreduce examples",
+    "file": "docs/examples/mapreduce-examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "git-context-advanced",
+    "title": "git context advanced",
+    "file": "docs/git-context-advanced.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "best-practices",
+    "title": "best practices",
+    "file": "docs/git-context/best-practices.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/git-context/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "overview",
+    "title": "overview",
+    "file": "docs/git-context/overview.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "shell-filtering",
+    "title": "shell filtering",
+    "file": "docs/git-context/shell-filtering.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "use-cases",
+    "title": "use cases",
+    "file": "docs/git-context/use-cases.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "installation",
+    "title": "installation",
+    "file": "docs/installation.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "mapreduce-worktree-architecture",
+    "title": "mapreduce worktree architecture",
+    "file": "docs/mapreduce-worktree-architecture.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "backoff-strategies",
+    "title": "backoff strategies",
+    "file": "docs/mapreduce/backoff-strategies.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "checkpoint-and-resume",
+    "title": "checkpoint and resume",
+    "file": "docs/mapreduce/checkpoint-and-resume.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "dead-letter-queue-dlq",
+    "title": "dead letter queue dlq",
+    "file": "docs/mapreduce/dead-letter-queue-dlq.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "commands",
+    "title": "commands",
+    "file": "docs/mapreduce/dlq/commands.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "debugging",
+    "title": "debugging",
+    "file": "docs/mapreduce/dlq/debugging.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/mapreduce/dlq/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "internals",
+    "title": "internals",
+    "file": "docs/mapreduce/dlq/internals.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "overview",
+    "title": "overview",
+    "file": "docs/mapreduce/dlq/overview.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment-variables-in-configuration",
+    "title": "environment variables in configuration",
+    "file": "docs/mapreduce/environment-variables-in-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "error-collection-strategies",
+    "title": "error collection strategies",
+    "file": "docs/mapreduce/error-collection-strategies.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "event-tracking",
+    "title": "event tracking",
+    "file": "docs/mapreduce/event-tracking.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "global-storage-architecture",
+    "title": "global storage architecture",
+    "file": "docs/mapreduce/global-storage-architecture.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/mapreduce/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "overview",
+    "title": "overview",
+    "file": "docs/mapreduce/overview.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "setup-phase-advanced",
+    "title": "setup phase advanced",
+    "file": "docs/mapreduce/setup-phase-advanced.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "troubleshooting",
+    "file": "docs/mapreduce/troubleshooting.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "work-distribution",
+    "title": "work distribution",
+    "file": "docs/mapreduce/work-distribution.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "examples",
+    "title": "examples",
+    "file": "docs/mapreduce/work-distribution/examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "filtering-sorting",
+    "title": "filtering sorting",
+    "file": "docs/mapreduce/work-distribution/filtering-sorting.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/mapreduce/work-distribution/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "input-sources",
+    "title": "input sources",
+    "file": "docs/mapreduce/work-distribution/input-sources.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "pagination",
+    "title": "pagination",
+    "file": "docs/mapreduce/work-distribution/pagination.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-format-comparison",
+    "title": "workflow format comparison",
+    "file": "docs/mapreduce/workflow-format-comparison.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "troubleshooting",
     "file": "docs/reference/troubleshooting.md",
-    "section_id": "reference",
-    "section_title": "Reference",
-    "type": "section-page",
-    "topics": [
-      "Common issues",
-      "Debug tips",
-      "FAQ"
-    ],
-    "validation": "Check troubleshooting covers common user issues"
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "backoff-strategies",
+    "title": "backoff strategies",
+    "file": "docs/retry-configuration/backoff-strategies.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "backoff-strategy-comparison",
+    "title": "backoff strategy comparison",
+    "file": "docs/retry-configuration/backoff-strategy-comparison.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "basic-retry-configuration",
+    "title": "basic retry configuration",
+    "file": "docs/retry-configuration/basic-retry-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "complete-examples",
+    "title": "complete examples",
+    "file": "docs/retry-configuration/complete-examples.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "conditional-retry-with-error-matchers",
+    "title": "conditional retry with error matchers",
+    "file": "docs/retry-configuration/conditional-retry-with-error-matchers.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "failure-actions",
+    "title": "failure actions",
+    "file": "docs/retry-configuration/failure-actions.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "implementation-references",
+    "title": "implementation references",
+    "file": "docs/retry-configuration/implementation-references.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/retry-configuration/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "jitter-for-distributed-systems",
+    "title": "jitter for distributed systems",
+    "file": "docs/retry-configuration/jitter-for-distributed-systems.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "retry-budget",
+    "title": "retry budget",
+    "file": "docs/retry-configuration/retry-budget.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "retry-metrics-and-observability",
+    "title": "retry metrics and observability",
+    "file": "docs/retry-configuration/retry-metrics-and-observability.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "troubleshooting",
+    "title": "troubleshooting",
+    "file": "docs/retry-configuration/troubleshooting.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-level-vs-command-level-retry",
+    "title": "workflow level vs command level retry",
+    "file": "docs/retry-configuration/workflow-level-vs-command-level-retry.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "stillwater-pattern-mapping",
+    "title": "stillwater pattern mapping",
+    "file": "docs/stillwater-pattern-mapping.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "error-accumulation",
+    "title": "error accumulation",
+    "file": "docs/stillwater-patterns/error-accumulation.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "error-context",
+    "title": "error context",
+    "file": "docs/stillwater-patterns/error-context.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/stillwater-patterns/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "semigroup-composition",
+    "title": "semigroup composition",
+    "file": "docs/stillwater-patterns/semigroup-composition.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "state-management",
+    "title": "state management",
+    "file": "docs/stillwater-patterns/state-management.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "testability",
+    "title": "testability",
+    "file": "docs/stillwater-patterns/testability.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "stillwater-validation-migration",
+    "title": "stillwater validation migration",
+    "file": "docs/stillwater-validation-migration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "common-error-messages",
+    "title": "common error messages",
+    "file": "docs/troubleshooting/common-error-messages.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "faq",
+    "title": "faq",
+    "file": "docs/troubleshooting/faq.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/troubleshooting/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "available-variables",
+    "title": "available variables",
+    "file": "docs/variables/available-variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "git-merge-variables",
+    "title": "git merge variables",
+    "file": "docs/variables/available-variables/git-merge-variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/variables/available-variables/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "interpolation-reference",
+    "title": "interpolation reference",
+    "file": "docs/variables/available-variables/interpolation-reference.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "mapreduce-variables",
+    "title": "mapreduce variables",
+    "file": "docs/variables/available-variables/mapreduce-variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "standard-variables",
+    "title": "standard variables",
+    "file": "docs/variables/available-variables/standard-variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "custom-variable-capture",
+    "title": "custom variable capture",
+    "file": "docs/variables/custom-variable-capture.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/variables/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "troubleshooting-variable-interpolation",
+    "title": "troubleshooting variable interpolation",
+    "file": "docs/variables/troubleshooting-variable-interpolation.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "available-fields",
+    "title": "available fields",
+    "file": "docs/workflow-basics/available-fields.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "command-level-options",
+    "title": "command level options",
+    "file": "docs/workflow-basics/command-level-options.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "advanced-options",
+    "title": "advanced options",
+    "file": "docs/workflow-basics/command-options/advanced-options.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "core-options",
+    "title": "core options",
+    "file": "docs/workflow-basics/command-options/core-options.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "error-conditional",
+    "title": "error conditional",
+    "file": "docs/workflow-basics/command-options/error-conditional.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/workflow-basics/command-options/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "output-capture",
+    "title": "output capture",
+    "file": "docs/workflow-basics/command-options/output-capture.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "command-types",
+    "title": "command types",
+    "file": "docs/workflow-basics/command-types.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "complete-example",
+    "title": "complete example",
+    "file": "docs/workflow-basics/complete-example.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "conditional-execution",
+    "title": "conditional execution",
+    "file": "docs/workflow-basics/conditional-execution.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment-configuration",
+    "title": "environment configuration",
+    "file": "docs/workflow-basics/environment-configuration.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "environment",
+    "title": "environment",
+    "file": "docs/workflow-basics/environment.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "basics",
+    "title": "basics",
+    "file": "docs/workflow-basics/environment/basics.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/workflow-basics/environment/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "patterns",
+    "title": "patterns",
+    "file": "docs/workflow-basics/environment/patterns.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "secrets-profiles",
+    "title": "secrets profiles",
+    "file": "docs/workflow-basics/environment/secrets-profiles.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-usage",
+    "title": "workflow usage",
+    "file": "docs/workflow-basics/environment/workflow-usage.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "error-handling",
+    "title": "error handling",
+    "file": "docs/workflow-basics/error-handling.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "best-practices",
+    "title": "best practices",
+    "file": "docs/workflow-basics/error-handling/best-practices.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "command-level",
+    "title": "command level",
+    "file": "docs/workflow-basics/error-handling/command-level.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "dlq",
+    "title": "dlq",
+    "file": "docs/workflow-basics/error-handling/dlq.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/workflow-basics/error-handling/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-level",
+    "title": "workflow level",
+    "file": "docs/workflow-basics/error-handling/workflow-level.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "full-workflow-structure",
+    "title": "full workflow structure",
+    "file": "docs/workflow-basics/full-workflow-structure.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "index",
+    "title": "index",
+    "file": "docs/workflow-basics/index.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "merge-workflows",
+    "title": "merge workflows",
+    "file": "docs/workflow-basics/merge-workflows.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "next-steps",
+    "title": "next steps",
+    "file": "docs/workflow-basics/next-steps.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "variables",
+    "title": "variables",
+    "file": "docs/workflow-basics/variables.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  {
+    "id": "workflow-structure",
+    "title": "workflow structure",
+    "file": "docs/workflow-basics/workflow-structure.md",
+    "type": "auto-discovered",
+    "topics": [],
+    "validation": "Auto-discovered page - check for drift and enhance with visual features"
   }
 ]

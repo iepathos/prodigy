@@ -1,0 +1,121 @@
+{
+  "item_type": "page",
+  "page_id": "stillwater-pattern-mapping",
+  "page_title": "stillwater pattern mapping",
+  "page_file": "docs/stillwater-pattern-mapping.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good conceptual documentation that maps Stillwater patterns to Prodigy problems, but contains some outdated source file references and code examples that don't fully match current implementation",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "1. Error Accumulation: Work Item Validation",
+      "description": "Source location 'src/cook/execution/data_pipeline/mod.rs:428-512' refers to test code, not the validation logic described. The actual validation implementation is in src/cook/execution/data_pipeline/validation.rs",
+      "current_content": "**Location**: `src/cook/execution/data_pipeline/mod.rs:428-512`",
+      "should_be": "**Location**: `src/cook/execution/data_pipeline/validation.rs`",
+      "fix_suggestion": "Update source reference to point to validation.rs which contains the actual Validation<T, E> implementation",
+      "source_reference": "src/cook/execution/data_pipeline/validation.rs"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "2. Testability: Orchestrator Without Mocks",
+      "description": "Source location 'src/cook/orchestrator/core.rs:145-2884' is incorrect - file only has 496 lines. The line range is impossibly large.",
+      "current_content": "**Location**: `src/cook/orchestrator/core.rs:145-2884`",
+      "should_be": "**Location**: `src/cook/orchestrator/core.rs` and `src/cook/orchestrator/pure.rs`",
+      "fix_suggestion": "Update line range to reflect actual file size (496 lines) and reference pure.rs which contains the pure functions",
+      "source_reference": "src/cook/orchestrator/core.rs:1-496"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "4. State Management: Pure Transitions",
+      "description": "Source location 'src/cook/execution/state.rs:1-1856' is slightly different - file has 1782 lines. The conceptual approach is accurate but line count is off.",
+      "current_content": "**Location**: `src/cook/execution/state.rs:1-1856`",
+      "should_be": "**Location**: `src/cook/execution/state.rs:1-1782`",
+      "fix_suggestion": "Update line count to match current file size (1782 lines)",
+      "source_reference": "src/cook/execution/state.rs:1-1782"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "5. Variable Aggregation: Semigroup Composition",
+      "description": "The 'Current Problem' section (line 609-656) shows duplicated aggregation logic, but the actual implementation now uses stillwater::validation::homogeneous for type-safe combining with TypeMismatchError",
+      "current_content": "Manual match statement with panic on type mismatch",
+      "should_be": "Uses combine_homogeneous() with TypeMismatchError for validation-aware aggregation",
+      "fix_suggestion": "Update the 'Current Problem' section to reflect that the Semigroup implementation now uses homogeneous validation via aggregate_map_results()",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:340-386"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "5. Variable Aggregation: Semigroup Composition",
+      "description": "The panic message in Semigroup::combine (line 689) shows 'Cannot combine incompatible aggregate types' but actual implementation says 'Type mismatch in aggregation. Use aggregate_map_results or combine_homogeneous to validate types before combining.'",
+      "current_content": "_ => panic!(\"Cannot merge different aggregate types\")",
+      "should_be": "_ => unreachable!(\"Type mismatch in aggregation. Use aggregate_map_results...\")",
+      "fix_suggestion": "Update error message to match actual implementation guidance",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:189-192"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Recommended Starting Point",
+      "description": "The 'Timeline' estimates (lines 777-793) contain specific time estimates like '3-5 days', '2-3 days', '2-3 weeks' which violate the principle of not providing time estimates in plans",
+      "fix_suggestion": "Remove time estimates from recommendations section - focus on effort levels (low/medium/high) and complexity instead",
+      "source_reference": "N/A - documentation style guideline"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Effect Pattern Examples",
+      "description": "The Effect examples show 'Effect::from_async' and 'Effect::from_validation' patterns, but actual implementation uses 'from_async' and related helpers from stillwater crate",
+      "current_content": "Effect::from_async(|env: &OrchestratorEnv| async move { ... })",
+      "should_be": "from_async(|env: &OrchestratorEnv| async move { ... }) or BoxedEffect patterns",
+      "fix_suggestion": "Update Effect examples to use the actual import patterns (from_async, pure, fail) seen in src/cook/orchestrator/effects.rs",
+      "source_reference": "src/cook/orchestrator/effects.rs:35"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent conceptual mapping of Stillwater patterns to specific Prodigy problems",
+    "Clear problem-solution structure with 'Current Problem' and 'Stillwater Solution' sections",
+    "Impact assessments provide useful context for prioritization",
+    "Summary matrix provides quick overview of patterns, problems, solutions, and effort",
+    "Code examples effectively illustrate the before/after improvements",
+    "Covers all major Stillwater patterns: Validation, Effect, ContextError, Pure Functions, Semigroup",
+    "DLQ integration example shows real-world application of ContextError"
+  ],
+  "improvement_suggestions": [
+    "Add cross-references to related documentation pages (stillwater-patterns/*, stillwater-validation-migration.md)",
+    "Update source file references to current line numbers and file locations",
+    "Add MkDocs Material features: admonitions for 'Current Problem' (warning) and 'Stillwater Solution' (success)",
+    "Remove time estimates from recommendations section per documentation guidelines",
+    "Add mermaid diagrams showing data flow for Effect and Validation patterns",
+    "Include links to actual Stillwater library documentation for deeper understanding",
+    "Add code annotations to highlight key improvements in examples"
+  ],
+  "cross_references": [
+    "stillwater-patterns/index.md",
+    "stillwater-patterns/error-accumulation.md",
+    "stillwater-patterns/error-context.md",
+    "stillwater-patterns/semigroup-composition.md",
+    "stillwater-patterns/testability.md",
+    "stillwater-validation-migration.md",
+    "error-context-migration-guide.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:12:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Stillwater patterns",
+      "Error accumulation",
+      "Validation",
+      "Effect pattern",
+      "ContextError",
+      "Semigroup",
+      "Pure functions",
+      "Testability"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

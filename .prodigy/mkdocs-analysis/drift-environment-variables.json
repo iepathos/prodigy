@@ -1,0 +1,111 @@
+{
+  "item_type": "page",
+  "page_id": "environment-variables",
+  "page_title": "environment variables",
+  "page_file": "docs/configuration/environment-variables.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is comprehensive but contains some outdated information about feature availability and is missing several undocumented environment variables",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Environment Files (.env)",
+      "description": "Documentation states 'env_files' feature is 'not yet implemented in Prodigy, but planned'. This is INCORRECT - the feature IS fully implemented in src/cook/environment/manager.rs:load_env_file()",
+      "current_content": "Load variables from dotenv-format files (not yet implemented in Prodigy, but planned)",
+      "should_be": "Load variables from dotenv-format files. Variables from .env files are loaded in order, with later files overriding earlier ones.",
+      "fix_suggestion": "Remove the 'Note: This feature is planned but not yet available' text and document the actual implemented behavior from manager.rs",
+      "source_reference": "src/cook/environment/manager.rs:183-214"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Profiles for Multiple Environments",
+      "description": "Documentation claims PRODIGY_PROFILE environment variable works to activate a profile, but this is NOT implemented. The --profile CLI flag is also not implemented.",
+      "current_content": "export PRODIGY_PROFILE=prod\nprodigy run workflow.yml",
+      "should_be": "Profile activation is only available via active_profile in workflow YAML, not via environment variable or CLI flag",
+      "fix_suggestion": "Either implement PRODIGY_PROFILE env var support and --profile flag, or remove this claim from documentation. Currently profiles only work via active_profile in workflow YAML config.",
+      "source_reference": "src/cook/environment/config.rs:34-35 (active_profile field exists but no CLI/env support)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "System Environment Variables",
+      "description": "Several implemented environment variables are not documented",
+      "missing_variables": [
+        "PRODIGY_HOME - Base directory for all Prodigy storage (overrides ~/.prodigy)",
+        "PRODIGY_TEST_MODE - Internal testing mode flag",
+        "PRODIGY_VALIDATION - Signal validation execution mode",
+        "PRODIGY_AUTO_CLEANUP - Control automatic worktree cleanup",
+        "PRODIGY_CONFIRM_CLEANUP - Require confirmation before cleanup",
+        "PRODIGY_RETENTION_DAYS - Days to retain worktrees before cleanup",
+        "PRODIGY_DRY_RUN - Enable dry run mode for worktree operations",
+        "PRODIGY_AUTO_MERGE - Auto-merge behavior control",
+        "PRODIGY_AUTO_CONFIRM - Skip confirmation prompts"
+      ],
+      "fix_suggestion": "Add a section documenting these worktree and internal environment variables",
+      "source_reference": "src/storage/mod.rs:63-72, src/worktree/manager_queries.rs:278-289"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Variable Interpolation",
+      "description": "Documentation mentions ${VAR} and $VAR syntax but doesn't explain the difference with PRODIGY__ prefix for nested config fields",
+      "current_content": "Use `$VAR` or `${VAR}` in all phases",
+      "should_be": "Explain that PRODIGY_ prefix uses explicit mappings (PRODIGY_CLAUDE_API_KEY -> claude_api_key) while PRODIGY__ prefix with double underscore uses path mapping (PRODIGY__STORAGE__BACKEND -> storage.backend)",
+      "fix_suggestion": "Add a section explaining the difference between single-underscore legacy mappings and double-underscore path-based env vars",
+      "source_reference": "src/config/builder.rs:84-92, 132-144"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow Environment Variables",
+      "description": "Documentation doesn't mention conditional and dynamic environment values which are supported",
+      "missing_content": "EnvValue can be Static, Dynamic (command-based), or Conditional (expression-based). Dynamic values can be cached.",
+      "fix_suggestion": "Add documentation for dynamic (command-based) and conditional (expression-based) environment values",
+      "source_reference": "src/cook/environment/config.rs:39-81, src/cook/environment/manager.rs:235-299"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "low",
+      "section": "MapReduce Environment Variables",
+      "description": "Example shows max_parallel: ${MAX_PARALLEL} but YAML doesn't support variable interpolation in field values outside of command strings",
+      "current_content": "max_parallel: ${MAX_PARALLEL}  # Use env var for parallelism",
+      "should_be": "max_parallel setting should use integer values directly, not variable interpolation",
+      "fix_suggestion": "Update example to show that env vars work in command strings but not in numeric field values",
+      "source_reference": "src/config/mapreduce.rs:25-28"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent organization separating workflow and system environment variables",
+    "Good examples showing secrets masking behavior",
+    "Clear precedence explanation (Step env > Profile env > Workflow env > System env)",
+    "Comprehensive security best practices section",
+    "Good cross-reference to configuration-precedence-rules.md",
+    "Practical complete workflow examples showing real-world usage"
+  ],
+  "improvement_suggestions": [
+    "Add a quick reference table summarizing all environment variables",
+    "Add MkDocs Material admonitions for warnings about the PRODIGY_PROFILE limitation",
+    "Include troubleshooting section for common environment variable issues",
+    "Add code tabs showing bash, fish, and zsh examples for setting environment variables"
+  ],
+  "cross_references": [
+    "configuration-precedence-rules",
+    "storage-configuration",
+    "workflow-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T10:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "workflow environment variables",
+      "system environment variables",
+      "secrets management",
+      "profiles",
+      "variable interpolation",
+      "env files"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

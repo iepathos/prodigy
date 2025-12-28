@@ -1,0 +1,105 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "semigroup-composition",
+  "page_title": "semigroup composition",
+  "page_file": "docs/stillwater-patterns/semigroup-composition.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation presents a 'before/after' refactoring example but is significantly outdated. The 'Current Problem' section describes old code that no longer exists, while the actual implementation is far more sophisticated than the 'Stillwater Solution' shown.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Current Problem",
+      "description": "The 'Current Problem' section shows code at 'src/cook/execution/variables.rs:100-500' that doesn't exist. The actual implementation is in 'src/cook/execution/variables/semigroup.rs' and has already been refactored to use the Semigroup pattern.",
+      "current_content": "**Location**: `src/cook/execution/variables.rs:100-500`",
+      "should_be": "The implementation is in `src/cook/execution/variables/semigroup.rs`",
+      "fix_suggestion": "Replace the 'before/after' narrative with documentation of the current implementation that already uses Semigroup pattern",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:1-734"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "API Documentation",
+      "description": "Missing documentation for key functions: `aggregate_map_results()` with Validation pattern, `aggregate_with_initial()`, `parallel_aggregate()`, and the `finalize()` method on AggregateResult",
+      "fix_suggestion": "Add documentation sections explaining validation-aware aggregation, checkpointed aggregation, parallel aggregation with rayon, and the finalize pattern for stateful aggregates",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:340-419"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Validation Integration",
+      "description": "The actual implementation uses Stillwater's homogeneous validation (`combine_homogeneous`, `TypeMismatchError`) to prevent type mismatches and accumulate all errors. This is completely undocumented.",
+      "fix_suggestion": "Add section explaining how `aggregate_map_results()` uses Validation<T, Vec<TypeMismatchError>> for error accumulation when combining heterogeneous types",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:17-20, 340-349"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Aggregate Types",
+      "description": "Documentation mentions 15 aggregate types but doesn't list them all. The actual implementation has: Count, Sum, Min, Max, Collect, Average, Median, StdDev, Variance, Unique, Concat, Merge, Flatten, Sort, GroupBy",
+      "fix_suggestion": "Add a complete list of all aggregate types with their semantics and finalization behavior",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:28-73"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Finalize Pattern",
+      "description": "The documentation doesn't explain that aggregations like Average, Median, StdDev, Variance track intermediate state and require finalize() to compute the final result",
+      "fix_suggestion": "Add documentation explaining the two-phase pattern: combine() for associative merging, then finalize() for final computation",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:197-296"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Property Tests",
+      "description": "Documentation mentions property tests but doesn't show that actual property tests exist for associativity verification using proptest",
+      "fix_suggestion": "Add section showing that property-based tests exist in semigroup_property_tests.rs verifying associativity for all aggregate types",
+      "source_reference": "src/cook/execution/variables/semigroup_property_tests.rs:1-263"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Stillwater Solution code",
+      "description": "The example uses `unreachable!()` in the panic case but the actual implementation uses `unreachable!()` with an explanatory message pointing users to use validation functions. Also, the example uses `par_iter()` incorrectly - actual implementation uses `into_par_iter()` and `reduce_with()`.",
+      "current_content": "_ => panic!(\"Cannot combine incompatible aggregate types\")",
+      "should_be": "_ => unreachable!(\"Type mismatch in aggregation. Use `aggregate_map_results` or `combine_homogeneous` to validate types before combining.\")",
+      "fix_suggestion": "Update code examples to match actual implementation patterns",
+      "source_reference": "src/cook/execution/variables/semigroup.rs:189-192, 417-419"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Benefits",
+      "description": "Benefits section is brief and doesn't mention: type-safe validation with error accumulation, checkpoint-compatible aggregation, or the separation between combine (merge state) and finalize (compute result)",
+      "fix_suggestion": "Expand benefits section to cover validation integration, checkpoint recovery, and the two-phase aggregate pattern",
+      "source_reference": "CLAUDE.md Variable Aggregation section"
+    }
+  ],
+  "positive_aspects": [
+    "Core concept of using Semigroup trait for aggregation is correctly explained",
+    "Associativity property and its importance for parallelism is correctly highlighted",
+    "Shows the pattern of using proptest for mathematical property verification",
+    "Clean code examples that are easy to understand conceptually"
+  ],
+  "improvement_suggestions": [
+    "Restructure document from 'before/after refactoring' to 'current implementation' documentation",
+    "Add Mermaid diagram showing the relationship between AggregateResult variants",
+    "Add code tabs (MkDocs Material feature) showing both simple usage and validation-aware usage",
+    "Add admonition boxes for important notes about type safety and validation",
+    "Add cross-references to related pages (validation patterns, error accumulation)",
+    "Include workflow YAML examples showing how aggregations are used in MapReduce"
+  ],
+  "cross_references": [
+    "error-accumulation",
+    "testability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:17:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["semigroup", "aggregation", "parallel processing", "functional programming"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_count": 0
+  }
+}

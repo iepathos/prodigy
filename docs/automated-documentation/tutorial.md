@@ -5,20 +5,21 @@ This comprehensive tutorial walks you through setting up and running your first 
 ### What You'll Accomplish
 
 By the end of this tutorial, you'll have:
+
 - Configured the automated documentation system for your project
 - Run the workflow to detect and fix documentation drift
 - Generated or updated an mdBook with accurate, code-grounded documentation
 - Understood all three phases: setup, map, and reduce
 
-### Prerequisites
+!!! note "Prerequisites"
+    Before starting, ensure you have [installed Prodigy](../installation.md) and the required tools:
 
-Before starting, ensure you have [installed Prodigy](../installation.md) and the required tools:
-- Prodigy (via `cargo install prodigy`)
-- Claude Code CLI
-- mdBook (for building documentation)
-- Git (initialized repository)
+    - Prodigy (via `cargo install prodigy`)
+    - Claude Code CLI
+    - mdBook (for building documentation)
+    - Git (initialized repository)
 
-If you haven't installed these yet, visit the [Installation guide](../installation.md) first
+    If you haven't installed these yet, visit the [Installation guide](../installation.md) first.
 
 ### Step 1: Initialize Your Book Structure
 
@@ -56,7 +57,7 @@ Create `.prodigy/book-config.json` at your project root with your project detail
       "area": "workflow_basics",
       "source_files": [
         "src/config/workflow.rs",
-        "src/workflow/executor.rs"
+        "src/cook/workflow/executor.rs"
       ],
       "feature_categories": [
         "structure",
@@ -118,7 +119,8 @@ Create `workflows/data/your-project-chapters.json` to define your documentation 
 
 Create `workflows/book-docs-drift.yml`:
 
-```yaml
+```yaml title="workflows/book-docs-drift.yml"
+# Source: workflows/book-docs-drift.yml
 name: your-project-book-docs-drift-detection
 mode: mapreduce
 
@@ -131,9 +133,25 @@ env:
   CHAPTERS_FILE: "workflows/data/your-project-chapters.json"
   MAX_PARALLEL: "3"
 
+# Setup phase: Analyze codebase for feature coverage
 setup:
+  # Step 1: Create analysis directory
   - shell: "mkdir -p $ANALYSIS_DIR"
+
+  # Step 2: Analyze codebase for workflow features
   - claude: "/prodigy-analyze-features-for-book --project $PROJECT_NAME --config $PROJECT_CONFIG"
+
+  # Step 3: Detect documentation gaps and create missing chapters
+  - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR"
+
+  # Step 4: Analyze chapter sizes and structural complexity
+  - claude: "/prodigy-analyze-chapter-structure --project $PROJECT_NAME --book-dir $BOOK_DIR --chapters $CHAPTERS_FILE --output $ANALYSIS_DIR/structure-report.json"
+
+  # Step 5: Automatically split oversized chapters into subsections
+  - claude: "/prodigy-split-oversized-chapters --project $PROJECT_NAME --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR --structure-report $ANALYSIS_DIR/structure-report.json"
+    commit_required: true
+
+  # Step 6: Regenerate work items after structure changes
   - claude: "/prodigy-detect-documentation-gaps --project $PROJECT_NAME --config $PROJECT_CONFIG --features $FEATURES_PATH --chapters $CHAPTERS_FILE --book-dir $BOOK_DIR"
 
 map:
@@ -159,12 +177,18 @@ map:
   max_parallel: ${MAX_PARALLEL}
 
 reduce:
+  # Build the book to catch broken links or formatting errors
   - shell: "cd book && mdbook build"
     on_failure:
       claude: "/prodigy-fix-book-build-errors --project $PROJECT_NAME"
       commit_required: true
 
-  - shell: "rm -rf ${ANALYSIS_DIR}"
+  # Holistic validation - detect cross-cutting issues map phase can't see
+  - claude: "/prodigy-validate-book-holistically --project $PROJECT_NAME --book-dir $BOOK_DIR --output $ANALYSIS_DIR/validation.json --auto-fix true"
+    commit_required: true
+
+  # Clean up temporary analysis files
+  - shell: "rm -rf ${ANALYSIS_DIR}/features.json ${ANALYSIS_DIR}/flattened-items.json ${ANALYSIS_DIR}/drift-*.json"
   - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files' || true"
 
 error_policy:
@@ -172,15 +196,20 @@ error_policy:
   continue_on_failure: true
   max_failures: 2
   error_collection: aggregate
-
-merge:
-  commands:
-    - shell: "git fetch origin"
-    - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
 
-**Source**: Adapted from `workflows/book-docs-drift.yml` (lines 1-101)
+!!! tip "Optional Merge Configuration"
+    The workflow above relies on Prodigy's default merge behavior, which prompts you to merge changes back to your original branch. For custom merge workflows with validation and testing, you can add an optional `merge:` section:
+
+    ```yaml
+    merge:
+      commands:
+        - shell: "git fetch origin"
+        - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
+        - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+    ```
+
+**Source**: Adapted from `workflows/book-docs-drift.yml`
 
 ### Step 5: Run the Workflow
 
@@ -193,36 +222,50 @@ prodigy run workflows/book-docs-drift.yml -v
 
 **What Happens During Execution**:
 
-**Setup Phase** (runs in parent worktree):
-```
-✓ Creating analysis directory
-✓ Analyzing codebase features → .prodigy/book-analysis/features.json
-✓ Detecting documentation gaps → .prodigy/book-analysis/flattened-items.json
-```
+=== "Setup Phase"
 
-**Map Phase** (parallel agents, each in isolated worktree):
-```
-Agent 1: Analyzing chapter 'Getting Started'
-  ✓ Drift analysis complete → drift report
-  ✓ Fixing outdated examples
-  ✓ Validation: 100% complete
-  ✓ Merged to parent worktree
+    Runs in parent worktree to analyze codebase and prepare work items:
 
-Agent 2: Analyzing chapter 'Advanced Features'
-  ✓ Drift analysis complete → drift report
-  ✓ Adding missing configuration docs
-  ✓ Validation: 100% complete
-  ✓ Merged to parent worktree
-```
+    ```
+    ✓ Creating analysis directory
+    ✓ Analyzing codebase features → .prodigy/book-analysis/features.json
+    ✓ Detecting documentation gaps → .prodigy/book-analysis/flattened-items.json
+    ✓ Analyzing chapter structure → .prodigy/book-analysis/structure-report.json
+    ✓ Splitting oversized chapters into subsections
+    ✓ Regenerating work items after structure changes
+    ```
 
-**Reduce Phase** (runs in parent worktree):
-```
-✓ Building book with mdbook
-✓ Cleaning up temporary files
-✓ Ready to merge to master
-```
+=== "Map Phase"
 
-**Source**: Execution flow based on MapReduce workflow phases in `workflows/book-docs-drift.yml` and features.json analysis
+    Parallel agents, each in isolated worktree:
+
+    ```
+    Agent 1: Analyzing chapter 'Getting Started'
+      ✓ Drift analysis complete → drift report
+      ✓ Fixing outdated examples
+      ✓ Validation: 100% complete
+      ✓ Merged to parent worktree
+
+    Agent 2: Analyzing chapter 'Advanced Features'
+      ✓ Drift analysis complete → drift report
+      ✓ Adding missing configuration docs
+      ✓ Validation: 100% complete
+      ✓ Merged to parent worktree
+    ```
+
+=== "Reduce Phase"
+
+    Runs in parent worktree for final validation:
+
+    ```
+    ✓ Building book with mdbook
+    ✓ Holistic validation of entire book
+    ✓ Auto-fixing cross-cutting issues
+    ✓ Cleaning up temporary files
+    ✓ Ready to merge to original branch
+    ```
+
+**Source**: Execution flow based on MapReduce workflow phases in `workflows/book-docs-drift.yml`
 
 ### Step 6: Review and Merge Changes
 
@@ -272,42 +315,123 @@ mdbook serve --open
 
 The automated documentation workflow uses Prodigy's MapReduce pattern with three phases:
 
+```mermaid
+graph LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        S1[Analyze Codebase] --> S2[Detect Gaps]
+        S2 --> S3[Split Chapters]
+        S3 --> S4[Generate Work Items]
+    end
+
+    subgraph Map["Map Phase (Parallel)"]
+        direction TB
+        M1["Agent 1<br/>Chapter A"]
+        M2["Agent 2<br/>Chapter B"]
+        M3["Agent N<br/>Chapter N"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1[Build Book] --> R2[Holistic Validation]
+        R2 --> R3[Cleanup]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+    Reduce --> Complete[Ready to Merge]
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style Complete fill:#e8f5e9
+```
+
+**Figure**: The three-phase documentation workflow—setup prepares work items, map processes chapters in parallel, reduce validates the complete book.
+
 #### Setup Phase
-**Purpose**: Analyze your codebase and prepare work items
+
+**Purpose**: Analyze your codebase, optimize chapter structure, and prepare work items
 
 **Commands**:
+
 1. `mkdir -p $ANALYSIS_DIR` - Create temporary analysis directory
 2. `/prodigy-analyze-features-for-book` - Extract features from source files into features.json
-3. `/prodigy-detect-documentation-gaps` - Compare features to chapters, create flattened-items.json
+3. `/prodigy-detect-documentation-gaps` - Compare features to chapters, create initial flattened-items.json
+4. `/prodigy-analyze-chapter-structure` - Analyze chapter sizes and structural complexity, generate structure-report.json with recommendations
+5. `/prodigy-split-oversized-chapters` - Automatically split large chapters into manageable subsections (runs before map phase so agents process optimally-sized chapters)
+6. `/prodigy-detect-documentation-gaps` - Regenerate flattened-items.json to include newly created subsections
+
+!!! info "Why Split Chapters?"
+    Large chapters are harder for individual agents to process effectively. By splitting them into focused subsections during setup, each agent handles a smaller, well-defined scope. This improves both quality and parallelism.
 
 **Output**: JSON file with list of chapters/subsections to process
 
-**Source**: Setup phase from `workflows/book-docs-drift.yml:24-34`
+**Source**: Setup phase from `workflows/book-docs-drift.yml:24-49`
 
 #### Map Phase
+
 **Purpose**: Process each chapter/subsection in parallel to detect and fix drift
 
 **For each chapter**:
+
 1. `/prodigy-analyze-subsection-drift` - Compare chapter to codebase, identify outdated/missing content
 2. `/prodigy-fix-subsection-drift` - Update markdown file with accurate, grounded examples
 3. Validation - Ensure documentation meets quality standards (100% threshold)
 4. Gap filling - If validation fails, run completion attempts (max 3)
 
+!!! example "Validation Flow"
+    Each chapter goes through: **Analyze → Fix → Validate → Complete (if needed)**
+
+    If validation fails, the `on_incomplete` handler runs up to 3 times to address gaps before moving on.
+
 **Parallelism**: Configured via `max_parallel: 3` - three chapters processed simultaneously
 
 **Isolation**: Each chapter processed in its own git worktree, merged back to parent automatically
 
-**Source**: Map phase from `workflows/book-docs-drift.yml:37-59`
+```mermaid
+graph TD
+    Parent["Parent Worktree<br/>session-xxx"] --> A1["Agent 1 Worktree<br/>Chapter: Getting Started"]
+    Parent --> A2["Agent 2 Worktree<br/>Chapter: Advanced"]
+    Parent --> A3["Agent 3 Worktree<br/>Chapter: API Reference"]
+
+    A1 -->|"Merge Changes"| Parent
+    A2 -->|"Merge Changes"| Parent
+    A3 -->|"Merge Changes"| Parent
+
+    Parent -->|"User Approval"| Main["Original Branch<br/>main/master"]
+
+    style Parent fill:#e1f5ff
+    style A1 fill:#fff3e0
+    style A2 fill:#fff3e0
+    style A3 fill:#fff3e0
+    style Main fill:#e8f5e9
+```
+
+**Figure**: Worktree isolation—each agent works in its own worktree, merging changes back to the parent before final user-approved merge.
+
+**Source**: Map phase from `workflows/book-docs-drift.yml:51-74`
 
 #### Reduce Phase
-**Purpose**: Validate the complete book and clean up
+
+**Purpose**: Validate the complete book holistically and clean up
 
 **Commands**:
+
 1. `mdbook build` - Compile the book to catch broken links or formatting errors
 2. `/prodigy-fix-book-build-errors` - Fix any build errors (only runs if build fails)
-3. Cleanup temporary analysis files
+3. `/prodigy-validate-book-holistically` - Detect and auto-fix cross-cutting issues that individual agents can't see (e.g., inconsistent terminology, duplicate content, broken cross-references)
+4. Cleanup temporary analysis files (features.json, flattened-items.json, drift reports)
 
-**Source**: Reduce phase from `workflows/book-docs-drift.yml:62-69`
+!!! tip "Holistic Validation"
+    The map phase processes chapters in isolation, so some issues only become visible when viewing the book as a whole. The holistic validation step catches:
+
+    - Inconsistent terminology across chapters
+    - Duplicate explanations of the same concept
+    - Missing or broken cross-references
+    - Navigation structure issues
+
+**Source**: Reduce phase from `workflows/book-docs-drift.yml:77-91`
 
 ### Customization Tips
 
@@ -339,26 +463,48 @@ validate:
 
 ### Troubleshooting
 
-**Issue**: "Claude command not found"
-- **Solution**: Ensure Claude Code CLI is installed and in your PATH
-- Verify: `claude --version`
+??? warning "Claude command not found"
+    **Cause**: Claude Code CLI is not installed or not in your PATH.
 
-**Issue**: "features.json not generated"
-- **Cause**: Setup phase failed to analyze codebase
-- **Solution**: Check that `source_files` in book-config.json exist and are valid
-- Debug: Run with `-vv` for detailed logs
+    **Solution**:
+    ```bash
+    # Verify Claude CLI is installed
+    claude --version
 
-**Issue**: "mdbook build fails with broken links"
-- **Cause**: Cross-references to non-existent chapters
-- **Solution**: The workflow automatically fixes this in reduce phase
-- Manual fix: Check `book/src/SUMMARY.md` for invalid links
+    # If not found, install it following Claude Code documentation
+    ```
 
-**Issue**: "Validation threshold not met"
-- **Cause**: Documentation doesn't meet 100% quality standard
-- **Solution**: The `on_incomplete` handler attempts to complete gaps (max 3 attempts)
-- If still incomplete: Review `.prodigy/validation-result.json` for details
+??? warning "features.json not generated"
+    **Cause**: Setup phase failed to analyze codebase.
 
-**Source**: Common issues from features.json troubleshooting section (lines 802-885)
+    **Solution**:
+
+    1. Check that `source_files` in book-config.json exist and are valid paths
+    2. Run with `-vv` for detailed logs: `prodigy run workflows/book-docs-drift.yml -vv`
+    3. Review the output for specific file access errors
+
+??? warning "mdbook build fails with broken links"
+    **Cause**: Cross-references to non-existent chapters.
+
+    **Solution**: The workflow automatically fixes this in the reduce phase via `/prodigy-fix-book-build-errors`.
+
+    For manual debugging:
+    ```bash
+    # Check SUMMARY.md for invalid links
+    cat book/src/SUMMARY.md | grep -E '\[.*\]\(.*\.md\)'
+    ```
+
+??? warning "Validation threshold not met"
+    **Cause**: Documentation doesn't meet 100% quality standard after all attempts.
+
+    **Solution**:
+
+    1. The `on_incomplete` handler automatically attempts to complete gaps (max 3 attempts)
+    2. If still incomplete, review the validation results:
+       ```bash
+       cat .prodigy/validation-result.json | jq '.gaps'
+       ```
+    3. Consider lowering the threshold temporarily or manually addressing complex gaps
 
 ### Next Steps
 

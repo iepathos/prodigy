@@ -2,9 +2,12 @@
 
 Complete reference of all default configuration values in Prodigy. These defaults are used when settings are not explicitly configured in global config, project config, or environment variables.
 
+!!! info "How to Use This Reference"
+    This page documents built-in defaults for all configuration settings. Values shown here are what Prodigy uses when no explicit configuration is provided. See [Environment Variables](environment-variables.md) for override options.
+
 ### Global Configuration Defaults
 
-Source: `src/config/mod.rs:51-59, 88-100`
+<!-- Source: src/config/mod.rs:108-120 (GlobalConfig::default) -->
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -20,7 +23,7 @@ Source: `src/config/mod.rs:51-59, 88-100`
 
 ### Project Configuration Defaults
 
-Source: `src/config/mod.rs:66-74`
+<!-- Source: src/config/mod.rs:83-92 (ProjectConfig struct) -->
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -34,7 +37,7 @@ Source: `src/config/mod.rs:66-74`
 
 ### Storage Configuration Defaults
 
-Source: `src/storage/config.rs:24-55, 228-241`
+<!-- Source: src/storage/config.rs:25-56 (StorageConfig struct), 229-241 (Default impl) -->
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -44,31 +47,40 @@ Source: `src/storage/config.rs:24-55, 228-241`
 | `enable_locking` | `true` | Enable distributed locking |
 | `enable_cache` | `false` | Enable caching layer |
 
-### File Storage Defaults
+### Storage Backend Defaults
 
-Source: `src/storage/config.rs:66-86, 196-198`
+=== "File Storage (Recommended)"
 
-| Setting | Default Value | Description |
-|---------|---------------|-------------|
-| `base_dir` | `~/.prodigy` | Base storage directory |
-| `use_global` | `true` | Use global storage (recommended) |
-| `enable_file_locks` | `true` | Enable file-based locking |
-| `max_file_size` | `104857600` (100MB) | Max file size before rotation |
-| `enable_compression` | `false` | Compress archived files |
+    <!-- Source: src/storage/config.rs:67-87 (FileConfig struct) -->
 
-### Memory Storage Defaults
+    The default backend for production use. Persists data to disk with file-based locking.
 
-Source: `src/storage/config.rs:89-111, 200-201`
+    | Setting | Default Value | Description |
+    |---------|---------------|-------------|
+    | `base_dir` | `~/.prodigy` | Base storage directory |
+    | `use_global` | `true` | Use global storage (recommended) |
+    | `enable_file_locks` | `true` | Enable file-based locking |
+    | `max_file_size` | `104857600` (100MB) | Max file size before rotation |
+    | `enable_compression` | `false` | Compress archived files |
 
-| Setting | Default Value | Description |
-|---------|---------------|-------------|
-| `max_memory` | `1073741824` (1GB) | Maximum memory usage |
-| `persist_to_disk` | `false` | Persist memory storage to disk |
-| `persistence_path` | None | Path for disk persistence |
+=== "Memory Storage"
+
+    <!-- Source: src/storage/config.rs:90-112 (MemoryConfig struct and Default impl) -->
+
+    In-memory backend for testing or ephemeral workflows. Data is lost on restart unless persistence is enabled.
+
+    | Setting | Default Value | Description |
+    |---------|---------------|-------------|
+    | `max_memory` | `104857600` (100MB) | Maximum memory usage |
+    | `persist_to_disk` | `false` | Persist memory storage to disk |
+    | `persistence_path` | None | Path for disk persistence |
 
 ### Retry Policy Defaults
 
-Source: `src/storage/config.rs:114-147, 204-212`
+<!-- Source: src/storage/config.rs:115-147 (RetryPolicy struct and Default impl) -->
+
+!!! warning "Production Consideration"
+    The default retry settings use exponential backoff with jitter, which is suitable for most production environments. For high-throughput scenarios, consider adjusting `max_delay` to prevent cascading delays.
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -80,7 +92,7 @@ Source: `src/storage/config.rs:114-147, 204-212`
 
 ### Cache Configuration Defaults
 
-Source: `src/storage/config.rs:150-173`
+<!-- Source: src/storage/config.rs:151-173 (CacheConfig struct and Default impl) -->
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -105,7 +117,7 @@ These settings can be overridden by environment variables (see [Environment Vari
 
 ### CLI Parameter Defaults
 
-Source: `src/cook/command.rs:28-29`
+<!-- Source: src/cook/command.rs:11-81 (CookCommand struct) -->
 
 These are CLI-level parameters, not workflow configuration fields:
 
@@ -116,7 +128,7 @@ These are CLI-level parameters, not workflow configuration fields:
 
 ### Command Metadata Defaults
 
-Source: `src/config/command.rs:130-154, src/config/mod.rs:363-365`
+<!-- Source: src/config/command.rs:132-154 (CommandMetadata struct) -->
 
 Applied to individual commands when not specified:
 
@@ -130,7 +142,31 @@ Applied to individual commands when not specified:
 
 ### Understanding Defaults
 
+!!! tip "Configuration Precedence"
+    Configuration values are resolved in order from lowest to highest priority. Later sources override earlier ones.
+
 **How defaults work:**
+
+```mermaid
+graph LR
+    D["Built-in Defaults
+    Lowest Priority"] --> G["Global Config
+    ~/.prodigy/config.yml"]
+    G --> P["Project Config
+    .prodigy/config.yml"]
+    P --> E["Environment Variables
+    PRODIGY_*"]
+    E --> C["CLI Flags
+    Highest Priority"]
+
+    style D fill:#f5f5f5,stroke:#9e9e9e
+    style G fill:#e3f2fd,stroke:#1976d2
+    style P fill:#e8f5e9,stroke:#388e3c
+    style E fill:#fff3e0,stroke:#f57c00
+    style C fill:#fce4ec,stroke:#c2185b
+```
+
+**Figure**: Configuration precedence from lowest (left) to highest (right) priority.
 
 1. Prodigy starts with built-in defaults
 2. Global config (`~/.prodigy/config.yml`) overrides defaults
@@ -140,7 +176,7 @@ Applied to individual commands when not specified:
 
 **Example precedence flow:**
 
-```
+```text title="Configuration Resolution Example"
 Built-in default: log_level = "info"
        ↓
 Global config: log_level = "warn"  (overrides default)
@@ -154,30 +190,34 @@ Result: log_level = "debug"
 
 ### Practical Example: Overriding Storage Defaults
 
-This example shows how to override storage defaults in a project config:
+!!! example "Overriding Storage Defaults"
+    This example shows how to override storage defaults in a project config:
 
-```yaml
-# .prodigy/config.yml
-name: my-project
+    ```yaml title=".prodigy/config.yml"
+    name: my-project
 
-storage:
-  backend: file
-  timeout: 60s  # Override default 30s
-  enable_cache: true  # Override default false
+    storage:
+      backend: file
+      timeout: 60s  # Override default 30s
+      enable_cache: true  # Override default false
 
-  backend_config:
-    file:
-      base_dir: /custom/storage  # Override default ~/.prodigy
-      max_file_size: 524288000  # 500MB (override default 100MB)
-      enable_compression: true   # Override default false
+      backend_config:
+        file:
+          base_dir: /custom/storage  # Override default ~/.prodigy
+          max_file_size: 524288000  # 500MB (override default 100MB)
+          enable_compression: true   # Override default false
 
-  cache_config:
-    max_entries: 5000  # Override default 1000
-    ttl: 7200s  # 2 hours (override default 1 hour)
-```
+      cache_config:
+        max_entries: 5000  # Override default 1000
+        ttl: 7200s  # 2 hours (override default 1 hour)
+    ```
 
-With this configuration:
-- Storage timeout increases from 30s → 60s
-- Caching is enabled (default: disabled)
-- Files can be 500MB instead of 100MB
-- Cache holds 5000 entries instead of 1000
+    **Effect of this configuration:**
+
+    | Setting | Default | Overridden |
+    |---------|---------|------------|
+    | `timeout` | 30s | 60s |
+    | `enable_cache` | `false` | `true` |
+    | `max_file_size` | 100MB | 500MB |
+    | `max_entries` | 1000 | 5000 |
+    | `ttl` | 1 hour | 2 hours |

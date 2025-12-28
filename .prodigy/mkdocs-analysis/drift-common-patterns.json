@@ -1,0 +1,122 @@
+{
+  "item_type": "page",
+  "page_id": "common-patterns",
+  "page_title": "common patterns",
+  "page_file": "docs/environment/common-patterns.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is comprehensive and accurate. Minor issues with source code line references and visual feature opportunities. All internal links are valid.",
+  "issues": [
+    {
+      "type": "minor_inaccuracy",
+      "severity": "low",
+      "section": "Source References",
+      "description": "Incorrect source line reference for conditional execution 'when' field",
+      "current_content": "src/config/command.rs:388",
+      "should_be": "src/config/command.rs:384",
+      "fix_suggestion": "Update the line reference from 388 to 384 where the 'when' field is defined",
+      "source_reference": "src/config/command.rs:384:pub when: Option<String>"
+    },
+    {
+      "type": "minor_inaccuracy",
+      "severity": "low",
+      "section": "Source References",
+      "description": "Imprecise source line reference range for environment configuration types",
+      "current_content": "src/cook/environment/config.rs:12-144",
+      "should_be": "src/cook/environment/config.rs:12-156 (EnvironmentConfig at 12-36, EnvProfile at 116-124, StepEnvironment at 127-144)",
+      "fix_suggestion": "Split reference into specific struct ranges or update end line to 156 to include Default impl",
+      "source_reference": "src/cook/environment/config.rs"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Page uses markdown blockquotes for notes instead of MkDocs Material admonitions",
+      "current_content": "> **Source References**: ...",
+      "should_be": "!!! note \"Source References\"\n    ...",
+      "fix_suggestion": "Convert blockquotes to MkDocs Material admonitions for consistent styling (e.g., !!! note, !!! tip, !!! warning)",
+      "source_reference": "MkDocs Material documentation"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "CI/CD Integration section with GitHub Actions and Jenkins examples could benefit from tabbed content",
+      "current_content": "Separate code blocks for GitHub Actions and Jenkins",
+      "should_be": "=== \"GitHub Actions\"\n    ```yaml\n    ...\n    ```\n\n=== \"Jenkins\"\n    ```groovy\n    ...\n    ```",
+      "fix_suggestion": "Use MkDocs Material content tabs to organize CI/CD platform examples",
+      "source_reference": "Lines 262-280"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Environment Variable Composition Pattern",
+      "description": "Precedence order list could benefit from a visual diagram or numbered admonition",
+      "current_content": "Plain numbered list of precedence order",
+      "should_be": "Admonition with numbered list or a simple Mermaid diagram showing layer hierarchy",
+      "fix_suggestion": "Add visual representation of the 4-layer precedence model",
+      "source_reference": "Lines 212-216"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of 10 practical environment configuration patterns",
+    "All examples include realistic, production-ready YAML configurations",
+    "Accurate documentation of supported secret providers (env, file) vs planned providers (vault, aws)",
+    "Clear precedence order documentation for variable layering",
+    "Good cross-references to related documentation pages",
+    "Source references provided for key implementation details",
+    "CI/CD integration examples for multiple platforms (GitHub Actions, Jenkins)",
+    "Complete real-world example combining multiple patterns",
+    "All internal documentation links are valid"
+  ],
+  "improvement_suggestions": [
+    "Convert blockquotes to MkDocs Material admonitions (!!!) for consistent styling",
+    "Add content tabs for CI/CD platform examples (GitHub Actions, Jenkins)",
+    "Update source code line references to be precise",
+    "Consider adding a visual diagram for variable precedence layers",
+    "Add code annotations to complex YAML examples explaining key fields",
+    "Consider adding a 'Troubleshooting' section for common environment configuration issues"
+  ],
+  "cross_references": [
+    "environment-profiles",
+    "secrets-management",
+    "mapreduce-environment-variables"
+  ],
+  "link_validation": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "validated_links": [
+      {
+        "link_text": "Environment Profiles",
+        "target": "environment-profiles.md",
+        "status": "valid"
+      },
+      {
+        "link_text": "Secrets Management",
+        "target": "secrets-management.md",
+        "status": "valid"
+      },
+      {
+        "link_text": "MapReduce Environment Variables",
+        "target": "mapreduce-environment-variables.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T18:22:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "multi-environment deployment",
+      "secrets management",
+      "profile-based configuration",
+      "environment variable composition",
+      "CI/CD integration",
+      "local development",
+      "template parameterization",
+      "regional configuration",
+      "feature flags"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

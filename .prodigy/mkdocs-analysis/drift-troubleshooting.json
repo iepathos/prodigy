@@ -1,0 +1,108 @@
+{
+  "item_type": "page",
+  "page_id": "troubleshooting",
+  "page_title": "troubleshooting",
+  "page_file": "docs/reference/troubleshooting.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is well-structured with minor CLI command discrepancies; excellent use of MkDocs Material features and cross-references are valid",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Quick Diagnostics Checklist",
+      "description": "Documentation uses 'prodigy dlq show <job_id>' but CLI implementation uses 'prodigy dlq list --job-id <job_id>' for listing and 'prodigy dlq inspect <item_id>' for inspection",
+      "current_content": "prodigy dlq show <job_id>",
+      "should_be": "prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update all DLQ command references to use correct CLI syntax: 'prodigy dlq list --job-id <job_id>' for listing items",
+      "source_reference": "src/cli/args.rs:534-548"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Common Error Patterns Table",
+      "description": "Table mentions 'prodigy dlq show' which doesn't match current CLI implementation",
+      "current_content": "Check: prodigy dlq show <job_id>",
+      "should_be": "Check: prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update cleanup row quick fix to use correct DLQ command",
+      "source_reference": "src/cli/args.rs:534"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "MapReduce Issues - Agents failing silently",
+      "description": "Uses 'prodigy dlq show' syntax instead of correct 'prodigy dlq list'",
+      "current_content": "Check: prodigy dlq show <job_id>",
+      "should_be": "Check: prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update command reference",
+      "source_reference": "src/cli/args.rs:534-548"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "State Inspection - DLQ Contents Tab",
+      "description": "Tab example uses 'prodigy dlq show' which doesn't match CLI",
+      "current_content": "prodigy dlq show <job_id>",
+      "should_be": "prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update command in tabbed section",
+      "source_reference": "src/cli/args.rs:534"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of Mermaid flowchart for diagnostic workflow visualization",
+    "Well-organized admonitions providing actionable tips and warnings",
+    "Comprehensive error pattern table with quick fixes",
+    "Excellent use of Material tabs for state inspection organization",
+    "Code annotations explaining verbosity levels clearly",
+    "All internal documentation links are valid",
+    "Good categorization of issues (MapReduce, Session, Variable, Performance, Worktree)",
+    "Cross-references to detailed documentation pages are accurate",
+    "Good source references pointing to relevant code locations",
+    "Clear debugging workflow progression"
+  ],
+  "improvement_suggestions": [
+    "Update all DLQ command references from 'prodigy dlq show' to 'prodigy dlq list --job-id'",
+    "Consider adding example output for some debugging commands",
+    "Add a quick CLI reference section showing correct syntax for common commands"
+  ],
+  "cross_references": [
+    "troubleshooting/index.md",
+    "troubleshooting/common-error-messages.md",
+    "troubleshooting/faq.md",
+    "mapreduce/dead-letter-queue-dlq.md",
+    "mapreduce/checkpoint-and-resume.md",
+    "environment/index.md",
+    "advanced/observability.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 10,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      "../troubleshooting/index.md",
+      "../mapreduce/dead-letter-queue-dlq.md",
+      "../mapreduce/checkpoint-and-resume.md",
+      "../environment/index.md",
+      "../troubleshooting/common-error-messages.md",
+      "../troubleshooting/faq.md",
+      "../advanced/observability.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:55:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "diagnostics",
+      "error patterns",
+      "MapReduce troubleshooting",
+      "session management",
+      "variable interpolation",
+      "performance tuning",
+      "worktree management",
+      "verbosity levels",
+      "log inspection",
+      "state inspection"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

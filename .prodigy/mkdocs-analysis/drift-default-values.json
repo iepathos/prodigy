@@ -1,0 +1,96 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "default-values",
+  "page_title": "default values",
+  "page_file": "docs/composition/default-values.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive. Source references are correct. Missing MkDocs Material visual features for enhanced readability.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "All",
+      "description": "Page lacks MkDocs Material visual features (admonitions, code annotations, tabs) that are used in other documentation pages",
+      "current_content": "Plain markdown without MkDocs Material extensions",
+      "should_be": "Use admonitions (!!!) for tips, notes, and warnings; consider code annotations for complex examples",
+      "fix_suggestion": "Add MkDocs Material admonitions for key concepts (e.g., precedence rules as !!! info, common mistakes as !!! warning)",
+      "source_reference": "docs/workflow-basics/error-handling/best-practices.md shows proper admonition usage"
+    },
+    {
+      "type": "missing_cross_references",
+      "severity": "low",
+      "section": "Template Integration",
+      "description": "The Template Integration section mentions templates but doesn't link to the template-system.md page",
+      "current_content": "Template section has no links to related pages",
+      "should_be": "Include link to template-system.md for readers wanting more details",
+      "fix_suggestion": "Add 'See [Template System](template-system.md) for complete template documentation' at end of Template Integration section",
+      "source_reference": "docs/composition/index.md:141 shows linking pattern between composition pages"
+    },
+    {
+      "type": "missing_cross_references",
+      "severity": "low",
+      "section": "Page Footer",
+      "description": "Page lacks 'See Also' section linking to related pages (parameters, templates, environment variables)",
+      "current_content": "Page ends abruptly after Implementation Status section",
+      "should_be": "Include navigation links to related composition and environment documentation",
+      "fix_suggestion": "Add 'See Also' section with links to parameter-definitions.md, template-system.md, and environment documentation",
+      "source_reference": "docs/composition/index.md:361-371 shows 'Additional Topics' pattern"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Parameter Precedence",
+      "description": "Precedence rules would benefit from a visual diagram or table format",
+      "current_content": "Numbered list describing precedence",
+      "should_be": "Consider adding a table or mermaid diagram showing precedence visually",
+      "fix_suggestion": "Add a comparison table like the one in best-practices.md showing aspects/scope/use-cases",
+      "source_reference": "docs/workflow-basics/error-handling/best-practices.md:10-18 shows table usage"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source code references with line numbers (composer.rs:217-257, composer_integration.rs:68-72)",
+    "Clear precedence documentation with correct behavior",
+    "Comprehensive examples showing with/without defaults scenarios",
+    "Implementation status section confirms feature completeness",
+    "Good coverage of all default value types (strings, numbers, booleans, arrays, objects)",
+    "Clear CLI override examples with multiple scenarios",
+    "Template integration example shows practical usage"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for key concepts (tip for best practices, info for precedence rules)",
+    "Add cross-reference links to related pages (template-system.md, parameter-definitions.md)",
+    "Consider adding a 'Common Mistakes' or 'Gotchas' section with warnings about precedence confusion",
+    "Add code annotations (# (1)!, etc.) to complex YAML examples for line-by-line explanation",
+    "Add 'See Also' navigation section at bottom of page"
+  ],
+  "verified_source_references": [
+    {
+      "claimed_location": "src/cook/workflow/composition/composer.rs:217-257",
+      "verified": true,
+      "actual_content": "apply_defaults function with complete implementation for env vars and parameter defaults"
+    },
+    {
+      "claimed_location": "src/cook/workflow/composition/composer.rs:245-254",
+      "verified": true,
+      "actual_content": "Parameter default application logic in apply_defaults"
+    },
+    {
+      "claimed_location": "src/cook/workflow/composer_integration.rs:68-72",
+      "verified": true,
+      "actual_content": "CLI parameter merge with workflow defaults, CLI takes precedence"
+    },
+    {
+      "claimed_location": "src/cook/workflow/composition/composer.rs:230-242",
+      "verified": true,
+      "actual_content": "Environment variable merge logic"
+    }
+  ],
+  "broken_links": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["defaults", "parameters", "precedence", "CLI overrides", "environment variables", "templates"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

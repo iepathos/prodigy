@@ -100,11 +100,26 @@ nav:
       - Full Workflow Structure: workflow-basics/full-workflow-structure.md
       - Available Fields: workflow-basics/available-fields.md
       - Command Types: workflow-basics/command-types.md
-      - Command-Level Options: workflow-basics/command-level-options.md
+      - Command-Level Options:
+        - workflow-basics/command-options/index.md
+        - Core Options: workflow-basics/command-options/core-options.md
+        - Output Capture: workflow-basics/command-options/output-capture.md
+        - Error and Conditional: workflow-basics/command-options/error-conditional.md
+        - Advanced Options: workflow-basics/command-options/advanced-options.md
       - Conditional Execution: workflow-basics/conditional-execution.md
-      - Error Handling: workflow-basics/error-handling.md
+      - Error Handling:
+        - workflow-basics/error-handling/index.md
+        - Command-Level: workflow-basics/error-handling/command-level.md
+        - Workflow-Level: workflow-basics/error-handling/workflow-level.md
+        - Dead Letter Queue: workflow-basics/error-handling/dlq.md
+        - Best Practices: workflow-basics/error-handling/best-practices.md
       - Variables: workflow-basics/variables.md
-      - Environment: workflow-basics/environment.md
+      - Environment:
+        - workflow-basics/environment/index.md
+        - Environment Basics: workflow-basics/environment/basics.md
+        - Secrets and Profiles: workflow-basics/environment/secrets-profiles.md
+        - Workflow Usage: workflow-basics/environment/workflow-usage.md
+        - Patterns and Troubleshooting: workflow-basics/environment/patterns.md
       - Environment Configuration: workflow-basics/environment-configuration.md
       - Merge Workflows: workflow-basics/merge-workflows.md
       - Complete Example: workflow-basics/complete-example.md
@@ -112,7 +127,12 @@ nav:
     - MapReduce Workflows:
       - mapreduce/index.md
       - Overview: mapreduce/overview.md
-      - Work Distribution: mapreduce/work-distribution.md
+      - Work Distribution:
+        - mapreduce/work-distribution/index.md
+        - Input Sources: mapreduce/work-distribution/input-sources.md
+        - Filtering and Sorting: mapreduce/work-distribution/filtering-sorting.md
+        - Pagination: mapreduce/work-distribution/pagination.md
+        - Examples: mapreduce/work-distribution/examples.md
       - Environment Variables in Configuration: mapreduce/environment-variables-in-configuration.md
       - Backoff Strategies: mapreduce/backoff-strategies.md
       - Error Collection Strategies: mapreduce/error-collection-strategies.md
@@ -120,13 +140,23 @@ nav:
       - Global Storage Architecture: mapreduce/global-storage-architecture.md
       - Event Tracking: mapreduce/event-tracking.md
       - Checkpoint and Resume: mapreduce/checkpoint-and-resume.md
-      - Dead Letter Queue (DLQ): mapreduce/dead-letter-queue-dlq.md
+      - Dead Letter Queue (DLQ):
+        - mapreduce/dlq/index.md
+        - DLQ Overview: mapreduce/dlq/overview.md
+        - DLQ Commands: mapreduce/dlq/commands.md
+        - Debugging with DLQ: mapreduce/dlq/debugging.md
+        - Storage Internals: mapreduce/dlq/internals.md
       - Troubleshooting: mapreduce/troubleshooting.md
       - Workflow Format Comparison: mapreduce/workflow-format-comparison.md
     - Command Types: commands.md
     - Variables and Interpolation:
       - variables/index.md
-      - Available Variables: variables/available-variables.md
+      - Available Variables:
+        - variables/available-variables/index.md
+        - Standard Variables: variables/available-variables/standard-variables.md
+        - MapReduce Variables: variables/available-variables/mapreduce-variables.md
+        - Git and Merge Variables: variables/available-variables/git-merge-variables.md
+        - Interpolation Reference: variables/available-variables/interpolation-reference.md
       - Custom Variable Capture: variables/custom-variable-capture.md
       - Troubleshooting Variable Interpolation: variables/troubleshooting-variable-interpolation.md
     - Environment Configuration:
@@ -160,10 +190,32 @@ nav:
       - Parallel Iteration with Foreach: advanced/parallel-iteration-with-foreach.md
       - Composition: advanced/composition.md
       - Git Integration: advanced/git-integration.md
-      - Observability: advanced/observability.md
+      - Observability:
+        - advanced/observability/index.md
+        - Event Tracking: advanced/observability/event-tracking.md
+        - Claude Observability: advanced/observability/claude-observability.md
+        - Debugging and Metrics: advanced/observability/debugging.md
+        - Log Management: advanced/observability/log-management.md
       - Sessions: advanced/sessions.md
-      - Storage: advanced/storage.md
-    - Advanced Git Context: git-context-advanced.md
+      - Storage:
+        - advanced/storage/index.md
+        - Storage Structure: advanced/storage/structure.md
+        - Session and DLQ Storage: advanced/storage/session-dlq.md
+        - Worktree Storage: advanced/storage/worktree-storage.md
+        - Maintenance: advanced/storage/maintenance.md
+    - Git Context:
+      - git-context/index.md
+      - Overview: git-context/overview.md
+      - Shell Filtering: git-context/shell-filtering.md
+      - Use Cases: git-context/use-cases.md
+      - Best Practices: git-context/best-practices.md
+    - Stillwater Patterns:
+      - stillwater-patterns/index.md
+      - Error Accumulation: stillwater-patterns/error-accumulation.md
+      - Testability: stillwater-patterns/testability.md
+      - Error Context: stillwater-patterns/error-context.md
+      - State Management: stillwater-patterns/state-management.md
+      - Semigroup Composition: stillwater-patterns/semigroup-composition.md
     - Workflow Composition:
       - composition/index.md
       - Workflow Extension (Inheritance): composition/workflow-extension-inheritance.md
@@ -188,15 +240,23 @@ nav:
       - Retry Metrics and Observability: retry-configuration/retry-metrics-and-observability.md
       - Troubleshooting: retry-configuration/troubleshooting.md
       - Implementation References: retry-configuration/implementation-references.md
-    - Error Handling: workflow-basics/error-handling.md
     - MapReduce Worktree Architecture: mapreduce-worktree-architecture.md
     - Automated Documentation:
       - automated-documentation/index.md
       - Quick Start: automated-documentation/quick-start.md
       - Tutorial (30 Minutes): automated-documentation/tutorial.md
       - Understanding the Workflow: automated-documentation/understanding-the-workflow.md
-      - MkDocs Workflow: automated-documentation/mkdocs-workflow.md
-      - Automatic Gap Detection: automated-documentation/automatic-gap-detection.md
+      - MkDocs Workflow:
+        - automated-documentation/mkdocs-workflow/index.md
+        - Getting Started: automated-documentation/mkdocs-workflow/getting-started.md
+        - Workflow Phases: automated-documentation/mkdocs-workflow/workflow-phases.md
+        - Advanced Usage: automated-documentation/mkdocs-workflow/advanced-usage.md
+      - Gap Detection:
+        - automated-documentation/gap-detection/index.md
+        - Overview: automated-documentation/gap-detection/overview.md
+        - Validation Phases: automated-documentation/gap-detection/validation-phases.md
+        - Topic Normalization: automated-documentation/gap-detection/topic-normalization.md
+        - Gap Report: automated-documentation/gap-detection/gap-report.md
       - GitHub Actions Integration: automated-documentation/github-actions-integration.md
       - Troubleshooting: automated-documentation/troubleshooting.md
       - Advanced Configuration: automated-documentation/advanced-configuration.md
@@ -204,7 +264,13 @@ nav:
       - Documentation Versioning: automated-documentation/documentation-versioning.md
 
   - Reference:
-    - Examples: examples.md
+    - Examples:
+      - examples/index.md
+      - Basic Workflows: examples/basic-workflows.md
+      - Conditional Workflows: examples/conditional-workflows.md
+      - MapReduce Examples: examples/mapreduce-examples.md
+      - Advanced Examples: examples/advanced-examples.md
+      - Composition Examples: examples/composition-examples.md
     - Troubleshooting:
       - troubleshooting/index.md
       - Quick Reference: reference/troubleshooting.md

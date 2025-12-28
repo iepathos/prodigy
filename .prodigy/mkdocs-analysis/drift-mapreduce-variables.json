@@ -1,0 +1,69 @@
+{
+  "item_type": "page",
+  "page_id": "mapreduce-variables",
+  "page_title": "mapreduce variables",
+  "page_file": "docs/variables/available-variables/mapreduce-variables.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is comprehensive but missing two reduce phase variables (map.success_rate, map.outputs) and has a minor source reference inaccuracy",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "MapReduce Variables (Reduce Phase Only)",
+      "description": "Missing documentation for ${map.success_rate} variable - calculated percentage of successful agents",
+      "feature_reference": "variable_system.mapreduce_variables",
+      "fix_suggestion": "Add ${map.success_rate} to the reduce phase variables table: '| `${map.success_rate}` | Success rate as percentage (0-100) | `echo \"Success rate: ${map.success_rate}%\"` |'",
+      "source_reference": "src/cook/execution/mapreduce/reduce_phase.rs:140"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "MapReduce Variables (Reduce Phase Only)",
+      "description": "Missing documentation for ${map.outputs} variable - JSON array of successful agent outputs",
+      "feature_reference": "variable_system.mapreduce_variables",
+      "fix_suggestion": "Add ${map.outputs} to the reduce phase variables table: '| `${map.outputs}` | JSON array of successful agent outputs | `echo '${map.outputs}' \\| jq` |'",
+      "source_reference": "src/cook/execution/mapreduce/reduce_phase.rs:207"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "MapReduce Variables (Reduce Phase Only)",
+      "description": "Source reference points to line 146 but add_individual_results function starts at line 143",
+      "current_content": "**Source:** src/cook/execution/mapreduce/utils.rs:119-121, src/cook/execution/mapreduce/reduce_phase.rs:146",
+      "should_be": "**Source:** src/cook/execution/mapreduce/utils.rs:119-121, src/cook/execution/mapreduce/reduce_phase.rs:143-171",
+      "fix_suggestion": "Update source reference to point to line 143 where add_individual_results function is defined",
+      "source_reference": "src/cook/execution/mapreduce/reduce_phase.rs:143"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent coverage of item variables with arbitrary field access documentation",
+    "Clear explanation of indexed access to map results with ${map.results[N].field} syntax",
+    "Good examples showing practical usage patterns with jq for JSON processing",
+    "Proper documentation of ${map.results} and ${map.results_json} as equivalent aliases",
+    "Well-structured sections separating map phase and reduce phase variables",
+    "Helpful 'Reduce Phase Access to Item Data' section explaining workaround for item access"
+  ],
+  "improvement_suggestions": [
+    "Add a 'Complete Reference' table listing ALL reduce phase variables in one place",
+    "Add admonition (tip) explaining when to use ${map.results[0].field} vs jq processing",
+    "Consider adding Mermaid diagram showing variable flow from map phase to reduce phase",
+    "Add cross-reference to aggregation variables documentation if it exists"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "item variables",
+      "mapreduce variables",
+      "reduce phase variables",
+      "variable interpolation",
+      "indexed access"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "internal_links_found": 0,
+    "broken_links_found": 0
+  }
+}

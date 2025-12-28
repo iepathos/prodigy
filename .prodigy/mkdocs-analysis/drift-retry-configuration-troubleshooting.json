@@ -1,0 +1,180 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "troubleshooting",
+  "page_title": "troubleshooting",
+  "page_file": "docs/retry-configuration/troubleshooting.md",
+  "section_id": "retry-configuration",
+  "section_title": "Retry Configuration",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent troubleshooting page with accurate source references and practical solutions. Minor improvements possible for visual presentation using MkDocs Material features.",
+  "issues": [
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Page could benefit from MkDocs Material admonitions for better visual hierarchy",
+      "current_content": "Uses markdown headers and horizontal rules for section separation",
+      "should_be": "Use admonitions (tip, warning, info, danger) for symptoms, solutions, and best practices",
+      "fix_suggestion": "Add MkDocs Material admonitions to improve scannability: use !!! danger for 'Symptoms', !!! success for 'Solution', !!! tip for best practices"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Could use collapsible sections for detailed debugging workflow",
+      "current_content": "Plain numbered list for debugging workflow",
+      "should_be": "Collapsible ??? sections for each debugging step with detailed content",
+      "fix_suggestion": "Wrap debugging workflow steps in collapsible sections using ??? syntax for cleaner presentation"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Code Examples",
+      "description": "Code examples could have titles and annotations",
+      "current_content": "Plain fenced code blocks without titles",
+      "should_be": "Titled code blocks with annotations for key lines",
+      "fix_suggestion": "Add code block titles using syntax like ```yaml title=\"Problem: Exponential backoff without cap\" and use (1), (2) annotations for key lines"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Navigation",
+      "description": "Could add tabbed content to group related troubleshooting scenarios",
+      "current_content": "Sequential sections with horizontal rules",
+      "should_be": "Tabbed content for related issues (e.g., 'Retry Not Working' tab containing all retry-related issues)",
+      "fix_suggestion": "Group related issues using === tabbed content syntax for improved navigation"
+    },
+    {
+      "type": "minor_inaccuracy",
+      "severity": "low",
+      "section": "Source References",
+      "description": "Line number reference for max_delay default is slightly off",
+      "current_content": "Default: max_delay defaults to 30 seconds if not specified (src/cook/retry_v2.rs:64)",
+      "should_be": "max_delay default is defined in default_max_delay() at line 451",
+      "fix_suggestion": "Update reference to src/cook/retry_v2.rs:451 for default_max_delay()",
+      "source_reference": "src/cook/retry_v2.rs:451"
+    },
+    {
+      "type": "minor_inaccuracy",
+      "severity": "low",
+      "section": "Source References",
+      "description": "Line number reference for retry_budget tests is slightly off",
+      "current_content": "Source: retry_budget enforcement in tests at src/cook/retry_v2.rs:675-708",
+      "should_be": "retry_budget test is at lines 727-747",
+      "fix_suggestion": "Update reference to src/cook/retry_v2.rs:727-747 for test_retry_budget",
+      "source_reference": "src/cook/retry_v2.rs:727-747"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common retry issues",
+    "Accurate source code references with line numbers (e.g., src/cook/retry_v2.rs:128-149)",
+    "Clear problem/solution format for each issue",
+    "Includes both YAML workflow examples and Rust code examples for programmatic usage",
+    "Explains 'why' behind behaviors (e.g., retry_budget doesn't include command execution time)",
+    "Covers advanced topics: circuit breakers, thundering herd, error matchers",
+    "Good 'Debugging Workflow' section summarizing key checks",
+    "Provides 'Getting Help' section with resources",
+    "Core source references verified accurate against actual retry_v2.rs implementation",
+    "Case-insensitive matching behavior correctly documented",
+    "Empty retry_on behavior correctly documented (retries all errors)",
+    "Default max_delay of 30 seconds correctly documented",
+    "Jitter factor 0.3 default correctly documented",
+    "Circuit breaker state transitions accurately described",
+    "ErrorMatcher matching logic reference at 128-149 is accurate",
+    "CircuitBreaker implementation reference at 325-397 is accurate",
+    "RetryMetrics struct reference at 399-422 is accurate (actual lines 399-406)",
+    "Jitter application reference at 308-317 is accurate"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions (!!! danger, !!! success, !!! tip) for visual hierarchy",
+    "Use collapsible sections (???) for detailed debugging steps",
+    "Add code block titles for better context",
+    "Consider tabbed content for grouping related issues",
+    "Add a quick reference table at the top summarizing common issues and their solutions",
+    "Add cross-references to related pages (backoff-strategies.md, jitter-for-distributed-systems.md, etc.)",
+    "Fix minor line number references for max_delay default and retry_budget tests"
+  ],
+  "cross_references": [
+    "backoff-strategies",
+    "jitter-for-distributed-systems",
+    "conditional-retry-with-error-matchers",
+    "retry-budget",
+    "failure-actions",
+    "retry-metrics-and-observability"
+  ],
+  "validation": {
+    "source_references_verified": true,
+    "code_examples_accurate": true,
+    "line_numbers_verified": [
+      {
+        "reference": "src/cook/retry_v2.rs:128-149",
+        "topic": "ErrorMatcher matching logic",
+        "verified": true,
+        "actual_lines": "117-151"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:42-43",
+        "topic": "Empty retry_on default behavior",
+        "verified": true,
+        "actual_lines": "42-43"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:64",
+        "topic": "max_delay default",
+        "verified": false,
+        "actual_lines": "451",
+        "note": "default_max_delay() function is at line 451"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:325-397",
+        "topic": "CircuitBreaker implementation",
+        "verified": true,
+        "actual_lines": "325-396"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:399-422",
+        "topic": "RetryMetrics struct",
+        "verified": true,
+        "actual_lines": "399-421"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:308-317",
+        "topic": "Jitter application",
+        "verified": true,
+        "actual_lines": "308-317"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:675-708",
+        "topic": "retry_budget tests",
+        "verified": false,
+        "actual_lines": "727-747",
+        "note": "test_retry_budget is at lines 727-747"
+      },
+      {
+        "reference": "src/cook/retry_v2.rs:463-748",
+        "topic": "Test coverage",
+        "verified": true,
+        "actual_lines": "463-749"
+      }
+    ],
+    "internal_links_checked": true,
+    "broken_links": []
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "retry not triggering",
+      "retry_on matchers",
+      "backoff configuration",
+      "circuit breakers",
+      "thundering herd prevention",
+      "retry budget",
+      "fallback commands",
+      "retry metrics",
+      "debugging workflow"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

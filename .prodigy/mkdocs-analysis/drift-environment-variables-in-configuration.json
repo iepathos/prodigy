@@ -1,0 +1,80 @@
+{
+  "item_type": "page",
+  "page_id": "environment-variables-in-configuration",
+  "page_title": "environment variables in configuration",
+  "page_file": "docs/mapreduce/environment-variables-in-configuration.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Well-documented page with accurate source references, but has a formatting issue and minor precedence documentation drift",
+  "issues": [
+    {
+      "type": "formatting_error",
+      "severity": "high",
+      "section": "Step-Level Environment Overrides",
+      "description": "Broken markdown - shell command block appears outside of code fence. Lines 296-303 show raw shell commands without proper code block wrapping.",
+      "current_content": "# Run with debug output to see environment resolution\nprodigy run workflow.yml -vv --profile dev\n\n# Output will show:\n# - PASSWORD as ***REDACTED***\n# - API_KEY as ***REDACTED***\n# - Normal variables displayed in full\n```",
+      "should_be": "Move the trailing ``` to before the shell commands to properly close the preceding YAML block, then add a new code block for the shell commands",
+      "fix_suggestion": "Add proper code fence opening for the shell commands section, or merge with existing code block appropriately",
+      "source_reference": "docs/mapreduce/environment-variables-in-configuration.md:296-303"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Environment Precedence",
+      "description": "The precedence order is mostly correct but implementation shows a subtle difference: system environment comes from initial inherit, then env files, then global env, then profile, then step-level. The documentation shows slightly different ordering.",
+      "current_content": "1. Command-line environment variables\n2. Step-level environment\n3. Active profile values\n4. Global env block\n5. Environment files\n6. System environment",
+      "should_be": "Order should reflect actual code execution: 1) System environment (if inherit:true), 2) Environment files, 3) Global env block, 4) Active profile, 5) Step-level environment, 6) Command-line overrides (handled at process level)",
+      "fix_suggestion": "Reorder precedence list to match actual implementation flow in src/cook/environment/manager.rs:88-156",
+      "source_reference": "src/cook/environment/manager.rs:88-156"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all four environment configuration types (env, secrets, env_files, profiles)",
+    "Excellent source references to actual code locations throughout the document",
+    "Real-world examples from actual workflow files (mapreduce-env-example.yml, environment-example.yml)",
+    "Good explanation of secret providers and their support status (fully supported vs planned)",
+    "Thorough coverage of variable interpolation syntax ($VAR vs ${VAR})",
+    "Complete example workflow demonstrating all environment features",
+    "Accurate documentation of step-level environment features (clear_env, temporary, working_dir)",
+    "Good cross-references to related documentation pages"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions (tip, warning, info) to highlight important information like secret masking behavior",
+    "Add a visual diagram showing the environment precedence hierarchy",
+    "Consider adding tabbed code examples for different profile configurations",
+    "Add annotations to the complete example to explain each section"
+  ],
+  "cross_references": [
+    "../variables/index.md",
+    "../environment/index.md",
+    "../environment/mapreduce-environment-variables.md",
+    "../environment/secrets-management.md",
+    "../environment/environment-profiles.md",
+    "./setup-phase-advanced.md",
+    "./index.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 7,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "environment variables",
+      "secrets management",
+      "environment profiles",
+      "env files",
+      "variable interpolation",
+      "step-level overrides",
+      "MapReduce configuration"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_checked": [
+      "src/config/workflow.rs",
+      "src/cook/environment/config.rs",
+      "src/cook/environment/manager.rs"
+    ]
+  }
+}

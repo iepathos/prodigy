@@ -10,8 +10,8 @@ Standard workflows (non-MapReduce) can be written in two formats:
 
 For quick workflows, use a simple array of commands:
 
-```yaml
-# Simple array format - minimal syntax
+```yaml title="Simple array format"
+# Minimal syntax for quick automation
 - claude: "/prodigy-coverage"
   commit_required: true
 
@@ -20,17 +20,17 @@ For quick workflows, use a simple array of commands:
     claude: "/prodigy-debug-test-failure"
 ```
 
-**Use this format when:**
-- Creating quick automation scripts
-- No environment variables or profiles needed
-- Workflow is self-contained and straightforward
+!!! tip "When to use simple array format"
+    - Creating quick automation scripts
+    - No environment variables or profiles needed
+    - Workflow is self-contained and straightforward
 
 #### Full Configuration Format
 
 For production workflows, use the full configuration format with metadata:
 
-```yaml
-# Full config format - includes metadata and environment
+```yaml title="Full configuration format"
+# Source: workflows/mapreduce-env-example.yml
 name: mapreduce-env-example
 mode: mapreduce
 
@@ -39,21 +39,10 @@ env:
   OUTPUT_DIR: "output"
   DEBUG_MODE: "false"
 
-# Secrets are a separate top-level configuration
-# They support two formats: Simple and Provider-based
-secrets:
-  # Simple format - directly references environment variable
-  SIMPLE_SECRET: "ENV_VAR_NAME"
-
-  # Provider format - explicit provider configuration
+  # Inline secret format (masked in logs)
   API_TOKEN:
-    provider: env
-    key: "GITHUB_TOKEN"
-
-  # File-based secret provider
-  FILE_SECRET:
-    provider: file
-    key: "/path/to/secret/file"
+    secret: true
+    value: "${GITHUB_TOKEN}"
 
 profiles:
   development:
@@ -66,44 +55,64 @@ setup:
   - shell: "echo Starting $PROJECT_NAME"
 ```
 
-**Use this format when:**
-- Deploying to multiple environments (dev, staging, prod)
-- Need environment variables or secrets
-- Workflow requires parameterization
-- Building reusable workflow templates
+!!! tip "When to use full configuration format"
+    - Deploying to multiple environments (dev, staging, prod)
+    - Need environment variables or secrets
+    - Workflow requires parameterization
+    - Building reusable workflow templates
 
-**Secret Format Details:**
+#### Secret Configuration Options
 
-Secrets support two formats (defined in `src/cook/environment/config.rs:86-95`):
+Prodigy supports two approaches for managing secrets:
 
-1. **Simple format** - Direct environment variable reference:
-   ```yaml
-   secrets:
-     API_KEY: "ENV_VAR_NAME"  # Reads from $ENV_VAR_NAME
-   ```
+=== "Inline Secrets (in env block)"
 
-2. **Provider format** - Explicit provider configuration:
-   ```yaml
-   secrets:
-     API_KEY:
-       provider: env          # Providers: env, file, vault, aws
-       key: "GITHUB_TOKEN"    # Source key/path
-       version: "v1"          # Optional version
-   ```
+    Mark variables as secrets inline within the `env:` block:
 
-**Available Providers** (defined in `src/cook/environment/config.rs:101-109`):
-- `env` - Environment variables (most common)
-- `file` - File-based secrets
-- `vault` - HashiCorp Vault integration
-- `aws` - AWS Secrets Manager integration
+    ```yaml title="Inline secret format"
+    # Source: workflows/mapreduce-env-example.yml:22-25
+    env:
+      API_TOKEN:
+        secret: true
+        value: "${GITHUB_TOKEN}"
+    ```
 
-Both formats mask secret values in logs. The Simple format is convenient for environment variables, while Provider format supports advanced secret management systems like Vault and AWS Secrets Manager.
+=== "Dedicated secrets block"
 
-**Note**: For detailed Vault and AWS provider configuration, see [Secrets Management](../environment/secrets-management.md) and [Environment Variables in Configuration](./environment-variables-in-configuration.md).
+    Use a separate `secrets:` top-level block for advanced secret management:
 
-**Source**: Example workflow at `workflows/mapreduce-env-example.yml:23-26`
+    ```yaml title="Dedicated secrets block"
+    # Source: src/cook/environment/config.rs:86-95
+    secrets:
+      # Simple format - direct environment variable reference
+      SIMPLE_SECRET: "ENV_VAR_NAME"
 
-### MapReduce Syntax Evolution
+      # Provider format - explicit provider configuration
+      API_TOKEN:
+        provider: env
+        key: "GITHUB_TOKEN"
+
+      # File-based secret provider
+      FILE_SECRET:
+        provider: file
+        key: "/path/to/secret/file"
+    ```
+
+**Available Secret Providers** (defined in `src/cook/environment/config.rs:101-109`):
+
+| Provider | Description | Use Case |
+|----------|-------------|----------|
+| `env` | Environment variables | Most common, CI/CD pipelines |
+| `file` | File-based secrets | Local development, mounted secrets |
+| `vault` | HashiCorp Vault | Enterprise secret management |
+| `aws` | AWS Secrets Manager | AWS-native deployments |
+
+!!! info "Secret masking"
+    Both formats automatically mask secret values in logs and error output. The inline format is simpler for environment variables, while the provider format supports advanced secret management systems.
+
+For detailed Vault and AWS provider configuration, see [Secrets Management](../environment/secrets-management.md) and [Environment Variables in Configuration](./environment-variables-in-configuration.md).
+
+### MapReduce Syntax Evolution {: #mapreduce-syntax }
 
 MapReduce workflows have evolved to use simpler, more concise syntax.
 
@@ -111,7 +120,7 @@ MapReduce workflows have evolved to use simpler, more concise syntax.
 
 Commands are listed directly under `agent_template` and `reduce`:
 
-```yaml
+```yaml title="Current MapReduce syntax (preferred)"
 name: parallel-debt-elimination
 mode: mapreduce
 
@@ -137,18 +146,18 @@ reduce:
   - shell: "echo Processed ${map.total} items"
 ```
 
-**Benefits:**
-- Less nesting, easier to read
-- Cleaner YAML structure
-- Follows YAML array conventions
-- Consistent with standard workflow format
-- Forward compatibility - the nested format may be removed in future versions
+!!! success "Benefits of direct array syntax"
+    - Less nesting, easier to read
+    - Cleaner YAML structure
+    - Follows YAML array conventions
+    - Consistent with standard workflow format
+    - Forward compatibility - the nested format may be removed in future versions
 
-#### Legacy Syntax (Deprecated)
+#### Legacy Syntax (Deprecated) {: #legacy-syntax }
 
 The old format nested commands under a `commands` field:
 
-```yaml
+```yaml title="Legacy syntax (deprecated)"
 # Old syntax - deprecated but still supported
 map:
   input: "work-items.json"
@@ -168,67 +177,79 @@ reduce:
     - shell: echo "Processed ${map.total} items"
 ```
 
-**Deprecation Notice:**
-- This format is still supported for backward compatibility
-- New workflows should use the direct array syntax
-- Future versions may remove support for nested `commands`
-- When using the old format, Prodigy emits a warning: "Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'."
+!!! warning "Deprecation notice"
+    - This format is still supported for backward compatibility
+    - New workflows should use the direct array syntax
+    - Future versions may remove support for nested `commands`
+    - Prodigy emits a warning when using the old format:
+      > "Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'."
 
-**Source**: Deprecation warnings in `src/config/mapreduce.rs:310, 347`
+    **Source**: Deprecation warnings in `src/config/mapreduce.rs:310, 347`
 
-### Migration Guide
+### Migration Guide {: #migration-guide }
 
-To migrate from old to new syntax:
+To migrate from [legacy syntax](#legacy-syntax) to the preferred format:
 
-**Before (Old):**
-```yaml
-agent_template:
-  commands:
-    - claude: "/process ${item}"
-    - shell: "test ${item.path}"
+=== "Before (Legacy)"
 
-reduce:
-  commands:
-    - claude: "/summarize ${map.results}"
-```
+    ```yaml title="Legacy nested commands"
+    agent_template:
+      commands:
+        - claude: "/process ${item}"
+        - shell: "test ${item.path}"
 
-**After (New):**
-```yaml
-agent_template:
-  - claude: "/process ${item}"
-  - shell: "test ${item.path}"
+    reduce:
+      commands:
+        - claude: "/summarize ${map.results}"
+    ```
 
-reduce:
-  - claude: "/summarize ${map.results}"
-```
+=== "After (Current)"
+
+    ```yaml title="Direct array syntax"
+    agent_template:
+      - claude: "/process ${item}"
+      - shell: "test ${item.path}"
+
+    reduce:
+      - claude: "/summarize ${map.results}"
+    ```
 
 **Migration Steps:**
+
 1. Remove the `commands:` line from `agent_template`
 2. Remove the `commands:` line from `reduce`
 3. Unindent the command list by one level
 4. Test the workflow to ensure it works correctly
 
-**Important Notes:**
-- The workflow format is all-or-nothing - you cannot mix old and new formats within the same workflow
-- Both `agent_template` and `reduce` must use the same format (both direct array or both nested)
-- After migration, run `prodigy run workflow.yml --dry-run` to validate syntax before executing
-- If the workflow fails after migration, check for indentation errors - YAML is whitespace-sensitive
+!!! note "Important migration considerations"
+    - The workflow format is all-or-nothing — you cannot mix old and new formats within the same workflow
+    - Both `agent_template` and `reduce` must use the same format (both direct array or both nested)
+    - After migration, run `prodigy run workflow.yml --dry-run` to validate syntax before executing
+    - If the workflow fails after migration, check for indentation errors — YAML is whitespace-sensitive
 
 ### Format Decision Tree
 
 Choose your format based on these questions:
 
-1. **Is this a MapReduce workflow?**
-   - Yes → Use `mode: mapreduce` with direct array syntax
-   - No → Continue to question 2
+```mermaid
+flowchart TD
+    A[Start] --> B{MapReduce workflow?}
+    B -->|Yes| C["Use mode: mapreduce
+    with direct array syntax"]
+    B -->|No| D{"Need env vars
+    or profiles?"}
+    D -->|Yes| E[Use full configuration format]
+    D -->|No| F{"Quick one-off
+    workflow?"}
+    F -->|Yes| G[Use simple array format]
+    F -->|No| E
+```
 
-2. **Do you need environment variables or profiles?**
-   - Yes → Use full configuration format
-   - No → Continue to question 3
-
-3. **Is this a quick one-off workflow?**
-   - Yes → Use simple array format
-   - No → Use full configuration format for maintainability
+| Question | Yes | No |
+|----------|-----|-----|
+| Is this a MapReduce workflow? | Use `mode: mapreduce` with direct array syntax | Continue ↓ |
+| Do you need environment variables or profiles? | Use full configuration format | Continue ↓ |
+| Is this a quick one-off workflow? | Use simple array format | Use full configuration format |
 
 ### Cross-References
 

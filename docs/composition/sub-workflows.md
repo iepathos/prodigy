@@ -1,6 +1,14 @@
-## Sub-Workflows
+## :material-folder-multiple: Sub-Workflows
 
 Execute child workflows as part of a parent workflow. Sub-workflows can run in parallel and have their own parameters and outputs, enabling modular workflow design and reusable validation/test pipelines.
+
+!!! abstract "Overview"
+    Sub-workflows provide **modular composition** for complex pipelines:
+
+    - **Isolation**: Each sub-workflow runs in its own context
+    - **Parallelism**: Run multiple sub-workflows concurrently
+    - **Reusability**: Share common validation/test workflows across projects
+    - **Composability**: Chain outputs between sub-workflows
 
 ### Basic Sub-Workflow Syntax
 
@@ -23,42 +31,51 @@ sub_workflows:
       build_artifact: "${build.artifact_path}"
 ```
 
-### Sub-Workflow Configuration
+### :material-cog: Sub-Workflow Configuration
 
-Each sub-workflow is defined as a key-value pair in a HashMap, where the key is the sub-workflow name (defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:13-66):
+Each sub-workflow is defined as a key-value pair in a HashMap, where the key is the sub-workflow name (defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:14-46):
 
 ```yaml
 sub_workflows:
-  validation:  # Key is the sub-workflow name
-    source: "path/to/workflow.yml"  # Required: workflow file path
+  validation:  # (1)!
+    source: "path/to/workflow.yml"  # (2)!
 
-    parameters:                       # Optional: parameter values
+    parameters:  # (3)!
       env: "staging"
       timeout: 600
 
-    inputs:                           # Optional: input from parent context
+    inputs:  # (4)!
       commit_sha: "${git.commit}"
       branch: "${git.branch}"
 
-    outputs:                          # Optional: extract values from sub-workflow
+    outputs:  # (5)!
       - "test_coverage"
       - "artifact_url"
 
-    parallel: false                   # Optional: run in parallel (default: false)
+    parallel: false  # (6)!
 
-    continue_on_error: false          # Optional: continue if sub-workflow fails
+    continue_on_error: false  # (7)!
 
-    timeout: 1800                     # Optional: sub-workflow timeout (seconds)
+    timeout: 1800  # (8)!
 
-    working_dir: "./sub-project"      # Optional: working directory for sub-workflow
-                                       # Note: Parsed but not yet applied (implementation in progress)
+    working_dir: "./sub-project"  # (9)!
 ```
 
-**Source**: `SubWorkflow` struct in src/cook/workflow/composition/sub_workflow.rs:13-66
-**Validation**: Sub-workflow validation in src/cook/workflow/composition/composer.rs:381-395
+1. Key becomes the sub-workflow name, used to reference outputs like `${validation.test_coverage}`
+2. **Required**: Path to the workflow YAML file to execute
+3. Static parameter values passed to the sub-workflow
+4. Dynamic inputs mapped from parent context variables
+5. Variables to extract from sub-workflow back to parent
+6. Enable concurrent execution with other parallel sub-workflows (default: `false`)
+7. Continue parent execution even if this sub-workflow fails (default: `false`)
+8. Maximum execution time in seconds before timeout
+9. Working directory for sub-workflow execution (parsed but not yet applied)
+
+**Source**: `SubWorkflow` struct in src/cook/workflow/composition/sub_workflow.rs:14-46
+**Validation**: Sub-workflow validation in src/cook/workflow/composition/composer.rs:627-642
 **Test example**: tests/workflow_composition_test.rs:152-173 demonstrates sub-workflow configuration
 
-### Parent-Child Context Isolation
+### :material-shield-lock: Parent-Child Context Isolation
 
 Sub-workflows execute in isolated contexts with clean variable scopes (src/cook/workflow/composition/sub_workflow.rs:242-262):
 
@@ -68,6 +85,31 @@ Sub-workflows execute in isolated contexts with clean variable scopes (src/cook/
 - **Output extraction**: Use `outputs` to explicitly capture child results
 - **Independent git state**: Sub-workflows can operate in different directories
 
+```mermaid
+flowchart LR
+    subgraph Parent["Parent Workflow"]
+        PV["Variables: A, B, C"]
+    end
+
+    subgraph Isolation["Context Isolation"]
+        Clone["1. Clone context"]
+        Clear["2. Clear variables"]
+        Copy["3. Copy inputs"]
+    end
+
+    subgraph Sub["Sub-Workflow"]
+        SV["Variables: X only"]
+        Exec["4. Execute"]
+    end
+
+    subgraph Extract["Output Extraction"]
+        Out["5. Extract outputs"]
+    end
+
+    Parent --> Clone --> Clear --> Copy --> Sub
+    Sub --> Out --> Parent
+```
+
 The isolation process:
 1. Clone parent context
 2. Clear all variables in cloned context
@@ -75,7 +117,7 @@ The isolation process:
 4. Execute sub-workflow in isolated context
 5. Extract only specified `outputs` back to parent
 
-### Output Variable Extraction
+### :material-export: Output Variable Extraction
 
 Capture values from sub-workflow execution:
 
@@ -94,9 +136,33 @@ commands:
   - shell: "verify-checksum ${build.artifact_sha256}"
 ```
 
-### Parallel Execution
+### :material-run-fast: Parallel Execution
 
 Run multiple sub-workflows concurrently using `tokio::spawn` for concurrent task execution (src/cook/workflow/composition/sub_workflow.rs:179-226):
+
+```mermaid
+flowchart LR
+    Parent[Parent Workflow] --> Spawn["Spawn Tasks"]
+
+    Spawn --> T1["unit-tests
+    (tokio::spawn)"]
+    Spawn --> T2["integration-tests
+    (tokio::spawn)"]
+    Spawn --> T3["e2e-tests
+    (tokio::spawn)"]
+
+    T1 --> Join[Join All]
+    T2 --> Join
+    T3 --> Join
+
+    Join --> Merge["Merge Outputs"]
+    Merge --> Continue[Continue Parent]
+
+    style T1 fill:#e1f5ff
+    style T2 fill:#e1f5ff
+    style T3 fill:#e1f5ff
+    style Join fill:#f3e5f5
+```
 
 ```yaml
 sub_workflows:
@@ -124,7 +190,7 @@ commands:
 - All outputs are merged back to parent context after completion
 - If any parallel sub-workflow fails, execution stops (unless `continue_on_error: true`)
 
-### Error Handling
+### :material-alert-circle: Error Handling
 
 Control behavior when sub-workflows fail:
 
@@ -141,7 +207,31 @@ sub_workflows:
     continue_on_error: true
 ```
 
-### Modular Pipeline Example
+#### Error Propagation
+
+When a sub-workflow fails, error context is preserved through the `SubWorkflowResult` (src/cook/workflow/composition/sub_workflow.rs:158-176):
+
+=== "Default Behavior (continue_on_error: false)"
+
+    ```
+    Sub-workflow fails → Error propagated → Parent workflow fails
+    Result: error field contains failure details, success = false
+    ```
+
+=== "continue_on_error: true"
+
+    ```
+    Sub-workflow fails → Warning logged → Parent continues
+    Result: error field contains details, success = false, but parent proceeds
+    ```
+
+!!! warning "Error Context Preservation"
+    The `SubWorkflowResult.error` field captures the full error message including context chain. When debugging failed sub-workflows, check this field for root cause analysis.
+
+### :material-pipe: Modular Pipeline Example
+
+!!! tip "Pipeline Design Pattern"
+    Structure complex CI/CD pipelines as sequential stages with parallel sub-workflows within each stage. Run independent validation steps (linting, formatting, security scans) in parallel, then proceed to tests, and finally to build and deploy.
 
 **parent-pipeline.yml:**
 ```yaml
@@ -191,7 +281,7 @@ commands:
   - shell: "echo validation_passed=true >> $PRODIGY_OUTPUT"
 ```
 
-### Working Directory Isolation
+### :material-folder-cog: Working Directory Isolation
 
 Sub-workflows can specify different working directories (parsed but not yet applied - see implementation note in src/cook/workflow/composition/sub_workflow.rs:104-107):
 
@@ -208,9 +298,10 @@ sub_workflows:
     working_dir: "./frontend"  # Parsed but not yet applied
 ```
 
-> **Note**: The `working_dir` field is parsed and validated but not yet applied during execution. The `WorkflowContext` struct needs a `working_directory` field to enable this feature. Currently, all sub-workflows execute in the parent's working directory.
+!!! info "Implementation Note"
+    The `working_dir` field is parsed and validated but not yet applied during execution. The `WorkflowContext` struct needs a `working_directory` field to enable this feature. Currently, all sub-workflows execute in the parent's working directory.
 
-### Timeout Configuration
+### :material-timer-outline: Timeout Configuration
 
 Set execution time limits:
 
@@ -225,22 +316,25 @@ sub_workflows:
     timeout: 3600  # 1 hour
 ```
 
-### Use Cases
+### :material-lightbulb: Use Cases
 
-**Modular Testing:**
-- Separate unit, integration, and e2e tests into sub-workflows
-- Run test suites in parallel for faster feedback
-- Reuse test workflows across multiple projects
+=== "Modular Testing"
 
-**Multi-Language Projects:**
-- Separate workflows for each language/component
-- Independent validation for microservices
-- Coordinated deployment of multiple services
+    - Separate unit, integration, and e2e tests into sub-workflows
+    - Run test suites in parallel for faster feedback
+    - Reuse test workflows across multiple projects
 
-**Reusable Validation:**
-- Shared linting/formatting workflows
-- Common security scanning workflows
-- Standardized compliance checks
+=== "Multi-Language Projects"
+
+    - Separate workflows for each language/component
+    - Independent validation for microservices
+    - Coordinated deployment of multiple services
+
+=== "Reusable Validation"
+
+    - Shared linting/formatting workflows
+    - Common security scanning workflows
+    - Standardized compliance checks
 
 **Environment-Specific Pipelines:**
 ```yaml
@@ -259,7 +353,7 @@ sub_workflows:
       replicas: "5"
 ```
 
-### Complete Example
+### :material-file-document-multiple: Complete Example
 
 ```yaml
 name: monorepo-ci
@@ -300,35 +394,40 @@ commands:
   - shell: "generate-combined-coverage-report.sh"
 ```
 
-### Sub-Workflow Result
+### :material-format-list-checks: Sub-Workflow Result
 
 Each sub-workflow execution produces a `SubWorkflowResult` (src/cook/workflow/composition/sub_workflow.rs:48-65):
 
 ```rust
+// Source: src/cook/workflow/composition/sub_workflow.rs:48-65
 SubWorkflowResult {
-    success: bool,                // Execution success
+    success: bool,                   // Execution success
     outputs: HashMap<String, Value>, // Extracted output variables
-    duration: Duration,           // Execution time
-    error: Option<String>,        // Error message if failed
-    logs: Vec<String>,            // Sub-workflow execution logs
+    duration: Duration,              // Execution time
+    error: Option<String>,           // Error message if failed
+    logs: Vec<String>,               // Sub-workflow execution logs
 }
 ```
 
-**Note**: The sub-workflow name is tracked separately as the HashMap key in the parent workflow's `sub_workflows` field, not as a field within `SubWorkflowResult`.
+!!! note "Name Tracking"
+    The sub-workflow name is tracked separately as the HashMap key in the parent workflow's `sub_workflows` field, not as a field within `SubWorkflowResult`.
 
-### Implementation Status
+### :material-progress-check: Implementation Status
 
-- ✅ Sub-workflow configuration parsing
-- ✅ Sub-workflow validation (`validate_sub_workflows`)
-- ✅ Parameter and input definitions
-- ✅ Output extraction structure
-- ✅ Parallel execution configuration
-- ✅ Error handling options (continue_on_error)
-- ✅ Timeout and working directory settings
-- ✅ SubWorkflowExecutor structure
-- ⏳ Executor integration with main workflow runtime (in progress)
+!!! success "Completed Features"
+    - [x] Sub-workflow configuration parsing
+    - [x] Sub-workflow validation (`validate_sub_workflows`)
+    - [x] Parameter and input definitions
+    - [x] Output extraction structure
+    - [x] Parallel execution configuration
+    - [x] Error handling options (continue_on_error)
+    - [x] Timeout and working directory settings
+    - [x] SubWorkflowExecutor structure
 
-*Note: Sub-workflow definitions are fully validated and composed, but execution integration with the main workflow orchestrator is currently in development.*
+!!! warning "In Progress"
+    - [ ] Executor integration with main workflow runtime
+
+    Sub-workflow definitions are fully validated and composed, but execution integration with the main workflow orchestrator is currently in development.
 
 ### Related Topics
 

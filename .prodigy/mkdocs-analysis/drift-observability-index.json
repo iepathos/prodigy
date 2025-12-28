@@ -1,0 +1,107 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "Observability and Logging (Section Index)",
+  "page_file": "docs/advanced/observability/index.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Well-structured section index page with clear overview, comprehensive subpage organization, and excellent visual diagram showing observability architecture",
+  "issues": [],
+  "positive_aspects": [
+    "Clear overview section listing all observability features",
+    "Well-organized subpage structure covering all observability topics",
+    "Excellent Mermaid diagram showing observability architecture with event tracking, Claude logs, and verbosity control",
+    "Concise feature bullet points that appropriately delegate detail to subpages",
+    "All 4 internal links validated and functional",
+    "Matches observability features from features.json",
+    "Good use of MkDocs Material visual features (mermaid diagrams with styled nodes)",
+    "Appropriate scope for an index page - provides overview without duplicating subpage content",
+    "Figure caption explains the diagram's purpose",
+    "Links use correct relative paths to sibling files in same directory"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a '!!! tip' admonition box with quick access to common observability commands like 'prodigy logs --latest'",
+    "Could add a brief 'When to use each observability feature' section for new users",
+    "The subpages list could include brief one-line descriptions inline with each link for quick scanning"
+  ],
+  "cross_references": [
+    "event-tracking.md",
+    "claude-observability.md",
+    "debugging.md",
+    "log-management.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      {
+        "link_text": "Event Tracking",
+        "target": "event-tracking.md",
+        "status": "valid",
+        "resolved_path": "docs/advanced/observability/event-tracking.md"
+      },
+      {
+        "link_text": "Claude Observability",
+        "target": "claude-observability.md",
+        "status": "valid",
+        "resolved_path": "docs/advanced/observability/claude-observability.md"
+      },
+      {
+        "link_text": "Debugging",
+        "target": "debugging.md",
+        "status": "valid",
+        "resolved_path": "docs/advanced/observability/debugging.md"
+      },
+      {
+        "link_text": "Log Management",
+        "target": "log-management.md",
+        "status": "valid",
+        "resolved_path": "docs/advanced/observability/log-management.md"
+      }
+    ]
+  },
+  "feature_coverage": {
+    "observability.event_tracking": "mentioned in overview, delegated to event-tracking.md",
+    "observability.claude_observability": "mentioned in overview, delegated to claude-observability.md",
+    "observability.verbosity_control": "shown in mermaid diagram, delegated to claude-observability.md",
+    "observability.log_analysis": "mentioned in overview as feature bullet, delegated to debugging.md",
+    "observability.performance_metrics": "mentioned in overview as feature bullet, delegated to debugging.md",
+    "observability.log_management": "delegated to log-management.md"
+  },
+  "mermaid_diagram_analysis": {
+    "diagram_type": "flowchart",
+    "nodes_count": 14,
+    "shows_architecture": true,
+    "key_flows": [
+      "Workflow Execution → Event System → JSONL Event Files",
+      "Workflow Execution → Claude Commands → JSON Logs",
+      "Workflow Execution → Verbosity Control → Output Levels",
+      "JSONL + JSON Logs → Log Analysis → Debugging & Monitoring"
+    ],
+    "style_applied": true,
+    "storage_paths_shown": [
+      "~/.prodigy/events/",
+      "~/.local/state/claude/logs/"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "observability overview",
+      "event tracking",
+      "Claude observability",
+      "verbosity control",
+      "log analysis",
+      "performance metrics"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "subpages_verified": [
+      "event-tracking.md - JSONL event streams and event types",
+      "claude-observability.md - Claude execution logs and verbosity control",
+      "debugging.md - Debugging MapReduce failures, performance metrics, and event queries",
+      "log-management.md - Log locations, cleanup, and practical examples"
+    ]
+  }
+}

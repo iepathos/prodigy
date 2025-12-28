@@ -1,0 +1,125 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "github-actions-integration",
+  "page_title": "github actions integration",
+  "page_file": "docs/automated-documentation/github-actions-integration.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation covers mdBook deployment well but significantly lags behind actual workflow which now supports MkDocs Material as the primary format. Multiple outdated action versions and missing critical configuration options.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Quick Start / Workflow File",
+      "description": "Documentation shows actions/checkout@v5 but actual workflow uses actions/checkout@v6",
+      "current_content": "uses: actions/checkout@v5",
+      "should_be": "uses: actions/checkout@v6",
+      "fix_suggestion": "Update all action version references to match the actual workflow file",
+      "source_reference": ".github/workflows/deploy-docs.yml:32"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Workflow File Structure",
+      "description": "Documentation does not cover MkDocs Material support which is now the primary documentation format (DEPLOY_FORMAT: mkdocs)",
+      "feature_reference": "MkDocs Material deployment with Python setup",
+      "fix_suggestion": "Add comprehensive section on MkDocs Material deployment including Python setup, pip install, and mkdocs build --strict command",
+      "source_reference": ".github/workflows/deploy-docs.yml:19-59"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Workflow File Structure / Path Filters",
+      "description": "Documentation only shows book/** paths but actual workflow includes docs/** and mkdocs.yml",
+      "current_content": "paths:\n  - 'book/**'\n  - '.github/workflows/deploy-docs.yml'",
+      "should_be": "paths:\n  - 'book/**'\n  - 'docs/**'\n  - 'mkdocs.yml'\n  - '.github/workflows/deploy-docs.yml'",
+      "fix_suggestion": "Update path filter examples to include docs/** and mkdocs.yml for MkDocs support",
+      "source_reference": ".github/workflows/deploy-docs.yml:6-17"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Setup Steps",
+      "description": "Missing documentation for MkDocs Material setup steps including Python installation, pip caching, and package installation",
+      "feature_reference": "Python/MkDocs setup workflow steps",
+      "fix_suggestion": "Add section covering: actions/setup-python@v6, pip cache configuration, pip install mkdocs-material",
+      "source_reference": ".github/workflows/deploy-docs.yml:46-55"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Configuration",
+      "description": "Missing documentation for DEPLOY_FORMAT environment variable that toggles between mdbook and mkdocs",
+      "feature_reference": "DEPLOY_FORMAT toggle (mdbook/mkdocs)",
+      "fix_suggestion": "Add section explaining the DEPLOY_FORMAT environment variable and how to switch between documentation formats",
+      "source_reference": ".github/workflows/deploy-docs.yml:19-23"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Recommended Action Versions",
+      "description": "Documentation recommends actions/checkout@v5 but actual workflow uses v6",
+      "current_content": "actions/checkout@v5",
+      "should_be": "actions/checkout@v6, actions/setup-python@v6",
+      "fix_suggestion": "Update recommended versions section to include current versions",
+      "source_reference": ".github/workflows/deploy-docs.yml:32,48"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Build Commands",
+      "description": "Missing documentation for mkdocs build --strict command which enables strict mode for catching warnings",
+      "feature_reference": "MkDocs strict build mode",
+      "fix_suggestion": "Document the mkdocs build --strict command and explain why strict mode is recommended",
+      "source_reference": ".github/workflows/deploy-docs.yml:59"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Deployment Step",
+      "description": "publish_dir documentation only shows ./book/book but actual workflow uses conditional expression for format-specific output",
+      "current_content": "publish_dir: ./book/book",
+      "should_be": "publish_dir: ${{ env.DEPLOY_FORMAT == 'mdbook' && './book/book' || './site' }}",
+      "fix_suggestion": "Document the conditional publish_dir that supports both mdbook (./book/book) and mkdocs (./site) output directories",
+      "source_reference": ".github/workflows/deploy-docs.yml:67"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Source References",
+      "description": "Some source line references may be incorrect as the actual workflow has been updated",
+      "fix_suggestion": "Review and update all source line references to match current workflow structure",
+      "source_reference": "Various line references throughout document"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common mistakes and solutions",
+    "Excellent troubleshooting section with clear symptom/cause/solution format",
+    "Good explanation of gh-pages deployment method vs GitHub Pages Actions",
+    "Clear step-by-step quick start guide structure",
+    "Well-documented permission requirements",
+    "Good integration section explaining relationship with Prodigy workflows"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material as a primary documentation format option alongside mdBook",
+    "Include visual diagram showing dual-format workflow execution paths",
+    "Add admonitions/callouts using MkDocs Material syntax for important notes",
+    "Include tab groups showing mdBook vs MkDocs configuration side-by-side",
+    "Add section on pip cache configuration for faster MkDocs builds",
+    "Document actions/setup-python@v6 usage and Python version selection",
+    "Update curl command to reference actual workflow file (not template)",
+    "Add troubleshooting for MkDocs-specific issues (strict mode failures, material theme issues)"
+  ],
+  "cross_references": [
+    "automated-documentation/index",
+    "Spec 128 - GitHub Workflow Documentation Standards"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["github-actions", "documentation-deployment", "github-pages", "mdbook", "mkdocs"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "actual_workflow_version": "Supports both mdbook and mkdocs with DEPLOY_FORMAT toggle",
+    "spec_reference": "specs/128-github-workflow-documentation-standards.md"
+  }
+}

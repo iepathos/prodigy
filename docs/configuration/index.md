@@ -6,40 +6,66 @@ Prodigy supports comprehensive configuration through multiple files with a clear
 
 Prodigy uses two distinct types of configuration files:
 
-1. **Project Configuration** (`.prodigy/config.yml`) - Project settings and metadata
-2. **Workflow Configuration** (`.prodigy/workflow.yml` or explicit path) - Workflow definitions
+!!! info "Two Configuration Files"
+    1. **Project Configuration** (`.prodigy/config.yml`) - Project settings and metadata
+    2. **Workflow Configuration** (`.prodigy/workflow.yml` or explicit path) - Workflow definitions
 
 ### Minimal Project Configuration
 
 Create `.prodigy/config.yml`:
 
 ```yaml
-name: my-project  # Required: Project identifier
+name: my-project  # (1)!
 ```
+
+1. **Required**: Project identifier used for session tracking and storage paths.
 
 The `name` field is the only required field. All other settings have sensible defaults.
 
-**Source**: ProjectConfig struct in src/config/mod.rs:66-74
+**Source**: ProjectConfig struct in src/config/mod.rs:83-92
 
 ### Minimal Workflow Configuration
 
 Create `.prodigy/workflow.yml` or any `.yml` file:
 
 ```yaml
-commands:  # List of commands to execute in sequence
-  - prodigy-code-review  # Slash prefix is optional in workflow files
-  - /prodigy-lint        # Both styles work the same
+commands:  # (1)!
+  - prodigy-code-review  # (2)!
+  - /prodigy-lint        # (3)!
 ```
+
+1. **Required**: List of commands to execute in sequence.
+2. Slash prefix is optional in workflow files.
+3. Both styles work the same - `/prodigy-lint` and `prodigy-lint` are equivalent.
 
 Workflows define a sequence of commands to execute. Each command is a Prodigy slash command - the `/` prefix is optional in workflow files.
 
 **Source**: WorkflowConfig parsing in src/core/config/mod.rs:11-22, Examples in examples/mapreduce-json-input.yml
 
-That's all you need to get started! Prodigy provides sensible defaults for everything else. See the subsections below for detailed configuration options.
+!!! success "That's All You Need"
+    Prodigy provides sensible defaults for everything else. See the subsections below for detailed configuration options.
 
 ## Configuration File Locations
 
 Prodigy uses a search hierarchy to find configuration files. Configuration can come from multiple sources with the following precedence (highest to lowest):
+
+```mermaid
+graph LR
+    CLI["CLI Flags"] --> Env["Environment Variables"]
+    Env --> Project["Project Config
+    .prodigy/config.yml"]
+    Project --> Global["Global Config
+    ~/.prodigy/config.yml"]
+    Global --> Defaults["Built-in Defaults"]
+
+    style CLI fill:#e8f5e9,stroke:#4caf50
+    style Env fill:#e1f5ff,stroke:#03a9f4
+    style Project fill:#fff3e0,stroke:#ff9800
+    style Global fill:#f3e5f5,stroke:#9c27b0
+    style Defaults fill:#f5f5f5,stroke:#9e9e9e
+```
+
+**Figure**: Configuration precedence - left overrides right.
 
 1. **CLI Flags** - Command-line arguments override all other settings
 2. **Environment Variables** - Environment variables (e.g., `PRODIGY_CLAUDE_API_KEY`)
@@ -47,7 +73,7 @@ Prodigy uses a search hierarchy to find configuration files. Configuration can c
 4. **Global Config** - `~/.prodigy/config.yml` in your home directory
 5. **Defaults** - Built-in default values
 
-**Source**: ConfigLoader.load_with_explicit_path() in src/config/loader.rs:31-55
+**Source**: ConfigLoader.load_with_explicit_path() in src/config/loader.rs:35-55
 
 ### Workflow File Search Hierarchy
 
@@ -61,34 +87,56 @@ For workflow files specifically (different from project config):
 
 ### Key Distinction: config.yml vs workflow.yml
 
-- **`.prodigy/config.yml`**: Contains **project settings** (name, version, API keys, editor preferences)
-  - Maps to `ProjectConfig` struct (src/config/mod.rs:66-74)
-  - Loaded via ConfigLoader.load_project() (src/config/loader.rs:85-104)
+!!! tip "Understanding the Two Config Files"
+    === "config.yml"
+        **`.prodigy/config.yml`** contains **project settings**:
 
-- **`.prodigy/workflow.yml`**: Contains **workflow definitions** (commands to execute)
-  - Maps to `WorkflowConfig` struct (src/config/workflow.rs)
-  - Loaded via ConfigLoader.load_with_explicit_path() (src/config/loader.rs:35-55)
+        - Project name, version, API keys, editor preferences
+        - Maps to `ProjectConfig` struct (src/config/mod.rs:83-92)
+        - Loaded via ConfigLoader.load_project() (src/config/loader.rs:85-104)
 
-Both can exist in the `.prodigy/` directory and serve different purposes.
+    === "workflow.yml"
+        **`.prodigy/workflow.yml`** contains **workflow definitions**:
+
+        - Commands to execute in sequence
+        - Maps to `WorkflowConfig` struct (src/config/workflow.rs)
+        - Loaded via ConfigLoader.load_with_explicit_path() (src/config/loader.rs:35-55)
+
+Both files can exist in the `.prodigy/` directory and serve different purposes.
 
 ## Configuration Architecture
 
 Prodigy uses a three-tier configuration structure internally:
 
-```
-Config (Root)
-├── GlobalConfig      - User-wide settings (~/.prodigy/config.yml)
-├── ProjectConfig     - Project-specific settings (.prodigy/config.yml)
-└── WorkflowConfig    - Workflow definitions (.prodigy/workflow.yml or explicit path)
+```mermaid
+graph TD
+    Root["Config (Root)"] --> Global["GlobalConfig
+    User-wide settings"]
+    Root --> Project["ProjectConfig
+    Project-specific settings"]
+    Root --> Workflow["WorkflowConfig
+    Workflow definitions"]
+
+    Global --> GlobalFile["~/.prodigy/config.yml"]
+    Project --> ProjectFile[".prodigy/config.yml"]
+    Workflow --> WorkflowFile[".prodigy/workflow.yml
+    or explicit path"]
+
+    style Root fill:#e8f5e9,stroke:#4caf50
+    style Global fill:#f3e5f5,stroke:#9c27b0
+    style Project fill:#fff3e0,stroke:#ff9800
+    style Workflow fill:#e1f5ff,stroke:#03a9f4
 ```
 
-**Source**: Config struct hierarchy in src/config/mod.rs:38-43
+**Figure**: Three-tier configuration hierarchy with file locations.
+
+**Source**: Config struct hierarchy in src/config/mod.rs:51-56
 
 **How it works:**
 1. `Config::new()` creates the root with default `GlobalConfig`
 2. `merge_project_config()` adds project-specific settings (src/core/config/mod.rs:36-40)
 3. `merge_workflow_config()` adds workflow definitions (src/core/config/mod.rs:31-34)
-4. `Config.merge_env_vars()` applies environment variable overrides (src/config/mod.rs:111-131)
+4. `Config.merge_env_vars()` applies environment variable overrides (src/config/mod.rs:183-203)
 
 This design allows:
 - **Separation of concerns**: Global settings vs project settings vs workflows
@@ -115,28 +163,29 @@ prodigy validate workflow.yml
 prodigy run workflow.yml -v
 ```
 
-**Validation rules** (src/core/config/mod.rs:43-50):
-- Only `.yml` and `.yaml` extensions are supported (TOML is deprecated)
-- Config files must be valid YAML syntax
-- ProjectConfig requires `name` field
-- WorkflowConfig requires `commands` array
+!!! note "Validation Rules"
+    **Source**: src/core/config/mod.rs:43-50
+
+    - Only `.yml` and `.yaml` extensions are supported (TOML is deprecated)
+    - Config files must be valid YAML syntax
+    - ProjectConfig requires `name` field
+    - WorkflowConfig requires `commands` array
 
 ### Configuration Not Found?
 
-If Prodigy doesn't find your configuration:
+!!! warning "If Prodigy doesn't find your configuration"
+    1. **Workflow file**: Check explicit path vs `.prodigy/workflow.yml`
+        - Explicit path: `prodigy run path/to/workflow.yml` (must exist or error)
+        - Default location: `.prodigy/workflow.yml` (optional, uses defaults if missing)
 
-1. **Workflow file**: Check explicit path vs `.prodigy/workflow.yml`
-   - Explicit path: `prodigy run path/to/workflow.yml` (must exist or error)
-   - Default location: `.prodigy/workflow.yml` (optional, uses defaults if missing)
+    2. **Project config**: Must be at `.prodigy/config.yml` in project root
+        - Prodigy searches upward from current directory for `.prodigy/` folder
+        - Check you're running from within the project directory
 
-2. **Project config**: Must be at `.prodigy/config.yml` in project root
-   - Prodigy searches upward from current directory for `.prodigy/` folder
-   - Check you're running from within the project directory
+    3. **Global config**: Optional, located at `~/.prodigy/config.yml`
+        - Use for API keys and editor preferences across all projects
 
-3. **Global config**: Optional, located at `~/.prodigy/config.yml`
-   - Use for API keys and editor preferences across all projects
-
-**Source**: ConfigLoader search logic in src/config/loader.rs:35-104
+    **Source**: ConfigLoader search logic in src/config/loader.rs:35-104
 
 ### Debugging Configuration Issues
 

@@ -1,0 +1,73 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "validation-phases",
+  "page_title": "validation phases",
+  "page_file": "docs/automated-documentation/gap-detection/validation-phases.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Documentation describes features and source code references that do not exist in the actual implementation. This page documents a 'Content Sufficiency Validation (Step 0)' phase with detailed bash scripts that is NOT present in the source command file. The source file only has 509 lines, but the documentation references lines up to 827.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Content Sufficiency Validation (Step 0)",
+      "description": "The entire 'Content Sufficiency Validation (Step 0)' section describes functionality that does NOT exist in the source command file. The documentation references '.claude/commands/prodigy-detect-documentation-gaps.md:166-335' but those lines contain Phase 5-7 (Create Stub Markdown Files, Update SUMMARY.md), not content sufficiency validation. The documented bash scripts for TOTAL_MENTIONS, ESTIMATED_LINES, TYPE_COUNT, FUNCTION_COUNT, etc. do not exist anywhere in the source file.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md (509 lines total)",
+      "fix_suggestion": "Either implement the Content Sufficiency Validation feature in the source command file, or remove this section from the documentation as it describes phantom functionality."
+    },
+    {
+      "type": "missing_content",
+      "severity": "critical",
+      "section": "Structure Validation (Phase 7.5)",
+      "description": "Documentation references '.claude/commands/prodigy-detect-documentation-gaps.md:678-743' for 'Structure Validation (Phase 7.5)' but the source file only has 509 lines. This phase does not exist in the source command. The documentation describes auto-migration of chapters.json based on file system scanning, but this functionality is not implemented.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:509 (total lines)",
+      "fix_suggestion": "Either implement Structure Validation (Phase 7.5) in the source command file at appropriate location, or remove this section from documentation."
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Flattened Items Generation (Phase 8)",
+      "description": "Documentation references '.claude/commands/prodigy-detect-documentation-gaps.md:744-827' but the source file only has 509 lines. The actual Phase 8 starts at line 281 in the source file. Line number references are completely inaccurate.",
+      "current_content": "Source: `.claude/commands/prodigy-detect-documentation-gaps.md:744-827`",
+      "should_be": "Source: `.claude/commands/prodigy-detect-documentation-gaps.md:281-356`",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:281",
+      "fix_suggestion": "Update the source reference to point to the correct line range (281-356) where Phase 8 is actually defined."
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Map Phase Integration",
+      "description": "Documentation references 'workflows/book-docs-drift.yml:36-48' for the map phase configuration example, but the map phase actually starts at line 52. Lines 36-48 contain setup phase steps, not the map configuration.",
+      "current_content": "(workflows/book-docs-drift.yml:36-48)",
+      "should_be": "(workflows/book-docs-drift.yml:52-74)",
+      "source_reference": "workflows/book-docs-drift.yml:52",
+      "fix_suggestion": "Update the source reference to 'workflows/book-docs-drift.yml:52-74' which is where the map phase is actually defined."
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of flattened items structure for map phase",
+    "Good JSON examples showing the expected output format",
+    "Explains why flattened-items.json is required for the workflow"
+  ],
+  "improvement_suggestions": [
+    "Verify all source references point to correct line numbers after any source file changes",
+    "Consider removing phantom feature documentation or implementing the missing features",
+    "Add automated validation to check source references are accurate",
+    "Split content into sections that match actual implementation phases"
+  ],
+  "cross_references": [
+    "overview.md",
+    "topic-normalization.md",
+    "gap-report.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T20:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "content sufficiency validation",
+      "structure validation",
+      "flattened items generation"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

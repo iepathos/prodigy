@@ -1,0 +1,125 @@
+{
+  "item_type": "page",
+  "page_id": "environment-precedence",
+  "page_title": "environment precedence",
+  "page_file": "docs/environment/environment-precedence.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Documentation accurately reflects implementation with proper source references and clear precedence explanation",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate line number references to src/cook/environment/manager.rs",
+    "Clear precedence order matching actual implementation",
+    "Honest documentation of internal-only profile infrastructure",
+    "Proper notation that step-level env is runtime-only",
+    "Practical debugging section with actionable commands",
+    "Complete example demonstrating all precedence levels",
+    "All internal cross-reference links are valid"
+  ],
+  "improvement_suggestions": [
+    {
+      "type": "visual_enhancement",
+      "severity": "low",
+      "description": "Add MkDocs Material admonitions to highlight key points",
+      "suggestion": "Use !!! info for implementation notes and !!! tip for debugging tips"
+    },
+    {
+      "type": "visual_enhancement",
+      "severity": "low",
+      "description": "Add tabbed examples for different use cases",
+      "suggestion": "Use ??? example blocks for optional expanded examples"
+    },
+    {
+      "type": "visual_enhancement",
+      "severity": "low",
+      "description": "Convert precedence flow to Mermaid diagram",
+      "suggestion": "Replace ASCII flow with mermaid flowchart for better visualization"
+    },
+    {
+      "type": "enhancement",
+      "severity": "low",
+      "description": "Add code annotations for complex YAML examples",
+      "suggestion": "Use (1), (2) style annotations in YAML to explain each precedence level"
+    }
+  ],
+  "cross_references": [
+    "environment-files",
+    "secrets-management",
+    "environment-profiles",
+    "per-command-environment-overrides"
+  ],
+  "verified_links": [
+    {
+      "link": "environment-files.md",
+      "status": "valid"
+    },
+    {
+      "link": "secrets-management.md",
+      "status": "valid"
+    },
+    {
+      "link": "environment-profiles.md",
+      "status": "valid"
+    },
+    {
+      "link": "per-command-environment-overrides.md",
+      "status": "valid"
+    }
+  ],
+  "source_verification": {
+    "manager.rs:95-137": {
+      "verified": true,
+      "actual_lines": "94-137",
+      "description": "Precedence logic starts at line 94 (function signature) with actual logic at 95-137"
+    },
+    "manager.rs:98-102": {
+      "verified": true,
+      "description": "Parent environment inheritance with inherit flag check"
+    },
+    "manager.rs:107-109": {
+      "verified": true,
+      "description": "Environment file loading loop"
+    },
+    "manager.rs:112-115": {
+      "verified": true,
+      "description": "Global environment application"
+    },
+    "manager.rs:118-120": {
+      "verified": true,
+      "description": "Profile application (internal infrastructure)"
+    },
+    "manager.rs:123-127": {
+      "verified": true,
+      "description": "Step-specific environment application"
+    },
+    "manager.rs:130-137": {
+      "verified": true,
+      "description": "Secrets loading after step env"
+    },
+    "config.rs:128-144": {
+      "verified": true,
+      "description": "StepEnvironment struct definition"
+    },
+    "cli/args.rs": {
+      "verified": true,
+      "description": "Confirmed no --profile flag exists - documentation correctly notes this"
+    }
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "environment precedence",
+      "variable resolution",
+      "inheritance",
+      "profiles",
+      "secrets"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "documentation_quality": {
+      "accuracy": "high",
+      "completeness": "high",
+      "visual_features": "minimal - could benefit from admonitions and diagrams"
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "item_type": "page",
+  "page_id": "global-configuration-structure",
+  "page_title": "global configuration structure",
+  "page_file": "docs/configuration/global-configuration-structure.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has accurate core content but contains outdated default values and storage configuration details that differ from implementation",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "max_concurrent_specs",
+      "description": "Default value documented as 1, but actual default in code is 4",
+      "current_content": "**Default**: `1`",
+      "should_be": "**Default**: `4`",
+      "fix_suggestion": "Update the default value from 1 to 4 to match ProdigyConfig::default()",
+      "source_reference": "src/config/prodigy_config.rs:193 (default_max_concurrent function)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "storage",
+      "description": "Storage configuration fields don't match actual ProdigyConfig structure - docs show backend_config.base_dir and backend_config.repository_grouping but code has base_path and compression_level",
+      "current_content": "backend_config.base_dir and backend_config.repository_grouping",
+      "should_be": "base_path and compression_level fields at storage level",
+      "fix_suggestion": "Update storage configuration example to show correct field structure: storage.backend, storage.base_path, storage.compression_level",
+      "source_reference": "src/config/prodigy_config.rs:126-139 (StorageSettings struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "storage",
+      "description": "compression_level field (0-9) is documented in ProdigyConfig but not shown in global config documentation",
+      "feature_reference": "configuration_system.storage_settings.compression_level",
+      "fix_suggestion": "Add documentation for storage.compression_level field with range 0-9 and default 0",
+      "source_reference": "src/config/prodigy_config.rs:137-138"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "storage",
+      "description": "Storage backend types documented as 'file' or 'memory' but actual values serialized as 'filesystem' and 'memory'",
+      "current_content": "`file` or `memory`",
+      "should_be": "`filesystem` or `memory`",
+      "fix_suggestion": "Update backend type value from 'file' to 'filesystem' to match serde serialization",
+      "source_reference": "src/config/prodigy_config.rs:163 (BackendType with rename_all=lowercase serializes as 'filesystem')"
+    }
+  ],
+  "positive_aspects": [
+    "Clear location documentation for ~/.prodigy/config.yml",
+    "Comprehensive field-by-field documentation with types and defaults",
+    "Good complete example showing all configuration options",
+    "Plugin configuration section is accurate and detailed",
+    "Security note about API key storage is valuable",
+    "Clear explanation of relationship to project config with inheritance"
+  ],
+  "improvement_suggestions": [
+    "Add admonition boxes for security warnings using MkDocs Material syntax",
+    "Add tabbed examples showing minimal vs. comprehensive configuration",
+    "Include validation rules (max_concurrent_specs range 1-100, log levels)",
+    "Add cross-reference to project configuration override behavior"
+  ],
+  "cross_references": [
+    "storage-configuration",
+    "configuration-precedence-rules"
+  ],
+  "internal_links_validated": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "all_valid": true,
+    "validated_links": [
+      {
+        "link_text": "Storage Configuration",
+        "target": "storage-configuration.md",
+        "status": "valid"
+      },
+      {
+        "link_text": "Plugin Configuration",
+        "target": "#plugin-configuration",
+        "status": "valid (anchor)"
+      },
+      {
+        "link_text": "Configuration Precedence Rules",
+        "target": "configuration-precedence-rules.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:12:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["global configuration", "prodigy_home", "log_level", "claude_api_key", "max_concurrent_specs", "auto_commit", "storage", "plugins"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_checked": [
+      "src/config/prodigy_config.rs",
+      "src/config/loader.rs",
+      "src/storage/config.rs"
+    ]
+  }
+}

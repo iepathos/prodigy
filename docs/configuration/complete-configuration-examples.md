@@ -2,6 +2,48 @@
 
 This subsection provides comprehensive, production-ready workflow examples demonstrating all major Prodigy configuration features. Each example is extracted from real workflows in the repository and includes detailed annotations explaining configuration choices.
 
+!!! tip "Using These Examples"
+    Copy and adapt these examples for your workflows. Each example includes source references pointing to actual implementation code for verification.
+
+### Configuration Architecture Overview
+
+The following diagram shows how configuration elements relate in Prodigy workflows:
+
+```mermaid
+graph LR
+    subgraph Workflow["Workflow Definition"]
+        direction LR
+        Env["env:
+        Variables"] --> Commands["commands:
+        Steps"]
+        Commands --> Handlers["on_failure:
+        Error Handlers"]
+    end
+
+    subgraph MapReduce["MapReduce Mode"]
+        direction LR
+        Setup["setup:
+        Prepare Items"] --> Map["map:
+        Parallel Agents"]
+        Map --> Reduce["reduce:
+        Aggregate"]
+        Reduce --> Merge["merge:
+        Finalize"]
+    end
+
+    subgraph CrossCutting["Cross-Cutting"]
+        direction LR
+        Timeout["timeout:
+        Limits"] --> Validate["validate:
+        Quality Gates"]
+        Validate --> Policy["error_policy:
+        Failure Handling"]
+    end
+
+    Workflow --> CrossCutting
+    MapReduce --> CrossCutting
+```
+
 ### Quick Reference
 
 Complete workflow configurations include:
@@ -23,9 +65,8 @@ Complete workflow configurations include:
 
 This example demonstrates a full standard workflow with all major configuration options.
 
-**Source**: workflows/debtmap.yml (lines 1-56)
-
-```yaml
+```yaml title="workflows/debtmap.yml"
+# Source: workflows/debtmap.yml
 # Sequential workflow for technical debt analysis and remediation
 # Demonstrates: validation, error handlers, output capture
 
@@ -87,20 +128,23 @@ This example demonstrates a full standard workflow with all major configuration 
     fail_workflow: true
 ```
 
-**Key Features Demonstrated**:
-- **Validation with gap filling**: `validate:` block with `threshold` and `on_incomplete` handler
-- **Error recovery**: `on_failure:` handlers with `max_attempts` for automatic fixing
-- **Output capture**: Shell output captured and passed to Claude for debugging
-- **Commit control**: `commit_required: true` ensures changes are tracked
-- **Timeouts**: Per-command timeout to prevent hanging
-- **Sequential orchestration**: Each phase builds on previous results
+!!! note "Key Features Demonstrated"
+    - **Validation with gap filling**: `validate:` block with `threshold` and `on_incomplete` handler
+    - **Error recovery**: `on_failure:` handlers with `max_attempts` for automatic fixing
+    - **Output capture**: Shell output captured and passed to Claude for debugging
+    - **Commit control**: `commit_required: true` ensures changes are tracked
+    - **Timeouts**: Per-command timeout to prevent hanging
+    - **Sequential orchestration**: Each phase builds on previous results
 
-**Configuration Details** (from src/config/command.rs:WorkflowStepCommand):
-- `commit_required: bool` - Whether step must create a git commit (default: false)
-- `timeout: u64` - Maximum execution time in seconds
-- `validate: ValidationConfig` - Validation specification with threshold and handlers
-- `on_failure: TestDebugConfig` - Error handler with max_attempts and fail_workflow
-- `capture_output: bool` - Capture command output for use in subsequent steps
+**Configuration Details** (from `src/config/command.rs:WorkflowStepCommand`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `commit_required` | `bool` | Whether step must create a git commit (default: `false`) |
+| `timeout` | `u64` | Maximum execution time in seconds |
+| `validate` | `ValidationConfig` | Validation specification with threshold and handlers |
+| `on_failure` | `TestDebugConfig` | Error handler with `max_attempts` and `fail_workflow` |
+| `capture_output` | `bool` | Capture command output for use in subsequent steps |
 
 ---
 
@@ -108,9 +152,8 @@ This example demonstrates a full standard workflow with all major configuration 
 
 This example demonstrates a production MapReduce workflow with all phases and configuration options.
 
-**Source**: workflows/book-docs-drift.yml (lines 1-101)
-
-```yaml
+```yaml title="workflows/book-docs-drift.yml"
+# Source: workflows/book-docs-drift.yml
 name: prodigy-book-docs-drift-detection
 mode: mapreduce
 
@@ -176,12 +219,12 @@ reduce:
   - shell: "rm -rf ${ANALYSIS_DIR}"
   - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
-# Error handling policy
+# Error handling policy  # (1)!
 error_policy:
-  on_item_failure: dlq          # Send failures to Dead Letter Queue
-  continue_on_failure: true     # Don't stop on individual item failures
-  max_failures: 2               # Stop if more than 2 items fail
-  error_collection: aggregate   # Collect errors for batch reporting
+  on_item_failure: dlq          # (2)!
+  continue_on_failure: true     # (3)!
+  max_failures: 2               # (4)!
+  error_collection: aggregate   # (5)!
 
 # Custom merge workflow
 merge:
@@ -191,46 +234,70 @@ merge:
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
 
-**Key Features Demonstrated**:
-- **Environment parameterization**: All paths and settings in `env:` block for easy customization
-- **Setup phase**: Generate work items before parallel processing
-- **Agent template**: Commands execute in isolation per work item
-- **Work item access**: `${item}` variable provides access to current item fields
-- **Parallel execution**: `max_parallel` controls concurrency (can reference env vars)
-- **Validation with gap filling**: Automatic quality improvement until threshold met
-- **Error policy**: Comprehensive failure handling with DLQ and thresholds
-- **Merge workflow**: Custom merge process with branch variables
+1. Defines how to handle failures across all map agents
+2. Send failed items to DLQ for later retry with `prodigy dlq retry`
+3. Continue processing remaining items even when some fail
+4. Stop workflow if more than 2 items fail (prevents runaway failures)
+5. Collect all errors for a single batch report at the end
 
-**MapReduce Configuration Details** (from src/config/mapreduce.rs):
+!!! note "Key Features Demonstrated"
+    - **Environment parameterization**: All paths and settings in `env:` block for easy customization
+    - **Setup phase**: Generate work items before parallel processing
+    - **Agent template**: Commands execute in isolation per work item
+    - **Work item access**: `${item}` variable provides access to current item fields
+    - **Parallel execution**: `max_parallel` controls concurrency (can reference env vars)
+    - **Validation with gap filling**: Automatic quality improvement until threshold met
+    - **Error policy**: Comprehensive failure handling with DLQ and thresholds
+    - **Merge workflow**: Custom merge process with branch variables
 
-**SetupPhaseConfig**:
-- `commands: Vec<WorkflowStep>` - Commands to execute during setup
-- `timeout: Option<String>` - Phase timeout (supports env var references like `"$TIMEOUT"`)
-- `capture_outputs: HashMap<String, CaptureConfig>` - Variables to capture from setup
+#### MapReduce Configuration Details
 
-**MapPhaseYaml**:
-- `input: String` - Path to work items JSON or command to generate items
-- `json_path: String` - JSONPath expression to extract items (default: `""` for array root)
-- `agent_template: AgentTemplate` - Commands to execute per item
-- `max_parallel: String` - Concurrency limit (supports env vars like `"${MAX_PARALLEL}"`)
-- `filter: Option<String>` - Filter expression (e.g., `"item.priority >= 5"`)
-- `sort_by: Option<String>` - Sort field with direction (`"item.priority DESC"`)
-- `max_items: Option<usize>` - Limit number of items to process
-- `offset: Option<usize>` - Skip first N items
-- `agent_timeout_secs: Option<String>` - Per-agent timeout (supports env vars)
+=== "SetupPhaseConfig"
 
-**Error Policy** (from src/cook/workflow/error_policy.rs:WorkflowErrorPolicy):
-- `on_item_failure: ItemFailureAction` - Action on failure: `dlq`, `retry`, `skip`, `stop` (default: `dlq`)
-- `continue_on_failure: bool` - Continue processing after failures (default: `true`)
-- `max_failures: Option<usize>` - Stop after N failures
-- `failure_threshold: Option<f64>` - Stop if failure rate exceeds threshold (0.0 to 1.0)
-- `error_collection: ErrorCollectionStrategy` - Collection mode: `aggregate`, `immediate`, `batched` (default: `aggregate`)
+    | Field | Type | Description |
+    |-------|------|-------------|
+    | `commands` | `Vec<WorkflowStep>` | Commands to execute during setup |
+    | `timeout` | `Option<String>` | Phase timeout (supports env var references like `"$TIMEOUT"`) |
+    | `capture_outputs` | `HashMap<String, CaptureConfig>` | Variables to capture from setup |
+
+    Source: `src/config/mapreduce.rs`
+
+=== "MapPhaseYaml"
+
+    | Field | Type | Description |
+    |-------|------|-------------|
+    | `input` | `String` | Path to work items JSON or command to generate items |
+    | `json_path` | `String` | JSONPath expression to extract items (default: `""` for array root) |
+    | `agent_template` | `AgentTemplate` | Commands to execute per item |
+    | `max_parallel` | `String` | Concurrency limit (supports env vars like `"${MAX_PARALLEL}"`) |
+    | `filter` | `Option<String>` | Filter expression (e.g., `"item.priority >= 5"`) |
+    | `sort_by` | `Option<String>` | Sort field with direction (`"item.priority DESC"`) |
+    | `max_items` | `Option<usize>` | Limit number of items to process |
+    | `offset` | `Option<usize>` | Skip first N items |
+    | `agent_timeout_secs` | `Option<String>` | Per-agent timeout (supports env vars) |
+
+    Source: `src/config/mapreduce.rs`
+
+=== "Error Policy"
+
+    | Field | Type | Description |
+    |-------|------|-------------|
+    | `on_item_failure` | `ItemFailureAction` | Action on failure: `dlq`, `retry`, `skip`, `stop` (default: `dlq`) |
+    | `continue_on_failure` | `bool` | Continue processing after failures (default: `true`) |
+    | `max_failures` | `Option<usize>` | Stop after N failures |
+    | `failure_threshold` | `Option<f64>` | Stop if failure rate exceeds threshold (0.0 to 1.0) |
+    | `error_collection` | `ErrorCollectionStrategy` | Collection mode: `aggregate`, `immediate`, `batched` (default: `aggregate`) |
+
+    Source: `src/cook/workflow/error_policy.rs:WorkflowErrorPolicy`
 
 **Merge Workflow Variables**:
-- `${merge.worktree}` - Worktree name being merged
-- `${merge.source_branch}` - Source branch (worktree branch)
-- `${merge.target_branch}` - Target branch (original branch)
-- `${merge.session_id}` - Session ID for correlation
+
+| Variable | Description |
+|----------|-------------|
+| `${merge.worktree}` | Worktree name being merged |
+| `${merge.source_branch}` | Source branch (worktree branch) |
+| `${merge.target_branch}` | Target branch (original branch) |
+| `${merge.session_id}` | Session ID for correlation |
 
 ---
 
@@ -238,9 +305,8 @@ merge:
 
 This example demonstrates comprehensive environment configuration with static variables, dynamic values, secrets, and profiles.
 
-**Source**: workflows/environment-example.yml (lines 1-70)
-
-```yaml
+```yaml title="workflows/environment-example.yml"
+# Source: workflows/environment-example.yml
 # Global environment configuration
 env:
   # Static environment variables
@@ -259,7 +325,7 @@ env:
     when_false: "staging"
 
 # Secret environment variables (masked in logs)
-secrets:
+secrets:  # (1)!
   # Reference to environment variable
   API_KEY: "${env:SECRET_API_KEY}"
 
@@ -311,35 +377,45 @@ commands:
       CLEANUP_MODE: "full"
 ```
 
-**Environment Configuration Details** (from src/cook/environment/config.rs):
+1. Secrets are automatically masked in all logs, error messages, and event streams - never exposed in output
 
-**EnvValue Types**:
-- **Static**: Simple string value
-- **Dynamic**: Computed from command with optional caching
-  - `command: String` - Command to execute for value
-  - `cache: bool` - Cache result (default: false)
-- **Conditional**: Value based on expression evaluation
-  - `condition: String` - Expression to evaluate
-  - `when_true: String` - Value when condition is true
-  - `when_false: String` - Value when condition is false
+!!! warning "Secret Security"
+    Always use `secrets:` for sensitive values like API keys, tokens, and passwords. These values are masked in logs and checkpoints. Never put secrets directly in `env:` blocks.
 
-**Secret Management**:
-- Marked with `secret: true` or defined in `secrets:` block
-- Automatically masked in logs, error messages, and event streams
-- Supports environment variable references: `"${env:VAR_NAME}"`
+#### Environment Configuration Details
 
-**Profile Usage**:
-```bash
-# Activate a profile at runtime
-prodigy run workflow.yml --profile development
-prodigy run workflow.yml --profile testing
-```
+=== "EnvValue Types"
 
-**Step-Level Environment** (from src/config/command.rs:WorkflowStepCommand):
-- `env: HashMap<String, String>` - Step-specific environment variables
-- `working_dir: Option<PathBuf>` - Working directory for this step
-- `temporary: bool` - Restore environment after step (default: false)
-- `clear_env: bool` - Clear parent environment before applying step env (default: false)
+    | Type | Description | Example |
+    |------|-------------|---------|
+    | **Static** | Simple string value | `NODE_ENV: production` |
+    | **Dynamic** | Computed from command with optional caching | `command: "nproc"` with `cache: true` |
+    | **Conditional** | Value based on expression evaluation | `condition:`, `when_true:`, `when_false:` |
+
+    Source: `src/cook/environment/config.rs`
+
+=== "Secret Management"
+
+    - Marked with `secret: true` or defined in `secrets:` block
+    - Automatically masked in logs, error messages, and event streams
+    - Supports environment variable references: `"${env:VAR_NAME}"`
+
+=== "Profile Usage"
+
+    ```bash
+    # Activate a profile at runtime
+    prodigy run workflow.yml --profile development
+    prodigy run workflow.yml --profile testing
+    ```
+
+**Step-Level Environment** (from `src/config/command.rs:WorkflowStepCommand`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `env` | `HashMap<String, String>` | Step-specific environment variables |
+| `working_dir` | `Option<PathBuf>` | Working directory for this step |
+| `temporary` | `bool` | Restore environment after step (default: `false`) |
+| `clear_env` | `bool` | Clear parent environment before applying step env (default: `false`) |
 
 ---
 
@@ -347,9 +423,34 @@ prodigy run workflow.yml --profile testing
 
 This example demonstrates comprehensive error handling patterns including retry strategies, backoff configurations, and circuit breakers.
 
-**Source**: workflows/implement-with-tests.yml (lines 1-79) and workflows/debtmap.yml
+```mermaid
+flowchart LR
+    Cmd["Execute
+    Command"] --> Result{Success?}
+    Result -->|Yes| Next["Next
+    Command"]
+    Result -->|No| Handler["Run
+    on_failure"]
+    Handler --> Fixed["Attempt
+    Fix"]
+    Fixed --> Verify{Retry
+    Success?}
+    Verify -->|Yes| Next
+    Verify -->|No| Attempts{"max_attempts
+    Exceeded?"}
+    Attempts -->|No| Handler
+    Attempts -->|Yes| Policy{"fail_workflow?"}
+    Policy -->|true| Stop["Stop
+    Workflow"]
+    Policy -->|false| Next
 
-```yaml
+    style Next fill:#e8f5e9
+    style Stop fill:#ffebee
+    style Handler fill:#fff3e0
+```
+
+```yaml title="workflows/implement-with-tests.yml"
+# Source: workflows/implement-with-tests.yml and workflows/debtmap.yml
 # Nested error handling with automatic recovery
 commands:
   # Step 1: Implement specification
@@ -398,43 +499,65 @@ commands:
       commit_required: false
 ```
 
-**Error Handler Configuration** (from src/config/command.rs:TestDebugConfig):
-- `claude: String` - Command to run on failure
-- `max_attempts: u32` - Maximum retry attempts (default: 3)
-- `fail_workflow: bool` - Stop workflow if max attempts exceeded (default: false)
-- `commit_required: bool` - Whether handler must create commits (default: true)
+**Error Handler Configuration** (from `src/config/command.rs:TestDebugConfig`):
 
-**Backoff Strategy Types** (from src/cook/workflow/error_policy.rs:BackoffStrategy):
+| Field | Type | Description |
+|-------|------|-------------|
+| `claude` | `String` | Command to run on failure |
+| `max_attempts` | `u32` | Maximum retry attempts (default: `3`) |
+| `fail_workflow` | `bool` | Stop workflow if max attempts exceeded (default: `false`) |
+| `commit_required` | `bool` | Whether handler must create commits (default: `true`) |
 
-```yaml
-# Fixed delay between retries
-retry:
-  backoff:
-    fixed:
-      delay: 5s
+#### Backoff Strategy Types
 
-# Linear backoff (delay increases linearly)
-retry:
-  backoff:
-    linear:
-      initial: 1s
-      increment: 2s
+!!! info "Duration Format"
+    Backoff strategies use Rust's `Duration` type with serde deserialization. Durations can be specified as seconds (e.g., `5`) or with units using the humantime format (e.g., `"5s"`, `"1m"`, `"500ms"`).
 
-# Exponential backoff (default: 2x multiplier)
-retry:
-  backoff:
-    exponential:
-      initial: 1s
-      multiplier: 2.0
+=== "Fixed"
 
-# Fibonacci sequence delays
-retry:
-  backoff:
-    fibonacci:
-      initial: 1s
-```
+    Fixed delay between retries:
+    ```yaml
+    retry:
+      backoff:
+        fixed:
+          delay: 5  # 5 seconds
+    ```
 
-**Circuit Breaker Configuration** (from src/cook/workflow/error_policy.rs:CircuitBreakerConfig):
+=== "Linear"
+
+    Linear increase in delay:
+    ```yaml
+    retry:
+      backoff:
+        linear:
+          initial: 1   # Start at 1 second
+          increment: 2 # Add 2 seconds each retry
+    ```
+
+=== "Exponential"
+
+    Exponential backoff (default: 2x multiplier):
+    ```yaml
+    retry:
+      backoff:
+        exponential:
+          initial: 1      # Start at 1 second
+          multiplier: 2.0 # Double each retry
+    ```
+
+=== "Fibonacci"
+
+    Fibonacci sequence delays:
+    ```yaml
+    retry:
+      backoff:
+        fibonacci:
+          initial: 1  # Start at 1 second
+    ```
+
+Source: `src/cook/workflow/error_policy.rs:BackoffStrategy` (lines 105-120)
+
+#### Circuit Breaker Configuration
 
 ```yaml
 error_policy:
@@ -445,66 +568,102 @@ error_policy:
     half_open_requests: 3     # Requests allowed in half-open state
 ```
 
+Source: `src/cook/workflow/error_policy.rs:CircuitBreakerConfig`
+
 ---
 
 ### 5. Validation with Gap Filling Examples
 
 This example demonstrates validation with automatic gap filling using the `validate:` command with `on_incomplete` handlers.
 
-**Source**: workflows/implement.yml and workflows/debtmap.yml
+```mermaid
+flowchart LR
+    Execute["Execute
+    Command"] --> Validate{"Run
+    Validation"}
+    Validate -->|"Score ≥ Threshold"| Success["Continue
+    Workflow"]
+    Validate -->|"Score < Threshold"| Gap["Run
+    on_incomplete"]
+    Gap --> Retry{"Attempts
+    Remaining?"}
+    Retry -->|Yes| Validate
+    Retry -->|No| Check{"fail_workflow?"}
+    Check -->|true| Fail["Stop Workflow"]
+    Check -->|false| Success
 
-```yaml
-# Example 1: Specification Implementation with Validation
-- claude: "/implement-spec $ARG"
-  commit_required: true
-  validate:
-    claude: "/validate-spec $ARG --output .prodigy/validation-result.json"
-    result_file: ".prodigy/validation-result.json"
-    threshold: 95
-    on_incomplete:
-      claude: "/complete-spec $ARG --gaps ${validation.gaps}"
-      commit_required: true
-      max_attempts: 3
-      fail_workflow: false
-
-# Example 2: Multi-step Validation Pipeline
-- claude: "/implement-feature auth"
-  commit_required: true
-  validate:
-    commands:
-      - shell: "cargo test auth"
-      - shell: "cargo clippy -- -D warnings"
-      - claude: "/validate-implementation --output validation.json"
-    result_file: "validation.json"
-    threshold: 90
-    on_incomplete:
-      claude: "/complete-gaps ${validation.gaps}"
-      commit_required: true
-      max_attempts: 2
-
-# Example 3: Code Quality Validation
-- claude: "/fix-clippy-warnings"
-  commit_required: true
-  validate:
-    shell: "cargo clippy 2>&1 | grep -c warning | xargs -I {} bash -c 'if [ {} -eq 0 ]; then echo \"score: 100\"; else echo \"score: $((100 - {} * 5))\"; fi'"
-    threshold: 95
-    on_incomplete:
-      claude: "/fix-remaining-warnings"
-      commit_required: true
-      max_attempts: 3
+    style Success fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Gap fill:#fff3e0
 ```
 
-**Validation Configuration** (from src/cook/workflow/validation.rs):
-- `shell` or `claude`: Command that returns validation score
-- `commands`: Array of commands for multi-step validation
-- `result_file`: JSON file with validation results
-- `threshold`: Minimum score required (0-100)
-- `on_incomplete`: Commands to run if threshold not met
-  - `max_attempts`: Maximum retry attempts
-  - `fail_workflow`: Whether to fail if still incomplete after retries
+=== "Specification Implementation"
+
+    ```yaml
+    # Example 1: Specification Implementation with Validation
+    - claude: "/implement-spec $ARG"
+      commit_required: true
+      validate:
+        claude: "/validate-spec $ARG --output .prodigy/validation-result.json"
+        result_file: ".prodigy/validation-result.json"
+        threshold: 95
+        on_incomplete:
+          claude: "/complete-spec $ARG --gaps ${validation.gaps}"
+          commit_required: true
+          max_attempts: 3
+          fail_workflow: false
+    ```
+
+=== "Multi-step Validation"
+
+    ```yaml
+    # Example 2: Multi-step Validation Pipeline
+    - claude: "/implement-feature auth"
+      commit_required: true
+      validate:
+        commands:
+          - shell: "cargo test auth"
+          - shell: "cargo clippy -- -D warnings"
+          - claude: "/validate-implementation --output validation.json"
+        result_file: "validation.json"
+        threshold: 90
+        on_incomplete:
+          claude: "/complete-gaps ${validation.gaps}"
+          commit_required: true
+          max_attempts: 2
+    ```
+
+=== "Code Quality Validation"
+
+    ```yaml
+    # Example 3: Code Quality Validation
+    - claude: "/fix-clippy-warnings"
+      commit_required: true
+      validate:
+        shell: "cargo clippy 2>&1 | grep -c warning | xargs -I {} bash -c 'if [ {} -eq 0 ]; then echo \"score: 100\"; else echo \"score: $((100 - {} * 5))\"; fi'"
+        threshold: 95
+        on_incomplete:
+          claude: "/fix-remaining-warnings"
+          commit_required: true
+          max_attempts: 3
+    ```
+
+Source: `workflows/implement.yml` and `workflows/debtmap.yml`
+
+**Validation Configuration** (from `src/cook/workflow/validation.rs`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `shell` or `claude` | `String` | Command that returns validation score |
+| `commands` | `Vec<WorkflowStep>` | Array of commands for multi-step validation |
+| `result_file` | `String` | JSON file with validation results |
+| `threshold` | `u8` | Minimum score required (0-100) |
+| `on_incomplete` | `OnIncompleteConfig` | Commands to run if threshold not met |
 
 **Validation Output Format**:
+
 The validation command should output JSON with a score:
+
 ```json
 {
   "score": 85,
@@ -518,51 +677,73 @@ The validation command should output JSON with a score:
 
 This example demonstrates parallel iteration over work items with different input sources and concurrency controls.
 
-**Configuration Details** (from src/config/command.rs:ForeachConfig):
+!!! note "YAML Mapping"
+    In YAML, you write `do:` for the commands block. Internally, this maps to the `do_block` field in the `ForeachConfig` struct (since `do` is a reserved keyword in Rust).
 
-```yaml
-# Static list input with parallel execution
-- foreach:
-    input: ["file1.rs", "file2.rs", "file3.rs"]
-    parallel: 3  # Process 3 files concurrently
-    do:
-      - claude: "/lint ${item}"
-      - shell: "rustfmt ${item}"
-    continue_on_error: true  # Don't stop on individual item failures
+=== "Static List Input"
 
-# Command input (output becomes items)
-- foreach:
-    input:
-      command: "find src -name '*.rs' -type f"
-    parallel: 5
-    do:
-      - claude: "/analyze ${item}"
-      - shell: "cargo check --file ${item}"
-    max_items: 50  # Limit to first 50 files
+    ```yaml
+    # Static list input with parallel execution
+    - foreach:
+        input: ["file1.rs", "file2.rs", "file3.rs"]
+        parallel: 3  # Process 3 files concurrently
+        do:
+          - claude: "/lint ${item}"
+          - shell: "rustfmt ${item}"
+        continue_on_error: true  # Don't stop on individual item failures
+    ```
 
-# Sequential execution (no parallelism)
-- foreach:
-    input: ["step1", "step2", "step3"]
-    parallel: false  # Execute sequentially
-    do:
-      - claude: "/execute-step ${item}"
-```
+=== "Command Input"
 
-**ForeachConfig Structure**:
-- `input: ForeachInput` - Source of items (command or static list)
-  - `command: String` - Command whose output (one item per line) becomes items
-  - `list: Vec<String>` - Static list of items
-- `parallel: ParallelConfig` - Concurrency control
-  - `boolean: bool` - Enable/disable parallelism (true = default count, false = sequential)
-  - `count: usize` - Specific number of concurrent items
-- `do: Vec<WorkflowStepCommand>` - Commands to execute per item
-- `continue_on_error: bool` - Continue if individual item fails (default: false)
-- `max_items: Option<usize>` - Limit number of items to process
+    ```yaml
+    # Command input (output becomes items)
+    - foreach:
+        input:
+          command: "find src -name '*.rs' -type f"
+        parallel: 5
+        do:
+          - claude: "/analyze ${item}"
+          - shell: "cargo check --file ${item}"
+        max_items: 50  # Limit to first 50 files
+    ```
 
-**Item Access**:
-- Use `${item}` to reference the current item in commands
-- Each iteration runs in a clean environment
-- Failures are isolated to individual items
+=== "Sequential Execution"
+
+    ```yaml
+    # Sequential execution (no parallelism)
+    - foreach:
+        input: ["step1", "step2", "step3"]
+        parallel: false  # Execute sequentially
+        do:
+          - claude: "/execute-step ${item}"
+    ```
+
+**ForeachConfig Structure** (from `src/config/command.rs:189-211`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `input` | `ForeachInput` | Source of items (command or static list) |
+| `parallel` | `ParallelConfig` | Concurrency control |
+| `do` | `Vec<WorkflowStepCommand>` | Commands to execute per item (maps to `do_block` internally) |
+| `continue_on_error` | `bool` | Continue if individual item fails (default: `false`) |
+| `max_items` | `Option<usize>` | Limit number of items to process |
+
+**ForeachInput Types**:
+
+| Type | Description |
+|------|-------------|
+| `command: String` | Command whose output (one item per line) becomes items |
+| `list: Vec<String>` | Static list of items |
+
+**ParallelConfig**:
+
+| Value | Description |
+|-------|-------------|
+| `true` | Enable parallelism with default count |
+| `false` | Execute sequentially |
+| `<number>` | Specific number of concurrent items |
+
+**Item Access**: Use `${item}` to reference the current item in commands. Each iteration runs in a clean environment with failures isolated to individual items.
 
 ---
 
@@ -570,55 +751,71 @@ This example demonstrates parallel iteration over work items with different inpu
 
 This example demonstrates the `write_file` command for generating files during workflow execution.
 
-**Configuration Details** (from src/config/command.rs:WriteFileConfig):
+=== "Plain Text"
 
-```yaml
-# Write plain text file
-- write_file:
-    path: "reports/summary.txt"
-    content: |
-      Workflow Summary
-      ================
-      Project: ${PROJECT_NAME}
-      Completed: ${map.successful}/${map.total} items
-      Duration: ${workflow.duration}
-    format: text
-    create_dirs: true  # Create parent directories if needed
+    ```yaml
+    # Write plain text file
+    - write_file:
+        path: "reports/summary.txt"
+        content: |
+          Workflow Summary
+          ================
+          Project: ${PROJECT_NAME}
+          Completed: ${map.successful}/${map.total} items
+          Duration: ${workflow.duration}
+        format: text
+        create_dirs: true  # Create parent directories if needed
+    ```
 
-# Write JSON file with validation
-- write_file:
-    path: "config/generated.json"
-    content: |
-      {
-        "version": "${VERSION}",
-        "timestamp": "${timestamp}",
-        "items_processed": ${map.total}
-      }
-    format: json  # Validates JSON syntax and pretty-prints
-    mode: "0644"
+=== "JSON"
 
-# Write YAML configuration
-- write_file:
-    path: "config/deploy.yml"
-    content: |
-      environment: ${DEPLOY_ENV}
-      version: ${VERSION}
-      features:
-        - feature1
-        - feature2
-    format: yaml  # Validates YAML syntax and formats
-    create_dirs: true
-```
+    ```yaml
+    # Write JSON file with validation
+    - write_file:
+        path: "config/generated.json"
+        content: |
+          {
+            "version": "${VERSION}",
+            "timestamp": "${timestamp}",
+            "items_processed": ${map.total}
+          }
+        format: json  # Validates JSON syntax and pretty-prints
+        mode: "0644"
+    ```
 
-**WriteFileConfig Structure**:
-- `path: String` - File path (supports variable interpolation)
-- `content: String` - Content to write (supports variable interpolation)
-- `format: WriteFileFormat` - Output format (default: `text`)
-  - `text` - Plain text (no processing)
-  - `json` - JSON with validation and pretty-printing
-  - `yaml` - YAML with validation and formatting
-- `mode: String` - File permissions in octal format (default: `"0644"`)
-- `create_dirs: bool` - Create parent directories (default: false)
+=== "YAML"
+
+    ```yaml
+    # Write YAML configuration
+    - write_file:
+        path: "config/deploy.yml"
+        content: |
+          environment: ${DEPLOY_ENV}
+          version: ${VERSION}
+          features:
+            - feature1
+            - feature2
+        format: yaml  # Validates YAML syntax and formats
+        create_dirs: true
+    ```
+
+**WriteFileConfig Structure** (from `src/config/command.rs`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | `String` | File path (supports variable interpolation) |
+| `content` | `String` | Content to write (supports variable interpolation) |
+| `format` | `WriteFileFormat` | Output format (default: `text`) |
+| `mode` | `String` | File permissions in octal format (default: `"0644"`) |
+| `create_dirs` | `bool` | Create parent directories (default: `false`) |
+
+**WriteFileFormat Options**:
+
+| Format | Description |
+|--------|-------------|
+| `text` | Plain text (no processing) |
+| `json` | JSON with validation and pretty-printing |
+| `yaml` | YAML with validation and formatting |
 
 ---
 
@@ -626,9 +823,30 @@ This example demonstrates the `write_file` command for generating files during w
 
 This example demonstrates timeout configuration at multiple levels.
 
-**Configuration Details**:
+!!! warning "Timeout Hierarchy"
+    The most specific timeout wins. Command-level timeouts override agent-level timeouts, which override phase-level timeouts.
 
-```yaml
+```mermaid
+graph TD
+    Global["Global Timeout
+    (Entire Workflow)"] --> Phase["Phase Timeout
+    (Setup, Reduce, Merge)"]
+    Phase --> Agent["Agent Timeout
+    (Per MapReduce Agent)"]
+    Agent --> Command["Command Timeout
+    (Per Command)"]
+
+    Command -->|"Most Specific Wins"| Final["Effective
+    Timeout"]
+
+    style Global fill:#e1f5ff
+    style Phase fill:#e8f5e9
+    style Agent fill:#fff3e0
+    style Command fill:#f3e5f5
+    style Final fill:#e8e8e8
+```
+
+```yaml title="Timeout Configuration Example"
 # Global timeout for workflow
 timeout: 3600  # 1 hour for entire workflow
 
@@ -647,10 +865,6 @@ map:
     - claude: "/process ${item}"
       timeout: 180  # 3 minutes per command
   agent_timeout_secs: 600  # 10 minutes total per agent
-  timeout_config:
-    total_timeout_secs: 3600     # Max time for entire map phase
-    idle_timeout_secs: 300       # Kill agent if idle for 5 minutes
-    per_item_timeout_secs: 180   # Max time per work item
 
 merge:
   commands:
@@ -658,11 +872,23 @@ merge:
   timeout: 600  # 10 minutes for merge phase
 ```
 
+**TimeoutConfig Structure** (from `src/cook/execution/mapreduce/timeout.rs`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_timeout_secs` | `Option<u64>` | Global agent timeout in seconds (default: `600`) |
+| `command_timeouts` | `HashMap<String, u64>` | Per-command timeout overrides |
+| `timeout_policy` | `TimeoutPolicy` | `PerAgent` (entire execution) or `PerCommand` |
+| `cleanup_grace_period_secs` | `u64` | Grace period for cleanup after timeout (default: `30`) |
+| `timeout_action` | `TimeoutAction` | Action on timeout: `Dlq`, `Retry`, `Skip` (default: `Dlq`) |
+| `enable_monitoring` | `bool` | Enable timeout monitoring and metrics (default: `true`) |
+
 **Timeout Hierarchy** (most specific wins):
-1. Command-level `timeout:` - Per command
-2. Agent-level `agent_timeout_secs:` - Per MapReduce agent
-3. Phase-level `timeout:` - Per workflow phase (setup, reduce, merge)
-4. Global-level `timeout:` - Entire workflow
+
+1. **Command-level** `timeout:` - Per command
+2. **Agent-level** `agent_timeout_secs:` - Per MapReduce agent
+3. **Phase-level** `timeout:` - Per workflow phase (setup, reduce, merge)
+4. **Global-level** `timeout:` - Entire workflow
 
 ---
 

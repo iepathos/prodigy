@@ -4,7 +4,8 @@ This guide walks you through setting up your first automated documentation workf
 
 **Time Required**: 15-20 minutes
 
-**Prerequisites**: Ensure you have [installed Prodigy](../installation.md) before proceeding.
+!!! info "Prerequisites"
+    Ensure you have [installed Prodigy](../installation.md) before proceeding.
 
 ---
 
@@ -27,11 +28,10 @@ ls -la
 ```
 
 **What this creates:**
+
 - `book.toml`: Configuration file for mdBook (title, authors, build settings)
 - `src/SUMMARY.md`: Defines your book's structure and navigation
 - `src/chapter_1.md`: Example chapter (you can delete or modify this)
-
-**Source**: book/book.toml:1-43, book/src/SUMMARY.md:1-122
 
 ---
 
@@ -39,7 +39,7 @@ ls -la
 
 Edit `book/book.toml` to customize your book settings:
 
-```toml
+```toml title="book/book.toml"
 [book]
 title = "My Project Documentation"
 authors = ["Your Name <you@example.com>"]
@@ -61,12 +61,10 @@ git-repository-icon = "fa-github"
 enable = true
 ```
 
-**Key settings:**
-- `title`: Your documentation title
-- `git-repository-url`: Link to your source repository
-- `create-missing = false`: Prevents mdBook from auto-creating missing chapters (Prodigy will manage this)
-
-**Source**: book/book.toml:1-43
+!!! tip "Key Settings"
+    - `title`: Your documentation title
+    - `git-repository-url`: Link to your source repository
+    - `create-missing = false`: Prevents mdBook from auto-creating missing chapters (Prodigy will manage this)
 
 ---
 
@@ -74,7 +72,7 @@ enable = true
 
 Edit `book/src/SUMMARY.md` to define your book's chapters:
 
-```markdown
+```markdown title="book/src/SUMMARY.md"
 # Summary
 
 [Introduction](intro.md)
@@ -91,13 +89,11 @@ Edit `book/src/SUMMARY.md` to define your book's chapters:
 - [Troubleshooting](troubleshooting.md)
 ```
 
-**Tips:**
-- Start with 3-5 core chapters
-- Use simple, descriptive chapter names
-- Group related topics under section headers
-- You can add more chapters later
-
-**Source**: book/src/SUMMARY.md:1-122
+!!! tip "Best Practices"
+    - Start with 3-5 core chapters
+    - Use simple, descriptive chapter names
+    - Group related topics under section headers
+    - You can add more chapters later
 
 ---
 
@@ -154,12 +150,13 @@ EOF
 ```
 
 **Configuration Explained:**
-- `analysis_targets`: Defines which source files to analyze and what features to extract
-- `area`: Name for this analysis area (maps to documentation chapters)
-- `source_files`: Paths to analyze (can be files or directories)
-- `feature_categories`: What types of features to document
 
-**Source**: .prodigy/book-config.json:1-220
+| Field | Description |
+|-------|-------------|
+| `analysis_targets` | Defines which source files to analyze and what features to extract |
+| `area` | Name for this analysis area (maps to documentation chapters) |
+| `source_files` | Paths to analyze (can be files or directories) |
+| `feature_categories` | What types of features to document |
 
 ### 4b. Create Chapter Definitions
 
@@ -200,13 +197,14 @@ EOF
 ```
 
 **Chapter Definition Explained:**
-- `id`: Unique identifier for the chapter
-- `type`: "single-file" (one markdown file) or "multi-subsection" (chapter with subsections)
-- `file`: Path to the markdown file
-- `topics`: What this chapter should cover
-- `validation`: Instructions for verifying documentation quality
 
-**Source**: workflows/data/prodigy-chapters.json:1-1262
+| Field | Description |
+|-------|-------------|
+| `id` | Unique identifier for the chapter |
+| `type` | `single-file` (one markdown file) or `multi-subsection` (chapter with subsections) |
+| `file` | Path to the markdown file |
+| `topics` | What this chapter should cover |
+| `validation` | Instructions for verifying documentation quality |
 
 ---
 
@@ -262,22 +260,45 @@ reduce:
 error_policy:
   on_item_failure: dlq
   continue_on_failure: true
-
-# Merge workflow
-merge:
-  commands:
-    - shell: "git fetch origin"
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 EOF
 ```
 
 **Workflow Structure:**
-- **Setup Phase**: Analyzes your codebase and detects documentation gaps
-- **Map Phase**: Processes each chapter in parallel to fix drift
-- **Reduce Phase**: Builds the complete book and validates
-- **Merge Phase**: Integrates changes back to your branch
 
-**Source**: workflows/book-docs-drift.yml:1-101
+```mermaid
+flowchart LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        S1[Analyze Codebase] --> S2[Build Feature Inventory] --> S3[Detect Gaps]
+    end
+
+    subgraph Map["Map Phase"]
+        direction TB
+        M1["Agent 1<br/>Chapter A"]
+        M2["Agent 2<br/>Chapter B"]
+        M3["Agent N<br/>Chapter N"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1[Build Book] --> R2[Validate Links] --> R3[Cleanup]
+    end
+
+    Setup --> Map --> Reduce
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+```
+
+| Phase | Purpose |
+|-------|---------|
+| **Setup** | Analyzes your codebase and detects documentation gaps |
+| **Map** | Processes each chapter in parallel to fix drift |
+| **Reduce** | Builds the complete book and validates |
+
+!!! note "Advanced Workflow Features"
+    The actual Prodigy workflow includes additional steps for automatic chapter splitting and structure optimization. These steps (`/prodigy-analyze-chapter-structure` and `/prodigy-split-oversized-chapters`) are useful for large documentation projects where chapters may grow too long. See [Advanced Configuration](advanced-configuration.md) for details.
 
 ---
 
@@ -289,18 +310,33 @@ Initialize the Claude commands that Prodigy uses for documentation generation:
 prodigy init
 ```
 
-This creates the `.claude/commands/` directory with commands like:
-- `/prodigy-analyze-features-for-book` - Analyzes codebase for features
-- `/prodigy-detect-documentation-gaps` - Finds missing documentation
-- `/prodigy-fix-subsection-drift` - Fixes outdated documentation
-- And others needed by the workflow
+**Expected output:**
 
-**Verify commands were created:**
-```bash
-ls -la .claude/commands/ | grep "prodigy-.*book\|doc\|gap"
+```
+Initializing Prodigy commands...
+✓ Created .claude/commands/prodigy-analyze-features-for-book.md
+✓ Created .claude/commands/prodigy-detect-documentation-gaps.md
+✓ Created .claude/commands/prodigy-analyze-subsection-drift.md
+✓ Created .claude/commands/prodigy-fix-subsection-drift.md
+✓ Created .claude/commands/prodigy-fix-book-build-errors.md
+...
+✓ Initialized 15 Prodigy commands
 ```
 
-**Source**: .claude/commands/prodigy-analyze-features-for-book.md:1-80, .claude/commands/prodigy-detect-documentation-gaps.md:1-80
+**Verify commands were created:**
+
+```bash
+ls -la .claude/commands/ | grep "prodigy-"
+```
+
+!!! tip "Required Commands for Book Workflow"
+    The book documentation workflow requires these core commands:
+
+    - `/prodigy-analyze-features-for-book` - Analyzes codebase for features
+    - `/prodigy-detect-documentation-gaps` - Finds missing documentation
+    - `/prodigy-analyze-subsection-drift` - Detects outdated content
+    - `/prodigy-fix-subsection-drift` - Fixes outdated documentation
+    - `/prodigy-fix-book-build-errors` - Resolves build issues
 
 ---
 
@@ -313,28 +349,30 @@ prodigy run workflows/book-docs-drift.yml
 ```
 
 **What happens:**
-1. **Setup Phase** (~2-5 minutes):
-   - Analyzes your source code
-   - Builds feature inventory
-   - Detects documentation gaps
-   - Creates stub files for missing chapters
 
-2. **Map Phase** (~5-10 minutes):
-   - Processes each chapter in parallel
-   - Fixes documentation drift
-   - Adds code examples from your source
-   - Validates quality
+=== "Setup Phase (~2-5 min)"
+    - Analyzes your source code
+    - Builds feature inventory
+    - Detects documentation gaps
+    - Creates stub files for missing chapters
 
-3. **Reduce Phase** (~1-2 minutes):
-   - Builds complete book with `mdbook build`
-   - Validates all links work
-   - Cleans up temporary files
+=== "Map Phase (~5-10 min)"
+    - Processes each chapter in parallel
+    - Fixes documentation drift
+    - Adds code examples from your source
+    - Validates quality
 
-4. **Merge Prompt**:
-   - Asks if you want to merge changes to your branch
-   - Type `y` to accept, `n` to review first
+=== "Reduce Phase (~1-2 min)"
+    - Builds complete book with `mdbook build`
+    - Validates all links work
+    - Cleans up temporary files
+
+=== "Merge Prompt"
+    - Asks if you want to merge changes to your branch
+    - Type `y` to accept, `n` to review first
 
 **Example output:**
+
 ```
 🔧 Setup Phase
 ✓ Created .prodigy/book-analysis/
@@ -371,13 +409,16 @@ mdbook serve
 # Open in browser: http://localhost:3000
 ```
 
-**What to review:**
-- Check that all chapters have content
-- Verify code examples are accurate
-- Ensure links between chapters work
-- Validate examples match your codebase
+!!! warning "Review Before Merging"
+    Always review the generated documentation before merging to your main branch. Check that:
+
+    - All chapters have appropriate content
+    - Code examples are accurate and tested
+    - Links between chapters work
+    - Examples match your actual codebase
 
 **If you need to make changes:**
+
 ```bash
 # Edit any chapter
 vim book/src/getting-started.md
@@ -406,13 +447,17 @@ prodigy run workflows/book-docs-drift.yml
 # Schedule in CI/CD (see GitHub Actions Integration)
 ```
 
+!!! tip "Recommended Frequency"
+    Run documentation drift detection after significant feature additions or refactoring. For active projects, weekly runs or CI integration on the main branch works well.
+
 ### Expand Your Documentation
 
 Add more chapters to `workflows/data/book-chapters.json`:
-- Add new `analysis_targets` in `.prodigy/book-config.json`
-- Define new chapters in `book-chapters.json`
-- Update `book/src/SUMMARY.md` with new chapters
-- Re-run the workflow
+
+1. Add new `analysis_targets` in `.prodigy/book-config.json`
+2. Define new chapters in `book-chapters.json`
+3. Update `book/src/SUMMARY.md` with new chapters
+4. Re-run the workflow
 
 ### Customize the Workflow
 
@@ -423,6 +468,7 @@ Add more chapters to `workflows/data/book-chapters.json`:
 ### Integrate with CI/CD
 
 Automate documentation updates in your CI/CD pipeline:
+
 - See [GitHub Actions Integration](github-actions-integration.md)
 - Run on every PR or nightly
 - Deploy to GitHub Pages or docs hosting
@@ -433,18 +479,22 @@ Automate documentation updates in your CI/CD pipeline:
 
 ### Workflow fails in setup phase
 
-**Symptoms**: Error during feature analysis
+!!! failure "Symptoms"
+    Error during feature analysis
 
-**Fixes**:
+**Fixes:**
+
 - Verify `analysis_targets` in `.prodigy/book-config.json` point to existing files
 - Check that source files exist and are readable
 - Ensure Claude Code CLI is authenticated
 
 ### mdBook build fails
 
-**Symptoms**: Error in reduce phase when building book
+!!! failure "Symptoms"
+    Error in reduce phase when building book
 
-**Fixes**:
+**Fixes:**
+
 - Verify `book/book.toml` is valid TOML
 - Check `book/src/SUMMARY.md` references only existing files
 - Ensure all linked chapters exist
@@ -452,18 +502,22 @@ Automate documentation updates in your CI/CD pipeline:
 
 ### No chapters were updated
 
-**Symptoms**: Workflow completes but no changes made
+!!! failure "Symptoms"
+    Workflow completes but no changes made
 
-**Fixes**:
+**Fixes:**
+
 - Check that chapters in `book-chapters.json` exist in your repo
 - Verify `analysis_targets` match your project structure
 - Ensure chapters actually need updates (no drift = no changes)
 
 ### Agent failures in map phase
 
-**Symptoms**: Some chapters fail to update, sent to DLQ
+!!! failure "Symptoms"
+    Some chapters fail to update, sent to DLQ
 
-**Fixes**:
+**Fixes:**
+
 - Review DLQ: `prodigy dlq show <job_id>`
 - Check Claude JSON logs for detailed errors
 - Retry failed items: `prodigy dlq retry <job_id>`
@@ -474,12 +528,13 @@ Automate documentation updates in your CI/CD pipeline:
 ## Summary
 
 You've learned how to:
-- ✅ Initialize an mdBook structure
-- ✅ Configure Prodigy to analyze your codebase
-- ✅ Define documentation chapters and structure
-- ✅ Create a MapReduce workflow for documentation
-- ✅ Run the workflow to generate docs automatically
-- ✅ Review and build your documentation
+
+- [x] Initialize an mdBook structure
+- [x] Configure Prodigy to analyze your codebase
+- [x] Define documentation chapters and structure
+- [x] Create a MapReduce workflow for documentation
+- [x] Run the workflow to generate docs automatically
+- [x] Review and build your documentation
 
 Your documentation is now linked to your code and can be kept up-to-date automatically!
 

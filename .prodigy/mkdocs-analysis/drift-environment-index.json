@@ -1,0 +1,105 @@
+{
+  "item_type": "page",
+  "page_id": "environment-index",
+  "page_title": "Environment Configuration",
+  "page_file": "docs/environment/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is well-structured and accurate for core concepts, but has a markdown syntax issue causing broken rendering. Good coverage of variable interpolation patterns with practical examples.",
+  "issues": [
+    {
+      "type": "syntax_error",
+      "severity": "high",
+      "section": "Escaping Variables (lines 186-228)",
+      "description": "Markdown code block is broken - the code fence closes at line 199 but additional code examples appear as markdown list items (lines 200-228) instead of properly formatted code. This causes rendering issues in MkDocs.",
+      "current_content": "```yaml\ncommands:\n  # Using single quotes (no interpolation)\n  - shell: 'echo \"Price: $100\"'\n  ...\n```\n\n# Both acceptable\n- shell: \"echo Port: $PORT\"\n- shell: \"echo Port: ${PORT}\"\n```",
+      "should_be": "The content after line 199 should either be in a new code block with proper fencing, or restructured with explanatory text between examples.",
+      "fix_suggestion": "Restructure lines 200-228 by: (1) Adding a heading like '### Quick Comparison' before the examples, (2) Properly fencing each code example with ```yaml ... ```, (3) Adding explanatory text between the 'Simple case' and 'Complex case' examples.",
+      "source_reference": "docs/environment/index.md:186-228"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "File paths (lines 166-169)",
+      "description": "The write_file example shows basic usage but doesn't mention all supported options",
+      "current_content": "- write_file:\n    path: ${OUTPUT_DIR}/${TIMESTAMP}/report.json\n    content: \"...\"",
+      "should_be": "Could note that write_file also supports 'format' (text/json/yaml), 'mode' (file permissions), and 'create_dirs' options",
+      "fix_suggestion": "Add a brief note mentioning additional write_file options, or link to a command reference page with complete documentation.",
+      "source_reference": "src/config/command.rs:WriteFileConfig (lines 279-298)"
+    },
+    {
+      "type": "missing_visual_enhancement",
+      "severity": "low",
+      "section": "Architecture Overview (lines 5-23)",
+      "description": "The internal vs user-facing capability distinction is well explained but could benefit from MkDocs Material admonitions for visual clarity",
+      "current_content": "Plain text explanation of EnvValue variants (Static, Dynamic, Conditional)",
+      "should_be": "Use admonition blocks to visually distinguish internal-only features",
+      "fix_suggestion": "Add an info admonition (e.g., !!! info 'Internal Feature') around the Dynamic and Conditional explanation to make it clear these are not user-facing YAML features.",
+      "source_reference": "src/cook/environment/config.rs:EnvValue enum (lines 39-48)"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent explanation of $VAR vs ${VAR} syntax with clear use case guidance",
+    "Practical examples showing when bracketed syntax is required (adjacent text, paths, URLs)",
+    "Good documentation of shell escaping techniques for literal $ characters",
+    "Clear architecture overview distinguishing WorkflowConfig from EnvironmentConfig",
+    "Accurate documentation of env_files, secrets, and profiles fields matching WorkflowConfig struct",
+    "Comprehensive MapReduce configuration example showing variable interpolation with max_parallel and item fields",
+    "All internal subsection links are valid and point to existing pages (7 subsection links verified)",
+    "All external chapter links (mapreduce, variables, configuration) are valid (4 cross-references verified)",
+    "Good coverage of interpolation in different contexts (shell, claude, file paths, MapReduce)"
+  ],
+  "improvement_suggestions": [
+    "Fix the broken markdown code block structure in the 'Escaping Variables' section (lines 200-228)",
+    "Add MkDocs Material admonitions to highlight internal-only features like Dynamic and Conditional env values",
+    "Consider adding a quick reference table summarizing $VAR vs ${VAR} usage rules",
+    "Could add a note about the SecretProvider types available (Env, File, Vault, Aws, Custom) from src/cook/environment/config.rs:SecretProvider",
+    "Consider adding a diagram showing the relationship between WorkflowConfig env fields and EnvironmentConfig runtime"
+  ],
+  "cross_references": [
+    "mapreduce-environment-variables",
+    "environment-files",
+    "secrets-management",
+    "environment-profiles",
+    "per-command-environment-overrides",
+    "environment-precedence",
+    "common-patterns"
+  ],
+  "link_validation": {
+    "total_internal_links": 11,
+    "broken_links": 0,
+    "valid_links": [
+      "mapreduce-environment-variables.md",
+      "environment-files.md",
+      "secrets-management.md",
+      "environment-profiles.md",
+      "per-command-environment-overrides.md",
+      "environment-precedence.md",
+      "common-patterns.md",
+      "../mapreduce/index.md",
+      "../variables/index.md",
+      "../configuration/index.md",
+      "../configuration/workflow-configuration.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Global environment variables",
+      "Variable interpolation syntax ($VAR vs ${VAR})",
+      "Shell escaping for literal $ characters",
+      "WorkflowConfig vs EnvironmentConfig architecture",
+      "Environment inheritance",
+      "Context-specific interpolation (shell, claude, paths, MapReduce)"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "feature_mappings_used": [
+      "environment_management.global_env",
+      "environment_management.secrets",
+      "environment_management.profiles",
+      "environment_management.env_files",
+      "variable_system.interpolation"
+    ]
+  }
+}

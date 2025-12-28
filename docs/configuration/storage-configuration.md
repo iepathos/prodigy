@@ -1,35 +1,73 @@
 ## Storage Configuration
 
-Storage configuration controls where and how Prodigy stores data including events, state, DLQ (Dead Letter Queue), and worktrees. By default, Prodigy uses **global storage** (`~/.prodigy/`) to enable cross-worktree data sharing and centralized management.
+Storage configuration controls where and how Prodigy stores data including events, state, DLQ (Dead Letter Queue), sessions, and worktrees. By default, Prodigy uses **global storage** (`~/.prodigy/`) to enable cross-worktree data sharing and centralized management.
+
+```mermaid
+graph LR
+    subgraph GlobalStorage["~/.prodigy/ (Global Storage)"]
+        direction TB
+        Sessions["sessions/
+        Session state"]
+        Events["events/{repo}/
+        Event logs"]
+        DLQ["dlq/{repo}/
+        Failed items"]
+        State["state/{repo}/
+        Checkpoints"]
+        Worktrees["worktrees/{repo}/
+        Git worktrees"]
+    end
+
+    Workflow1["Workflow 1"] --> GlobalStorage
+    Workflow2["Workflow 2"] --> GlobalStorage
+    Workflow3["Workflow N"] --> GlobalStorage
+
+    GlobalStorage --> Monitor["Centralized
+    Monitoring"]
+    GlobalStorage --> Resume["Resume
+    Operations"]
+
+    style GlobalStorage fill:#e1f5ff
+    style Monitor fill:#e8f5e9
+    style Resume fill:#e8f5e9
+```
+
+**Figure**: Global storage architecture showing how multiple workflows share centralized storage for events, state, and worktrees.
+
+!!! tip "Recommended Configuration"
+    Global storage (`use_global: true`) is the default and strongly recommended. It enables cross-worktree event aggregation, persistent state across sessions, and centralized monitoring.
 
 ### Storage Backend Types
 
-#### File Storage (Default)
+=== "File Storage (Default)"
 
-Stores data as files in the filesystem. This is the recommended backend for production use.
+    Stores data as files in the filesystem. This is the recommended backend for production use.
 
-```yaml
-storage:
-  backend: file
-  backend_config:
-    base_dir: /Users/username/.prodigy
-    use_global: true  # Default: use global storage
-    enable_file_locks: true
-    max_file_size: 104857600  # 100MB
-    enable_compression: false
-```
+    ```yaml
+    storage:
+      backend: file
+      backend_config:
+        base_dir: /Users/username/.prodigy
+        use_global: true  # Default: use global storage
+        enable_file_locks: true
+        max_file_size: 104857600  # 100MB
+        enable_compression: false
+    ```
 
-#### Memory Storage
+=== "Memory Storage"
 
-Stores data in memory. Useful for testing but data is lost when the process exits.
+    Stores data in memory. Useful for testing but data is lost when the process exits.
 
-```yaml
-storage:
-  backend: memory
-  backend_config:
-    max_memory: 104857600  # 100MB
-    persist_to_disk: false
-```
+    ```yaml
+    storage:
+      backend: memory
+      backend_config:
+        max_memory: 104857600  # 100MB (appropriate for testing)
+        persist_to_disk: false
+    ```
+
+    !!! note "Testing Only"
+        Memory storage is designed for testing scenarios. The 100MB default is appropriate for test suites but all data is lost when the process exits.
 
 ### File Storage Configuration
 
@@ -122,6 +160,9 @@ storage:
 
 ### Connection and Performance
 
+!!! tip "When to Tune These Settings"
+    Most users can use the defaults. Consider adjusting these settings only when running high-concurrency MapReduce workflows with 50+ parallel agents, or when you observe storage-related bottlenecks in your logs.
+
 #### `connection_pool_size`
 
 **Type**: Integer
@@ -161,6 +202,35 @@ storage:
 ### Retry Policy
 
 Configure automatic retries for transient failures:
+
+```mermaid
+graph LR
+    Op["Storage
+    Operation"] --> Fail1{"Fails?"}
+    Fail1 -->|No| Success1["Success"]
+    Fail1 -->|Yes| Wait1["Wait 1s"]
+    Wait1 --> Retry1["Retry 1"]
+    Retry1 --> Fail2{"Fails?"}
+    Fail2 -->|No| Success2["Success"]
+    Fail2 -->|Yes| Wait2["Wait 2s"]
+    Wait2 --> Retry2["Retry 2"]
+    Retry2 --> Fail3{"Fails?"}
+    Fail3 -->|No| Success3["Success"]
+    Fail3 -->|Yes| Wait3["Wait 4s"]
+    Wait3 --> Retry3["Retry 3"]
+    Retry3 --> Final{"Fails?"}
+    Final -->|No| Success4["Success"]
+    Final -->|Yes| Error["Error
+    (max retries)"]
+
+    style Success1 fill:#e8f5e9
+    style Success2 fill:#e8f5e9
+    style Success3 fill:#e8f5e9
+    style Success4 fill:#e8f5e9
+    style Error fill:#ffebee
+```
+
+**Figure**: Exponential backoff retry flow with 2x multiplier (1s → 2s → 4s delays).
 
 ```yaml
 storage:
@@ -251,26 +321,27 @@ Cache implementation type (currently only memory is supported).
 
 ### Complete Example
 
-```yaml
+```yaml title="workflow.yml"
+# Source: src/storage/config.rs - StorageConfig struct
 storage:
-  backend: file
-  connection_pool_size: 10
+  backend: file                   # (1)!
+  connection_pool_size: 10        # (2)!
   timeout: 30s
   enable_locking: true
   enable_cache: false
 
   backend_config:
     base_dir: /Users/username/.prodigy
-    use_global: true
+    use_global: true              # (3)!
     enable_file_locks: true
-    max_file_size: 104857600
+    max_file_size: 104857600      # 100MB
     enable_compression: false
 
   retry_policy:
     max_retries: 3
     initial_delay: 1s
     max_delay: 30s
-    backoff_multiplier: 2.0
+    backoff_multiplier: 2.0       # (4)!
     jitter: true
 
   cache_config:
@@ -278,6 +349,11 @@ storage:
     ttl: 1h
     cache_type: memory
 ```
+
+1. Backend type: `file` (default, recommended) or `memory` (testing only)
+2. Connection pool for future database backend support
+3. **Strongly recommended**: Enables cross-worktree data sharing
+4. Each retry waits 2x longer than the previous (exponential backoff)
 
 ### Environment Variable Configuration
 
@@ -289,13 +365,19 @@ export PRODIGY_STORAGE_TYPE=file
 
 # Base directory path
 export PRODIGY_STORAGE_BASE_PATH=/custom/path
-
-# Alternative variable names (deprecated)
-export PRODIGY_STORAGE_DIR=/custom/path
-export PRODIGY_STORAGE_PATH=/custom/path
 ```
 
-Environment variables override file-based configuration. See [Environment Variables](environment-variables.md) for complete list.
+!!! warning "Deprecated Variables"
+    The following variable names are deprecated and will be removed in a future version:
+
+    ```bash
+    # Use PRODIGY_STORAGE_BASE_PATH instead
+    export PRODIGY_STORAGE_DIR=/custom/path    # deprecated
+    export PRODIGY_STORAGE_PATH=/custom/path   # deprecated
+    ```
+
+!!! note "Override Behavior"
+    Environment variables override file-based configuration. See [Environment Variables](environment-variables.md) for the complete list of available variables.
 
 ### Storage Directory Structure
 
@@ -303,6 +385,11 @@ With global storage enabled (default):
 
 ```
 ~/.prodigy/
+├── sessions/                              # Unified session storage
+│   └── {session_id}.json                  # Session state and metadata
+├── logs/                                  # Repository-specific logs
+│   └── {repo_name}/
+│       └── *.log
 ├── events/
 │   └── {repo_name}/
 │       └── {job_id}/
@@ -318,7 +405,7 @@ With global storage enabled (default):
 │               └── {job_id}/
 │                   ├── setup-checkpoint.json
 │                   ├── map-checkpoint-{timestamp}.json
-│                   └── reduce-checkpoint-v1-{timestamp}.json
+│                   └── reduce-checkpoint-v{version}-{timestamp}.json
 ├── worktrees/
 │   └── {repo_name}/
 │       └── session-{session_id}/
@@ -326,6 +413,9 @@ With global storage enabled (default):
     └── {repo_name}/
         └── {job_id}.json
 ```
+
+!!! info "Checkpoint Versioning"
+    Reduce checkpoint files include a version number (`v1`, `v2`, etc.) in the filename for forward compatibility. This allows Prodigy to evolve the checkpoint format while maintaining the ability to read older checkpoints during resume operations.
 
 ### Migration from Local Storage
 
@@ -339,11 +429,31 @@ If you have existing local storage (`.prodigy/` in project directory), migrate t
 
 ### Troubleshooting
 
-**Issue**: "Failed to acquire storage lock"
-**Solution**: Check for stuck processes, wait for lock release, or disable locking temporarily
+??? question "Failed to acquire storage lock"
+    **Cause**: Another Prodigy process is holding the lock, or a previous process crashed without releasing it.
 
-**Issue**: "Storage directory not writable"
-**Solution**: Check permissions on `~/.prodigy` directory
+    **Solutions**:
 
-**Issue**: "Disk space full"
-**Solution**: Clean up old events/DLQ data, increase `max_file_size`, enable compression
+    1. Check for stuck Prodigy processes: `ps aux | grep prodigy`
+    2. Wait for the lock to be released (locks have automatic timeout)
+    3. Temporarily disable locking: `enable_locking: false`
+    4. Remove stale lock files: `rm ~/.prodigy/resume_locks/*.lock`
+
+??? question "Storage directory not writable"
+    **Cause**: Insufficient permissions on the storage directory.
+
+    **Solutions**:
+
+    1. Check directory ownership: `ls -la ~/.prodigy`
+    2. Fix permissions: `chmod 755 ~/.prodigy`
+    3. Ensure parent directories exist: `mkdir -p ~/.prodigy`
+
+??? question "Disk space full"
+    **Cause**: Events, DLQ data, or checkpoints have accumulated.
+
+    **Solutions**:
+
+    1. Clean up old events: `rm -rf ~/.prodigy/events/{repo_name}/old_job_id`
+    2. Purge processed DLQ items: `prodigy dlq purge <job_id>`
+    3. Increase file rotation size: `max_file_size: 209715200`
+    4. Enable compression: `enable_compression: true`

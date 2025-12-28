@@ -1,0 +1,63 @@
+{
+  "item_type": "page",
+  "page_id": "examples",
+  "page_title": "examples",
+  "page_file": "docs/examples.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Excellent comprehensive examples page with accurate source references, validated cross-links, and effective use of MkDocs Material features",
+  "issues": [],
+  "positive_aspects": [
+    "Comprehensive quick reference table mapping use cases to examples with key features",
+    "Well-organized progression from simple to advanced examples (13 examples total)",
+    "Excellent use of MkDocs Material features: admonitions (!!! example, note, tip, warning), code annotations, tabbed content (===)",
+    "Accurate source code references verified against actual implementation (CircuitBreakerConfig at error_policy.rs:46-88, BackoffStrategy at retry_v2.rs:70-98)",
+    "Clear visual diagrams using Mermaid (MapReduce flow diagram, circuit breaker state machine)",
+    "Detailed explanations of complex features (validation lifecycle, JSONPath patterns, backoff strategies)",
+    "All internal cross-references are valid (workflow-basics/error-handling.md, mapreduce/backoff-strategies.md)",
+    "Good coverage of both standard and MapReduce workflow modes",
+    "Version verification header noting last verification date and commit",
+    "Effective use of code annotations (numbered callouts) for explaining YAML configuration",
+    "Comprehensive troubleshooting sections for MapReduce cleanup and debugging",
+    "Clear documentation of preview features (workflow composition) with current status and workarounds"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a summary/conclusion section at the end to tie examples together",
+    "Could add more cross-references to the detailed documentation pages for each feature area",
+    "Example 8 (write_file) could benefit from a brief explanation of when to use each format option"
+  ],
+  "cross_references": [
+    "workflow-basics/error-handling",
+    "mapreduce/backoff-strategies"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "build and test workflows",
+      "foreach iteration",
+      "parallel code review with MapReduce",
+      "conditional deployment",
+      "multi-step validation",
+      "environment configuration",
+      "MapReduce with error handling and DLQ",
+      "configuration file generation with write_file",
+      "advanced features (nested handlers, git context variables)",
+      "circuit breaker for external services",
+      "retry configuration with backoff strategies",
+      "workflow composition (preview)",
+      "custom merge workflows"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "examples_count": 13,
+    "visual_features_used": [
+      "mermaid diagrams",
+      "code annotations",
+      "admonitions (example, note, tip, warning)",
+      "tabbed content",
+      "quick reference table"
+    ],
+    "source_references_validated": true,
+    "cross_references_validated": true
+  }
+}

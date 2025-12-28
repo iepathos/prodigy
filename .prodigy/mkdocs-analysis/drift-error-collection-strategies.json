@@ -1,0 +1,87 @@
+{
+  "item_type": "page",
+  "page_id": "error-collection-strategies",
+  "page_title": "error collection strategies",
+  "page_file": "docs/mapreduce/error-collection-strategies.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is well-documented with accurate content. Minor issues with source reference line number and missing MkDocs Material features for an auto-discovered page.",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Batched Strategy",
+      "description": "Source code line number reference is slightly off. Documentation says line 593 but the drain(..) call is on line 594.",
+      "current_content": "(src/cook/workflow/error_policy.rs:593)",
+      "should_be": "(src/cook/workflow/error_policy.rs:594)",
+      "fix_suggestion": "Update the line number reference to point to the actual drain(..) implementation at line 594",
+      "source_reference": "src/cook/workflow/error_policy.rs:594"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall Page",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve readability",
+      "current_content": "Plain markdown without admonitions or callouts",
+      "should_be": "Use admonitions for strategy trade-offs, tips for common use cases",
+      "fix_suggestion": "Add MkDocs Material admonitions: Use 'tip' for recommended strategies, 'warning' for trade-offs, 'info' for implementation details"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent documentation of all three error collection strategies (Aggregate, Immediate, Batched)",
+    "Clear syntax flexibility section explaining both top-level and nested error_policy configurations",
+    "Comprehensive complete example showing error_collection with other error policy features",
+    "Good trade-off explanations for each strategy",
+    "Valid cross-references to Error Handling and Dead Letter Queue pages",
+    "Accurate default behavior documentation (aggregate is default)"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for visual enhancement",
+    "Consider adding a comparison table showing when to use each strategy",
+    "Add a diagram showing the error flow for each strategy",
+    "Include monitoring/debugging tips for each strategy"
+  ],
+  "cross_references": [
+    "workflow-basics/error-handling",
+    "mapreduce/dead-letter-queue-dlq"
+  ],
+  "link_validation": {
+    "total_internal_links": 2,
+    "broken_links": 0,
+    "valid_links": [
+      {
+        "text": "Error Handling",
+        "target": "../workflow-basics/error-handling.md",
+        "status": "valid"
+      },
+      {
+        "text": "Dead Letter Queue",
+        "target": "dead-letter-queue-dlq.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "code_accuracy": {
+    "strategies_verified": true,
+    "enum_values_match": true,
+    "default_behavior_correct": true,
+    "batched_syntax_accurate": true,
+    "notes": [
+      "ErrorCollectionStrategy enum matches documentation: Aggregate (default), Immediate, Batched { size }",
+      "Batched parsing correctly handles 'batched:N' syntax in get_error_policy()",
+      "Both top-level and nested error_policy configurations are properly supported"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:16:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "error collection strategies",
+      "aggregate strategy",
+      "immediate strategy",
+      "batched strategy",
+      "error policy configuration"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "item_type": "page",
+  "page_id": "jitter-for-distributed-systems",
+  "page_title": "jitter for distributed systems",
+  "page_file": "docs/retry-configuration/jitter-for-distributed-systems.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is well-structured with accurate technical content. Minor line number reference corrections needed and some MkDocs Material visual enhancements would improve readability.",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Example Calculations",
+      "description": "Source reference points to lines 654-658, but the test function starts at line 645",
+      "current_content": "**Source**: Test validation in `src/cook/retry_v2.rs:654-658`",
+      "should_be": "**Source**: Test validation in `src/cook/retry_v2.rs:645-658`",
+      "fix_suggestion": "Update line number reference to match actual test location",
+      "source_reference": "src/cook/retry_v2.rs:645"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Page Structure",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve readability",
+      "fix_suggestion": "Add admonitions for tips and warnings, code annotations for YAML examples, and consider adding a visual diagram showing jitter distribution",
+      "details": [
+        "Add 'tip' admonition for recommended jitter_factor values",
+        "Add 'warning' admonition about jittered delays exceeding max_delay",
+        "Consider using code annotations to explain YAML configuration options"
+      ]
+    },
+    {
+      "type": "missing_cross_references",
+      "severity": "low",
+      "section": "Related Content",
+      "description": "Page could benefit from links to related retry configuration pages",
+      "fix_suggestion": "Add 'See Also' section linking to backoff-strategies.md, retry-budget.md, and the main retry-configuration index",
+      "details": [
+        "Link to backoff-strategies.md for complete backoff documentation",
+        "Link to retry-budget.md for budget interaction with jitter",
+        "Link to workflow-level-vs-command-level-retry.md for context on where jitter applies"
+      ]
+    }
+  ],
+  "positive_aspects": [
+    "Accurate explanation of jitter formula and implementation",
+    "Correct source code references for key implementation details",
+    "Clear example calculations demonstrating jitter behavior",
+    "Good use case recommendations for when to use jitter",
+    "Complete YAML configuration examples with multiple backoff strategies",
+    "Explains interaction with max_delay correctly",
+    "Performance impact section addresses common concerns"
+  ],
+  "improvement_suggestions": [
+    "Add a visual diagram showing delay distribution with jitter (bell curve)",
+    "Include an admonition warning that jittered delays can exceed max_delay",
+    "Add 'tip' admonition recommending default jitter_factor of 0.3",
+    "Consider adding Mermaid diagram showing retry timing with jitter",
+    "Add 'See Also' section with cross-references to related pages",
+    "Could add a comparison table showing delay sequences with different jitter factors"
+  ],
+  "cross_references": [
+    "backoff-strategies",
+    "retry-budget",
+    "workflow-level-vs-command-level-retry",
+    "basic-retry-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "jitter configuration",
+      "thundering herd prevention",
+      "distributed systems",
+      "retry randomization"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 0,
+    "broken_links_found": 0,
+    "source_references_validated": {
+      "total": 4,
+      "correct": 3,
+      "incorrect": 1,
+      "details": [
+        {
+          "reference": "src/cook/retry_v2.rs:455-457 (default_jitter_factor)",
+          "status": "correct",
+          "actual_line": 455
+        },
+        {
+          "reference": "src/cook/retry_v2.rs:308-317 (apply_jitter)",
+          "status": "correct",
+          "actual_line": 308
+        },
+        {
+          "reference": "src/cook/retry_v2.rs:234-235 (execution order)",
+          "status": "correct",
+          "actual_line": 235
+        },
+        {
+          "reference": "src/cook/retry_v2.rs:654-658 (test validation)",
+          "status": "incorrect",
+          "actual_line": 645,
+          "suggested_fix": "src/cook/retry_v2.rs:645-658"
+        }
+      ]
+    }
+  }
+}

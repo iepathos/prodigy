@@ -1,0 +1,77 @@
+{
+  "item_type": "section-page",
+  "section_id": "retry-configuration",
+  "section_title": "Retry Configuration",
+  "page_id": "backoff-strategies",
+  "page_title": "backoff strategies",
+  "page_file": "docs/retry-configuration/backoff-strategies.md",
+  "feature_mappings": [
+    "error_handling.retry_configuration"
+  ],
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive with only minor discrepancy in default jitter factor value",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Integration with RetryConfig",
+      "description": "Documentation states jitter is '±25% by default' but actual default jitter_factor is 0.3 (30%)",
+      "current_content": "jitter: true             # Add randomization (±25% by default)",
+      "should_be": "jitter: true             # Add randomization (±30% by default)",
+      "fix_suggestion": "Update comment in Complete Example to reflect actual default jitter_factor of 0.3 (30%)",
+      "source_reference": "src/cook/retry_v2.rs:455-457 (default_jitter_factor returns 0.3)"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source code line references throughout the documentation",
+    "Clear explanation of all five backoff strategies with concrete examples",
+    "Correct YAML syntax for all configuration options",
+    "Proper delay pattern calculations with worked examples",
+    "Helpful 'When to Use' sections for each strategy",
+    "Notes about unit variant shorthand syntax are accurate",
+    "Custom backoff Duration struct format is correctly documented",
+    "Integration section shows how all retry components work together",
+    "All internal cross-references link to existing pages",
+    "ErrorMatcher documentation with built-in and custom pattern examples",
+    "retry_on field fully documented with both timeout and pattern examples"
+  ],
+  "improvement_suggestions": [
+    "Add a visual diagram comparing backoff curves (could use Mermaid or ASCII art)",
+    "Consider adding a table summarizing all strategies with growth patterns",
+    "Could add info box about max_delay capping behavior in each strategy section"
+  ],
+  "cross_references": [
+    "workflow-level-vs-command-level-retry",
+    "jitter-for-distributed-systems",
+    "basic-retry-configuration",
+    "backoff-strategy-comparison",
+    "retry-metrics-and-observability",
+    "conditional-retry-with-error-matchers"
+  ],
+  "link_validation": {
+    "total_internal_links": 6,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:50:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "fixed backoff",
+      "linear backoff",
+      "exponential backoff",
+      "fibonacci backoff",
+      "custom backoff",
+      "retry configuration integration",
+      "error matchers",
+      "jitter"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/retry_v2.rs"
+    ],
+    "line_number_accuracy": "98%",
+    "feature_coverage": "95%"
+  }
+}

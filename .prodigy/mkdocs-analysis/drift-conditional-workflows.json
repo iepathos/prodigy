@@ -1,0 +1,79 @@
+{
+  "item_type": "page",
+  "page_id": "conditional-workflows",
+  "page_title": "conditional workflows",
+  "page_file": "docs/examples/conditional-workflows.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Documentation is mostly accurate with good examples. Minor drift in source references which point to files that have been reorganized. The examples accurately reflect the current implementation.",
+  "issues": [
+    {
+      "type": "outdated_source_reference",
+      "severity": "low",
+      "section": "Example 6: Environment-Aware Workflow",
+      "description": "Source reference mentions 'src/cook/environment/config.rs:12-36' and 'src/cook/environment/config.rs:84-96', but the current file structure has `EnvironmentConfig` at lines 12-36 and `SecretValue` at lines 84-96. The line numbers are approximately correct but should be verified.",
+      "current_content": "**Source**: Environment configuration from src/cook/environment/config.rs:12-36, secret masking from src/cook/environment/config.rs:84-96",
+      "should_be": "Line numbers are approximately correct - EnvironmentConfig (12-36), SecretValue (84-96). Consider removing specific line numbers for maintainability.",
+      "fix_suggestion": "Update source reference to point to types instead of line numbers: 'See `src/cook/environment/config.rs`: `EnvironmentConfig` and `SecretValue` types'",
+      "source_reference": "src/cook/environment/config.rs"
+    },
+    {
+      "type": "missing_visual_enhancement",
+      "severity": "low",
+      "section": "Page Structure",
+      "description": "Page uses basic markdown but could benefit from MkDocs Material visual features for better presentation",
+      "fix_suggestion": "Consider adding: (1) Mermaid diagram showing conditional execution flow, (2) Admonitions for important notes about validation lifecycle, (3) Code annotation callouts for complex YAML sections"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Example 4: Conditional Deployment",
+      "description": "The 'capture_streams' advanced option mentions 'stdout,stderr,exit_code' but the documentation shows this is actually a combination syntax. The current implementation supports 'both' as a keyword (which captures stdout and stderr)",
+      "current_content": "capture_streams: \"stdout,stderr,exit_code\"",
+      "should_be": "The capture_streams field accepts values like 'both' (for stdout and stderr). The syntax 'stdout,stderr,exit_code' is parsed to enable individual flags.",
+      "fix_suggestion": "Clarify the capture_streams syntax options: 'both' for stdout+stderr, or individual stream names",
+      "source_reference": "src/cook/orchestrator/normalization.rs:36-42"
+    }
+  ],
+  "positive_aspects": [
+    "Clear and well-structured examples demonstrating conditional deployment patterns",
+    "Comprehensive validation lifecycle explanation with step-by-step flow",
+    "Good coverage of capture_format options with all supported formats documented",
+    "Excellent environment-aware workflow example with secrets management",
+    "Proper use of MkDocs admonitions (note box for 'Iterative Validation')",
+    "Good explanation of legacy vs modern secrets syntax for backward compatibility",
+    "Includes practical example of shell script validation as alternative approach",
+    "References to actual workflow files (e.g., workflows/mapreduce-env-example.yml)"
+  ],
+  "improvement_suggestions": [
+    "Add a Mermaid flowchart showing conditional execution flow (when clause evaluation → command execution → on_success/on_failure branching)",
+    "Add code annotation callouts to explain complex YAML fields inline",
+    "Consider adding a troubleshooting section for common validation issues (e.g., result_file not found, invalid threshold)",
+    "Add cross-reference links to related pages: environment configuration, variable interpolation, error handling",
+    "The validation.json result file format example could show the expected 'score' field more prominently",
+    "Consider adding an admonition warning about result_file path requirements (relative vs absolute)"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "conditional execution",
+      "when clauses",
+      "capture_output",
+      "capture_format",
+      "validation system",
+      "on_incomplete handlers",
+      "threshold configuration",
+      "environment variables",
+      "secrets management",
+      "environment profiles",
+      "env_files"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  "internal_links_validation": {
+    "total_internal_links": 0,
+    "broken_links": 0,
+    "status": "No internal links found - page is self-contained"
+  }
+}

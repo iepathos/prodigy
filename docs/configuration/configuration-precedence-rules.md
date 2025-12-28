@@ -6,203 +6,351 @@ Prodigy loads configuration from multiple sources with a clear precedence hierar
 
 From highest to lowest priority:
 
-1. **Project Config** (`.prodigy/config.yml`) - Highest priority
+```mermaid
+graph LR
+    A["Environment Variables
+    PRODIGY_*"] --> B["Project Config
+    .prodigy/config.yml"]
+    B --> C["Global Config
+    ~/.prodigy/config.yml"]
+    C --> D["Defaults
+    Built-in values"]
+
+    style A fill:#ff6b6b,stroke:#c92a2a,color:#fff
+    style B fill:#ffa94d,stroke:#d9480f
+    style C fill:#69db7c,stroke:#2f9e44
+    style D fill:#748ffc,stroke:#364fc7,color:#fff
+```
+
+1. **Environment Variables** (`PRODIGY_*`) - Highest priority
+   - Override all file-based configuration
+   - Useful for CI/CD and containerized environments
+   - Both legacy (`PRODIGY_CLAUDE_API_KEY`) and structured (`PRODIGY__LOG_LEVEL`) formats supported
+
+2. **Project Config** (`.prodigy/config.yml`) - High priority
    - Project-specific settings in your repository
    - Located at `.prodigy/config.yml` in your project directory
-   - Overrides all default values
+   - Overrides global config and defaults
    - Committed to version control (be careful with secrets)
 
-2. **Defaults** (lowest priority)
-   - Built-in default values defined in the code
-   - Used when project config doesn't provide a value
-   - See source: `src/config/mod.rs:88-100`
+3. **Global Config** (`~/.prodigy/config.yml`) - Medium priority
+   - User-level defaults across all projects
+   - Located in your home directory
+   - Overrides built-in defaults
 
-**Note**: Global config (`~/.prodigy/config.yml`), environment variables (`PRODIGY_*`), and CLI flag overrides are defined in the code but not currently loaded in production. Only project-level configuration and defaults are active.
+4. **Defaults** - Lowest priority
+   - Built-in default values defined in code
+   - Used when no other source provides a value
+
+!!! tip "ProdigyConfig vs Legacy Config"
+    Prodigy supports two configuration systems:
+
+    - **`ProdigyConfig`** (recommended): Modern system with Stillwater validation, error accumulation, and full 4-level precedence
+    - **Legacy `Config`/`GlobalConfig`**: Original system with project config and defaults only
+
+    New code should use `load_prodigy_config()` from `prodigy::config`.
 
 ### How Settings Are Loaded
 
-When Prodigy starts, it builds the final configuration with this process:
+When Prodigy starts, it builds the final configuration using layered source loading:
 
-1. **Initialize with defaults** - Create `GlobalConfig` with built-in defaults (source: `src/config/mod.rs:88-100`)
-2. **Load project config** - Read `.prodigy/config.yml` from project directory (source: `src/config/loader.rs:85-104`)
-3. **Merge at field level** - Project config values override defaults on a per-field basis (source: `src/config/mod.rs:133-154`)
+=== "ProdigyConfig (Recommended)"
 
-Project config **overrides** default values at the individual field level. Settings not specified in project config inherit from defaults.
+    ```rust
+    // Source: src/config/builder.rs:68-70
+    use prodigy::config::load_prodigy_config;
+
+    let config = load_prodigy_config().expect("config errors");
+    println!("Max concurrent specs: {}", config.max_concurrent_specs);
+    ```
+
+    **Loading Process:**
+
+    1. **Initialize with defaults** - Create `ProdigyConfig::default()`
+    2. **Load global config** - Read `~/.prodigy/config.yml` (optional)
+    3. **Load project config** - Read `.prodigy/config.yml` (optional)
+    4. **Apply environment variables** - Override with `PRODIGY_*` vars
+    5. **Validate** - Accumulate and report all validation errors
+
+=== "Legacy Config"
+
+    ```rust
+    // Source: src/config/mod.rs:174-181
+    let config = Config::new();  // Creates Config with GlobalConfig defaults
+    ```
+
+    **Loading Process:**
+
+    1. **Initialize with defaults** - Create `GlobalConfig::default()` (lines 108-120)
+    2. **Load project config** - Read `.prodigy/config.yml` from project directory
+    3. **Merge at field level** - Project config values override defaults per-field
 
 ### Examples
 
 #### Example 1: Using Defaults
 
 ```yaml
-# No .prodigy/config.yml file exists
+# No configuration files exist
 ```
 
-**Result**: Prodigy uses all default values:
+**Result with ProdigyConfig** (recommended):
+
+- `log_level: "info"`
+- `auto_commit: true`
+- `max_concurrent_specs: 4`
+
+**Result with Legacy Config:**
+
 - `log_level: "info"`
 - `auto_commit: true`
 - `max_concurrent_specs: 1`
 
-(Source: `src/config/mod.rs:88-100`)
+!!! warning "Default Value Difference"
+    The default for `max_concurrent_specs` differs between configuration systems:
+
+    - **ProdigyConfig**: `4` (optimized for parallel workflows)
+    - **Legacy GlobalConfig**: `1` (conservative default)
 
 #### Example 2: Project Config Override
 
 ```yaml
 # .prodigy/config.yml (project config)
-name: my-project
-claude_api_key: "sk-project-key"
-auto_commit: false
+project:
+  name: my-project
+  claude_api_key: "sk-project-key"
+  auto_commit: false
 ```
 
-**Result**:
+**Result:**
+
 - `claude_api_key: "sk-project-key"` (from project config)
 - `auto_commit: false` (from project config)
 - `log_level: "info"` (from defaults - not specified in project)
-- `max_concurrent_specs: 1` (from defaults - not specified in project)
+- `max_concurrent_specs: 4` (from defaults - not specified in project)
 
-Field-level precedence is implemented via getter methods (source: `src/config/mod.rs:133-154`):
-```rust
-pub fn get_auto_commit(&self) -> bool {
-    self.project
-        .as_ref()
-        .and_then(|p| p.auto_commit)
-        .or(self.global.auto_commit)
-        .unwrap_or(true)  // Default if neither provides value
-}
+#### Example 3: Environment Variable Override
+
+```bash
+# Environment variables take highest precedence
+export PRODIGY_CLAUDE_API_KEY="sk-env-key"
+export PRODIGY_LOG_LEVEL="debug"
 ```
-
-#### Example 3: Partial Project Override
 
 ```yaml
 # .prodigy/config.yml
-name: my-project
-claude_api_key: "sk-abc123"
-# Other fields not specified
+log_level: info
 ```
 
-**Result**:
-- `claude_api_key: "sk-abc123"` (from project config)
-- `log_level: "info"` (from defaults)
-- `auto_commit: true` (from defaults)
-- `max_concurrent_specs: 1` (from defaults)
+**Result:**
+
+- `claude_api_key: "sk-env-key"` (from environment - highest priority)
+- `log_level: "debug"` (from environment - overrides project config)
+
+#### Example 4: Full Layered Configuration
+
+```yaml
+# ~/.prodigy/config.yml (global config)
+log_level: warn
+max_concurrent_specs: 8
+auto_commit: true
+```
+
+```yaml
+# .prodigy/config.yml (project config)
+log_level: info
+```
+
+```bash
+# Environment
+export PRODIGY__LOG_LEVEL="debug"
+```
+
+**Result:**
+
+- `log_level: "debug"` (from environment - highest priority)
+- `max_concurrent_specs: 8` (from global - project didn't override)
+- `auto_commit: true` (from global)
 
 ### Field-Level Precedence
 
 Precedence is applied **per field**, not per file. Each configuration field is resolved independently using the precedence rules.
 
-```yaml
-# .prodigy/config.yml (project config)
-name: my-project
-auto_commit: false  # Only override auto_commit
-# Other fields inherited from defaults
-```
-
-**Precedence Logic** (source: `src/config/mod.rs:133-154`):
-1. Check if project config has the field → use it
-2. Otherwise, check if global config has the field → use it
-3. Otherwise, use the default value
-
-This allows fine-grained configuration: override only what you need, inherit the rest.
-
-### Configuration Loading Implementation
-
-The configuration loading happens in these steps (source: `src/config/loader.rs`):
-
-**Step 1: Initialize**
 ```rust
-// ConfigLoader::new() - line 23
-let config = Config::new();  // Creates Config with GlobalConfig defaults
-```
-
-**Step 2: Load Project Config** (optional)
-```rust
-// ConfigLoader::load_project() - line 85
-let config_path = project_path.join(".prodigy").join("config.yml");
-if config_path.exists() {
-    let content = fs::read_to_string(&config_path).await?;
-    let project_config = parse_project_config(&content)?;
-    *config = merge_project_config(config.clone(), project_config);
+// Source: src/config/prodigy_config.rs:222-227
+pub fn effective_api_key(&self) -> Option<&str> {
+    self.project
+        .as_ref()
+        .and_then(|p| p.claude_api_key.as_deref())
+        .or(self.claude_api_key.as_deref())
 }
 ```
 
-**Step 3: Access with Precedence**
-```rust
-// Config::get_claude_api_key() - line 133
-self.project
-    .as_ref()
-    .and_then(|p| p.claude_api_key.as_deref())  // Try project first
-    .or(self.global.claude_api_key.as_deref())   // Fall back to global
-```
+**Precedence Logic:**
+
+1. Check if environment variable is set → use it
+2. Check if project config has the field → use it
+3. Check if global config has the field → use it
+4. Otherwise, use the default value
+
+This allows fine-grained configuration: override only what you need, inherit the rest.
+
+### Environment Variable Formats
+
+Prodigy supports two environment variable formats:
+
+=== "Structured Format (Recommended)"
+
+    Use double underscore (`__`) as separator:
+
+    | Environment Variable | Config Field |
+    |---------------------|--------------|
+    | `PRODIGY__LOG_LEVEL` | `log_level` |
+    | `PRODIGY__MAX_CONCURRENT_SPECS` | `max_concurrent_specs` |
+    | `PRODIGY__AUTO_COMMIT` | `auto_commit` |
+    | `PRODIGY__STORAGE__BACKEND` | `storage.backend` |
+    | `PRODIGY__PROJECT__NAME` | `project.name` |
+
+=== "Legacy Format"
+
+    Use single underscore with explicit mappings:
+
+    | Environment Variable | Config Field |
+    |---------------------|--------------|
+    | `PRODIGY_CLAUDE_API_KEY` | `claude_api_key` |
+    | `PRODIGY_LOG_LEVEL` | `log_level` |
+    | `PRODIGY_AUTO_COMMIT` | `auto_commit` |
+    | `PRODIGY_EDITOR` | `default_editor` |
+    | `PRODIGY_MAX_CONCURRENT` | `max_concurrent_specs` |
 
 ### Default Values
 
-Built-in defaults (source: `src/config/mod.rs:88-100`):
+=== "ProdigyConfig (Recommended)"
+
+    ```rust
+    // Source: src/config/prodigy_config.rs:171-185
+    impl Default for ProdigyConfig {
+        fn default() -> Self {
+            Self {
+                log_level: "info".to_string(),
+                claude_api_key: None,
+                max_concurrent_specs: 4,  // Optimized for parallel workflows
+                auto_commit: true,
+                default_editor: None,
+                prodigy_home: None,
+                project: None,
+                storage: StorageSettings::default(),
+                plugins: PluginConfig::default(),
+            }
+        }
+    }
+    ```
+
+=== "Legacy GlobalConfig"
+
+    ```rust
+    // Source: src/config/mod.rs:108-120
+    impl Default for GlobalConfig {
+        fn default() -> Self {
+            Self {
+                prodigy_home: get_global_prodigy_dir()
+                    .unwrap_or_else(|_| PathBuf::from("~/.prodigy")),
+                default_editor: None,
+                log_level: Some("info".to_string()),
+                claude_api_key: None,
+                max_concurrent_specs: Some(1),  // Conservative default
+                auto_commit: Some(true),
+                plugins: None,
+            }
+        }
+    }
+    ```
+
+### Configuration Loading with Validation
+
+ProdigyConfig uses Stillwater's `Validation` for comprehensive error accumulation:
 
 ```rust
-impl Default for GlobalConfig {
-    fn default() -> Self {
-        Self {
-            prodigy_home: get_global_prodigy_dir()
-                .unwrap_or_else(|_| PathBuf::from("~/.prodigy")),
-            default_editor: None,
-            log_level: Some("info".to_string()),
-            claude_api_key: None,
-            max_concurrent_specs: Some(1),
-            auto_commit: Some(true),
-            plugins: None,
+// Source: src/config/prodigy_config.rs:284-357
+use prodigy::config::load_prodigy_config;
+
+match load_prodigy_config() {
+    Ok(config) => {
+        // All validation passed
+        println!("Loaded config: {:?}", config);
+    }
+    Err(errors) => {
+        // ALL validation errors reported at once
+        for error in errors.iter() {
+            eprintln!("Config error: {}", error);
         }
     }
 }
 ```
 
-### Future: Global Config and Environment Variables
+!!! note "Error Accumulation"
+    Unlike traditional fail-fast validation, ProdigyConfig collects ALL validation errors
+    before reporting. This allows users to fix multiple issues in a single iteration.
 
-The codebase includes infrastructure for additional configuration sources, but these are not currently loaded in production:
+### Configuration Tracing
 
-**Global Config** (`~/.prodigy/config.yml`):
-- Mentioned in documentation (line 49: `src/config/mod.rs`)
-- No loader implementation yet
-- Would provide user-level defaults across all projects
+For debugging configuration issues, use traced loading to see where each value originated:
 
-**Environment Variables**:
-- Defined in `Config::merge_env_vars()` (lines 111-131: `src/config/mod.rs`)
-- Supports: `PRODIGY_CLAUDE_API_KEY`, `PRODIGY_LOG_LEVEL`, `PRODIGY_EDITOR`, `PRODIGY_AUTO_COMMIT`
-- Only called in tests, not in production code
-- Would override file-based configuration when implemented
+```rust
+// Source: src/config/builder.rs:170-172
+use prodigy::config::load_prodigy_config_traced;
 
-**CLI Flag Overrides**:
-- No implementation yet
-- Would provide highest-priority overrides for individual runs
+let traced = load_prodigy_config_traced().expect("failed to load");
+
+// See where a value came from
+if let Some(trace) = traced.trace("max_concurrent_specs") {
+    println!("Value: {:?}", trace.final_value.value);
+    println!("Source: {:?}", trace.final_value.source);
+    println!("Was overridden: {}", trace.was_overridden());
+}
+
+// Get the actual config
+let config = traced.into_inner();
+```
 
 ### Test Coverage
 
-Configuration precedence behavior is validated through comprehensive tests (source: `src/config/loader.rs:113-334`):
+Configuration precedence behavior is validated through comprehensive tests:
 
-**Test: Default Configuration**
+**ProdigyConfig Tests** (recommended system):
+
 ```rust
-// Line 120: test_new_creates_default_config
-// Verifies GlobalConfig defaults are set correctly
-assert_eq!(config.global.log_level, Some("info".to_string()));
-assert_eq!(config.global.max_concurrent_specs, Some(1));
-assert_eq!(config.global.auto_commit, Some(true));
+// Source: src/config/builder.rs:441-469
+#[test]
+fn test_layered_precedence() {
+    let env = MockEnv::new()
+        .with_file(global_path, "log_level: debug\nmax_concurrent_specs: 8")
+        .with_file(project_path, "log_level: warn")
+        .with_env("PRODIGY__LOG_LEVEL", "error");
+
+    let config = load_prodigy_config_with(&env).unwrap();
+
+    // env > project > global > defaults
+    assert_eq!(config.log_level, "error");           // from env
+    assert_eq!(config.max_concurrent_specs, 8);      // from global
+}
 ```
 
-**Test: Project Config Loading**
-```rust
-// Line 230: test_load_project_config
-// Verifies .prodigy/config.yml is loaded and merged
-let project = config.project.unwrap();
-assert_eq!(project.name, "test-project");
-assert_eq!(project.claude_api_key, Some("test-key".to_string()));
-assert_eq!(project.auto_commit, Some(false));
-```
+**Legacy Config Tests:**
 
-**Test: Field-Level Override**
 ```rust
-// src/config/mod.rs:471 - test shows project overrides global
-config.project = Some(ProjectConfig {
-    name: "test".into(),
-    claude_api_key: Some("project-key".into()),
-    // ... other fields
-});
-assert_eq!(config.get_claude_api_key(), Some("project-key"));
+// Source: src/config/mod.rs:476-497
+#[test]
+fn test_get_claude_api_key_precedence() {
+    let mut config = Config::new();
+
+    config.global.claude_api_key = Some("global-key".to_string());
+    assert_eq!(config.get_claude_api_key(), Some("global-key"));
+
+    // Project API key takes precedence
+    config.project = Some(ProjectConfig {
+        claude_api_key: Some("project-key".to_string()),
+        // ...
+    });
+    assert_eq!(config.get_claude_api_key(), Some("project-key"));
+}
 ```

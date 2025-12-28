@@ -1,0 +1,69 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "overview",
+  "page_title": "overview",
+  "page_file": "docs/mapreduce/dlq/overview.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is well-documented with good structure and visual features (mermaid diagrams, code annotations, tabbed content). However, it is missing documentation for the error_context field and CommitValidationFailed error type that exist in the codebase.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Failure Detail Fields",
+      "description": "Missing documentation for the `error_context` field in FailureDetail struct",
+      "feature_reference": "error_handling.dead_letter_queue",
+      "fix_suggestion": "Add documentation for the `error_context: Option<Vec<String>>` field. This field contains the full error context trail showing the operation stack, which is valuable for debugging complex failures.",
+      "source_reference": "src/cook/execution/dlq.rs:52-54"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Error Types",
+      "description": "Missing documentation for `CommitValidationFailed` error type",
+      "feature_reference": "error_handling.dead_letter_queue",
+      "fix_suggestion": "Add `CommitValidationFailed` to the Error Types section. This error occurs when a command with `commit_required: true` fails to create a commit (Spec 163).",
+      "source_reference": "src/cook/execution/dlq.rs:71-72"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "DLQ Item Structure",
+      "description": "JSON example for FailureDetail is missing the `error_context` field",
+      "current_content": "The FailureDetail JSON example at line 148-159 shows fields but omits error_context",
+      "should_be": "Add optional error_context field: \"error_context\": [\"Creating worktree for item-123\", \"Executing agent commands\"]",
+      "fix_suggestion": "Update the JSON example to include the error_context field to show the context trail feature",
+      "source_reference": "src/cook/execution/dlq.rs:46-62"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent mermaid flowchart diagram showing DLQ failure flow with retry logic and policy handling",
+    "Good use of MkDocs Material code annotations (1)!, (2)!, etc. for field explanations",
+    "Comprehensive tabbed content for Error Types categorized by Execution/Git/System errors",
+    "Clear storage structure documentation with path examples",
+    "Accurate source code references to specific line numbers",
+    "Good explanation of storage architecture benefits (cross-worktree access, persistent state, scalability)",
+    "Well-documented backward compatibility note for redundant subdirectory structure"
+  ],
+  "improvement_suggestions": [
+    "Add the error_context field to the Failure Detail Fields section with explanation of how it captures the operation stack",
+    "Add CommitValidationFailed to the Error Types under 'Git Errors' tab since it relates to git commit operations",
+    "Update the JSON example for FailureDetail to include error_context",
+    "Consider adding a cross-reference to Spec 163 (Commit Validation) when documenting CommitValidationFailed"
+  ],
+  "cross_references": [
+    "commands",
+    "debugging",
+    "internals",
+    "checkpoint-and-resume",
+    "event-tracking"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["DLQ overview", "storage structure", "item format", "failure details", "error types", "worktree artifacts"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}

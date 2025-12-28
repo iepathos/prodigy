@@ -73,7 +73,7 @@ imports:
 Imported workflows are cached in memory to avoid reloading the same file multiple times during composition. This improves performance when multiple workflows reference the same imports.
 
 ```yaml
-# Source: src/cook/workflow/composition/composer.rs:661-698
+# Source: src/cook/workflow/composition/composer.rs:646-681
 # Both workflows below share the same cached import
 name: workflow-1
 imports:
@@ -116,8 +116,13 @@ env:
 ### Override Behavior
 
 - Environment variables are merged (child overrides parent)
-- Steps from parent executed first
-- Child can override specific fields
+- Child commands replace parent commands entirely (not appended)
+- Child can override specific fields (parameters, defaults, workflows)
+
+!!! note "Command Replacement"
+    When a child workflow defines commands, they completely replace the parent's commands rather than being appended. This follows replacement semantics for clean override behavior.
+
+    Source: `src/cook/workflow/composition/composer.rs:326-356`
 
 ### Base Workflow Resolution
 
@@ -216,7 +221,7 @@ parameters:
 
 Templates are searched in priority order:
 
-1. **Global** (`~/.prodigy/templates/`): Shared across all repositories
+1. **Global**: Platform-specific data directory (see below)
 2. **Project-local** (`.prodigy/templates/`): Repository-specific templates
 3. **Legacy** (`templates/`): Older project-local templates
 
@@ -225,29 +230,57 @@ Templates are searched in priority order:
 
     Source: `src/cook/workflow/composer_integration.rs:93-136`
 
-=== "Global Templates"
+=== "macOS"
     ```bash
-    # Shared across all projects
-    ~/.prodigy/templates/
+    # Global templates (platform-specific)
+    ~/Library/Application Support/com.prodigy.prodigy/templates/
     ├── rust-ci.yml
     ├── python-ci.yml
     └── deploy-k8s.yml
+
+    # Project-local templates
+    .prodigy/templates/
+    ├── custom-ci.yml
+    └── integration-tests.yml
     ```
 
-=== "Project Templates"
+=== "Linux"
     ```bash
-    # Repository-specific templates
+    # Global templates (platform-specific)
+    ~/.local/share/prodigy/templates/
+    ├── rust-ci.yml
+    ├── python-ci.yml
+    └── deploy-k8s.yml
+
+    # Project-local templates
     .prodigy/templates/
+    ├── custom-ci.yml
+    └── integration-tests.yml
+    ```
+
+=== "Windows"
+    ```bash
+    # Global templates (platform-specific)
+    %APPDATA%\prodigy\prodigy\data\templates\
+    ├── rust-ci.yml
+    ├── python-ci.yml
+    └── deploy-k8s.yml
+
+    # Project-local templates
+    .prodigy\templates\
     ├── custom-ci.yml
     └── integration-tests.yml
     ```
 
 === "Legacy Location"
     ```bash
-    # Older project-local templates
+    # Older project-local templates (all platforms)
     templates/
     └── old-workflow.yml
     ```
+
+!!! note "Fallback Path"
+    If platform-specific directory detection fails, the global template path falls back to `~/.prodigy/templates/`.
 
 ## Parameters
 
@@ -341,43 +374,67 @@ Execute workflows within workflows:
 !!! example "Modular Execution"
     Sub-workflows provide modular execution with independent contexts. Use them to break complex workflows into manageable, reusable pieces.
 
+Sub-workflows are defined using a `source` path to an external workflow file, along with optional parameters, inputs, and outputs:
+
 ```yaml
+# Source: src/cook/workflow/composition/sub_workflow.rs:14-46
 name: main-workflow
 
 sub_workflows:
   build:
-    name: build-subworkflow
-    - shell: "cargo build --release"
-    - shell: "cargo test --release"
+    source: ./sub-workflows/build.yml     # (1)!
+    parameters: {}                         # (2)!
+    outputs: ["build_result"]              # (3)!
 
   deploy:
-    name: deploy-subworkflow
+    source: ./sub-workflows/deploy.yml
     parameters:
-      environment: string               # (1)!
-    - shell: "kubectl apply -f k8s/${environment}/"
+      environment: "staging"               # (4)!
+    inputs:                                # (5)!
+      artifact_path: "${build.artifact}"
+    outputs: ["deploy_status"]
+    continue_on_error: false               # (6)!
+    timeout: 300                           # (7)!
 
 # Execute sub-workflows
-- workflow: build                       # (2)!
+- workflow: build
 
-- workflow: deploy                      # (3)!
-  parameters:
-    environment: "staging"
+- workflow: deploy
+  when: "${build.success} == true"
 
 # Access sub-workflow results
-- shell: "echo Build completed: ${build.success}"  # (4)!
+- shell: "echo Deploy status: ${deploy.deploy_status}"
 
-1. Sub-workflow parameters define expected inputs
-2. Execute sub-workflow without parameters
-3. Pass parameters to parameterized sub-workflow
-4. Access sub-workflow results in parent workflow
+1. Path to external workflow file (required)
+2. Parameters passed to the sub-workflow
+3. Variables to extract from sub-workflow context
+4. Parameter values for the sub-workflow
+5. Map parent context variables to sub-workflow inputs
+6. Whether to continue parent on sub-workflow failure
+7. Timeout in seconds for sub-workflow execution
 ```
+
+### Sub-Workflow Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | Path | Yes | Path to the sub-workflow YAML file |
+| `parameters` | Object | No | Parameters to pass to sub-workflow |
+| `inputs` | Object | No | Map parent variables to sub-workflow inputs |
+| `outputs` | Array | No | Variables to extract from sub-workflow |
+| `parallel` | Boolean | No | Run in parallel with other sub-workflows |
+| `continue_on_error` | Boolean | No | Continue parent on failure |
+| `timeout` | Duration | No | Execution timeout |
+| `working_dir` | Path | No | Working directory for execution |
 
 ### Sub-Workflow Features
 
 - Independent execution contexts
 - Parameter passing between workflows
-- Result capture and access
-- Conditional execution
+- Result capture and access via `outputs`
+- Conditional execution with `when` clauses
+- Optional parallel execution
+- Configurable error handling
 
 !!! warning "Implementation Status"
     Sub-workflow execution is currently in development. The data structures and configuration parsing are complete, but the execution integration is still being finalized.
@@ -389,13 +446,33 @@ sub_workflows:
 Manage reusable templates centrally:
 
 ```bash
-# Source: src/cli/args.rs:831-851, src/cli/router.rs:210-233
+# Source: src/cli/args.rs:787-863
 
-# Register template
+# Register a new template
 prodigy template register ./templates/rust-ci.yml --name rust-ci
 
-# List available templates
+# List all registered templates
 prodigy template list
+prodigy template list --tag rust        # Filter by tag
+prodigy template list --long            # Show detailed info
+
+# Show template details
+prodigy template show rust-ci
+
+# Search for templates
+prodigy template search "ci"            # Search by name
+prodigy template search "testing" -t    # Search by tag
+
+# Validate a template file
+prodigy template validate ./my-template.yml
+
+# Delete a template
+prodigy template delete old-template
+prodigy template delete old-template -f  # Skip confirmation
+
+# Initialize template directory structure
+prodigy template init                    # Creates ./templates/
+prodigy template init ./my-templates     # Custom path
 ```
 
 !!! note "Template Usage"
@@ -529,17 +606,21 @@ parameters:
 
 sub_workflows:
   build:
-    - shell: "cargo build --release"
-    - shell: "docker build -t app:latest ."
+    source: ./sub-workflows/build.yml
+    outputs: ["artifact_path"]
 
   test:
-    - shell: "cargo test"
-    - shell: "cargo clippy"
+    source: ./sub-workflows/test.yml
+    inputs:
+      artifact: "${build.artifact_path}"
 
   deploy:
+    source: ./sub-workflows/deploy.yml
     parameters:
-      environment: string
-    - shell: "kubectl apply -f k8s/${environment}/"
+      environment: "staging"
+    inputs:
+      artifact: "${build.artifact_path}"
+    continue_on_error: false
 
 # Main workflow
 - workflow: build
@@ -547,6 +628,28 @@ sub_workflows:
 
 - workflow: deploy
   when: "${deploy_enabled} == true"
-  parameters:
-    environment: "staging"
+```
+
+Where the sub-workflow files contain the actual commands:
+
+```yaml
+# sub-workflows/build.yml
+name: build-workflow
+- shell: "cargo build --release"
+- shell: "docker build -t app:latest ."
+
+---
+# sub-workflows/test.yml
+name: test-workflow
+- shell: "cargo test"
+- shell: "cargo clippy"
+
+---
+# sub-workflows/deploy.yml
+name: deploy-workflow
+parameters:
+  environment:
+    type: string
+    required: true
+- shell: "kubectl apply -f k8s/${environment}/"
 ```

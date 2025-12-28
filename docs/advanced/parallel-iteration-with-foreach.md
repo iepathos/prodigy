@@ -2,6 +2,37 @@
 
 Process multiple items in parallel using the `foreach` command.
 
+```mermaid
+flowchart LR
+    Input["Input Source"] --> Parse{"List or
+    Command?"}
+    Parse -->|List| Items["Static Items"]
+    Parse -->|Command| Shell["Execute Shell"]
+    Shell --> Split["Split by Lines"]
+    Split --> Items
+
+    Items --> Mode{"Parallel?"}
+    Mode -->|"false"| Seq["Sequential
+    Execution"]
+    Mode -->|"true/N"| Par["Parallel
+    Workers"]
+
+    Seq --> Process["Process Items"]
+    Par --> Process
+    Process --> Error{"Item
+    Failed?"}
+
+    Error -->|No| Next["Next Item"]
+    Error -->|Yes| Continue{"continue_on_error?"}
+    Continue -->|true| Next
+    Continue -->|false| Stop["Stop Processing"]
+    Next --> Done["Complete"]
+
+    style Input fill:#e1f5ff
+    style Par fill:#e8f5e9
+    style Stop fill:#ffebee
+```
+
 **Source**: Configuration defined in src/config/command.rs:191-211
 
 ### Basic Foreach
@@ -10,10 +41,13 @@ The `foreach` command uses a nested object structure where the `foreach` field s
 
 ```yaml
 - foreach:
-    foreach: ["a", "b", "c"]
+    foreach: ["a", "b", "c"]  # (1)!
     do:
-      - shell: "process ${item}"
+      - shell: "process ${item}"  # (2)!
 ```
+
+1. Input source - can be a list or a shell command string
+2. `${item}` is replaced with the current item value
 
 **Input Formats** (src/config/command.rs:193-194):
 - **List**: Static array of items: `["item1", "item2"]`
@@ -71,22 +105,27 @@ Control parallelism with the `parallel` field (src/config/command.rs:196-198). I
 ```yaml
 - foreach:
     foreach: "ls *.txt"
-    parallel: true  # Default: 10 concurrent workers
+    parallel: true  # (1)!
     do:
       - shell: "analyze ${item}"
 ```
 
-**Important**: `parallel: true` uses a fixed default of 10 concurrent workers, not "all available cores" (src/cook/execution/foreach.rs:81).
+1. Uses default of 10 concurrent workers
+
+!!! note "Default Parallelism"
+    `parallel: true` uses a fixed default of 10 concurrent workers, not "all available cores" (src/cook/execution/foreach.rs:81).
 
 **Number - Explicit Concurrency Limit:**
 
 ```yaml
 - foreach:
     foreach: "ls *.txt"
-    parallel: 5  # Process 5 items concurrently
+    parallel: 5  # (1)!
     do:
       - shell: "analyze ${item}"
 ```
+
+1. Explicitly limit to 5 concurrent workers
 
 **Source**: Example from src/cook/execution/foreach_tests.rs:102-114
 
@@ -108,10 +147,12 @@ Continue processing remaining items on failure:
       - shell: "run-test ${item}"
 ```
 
-**Behavior** (src/config/command.rs:205-206):
-- `continue_on_error: true` - Process all items even if some fail
-- `continue_on_error: false` (default) - Stop on first failure
-- Failed items are tracked and reported in results
+!!! tip "Error Handling Behavior"
+    **Source**: src/config/command.rs:205-206
+
+    - `continue_on_error: true` - Process all items even if some fail
+    - `continue_on_error: false` (default) - Stop on first failure
+    - Failed items are tracked and reported in results
 
 ### Limiting Items
 
@@ -146,8 +187,12 @@ Each item can execute multiple commands. Both `shell` and `claude` commands are 
 ```
 
 **Command Types Supported** (src/cook/execution/foreach.rs:286-375):
+
 - `shell` - Execute shell commands
 - `claude` - Execute Claude commands
+
+!!! warning "Deprecated Command Type"
+    The `test` command type is deprecated and will emit a warning in logs. Use `shell` with explicit test commands instead.
 
 Each command in the `do` block has access to the same variables (`${item}`, `${index}`, `${total}`).
 
@@ -176,18 +221,21 @@ Each command in the `do` block has access to the same variables (`${item}`, `${i
 
 ### When to Use Foreach vs MapReduce
 
-**Use Foreach when:**
-- Simple iteration over items (< 100 items)
-- All items processed in the same worktree
-- No need for checkpoint/resume
-- Lightweight operations
+!!! tip "Choosing the Right Approach"
+    **Use Foreach when:**
 
-**Use MapReduce when:**
-- Processing many items (100+)
-- Need checkpoint and resume capability
-- Need isolated worktrees per item
-- Complex failure handling and retry logic
-- Dead letter queue for failed items
+    - Simple iteration over items (< 100 items)
+    - All items processed in the same worktree
+    - No need for checkpoint/resume
+    - Lightweight operations
+
+    **Use MapReduce when:**
+
+    - Processing many items (100+)
+    - Need checkpoint and resume capability
+    - Need isolated worktrees per item
+    - Complex failure handling and retry logic
+    - Dead letter queue for failed items
 
 See [MapReduce](../mapreduce/index.md) for large-scale parallel processing.
 

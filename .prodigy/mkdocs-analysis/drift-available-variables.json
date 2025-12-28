@@ -1,0 +1,96 @@
+{
+  "item_type": "page",
+  "page_id": "available-variables",
+  "page_title": "available variables",
+  "page_file": "docs/variables/available-variables.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Excellent comprehensive documentation with accurate code references and examples. Minor improvements needed for completeness and consistency.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "MapReduce Variables",
+      "description": "Missing documentation for map.success_rate variable which is available in reduce phase",
+      "feature_reference": "mapreduce.reduce_phase.map_success_rate",
+      "fix_suggestion": "Add map.success_rate to the MapReduce Variables table: `${map.success_rate}` - Success rate as percentage (0-100)",
+      "source_reference": "src/cook/execution/mapreduce/reduce_phase.rs:140"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Validation Variables",
+      "description": "Validation variables section lists validation.completion, validation.gaps, and validation.status but the code implements validation.completion and validation.missing (not validation.gaps)",
+      "feature_reference": "workflow.validation.variables",
+      "fix_suggestion": "Update the table to show validation.missing instead of validation.gaps, matching the actual implementation at src/cook/workflow/executor.rs:1655",
+      "source_reference": "src/cook/workflow/executor.rs:1655-1665"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Standard Variables",
+      "description": "shell.output and claude.output are mentioned but not documented in the Standard Variables table. Only last.output and last.exit_code are shown.",
+      "fix_suggestion": "The note mentions shell.output and claude.output but they are not in the table. Add these to the table: `${shell.output}` - Output from the last shell command specifically, `${claude.output}` - Output from the last Claude command specifically",
+      "source_reference": "src/cook/workflow/variables.rs:35-36"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Interpolation Modes",
+      "description": "Documentation explains strict mode but doesn't show how to enable it in a workflow YAML file",
+      "fix_suggestion": "Add a brief note that strict mode is currently configured programmatically per InterpolationEngine instance and is not directly configurable in workflow YAML",
+      "source_reference": "src/cook/execution/interpolation.rs:16-17"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all major variable categories (standard, computed, workflow, step, item, MapReduce, git, merge, validation)",
+    "Accurate source code references throughout the document",
+    "Excellent examples with clear YAML code blocks for each variable type",
+    "Well-structured tables with descriptions and examples",
+    "Good explanation of computed variable caching behavior",
+    "Detailed coverage of format modifiers for git context variables",
+    "Clear documentation of legacy variable aliases with migration recommendations",
+    "Thorough explanation of variable scoping, precedence, and parent context resolution",
+    "Good performance section covering template and operation caching"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions (info, warning, tip) to highlight important notes like the security warning for cmd: variables",
+    "Consider adding a Mermaid diagram showing variable precedence hierarchy",
+    "Add cross-references to related subpages (available-variables/standard-variables.md, available-variables/mapreduce-variables.md)",
+    "Add code annotations to YAML examples showing variable resolution flow",
+    "Consider adding tabs for different use case scenarios (basic, MapReduce, git integration)"
+  ],
+  "cross_references": [
+    "variables/available-variables/standard-variables.md",
+    "variables/available-variables/mapreduce-variables.md",
+    "variables/available-variables/git-merge-variables.md",
+    "variables/available-variables/interpolation-reference.md",
+    "variables/custom-variable-capture.md",
+    "variables/troubleshooting-variable-interpolation.md",
+    "mapreduce/index.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "standard variables",
+      "computed variables",
+      "workflow context",
+      "step context",
+      "item variables",
+      "MapReduce variables",
+      "git context variables",
+      "merge variables",
+      "validation variables",
+      "interpolation syntax",
+      "variable scoping",
+      "caching behavior",
+      "legacy aliases"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "lines_of_documentation": 876,
+    "code_examples_count": 34,
+    "tables_count": 13,
+    "source_references_count": 10
+  }
+}

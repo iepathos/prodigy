@@ -553,6 +553,50 @@
       }
     }
   },
+  "configuration_system": {
+    "type": "major_feature",
+    "description": "Unified configuration with layered sources and validation",
+    "configuration_sources": {
+      "defaults": "Hardcoded defaults (lowest priority)",
+      "global_config": "~/.prodigy/config.yml",
+      "project_config": ".prodigy/config.yml",
+      "environment_variables": "PRODIGY_* prefix (highest priority)"
+    },
+    "settings": {
+      "log_level": "Logging level (trace, debug, info, warn, error)",
+      "claude_api_key": "Claude API key for authentication",
+      "max_concurrent_specs": "Maximum concurrent MapReduce agents (1-100)",
+      "auto_commit": "Automatic commit after operations",
+      "default_editor": "Editor for interactive editing",
+      "prodigy_home": "Prodigy home directory"
+    },
+    "project_settings": {
+      "name": "Project name",
+      "description": "Project description",
+      "version": "Project version",
+      "spec_dir": "Spec files directory",
+      "variables": "Custom project variables"
+    },
+    "storage_settings": {
+      "backend": "Storage backend type (filesystem, memory)",
+      "base_path": "Base storage path",
+      "compression_level": "Checkpoint compression (0-9)"
+    },
+    "plugin_config": {
+      "enabled": "Plugin system enabled",
+      "directory": "Plugin directory path",
+      "auto_load": "Plugins to auto-load on startup"
+    },
+    "validation": {
+      "description": "Stillwater-based validation with error accumulation",
+      "features": [
+        "All errors reported at once",
+        "Type validation for settings",
+        "Cross-field validation",
+        "Helpful error messages"
+      ]
+    }
+  },
   "meta_content": {
     "type": "meta",
     "description": "Best practices, patterns, and troubleshooting guidance",
@@ -641,8 +685,8 @@
     }
   },
   "version_info": {
-    "analyzed_version": "main branch",
-    "analysis_date": "2025-11-11",
+    "analyzed_version": "0.4.4",
+    "analysis_date": "2025-12-27",
     "specification_coverage": [
       "Spec 101 - Error Handling",
       "Spec 110 - Branch Tracking",
@@ -654,7 +698,13 @@
       "Spec 131-133 - Workflow Composition",
       "Spec 134 - MapReduce Checkpoint and Resume",
       "Spec 136 - Cleanup Failure Handling",
-      "Spec 140 - Concurrent Resume Protection"
+      "Spec 140 - Concurrent Resume Protection",
+      "Spec 163 - Commit Validation",
+      "Spec 168 - Error Handling Patterns",
+      "Spec 171 - Variable Aggregation",
+      "Spec 173 - Effect-Based Parallelism",
+      "Spec 175 - Reader Pattern Environment Access",
+      "Spec 176 - Validation Patterns"
     ]
   }
 }

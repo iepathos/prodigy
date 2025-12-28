@@ -1,0 +1,81 @@
+{
+  "item_type": "page",
+  "page_id": "event-tracking",
+  "page_title": "event tracking",
+  "page_file": "docs/mapreduce/event-tracking.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation is comprehensive and accurately reflects the codebase implementation with only minor improvements needed",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Event Storage - File Rotation",
+      "description": "Documentation mentions rotated files use '.jsonl.rotated' extension, but code shows files are renamed with timestamp and .jsonl.gz extension",
+      "current_content": "Rotated files are moved with timestamp suffix: `events-{timestamp}.jsonl.rotated`",
+      "should_be": "Rotated files are renamed with timestamp: `events-{timestamp}.{timestamp}.jsonl.gz`",
+      "fix_suggestion": "Update rotation file naming convention to match actual implementation in event_writer.rs:86-89",
+      "source_reference": "src/cook/execution/events/event_writer.rs:86-89"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "CLI Commands - Export",
+      "description": "Export command is documented but the Export variant in EventsCommand shows it exists in implementation - minor feature completeness check",
+      "fix_suggestion": "Verify all export formats work as documented (json, csv, markdown)",
+      "source_reference": "src/cli/events/mod.rs:101-114"
+    }
+  ],
+  "positive_aspects": [
+    "Complete coverage of all 24 event types with accurate categorization",
+    "Correct source references to event_logger.rs and event_writer.rs with line numbers",
+    "Accurate EventRecord structure with all fields documented including extensible metadata",
+    "Correct buffer configuration values (1000 events, 5 second flush)",
+    "Accurate 100MB default rotation size",
+    "Comprehensive CLI command documentation with all filtering options",
+    "Good troubleshooting section with buffer behavior explanation",
+    "Accurate note about CLI default path vs global storage path discrepancy",
+    "Valid cross-references to related documentation pages"
+  ],
+  "improvement_suggestions": [
+    "Add a visual diagram showing event flow from generation to storage",
+    "Add MkDocs Material admonitions for important notes (tip, warning)",
+    "Add code annotation explanations for the JSON structure example",
+    "Consider adding a table comparing event types by category"
+  ],
+  "cross_references": [
+    {
+      "target": "checkpoint-and-resume.md",
+      "status": "valid",
+      "verified": true
+    },
+    {
+      "target": "dead-letter-queue-dlq.md",
+      "status": "valid",
+      "verified": true
+    },
+    {
+      "target": "../retry-configuration/retry-metrics-and-observability.md",
+      "status": "valid",
+      "verified": true
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:25:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "event tracking",
+      "event types",
+      "event storage",
+      "JSONL format",
+      "event buffering",
+      "file rotation",
+      "CLI commands",
+      "correlation IDs",
+      "debugging"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 3,
+    "broken_links_found": 0
+  }
+}

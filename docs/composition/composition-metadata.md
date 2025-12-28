@@ -2,7 +2,49 @@
 
 Prodigy tracks metadata about workflow composition for debugging and dependency analysis. This metadata provides visibility into how workflows are composed, what dependencies exist, and when composition occurred.
 
-> **Implementation Status**: The composition metadata types and dependency tracking are fully implemented in the core composition system. These features are accessible programmatically via the WorkflowComposer API. CLI integration for viewing composition metadata in workflows is under development (Spec 131-133).
+```mermaid
+graph LR
+    subgraph Input["Input Sources"]
+        direction TB
+        Main[Main Workflow]
+        Base[Base Config]
+        Imports[Imports]
+        Templates[Templates]
+    end
+
+    subgraph Composer["WorkflowComposer"]
+        direction TB
+        Parse[Parse YAML]
+        Resolve[Resolve Dependencies]
+        Merge[Merge Configurations]
+        Track[Track Metadata]
+    end
+
+    subgraph Output["ComposedWorkflow"]
+        direction TB
+        Workflow[Merged Workflow]
+        Metadata[CompositionMetadata]
+    end
+
+    Main --> Parse
+    Base --> Resolve
+    Imports --> Resolve
+    Templates --> Resolve
+    Parse --> Resolve
+    Resolve --> Merge
+    Merge --> Track
+    Track --> Workflow
+    Track --> Metadata
+
+    style Input fill:#e1f5ff
+    style Composer fill:#fff3e0
+    style Output fill:#e8f5e9
+```
+
+**Figure**: Composition metadata is generated as the WorkflowComposer processes input sources, resolves dependencies, and merges configurations.
+
+!!! info "Implementation Status"
+    The composition metadata types and dependency tracking are fully implemented in the core composition system. These features are accessible programmatically via the WorkflowComposer API. CLI integration for viewing composition metadata in workflows is under development (Spec 131-133).
 
 ### CompositionMetadata Structure
 
@@ -15,28 +57,27 @@ Every composed workflow includes metadata tracking all composition operations:
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompositionMetadata {
     /// Source files involved in composition
-    pub sources: Vec<PathBuf>,
+    pub sources: Vec<PathBuf>, // (1)!
 
     /// Templates used
-    pub templates: Vec<String>,
+    pub templates: Vec<String>, // (2)!
 
     /// Parameters applied
-    pub parameters: HashMap<String, Value>,
+    pub parameters: HashMap<String, Value>, // (3)!
 
     /// Composition timestamp
-    pub composed_at: chrono::DateTime<chrono::Utc>,
+    pub composed_at: chrono::DateTime<chrono::Utc>, // (4)!
 
     /// Dependency graph
-    pub dependencies: Vec<DependencyInfo>,
+    pub dependencies: Vec<DependencyInfo>, // (5)!
 }
 ```
 
-**Field Details**:
-- `sources`: File paths of all workflow files involved in composition (as `PathBuf` objects)
-- `templates`: Template names/sources used during composition
-- `parameters`: Final parameter values applied to the workflow (as `serde_json::Value`)
-- `composed_at`: ISO 8601 timestamp when composition occurred (UTC timezone)
-- `dependencies`: Complete dependency graph with all imports, extends, templates, and sub-workflows
+1. File paths of all workflow files involved in composition (as `PathBuf` objects)
+2. Template names/sources used during composition
+3. Final parameter values applied to the workflow (as `serde_json::Value`)
+4. ISO 8601 timestamp when composition occurred (UTC timezone)
+5. Complete dependency graph with all imports, extends, templates, and sub-workflows
 
 ### Dependency Tracking
 
@@ -49,24 +90,48 @@ Each dependency includes detailed information:
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DependencyInfo {
     /// Source of the dependency
-    pub source: PathBuf,
+    pub source: PathBuf, // (1)!
 
     /// Type of dependency
-    pub dep_type: DependencyType,
+    pub dep_type: DependencyType, // (2)!
 
     /// Resolved path or name
-    pub resolved: String,
+    pub resolved: String, // (3)!
 }
 ```
 
-**Field Details**:
-- `source`: Source file path of the dependency (as `PathBuf`)
-- `dep_type`: Type of dependency (Import, Extends, Template, or SubWorkflow)
-- `resolved`: Resolved file path or template name (as `String`)
+1. Source file path of the dependency (as `PathBuf`)
+2. Type of dependency (Import, Extends, Template, or SubWorkflow)
+3. Resolved file path or template name (as `String`)
 
 ### Dependency Types
 
 Prodigy tracks four types of dependencies:
+
+```mermaid
+graph LR
+    Workflow[Your Workflow] --> Extends["Extends
+    (Inheritance)"]
+    Workflow --> Import["Import
+    (Shared Code)"]
+    Workflow --> Template["Template
+    (Registry)"]
+    Workflow --> SubWorkflow["SubWorkflow
+    (Nested Execution)"]
+
+    Extends --> Base[Base Config]
+    Import --> Shared[Shared Utilities]
+    Template --> Registry[Template Registry]
+    SubWorkflow --> Nested[Nested Workflow]
+
+    style Workflow fill:#e1f5ff
+    style Extends fill:#fff3e0
+    style Import fill:#e8f5e9
+    style Template fill:#f3e5f5
+    style SubWorkflow fill:#fce4ec
+```
+
+**Figure**: The four dependency types represent different ways workflows can reference external resources.
 
 **Source**: `src/cook/workflow/composition/mod.rs:185-193`
 
@@ -127,9 +192,106 @@ sub_workflows:
 # resolved: "/full/path/to/workflows/test.yml"
 ```
 
+### Composition Example
+
+This example shows a complete workflow with multiple dependencies and the resulting composition metadata:
+
+=== "Workflow YAML"
+
+    ```yaml title="main-workflow.yml"
+    # Main workflow with composition features
+    name: ci-pipeline
+
+    extends: "base-config.yml"
+
+    imports:
+      - path: "shared/utilities.yml"
+
+    template:
+      source:
+        registry: "ci-pipeline"
+
+    parameters:
+      definitions:
+        environment:
+          type: string
+          required: true
+        timeout:
+          type: integer
+          default: 600
+
+    setup:
+      - shell: "npm install"
+
+    commands:
+      - claude: "/run-tests"
+    ```
+
+=== "Resulting Metadata JSON"
+
+    ```json
+    {
+      "sources": [
+        "/path/to/main-workflow.yml",
+        "/path/to/base-config.yml",
+        "/path/to/shared/utilities.yml"
+      ],
+      "templates": [
+        "registry:ci-pipeline"
+      ],
+      "parameters": {
+        "environment": "production",
+        "timeout": 600
+      },
+      "composed_at": "2025-01-11T20:00:00Z",
+      "dependencies": [
+        {
+          "source": "base-config.yml",
+          "dep_type": "extends",
+          "resolved": "/path/to/base-config.yml"
+        },
+        {
+          "source": "shared/utilities.yml",
+          "dep_type": "import",
+          "resolved": "/path/to/shared/utilities.yml"
+        },
+        {
+          "source": "registry:ci-pipeline",
+          "dep_type": "template",
+          "resolved": "~/.prodigy/templates/ci-pipeline.yml"
+        }
+      ]
+    }
+    ```
+
+=== "Rust Inspection"
+
+    ```rust
+    // Access the composed metadata
+    let composed = composer.compose(
+        Path::new("main-workflow.yml"),
+        params
+    ).await?;
+
+    // Print summary
+    println!("Workflow: {}", composed.workflow.name);
+    println!("Composed at: {}", composed.metadata.composed_at);
+    println!("Dependencies: {}", composed.metadata.dependencies.len());
+
+    // Iterate dependencies
+    for dep in &composed.metadata.dependencies {
+        println!("  [{:?}] {} -> {}",
+            dep.dep_type,
+            dep.source.display(),
+            dep.resolved
+        );
+    }
+    ```
+
 ### Viewing Composition Metadata
 
-> **Note**: CLI commands for viewing composition metadata in workflow execution are under development. Currently, metadata can be accessed programmatically via the WorkflowComposer API (see [Programmatic Access](#programmatic-access) below).
+!!! note "CLI Under Development"
+    CLI commands for viewing composition metadata in workflow execution are under development. Currently, metadata can be accessed programmatically via the WorkflowComposer API (see [Programmatic Access](#programmatic-access) below).
 
 **Future CLI Usage** (planned):
 ```bash
@@ -241,7 +403,11 @@ workflow.yml
 
 ### Use Cases
 
+!!! tip "When Metadata Is Most Valuable"
+    Composition metadata is essential when debugging complex workflows with multiple inheritance levels or when auditing which configurations were applied during production runs.
+
 **Debugging Composition Issues:**
+
 - Verify which files were loaded
 - Check parameter resolution order
 - Identify circular dependencies
@@ -292,25 +458,92 @@ println!("This workflow was composed from {} sources",
 
 ### Circular Dependency Detection
 
-Metadata enables circular dependency detection:
+Metadata enables circular dependency detection across all dependency types:
 
-```yaml
-# workflow-a.yml
-extends: "workflow-b.yml"
+=== "Simple Cycle"
 
-# workflow-b.yml
-extends: "workflow-a.yml"
-```
+    ```yaml
+    # workflow-a.yml
+    extends: "workflow-b.yml"
 
-**Detection:**
-```
-Error: Circular dependency detected
-  workflow-a.yml -> workflow-b.yml -> workflow-a.yml
+    # workflow-b.yml
+    extends: "workflow-a.yml"
+    ```
 
-Dependency chain:
-  1. workflow-a.yml (extends workflow-b.yml)
-  2. workflow-b.yml (extends workflow-a.yml) <- Circular!
-```
+    **Error output:**
+    ```
+    Error: Circular dependency detected
+      workflow-a.yml -> workflow-b.yml -> workflow-a.yml
+
+    Dependency chain:
+      1. workflow-a.yml (extends workflow-b.yml)
+      2. workflow-b.yml (extends workflow-a.yml) <- Circular!
+    ```
+
+=== "Multi-File Cycle"
+
+    ```yaml
+    # main.yml
+    extends: "base.yml"
+    imports:
+      - path: "shared/utils.yml"
+
+    # base.yml
+    imports:
+      - path: "shared/config.yml"
+
+    # shared/config.yml
+    extends: "../main.yml"  # Creates cycle!
+    ```
+
+    **Error output:**
+    ```
+    Error: Circular dependency detected
+      main.yml -> base.yml -> shared/config.yml -> main.yml
+
+    Dependency chain:
+      1. main.yml (extends base.yml)
+      2. base.yml (imports shared/config.yml)
+      3. shared/config.yml (extends ../main.yml) <- Circular!
+
+    Suggestion: Remove the 'extends' in shared/config.yml
+    ```
+
+=== "Template Cycle"
+
+    ```yaml
+    # template-a.yml (in registry)
+    template:
+      source:
+        registry: "template-b"
+
+    # template-b.yml (in registry)
+    template:
+      source:
+        registry: "template-a"
+    ```
+
+    **Error output:**
+    ```
+    Error: Circular dependency detected in template registry
+      template-a -> template-b -> template-a
+
+    Dependency chain:
+      1. template-a (template template-b)
+      2. template-b (template template-a) <- Circular!
+
+    Note: Template cycles prevent registry loading
+    ```
+
+!!! warning "Diamond Dependencies"
+    Diamond dependencies (where two paths lead to the same file) are allowed and handled correctly. Only true cycles cause errors:
+
+    ```
+    main.yml
+    ├─ [Extends] base-a.yml ──┐
+    │                         ├→ [Import] shared.yml  ✓ OK (not a cycle)
+    └─ [Extends] base-b.yml ──┘
+    ```
 
 ### Parameter Tracking
 
@@ -347,7 +580,8 @@ Composition metadata enables future caching optimizations:
 - `dependencies` graph supports incremental composition
 - `parameters` hash can detect identical compositions
 
-> **Note**: Workflow caching is a planned feature. Currently, metadata is generated fresh on each composition.
+!!! note "Planned Feature"
+    Workflow caching is a planned feature. Currently, metadata is generated fresh on each composition.
 
 ### Data Structure Properties
 

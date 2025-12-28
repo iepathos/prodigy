@@ -1,0 +1,170 @@
+{
+  "item_type": "page",
+  "page_id": "workflow-phases",
+  "page_title": "workflow phases",
+  "page_file": "docs/automated-documentation/mkdocs-workflow/workflow-phases.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has significant drift from actual workflow implementation. Missing 3 of 5 setup steps, incorrect command names in reduce phase, and missing new map phase features.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Setup Phase",
+      "description": "Missing Step 3: Analyze page sizes and structural complexity with /prodigy-analyze-mkdocs-structure command",
+      "feature_reference": "mkdocs-drift.yml:setup[2]",
+      "fix_suggestion": "Add documentation for /prodigy-analyze-mkdocs-structure that analyzes page sizes and identifies oversized pages needing splits",
+      "source_reference": "workflows/mkdocs-drift.yml:41"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Setup Phase",
+      "description": "Missing Step 4: Automatically split oversized pages with /prodigy-split-oversized-mkdocs-pages command",
+      "feature_reference": "mkdocs-drift.yml:setup[3]",
+      "fix_suggestion": "Add documentation for /prodigy-split-oversized-mkdocs-pages that splits large pages before map phase processing",
+      "source_reference": "workflows/mkdocs-drift.yml:46"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Setup Phase",
+      "description": "Missing Step 5: Auto-discover ALL documentation pages including newly created subpages",
+      "feature_reference": "mkdocs-drift.yml:setup[4]",
+      "fix_suggestion": "Add documentation for the shell command that discovers all .md files and creates flattened-items.json for map phase",
+      "source_reference": "workflows/mkdocs-drift.yml:51-64"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Reduce Phase - Holistic Validation",
+      "description": "Documentation references non-existent command '/prodigy-validate-mkdocs-holistically'. The actual command is '/prodigy-validate-mkdocs-structure'",
+      "current_content": "/prodigy-validate-mkdocs-holistically --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/validation.json --auto-fix true",
+      "should_be": "/prodigy-validate-mkdocs-structure --project $PROJECT_NAME --docs-dir $DOCS_DIR --output $ANALYSIS_DIR/structure-validation.json --auto-fix true",
+      "fix_suggestion": "Replace /prodigy-validate-mkdocs-holistically with /prodigy-validate-mkdocs-structure and update output path",
+      "source_reference": "workflows/mkdocs-drift.yml:106 and .claude/commands/prodigy-validate-mkdocs-structure.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Map Phase",
+      "description": "Missing Step 3: Enhance page with visual features using /prodigy-enhance-mkdocs-page command",
+      "feature_reference": "mkdocs-drift.yml:map.agent_template[2]",
+      "fix_suggestion": "Add documentation for /prodigy-enhance-mkdocs-page that adds Mermaid diagrams, admonitions, and code annotations",
+      "source_reference": "workflows/mkdocs-drift.yml:91-92"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Reduce Phase",
+      "description": "Missing Step 3: Feature consistency validation with /prodigy-validate-feature-consistency command",
+      "feature_reference": "mkdocs-drift.yml:reduce[2]",
+      "fix_suggestion": "Add documentation for /prodigy-validate-feature-consistency that verifies all pages have consistent feature usage",
+      "source_reference": "workflows/mkdocs-drift.yml:112"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Reduce Phase",
+      "description": "Missing Step 4: Mermaid diagram validation with mermaid-sonar and /prodigy-fix-mermaid-diagrams fallback",
+      "feature_reference": "mkdocs-drift.yml:reduce[3]",
+      "fix_suggestion": "Add documentation for mermaid-sonar validation and /prodigy-fix-mermaid-diagrams error handler",
+      "source_reference": "workflows/mkdocs-drift.yml:115-120"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Workflow Commands Reference - Reduce Phase Commands",
+      "description": "Documentation references /prodigy-validate-mkdocs-holistically command which does not exist",
+      "current_content": "/prodigy-validate-mkdocs-holistically",
+      "should_be": "/prodigy-validate-mkdocs-structure",
+      "fix_suggestion": "Replace with /prodigy-validate-mkdocs-structure and update description to match actual functionality",
+      "source_reference": ".claude/commands/prodigy-validate-mkdocs-structure.md"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Map Phase - Validate Fix",
+      "description": "The on_incomplete handler documentation is incomplete - should mention /prodigy-complete-mkdocs-fix command",
+      "fix_suggestion": "Add documentation showing the full validate block with on_incomplete handler and /prodigy-complete-mkdocs-fix command",
+      "source_reference": "workflows/mkdocs-drift.yml:80-87"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow Commands Reference",
+      "description": "Missing documentation for /prodigy-enhance-mkdocs-page command",
+      "fix_suggestion": "Add entry for /prodigy-enhance-mkdocs-page that describes Mermaid diagrams, admonitions, and code annotation features",
+      "source_reference": ".claude/commands/prodigy-enhance-mkdocs-page.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow Commands Reference",
+      "description": "Missing documentation for /prodigy-analyze-mkdocs-structure command",
+      "fix_suggestion": "Add entry for /prodigy-analyze-mkdocs-structure that describes page size analysis and structure reporting",
+      "source_reference": ".claude/commands/prodigy-analyze-mkdocs-structure.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow Commands Reference",
+      "description": "Missing documentation for /prodigy-split-oversized-mkdocs-pages command",
+      "fix_suggestion": "Add entry for /prodigy-split-oversized-mkdocs-pages that describes automatic page splitting",
+      "source_reference": ".claude/commands/prodigy-split-oversized-mkdocs-pages.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow Commands Reference",
+      "description": "Missing documentation for /prodigy-validate-feature-consistency command",
+      "fix_suggestion": "Add entry for /prodigy-validate-feature-consistency that describes feature usage validation",
+      "source_reference": ".claude/commands/prodigy-validate-feature-consistency.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Workflow Commands Reference",
+      "description": "Missing documentation for /prodigy-fix-mermaid-diagrams command",
+      "fix_suggestion": "Add entry for /prodigy-fix-mermaid-diagrams that describes Mermaid diagram syntax fixing",
+      "source_reference": ".claude/commands/prodigy-fix-mermaid-diagrams.md"
+    }
+  ],
+  "positive_aspects": [
+    "Clear structure with Setup, Map, and Reduce phases",
+    "Good YAML examples showing command syntax",
+    "Accurate documentation of /prodigy-analyze-features-for-mkdocs and /prodigy-detect-mkdocs-gaps commands",
+    "Correct documentation of /prodigy-analyze-mkdocs-drift and /prodigy-fix-mkdocs-drift commands",
+    "Good explanation of validation with threshold and commit_required",
+    "Clear workflow commands reference section organization"
+  ],
+  "improvement_suggestions": [
+    "Add a visual workflow diagram showing all 5 setup steps and their dependencies",
+    "Include the auto-discovery mechanism that finds all .md files including newly created subpages",
+    "Document the error_policy section that controls DLQ routing and failure handling",
+    "Add section on visual enhancement features (Mermaid diagrams, admonitions, code annotations)",
+    "Include mermaid-sonar validation step in reduce phase documentation"
+  ],
+  "cross_references": [
+    "getting-started",
+    "advanced-usage",
+    "index"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "workflow phases",
+      "setup phase",
+      "map phase",
+      "reduce phase",
+      "workflow commands"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "workflow_file": "workflows/mkdocs-drift.yml",
+    "total_issues": 14,
+    "high_severity_issues": 4,
+    "medium_severity_issues": 4,
+    "low_severity_issues": 6
+  }
+}

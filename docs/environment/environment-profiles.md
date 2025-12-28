@@ -2,13 +2,14 @@
 
 Environment profiles allow you to define named sets of environment variables for different execution contexts (development, staging, production, etc.). Each profile contains environment variables that are applied when the profile is activated.
 
-**Source**: Profile infrastructure implemented in `src/cook/environment/config.rs` (EnvironmentConfig struct) and `src/cook/environment/manager.rs` (profile application logic).
+!!! abstract "Source Reference"
+    Profile infrastructure implemented in `src/cook/environment/config.rs` (EnvironmentConfig struct) and `src/cook/environment/manager.rs` (profile application logic).
 
 ### Defining Profiles
 
 Profiles use a flat structure where environment variables are defined directly at the profile level (not nested under an `env:` key):
 
-```yaml
+```yaml title="workflow.yml - Profile Definition"
 # Define multiple profiles for different environments
 profiles:
   development:
@@ -41,148 +42,181 @@ commands:
   - shell: "npm run build"
 ```
 
-**Source**: Profile structure defined in `src/cook/environment/config.rs` (EnvProfile type).
+!!! tip "Profile Structure"
+    - **description** (optional): Human-readable description of the profile's purpose
+    - **Environment variables**: Direct key-value pairs at the profile level
+    - All variable values must be strings in YAML
 
-**Profile Structure Details**:
-- **description** (optional): Human-readable description of the profile's purpose
-- **Environment variables**: Direct key-value pairs at the profile level
-- All variable values must be strings in YAML
+    Source: `src/cook/environment/config.rs` (EnvProfile type)
 
 ### Activating Profiles
 
-**Design Note**: The profile activation infrastructure is architecturally complete in the codebase. The `EnvironmentConfig` struct has an `active_profile` field (`src/cook/environment/config.rs:33-35`), and the `EnvironmentManager` applies active profiles during environment setup (`src/cook/environment/manager.rs:118-120`). Comprehensive integration tests demonstrate profile activation (`tests/environment_workflow_test.rs:63-132`).
+!!! info "Implementation Status"
+    The profile activation infrastructure is architecturally complete in the codebase. The `EnvironmentConfig` struct has an `active_profile` field (`src/cook/environment/config.rs:33-35`), and the `EnvironmentManager` applies active profiles during environment setup (`src/cook/environment/manager.rs:118-120`). Comprehensive integration tests demonstrate profile activation (`tests/environment_workflow_test.rs:63-132`).
 
-**Current Implementation Status**: As of this documentation, the CLI wiring for profile activation (`--profile` flag and `PRODIGY_PROFILE` environment variable) is not yet connected to the argument parser. The profile application infrastructure exists and is tested, but requires the active profile to be set programmatically rather than via command-line arguments.
+    **Current Status**: As of this documentation, the CLI wiring for profile activation (`--profile` flag and `PRODIGY_PROFILE` environment variable) is not yet connected to the argument parser. The profile application infrastructure exists and is tested, but requires the active profile to be set programmatically rather than via command-line arguments.
 
-**Intended Usage** (when CLI wiring is complete):
+=== "CLI Flag (Planned)"
 
-```bash
-# Activate profile via command line flag
-prodigy run workflow.yml --profile production
+    ```bash
+    # Activate profile via command line flag
+    prodigy run workflow.yml --profile production
+    ```
 
-# Activate profile via environment variable
-export PRODIGY_PROFILE=staging
-prodigy run workflow.yml
-```
+=== "Environment Variable (Planned)"
 
-**Current Workaround**: Profiles can be activated programmatically in tests or by directly setting the `active_profile` field when constructing `EnvironmentConfig` objects.
+    ```bash
+    # Activate profile via environment variable
+    export PRODIGY_PROFILE=staging
+    prodigy run workflow.yml
+    ```
+
+=== "Programmatic (Current)"
+
+    ```rust
+    // Source: tests/environment_workflow_test.rs
+    // Profiles can be activated programmatically by setting active_profile
+    let config = EnvironmentConfig {
+        active_profile: Some("production".to_string()),
+        profiles: profiles_map,
+        ..Default::default()
+    };
+    ```
 
 ### Common Use Cases
 
 Profiles are ideal for managing environment-specific configuration:
 
-1. **Different API Endpoints**
-   ```yaml
-   profiles:
-     development:
-       API_URL: http://localhost:3000
-       AUTH_URL: http://localhost:4000
+=== "API Endpoints"
 
-     production:
-       API_URL: https://api.example.com
-       AUTH_URL: https://auth.example.com
-   ```
+    ```yaml title="Different API endpoints per environment"
+    profiles:
+      development:
+        API_URL: http://localhost:3000
+        AUTH_URL: http://localhost:4000
 
-2. **Environment-Specific Credentials**
-   ```yaml
-   profiles:
-     development:
-       DB_HOST: localhost
-       DB_NAME: myapp_dev
-       DB_USER: dev_user
+      production:
+        API_URL: https://api.example.com
+        AUTH_URL: https://auth.example.com
+    ```
 
-     production:
-       DB_HOST: prod-db.example.com
-       DB_NAME: myapp_prod
-       DB_USER: prod_user
-   ```
+=== "Database Credentials"
 
-3. **Deployment Target Configuration**
-   ```yaml
-   profiles:
-     aws:
-       CLOUD_PROVIDER: aws
-       REGION: us-east-1
-       DEPLOY_COMMAND: "aws deploy"
+    ```yaml title="Environment-specific database configuration"
+    profiles:
+      development:
+        DB_HOST: localhost
+        DB_NAME: myapp_dev
+        DB_USER: dev_user
 
-     gcp:
-       CLOUD_PROVIDER: gcp
-       REGION: us-central1
-       DEPLOY_COMMAND: "gcloud deploy"
-   ```
+      production:
+        DB_HOST: prod-db.example.com
+        DB_NAME: myapp_prod
+        DB_USER: prod_user
+    ```
+
+=== "Cloud Deployment"
+
+    ```yaml title="Deployment target configuration"
+    profiles:
+      aws:
+        CLOUD_PROVIDER: aws
+        REGION: us-east-1
+        DEPLOY_COMMAND: "aws deploy"
+
+      gcp:
+        CLOUD_PROVIDER: gcp
+        REGION: us-central1
+        DEPLOY_COMMAND: "gcloud deploy"
+    ```
 
 ### Environment Variable Precedence
 
 When a profile is active, environment variables are resolved in this order (highest to lowest precedence):
 
-1. **Step-level environment** - Variables defined in individual command `env:` blocks
-2. **Active profile environment** - Variables from the activated profile
-3. **Global environment** - Variables from top-level `env:` block
-4. **System environment** - Variables inherited from the shell
+```mermaid
+flowchart LR
+    A["Step-level
+    env: in commands"] --> B["Active Profile
+    Profile variables"] --> C["Global env:
+    Top-level block"] --> D["System
+    Shell environment"]
 
-**Source**: Precedence chain implemented in `src/cook/environment/manager.rs` and tested in `tests/environment_workflow_test.rs`.
+    style A fill:#e8f5e9,stroke:#2e7d32
+    style B fill:#e3f2fd,stroke:#1565c0
+    style C fill:#fff3e0,stroke:#ef6c00
+    style D fill:#f3e5f5,stroke:#7b1fa2
+```
+
+**Figure**: Environment variable resolution order - higher precedence sources on the left override those on the right.
+
+!!! note "Source Reference"
+    Precedence chain implemented in `src/cook/environment/manager.rs:88-156` and tested in `tests/environment_workflow_test.rs`.
 
 For detailed information on precedence rules, see [Environment Precedence](environment-precedence.md).
 
 ### Profile Best Practices
 
-**Define sensible defaults**:
-```yaml
-profiles:
-  development:
-    description: "Local development with debug enabled"
-    DEBUG: "true"
-    LOG_LEVEL: debug
+!!! example "Define Sensible Defaults"
 
-  production:
-    description: "Production environment with minimal logging"
-    DEBUG: "false"
-    LOG_LEVEL: error
-```
+    ```yaml
+    profiles:
+      development:
+        description: "Local development with debug enabled"
+        DEBUG: "true"
+        LOG_LEVEL: debug
 
-**Combine with env_files for secrets**:
-```yaml
-profiles:
-  production:
-    API_URL: https://api.example.com
-    DEBUG: "false"
+      production:
+        description: "Production environment with minimal logging"
+        DEBUG: "false"
+        LOG_LEVEL: error
+    ```
 
-env_files:
-  - path: .env.production
-    required: true  # Contains secrets like API_KEY
-```
+!!! example "Combine with env_files for Secrets"
 
-See [Environment Files](environment-files.md) for more on combining profiles with environment files.
+    ```yaml
+    profiles:
+      production:
+        API_URL: https://api.example.com
+        DEBUG: "false"
 
-**Override profile values at step level**:
-```yaml
-profiles:
-  production:
-    LOG_LEVEL: error
+    env_files:
+      - path: .env.production
+        required: true  # Contains secrets like API_KEY
+    ```
 
-commands:
-  - shell: "run-diagnostics.sh"
-    env:
-      LOG_LEVEL: debug  # Override for this step only
-```
+    See [Environment Files](environment-files.md) for more on combining profiles with environment files.
 
-See [Per-Command Environment Overrides](per-command-environment-overrides.md) for step-level overrides.
+!!! example "Override Profile Values at Step Level"
+
+    ```yaml
+    profiles:
+      production:
+        LOG_LEVEL: error
+
+    commands:
+      - shell: "run-diagnostics.sh"
+        env:
+          LOG_LEVEL: debug  # Override for this step only
+    ```
+
+    See [Per-Command Environment Overrides](per-command-environment-overrides.md) for step-level overrides.
 
 ### Troubleshooting
 
-**Profile not applied**:
-- Verify profile name matches exactly (case-sensitive)
-- Check that profile is defined in `profiles:` section
-- Confirm profile activation method is used correctly
+!!! warning "Profile Not Applied"
+    - Verify profile name matches exactly (case-sensitive)
+    - Check that profile is defined in `profiles:` section
+    - Confirm profile activation method is used correctly
 
-**Variables not resolved**:
-- Ensure variable names are correct in profile definition
-- Check precedence - higher-precedence sources may override profile values
-- Verify string values are quoted in YAML if they contain special characters
-
-**See Also**:
-- [Environment Precedence](environment-precedence.md) - Understanding variable resolution order
-- [Environment Files](environment-files.md) - Loading variables from external files
+!!! warning "Variables Not Resolved"
+    - Ensure variable names are correct in profile definition
+    - Check precedence - higher-precedence sources may override profile values
+    - Verify string values are quoted in YAML if they contain special characters
 
 ---
 
+**See Also**:
+
+- [Environment Precedence](environment-precedence.md) - Understanding variable resolution order
+- [Environment Files](environment-files.md) - Loading variables from external files

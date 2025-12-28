@@ -1,0 +1,61 @@
+{
+  "item_type": "page",
+  "page_id": "basic-workflows",
+  "page_title": "basic workflows",
+  "page_file": "docs/examples/basic-workflows.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Good - Documentation accurately reflects current implementation with clear examples and visual features",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate representation of workflow syntax - shell, claude, foreach commands match implementation",
+    "Correct ParallelConfig syntax shown - supports false (sequential), true (default parallelism), or number (specific count)",
+    "Proper on_failure handler syntax demonstrated with claude command integration",
+    "MapReduce example correctly shows setup/map/reduce phases with proper field names",
+    "Accurate JSONPath patterns including filtering and nested access",
+    "Excellent use of MkDocs Material admonitions (!!! example blocks)",
+    "Helpful code annotations using (1)!, (2)!, (3)! syntax for numbered explanations",
+    "Mermaid diagram provides clear visual flow of MapReduce execution",
+    "Good use of horizontal rule separators between examples",
+    "continue_on_error field correctly documented for foreach",
+    "capture_output and capture_format fields accurately shown in MapReduce agent_template"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a note about max_items option for foreach to limit processed items",
+    "Could add cross-reference to advanced-examples.md for more complex patterns",
+    "Consider mentioning error_policy feature available at workflow level for consistent error handling"
+  ],
+  "cross_references": [
+    "advanced-examples",
+    "mapreduce-examples",
+    "conditional-workflows"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "basic workflows",
+      "shell commands",
+      "foreach iteration",
+      "parallel execution",
+      "mapreduce pattern",
+      "on_failure handlers",
+      "JSONPath expressions"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "visual_features_present": {
+      "admonitions": true,
+      "code_annotations": true,
+      "mermaid_diagrams": true,
+      "horizontal_rules": true,
+      "figure_captions": true
+    },
+    "syntax_validation": {
+      "workflow_commands": "validated",
+      "foreach_config": "validated",
+      "mapreduce_config": "validated",
+      "parallel_config": "validated",
+      "on_failure_handlers": "validated"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "topic-normalization",
+  "page_title": "topic normalization",
+  "page_file": "docs/automated-documentation/gap-detection/topic-normalization.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation accurately reflects the core normalization logic and test patterns but could benefit from enhanced visual presentation using MkDocs Material features",
+  "issues": [
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Overall Page",
+      "description": "Page lacks MkDocs Material visual features for improved readability",
+      "current_content": "Plain markdown without admonitions, tabs, or other Material features",
+      "should_be": "Enhanced with admonitions, code annotations, and visual hierarchy",
+      "fix_suggestion": "Add MkDocs Material admonitions (info, tip, warning) around key concepts, use tabbed examples for different normalization scenarios, and add code annotations for the test examples",
+      "source_reference": "MkDocs Material documentation"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Matching Logic",
+      "description": "Matching logic step 6 references 'feature_mapping arrays' but does not explain what these are or how they work",
+      "current_content": "6. Subsection feature_mapping arrays match",
+      "should_be": "Include brief explanation of feature_mapping and link to relevant documentation",
+      "fix_suggestion": "Add a brief note explaining that feature_mapping arrays are used in subsection definitions to map page content to specific features",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "enhancement_opportunity",
+      "severity": "low",
+      "section": "Examples",
+      "description": "Normalization examples could use more structured presentation",
+      "current_content": "Plain code block with arrow notation",
+      "should_be": "Use tabbed examples or a table format for clearer presentation",
+      "fix_suggestion": "Consider using a table or admonition with tabs showing input -> output transformations more clearly",
+      "source_reference": "MkDocs Material documentation"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Test Case references",
+      "description": "Test file line numbers in references may become stale as code evolves",
+      "current_content": "tests/documentation_gap_detection_test.rs:236-274",
+      "should_be": "Reference test function names rather than line numbers for stability",
+      "fix_suggestion": "Change line number references to function name references (e.g., test_gap_detection_normalizes_topic_names) which are more stable across code changes",
+      "source_reference": "tests/documentation_gap_detection_test.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Accurately documents the four normalization steps from the actual implementation",
+    "Provides concrete examples of normalization transformations",
+    "Includes matching logic that aligns with the detect_gaps function in tests",
+    "Documents idempotence guarantees with test case evidence",
+    "References source code locations for verification",
+    "Test examples in documentation match actual test implementations",
+    "Good coverage of both normalization and idempotence topics in a focused page"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions to highlight key concepts (info box for normalization steps, tip for matching logic)",
+    "Use tabbed code blocks to show before/after normalization examples",
+    "Add code annotations to the Rust test examples explaining key assertions",
+    "Consider adding a visual flow diagram showing the normalization pipeline",
+    "Add cross-reference links to related gap detection pages",
+    "Use stable function name references instead of line numbers for test cases"
+  ],
+  "cross_references": [
+    "overview",
+    "validation-phases",
+    "gap-report"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "topic normalization",
+      "matching logic",
+      "idempotence",
+      "gap detection tests"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_found": 0,
+    "broken_links_found": 0,
+    "link_validation_status": "No internal links to validate"
+  }
+}
