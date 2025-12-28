@@ -2,6 +2,9 @@
 
 Extend a base workflow to inherit its configuration. Child workflows override parent values, allowing you to customize specific aspects while maintaining common configuration. This enables environment-specific variations and layered configuration management.
 
+!!! info "When to Use Extension vs Imports"
+    Use **extension** when you need environment-specific variations of the same workflow (dev/staging/prod). Use **imports** when composing independent, reusable workflow components.
+
 ### Basic Extension Syntax
 
 ```yaml
@@ -28,6 +31,9 @@ When a workflow extends a base workflow:
 4. **Merging is deep** - nested objects merge recursively
 5. **Arrays are replaced** - child arrays replace parent arrays entirely
 
+!!! warning "Array Replacement Behavior"
+    Unlike imports which *extend* arrays, extension *replaces* them entirely. If your child workflow specifies any commands, all parent commands are replaced.
+
 ### Extension vs Imports
 
 | Feature | Extension (`extends`) | Imports |
@@ -39,68 +45,81 @@ When a workflow extends a base workflow:
 
 ### Multi-Environment Example
 
-**base-deployment.yml** (shared configuration):
-```yaml
-name: base-deployment
-mode: standard
+=== "Base Workflow"
 
-env:
-  APP_NAME: "my-service"
-  REPLICAS: "1"
-  LOG_LEVEL: "info"
+    ```yaml title="base-deployment.yml"
+    # Source: Shared configuration inherited by all environments
+    name: base-deployment
+    mode: standard
 
-commands:
-  - shell: "docker build -t ${APP_NAME}:${VERSION} ."
-  - shell: "kubectl apply -f k8s/${ENVIRONMENT}/deployment.yml"
-  - shell: "kubectl scale deployment ${APP_NAME} --replicas=${REPLICAS}"
-```
+    env:
+      APP_NAME: "my-service"
+      REPLICAS: "1"
+      LOG_LEVEL: "info"
 
-**dev.yml** (development environment):
-```yaml
-name: dev-deployment
-extends: "base-deployment.yml"
+    commands:
+      - shell: "docker build -t ${APP_NAME}:${VERSION} ."
+      - shell: "kubectl apply -f k8s/${ENVIRONMENT}/deployment.yml"
+      - shell: "kubectl scale deployment ${APP_NAME} --replicas=${REPLICAS}"
+    ```
 
-env:
-  ENVIRONMENT: "dev"
-  REPLICAS: "1"
-  LOG_LEVEL: "debug"
+=== "Development"
 
-# Inherits all commands from base
-```
+    ```yaml title="dev.yml"
+    name: dev-deployment
+    extends: "base-deployment.yml"
 
-**staging.yml** (staging environment):
-```yaml
-name: staging-deployment
-extends: "base-deployment.yml"
+    env:
+      ENVIRONMENT: "dev"
+      REPLICAS: "1"
+      LOG_LEVEL: "debug"
 
-env:
-  ENVIRONMENT: "staging"
-  REPLICAS: "3"
-  LOG_LEVEL: "info"
+    # Inherits all commands from base
+    ```
 
-# Additional staging-specific commands
-commands:
-  - shell: "run-smoke-tests.sh"
-```
+=== "Staging"
 
-**production.yml** (production environment):
-```yaml
-name: production-deployment
-extends: "base-deployment.yml"
+    ```yaml title="staging.yml"
+    name: staging-deployment
+    extends: "base-deployment.yml"
 
-env:
-  ENVIRONMENT: "production"
-  REPLICAS: "5"
-  LOG_LEVEL: "warn"
-  ENABLE_MONITORING: "true"
+    env:
+      ENVIRONMENT: "staging"
+      REPLICAS: "3"
+      LOG_LEVEL: "info"
 
-# Additional production safeguards
-commands:
-  - shell: "verify-release-notes.sh"
-  - shell: "notify-team 'Deploying to production'"
-```
+    # Replaces base commands with staging-specific workflow
+    commands:
+      - shell: "run-smoke-tests.sh"
+    ```
+
+=== "Production"
+
+    ```yaml title="production.yml"
+    name: production-deployment
+    extends: "base-deployment.yml"
+
+    env:
+      ENVIRONMENT: "production"
+      REPLICAS: "5"
+      LOG_LEVEL: "warn"
+      ENABLE_MONITORING: "true"
+
+    # Replaces base commands with production safeguards
+    commands:
+      - shell: "verify-release-notes.sh"
+      - shell: "notify-team 'Deploying to production'"
+    ```
 
 ### Merge Behavior
+
+The following table summarizes how different value types are merged during extension:
+
+| Type | Behavior | Example |
+|------|----------|---------|
+| **Scalars** | Child replaces parent | `timeout: 600` overrides `timeout: 300` |
+| **Objects** | Deep merge (recursive) | Child env vars added/override parent |
+| **Arrays** | Child replaces entirely | Child commands replace all parent commands |
 
 **Scalar Values** - Child replaces parent:
 ```yaml
@@ -154,7 +173,7 @@ env:
   NEW_VAR: "value"        # Added by child
 ```
 
-**Source**: Environment variables inherit the object deep merge behavior (src/cook/workflow/composition/composer.rs:325-355)
+**Source**: Environment variables inherit the object deep merge behavior (src/cook/workflow/composition/composer.rs:326-356)
 
 **Arrays (Commands)** - Child replaces parent:
 ```yaml
@@ -171,9 +190,9 @@ commands:
 # Result: Only custom-step runs
 ```
 
-**Source**: In inheritance mode (`extends`), non-empty child command arrays replace parent arrays entirely (src/cook/workflow/composition/composer.rs:335-337)
+**Source**: In inheritance mode (`extends`), non-empty child command arrays replace parent arrays entirely (src/cook/workflow/composition/composer.rs:336-338)
 
-**Note**: This behavior differs from imports, where `merge_workflows` extends arrays instead of replacing them (src/cook/workflow/composition/composer.rs:275-323). See [Workflow Imports](index.md#workflow-imports) for comparison.
+**Note**: This behavior differs from imports, where `merge_workflows` extends arrays instead of replacing them (src/cook/workflow/composition/composer.rs:276-323). See [Workflow Imports](index.md#workflow-imports) for comparison.
 
 ### Layered Extension
 
@@ -196,6 +215,9 @@ max_parallel: 10
 # Result: timeout=600 (from intermediate), max_parallel=10 (from final)
 ```
 
+!!! tip "Layered Configuration Pattern"
+    Use layered extension to separate concerns: base config → environment type → specific instance. This keeps each layer focused and maintainable.
+
 ### Path Resolution
 
 When resolving base workflow paths, Prodigy searches the following locations in order:
@@ -205,7 +227,7 @@ When resolving base workflow paths, Prodigy searches the following locations in 
 3. `./workflows/{name}.yml`
 4. `./{name}.yml` (current directory)
 
-**Source**: Path resolution implementation in src/cook/workflow/composition/composer.rs:625-642
+**Source**: Path resolution implementation in src/cook/workflow/composition/composer.rs:612-625
 
 Extension paths can be:
 - **Relative**: Resolved from workflow file's directory
@@ -281,6 +303,9 @@ extends: "workflow-a.yml"
 
 # Error: Circular dependency detected
 ```
+
+!!! danger "Circular Dependencies"
+    Circular dependencies are detected at composition time and cause an immediate error. Check your inheritance chain if you encounter this error.
 
 ### Complete Example
 
@@ -366,7 +391,7 @@ See [Composition Metadata](composition-metadata.md) for details on the metadata 
 - ✅ Circular dependency detection
 - ✅ Path resolution (relative and absolute)
 - ✅ Composition metadata tracking
-- ✅ Workflow caching - Files are cached during composition to improve performance and avoid redundant file system reads (src/cook/workflow/composition/composer.rs:662-698)
+- ✅ Workflow caching - Files are cached during composition to improve performance and avoid redundant file system reads (src/cook/workflow/composition/composer.rs:646-681)
 
 ### Related Topics
 
