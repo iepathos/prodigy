@@ -31,6 +31,50 @@ When a workflow extends a base workflow:
 4. **Merging is deep** - nested objects merge recursively
 5. **Arrays are replaced** - child arrays replace parent arrays entirely
 
+```mermaid
+flowchart LR
+    subgraph Base["Base Workflow"]
+        direction TB
+        B1["env:
+          APP_NAME: service
+          LOG_LEVEL: info"]
+        B2["commands:
+          - step1
+          - step2"]
+    end
+
+    subgraph Child["Child Workflow"]
+        direction TB
+        C1["extends: base.yml"]
+        C2["env:
+          LOG_LEVEL: debug
+          NEW_VAR: value"]
+        C3["commands:
+          - custom-step"]
+    end
+
+    subgraph Result["Merged Result"]
+        direction TB
+        R1["env:
+          APP_NAME: service
+          LOG_LEVEL: debug
+          NEW_VAR: value"]
+        R2["commands:
+          - custom-step"]
+    end
+
+    Base --> |"Deep merge
+    objects"| Result
+    Child --> |"Replace
+    arrays"| Result
+
+    style Base fill:#e1f5ff
+    style Child fill:#fff3e0
+    style Result fill:#e8f5e9
+```
+
+**Figure**: Extension merge behavior - objects merge deeply while arrays are replaced entirely.
+
 !!! warning "Array Replacement Behavior"
     Unlike imports which *extend* arrays, extension *replaces* them entirely. If your child workflow specifies any commands, all parent commands are replaced.
 
@@ -198,6 +242,26 @@ commands:
 
 Workflows can extend workflows that themselves extend other workflows:
 
+```mermaid
+graph LR
+    Base["base.yml
+    timeout: 300"] --> Inter["intermediate.yml
+    timeout: 600
+    max_parallel: 5"]
+    Inter --> Final["final.yml
+    max_parallel: 10"]
+    Final --> Result["Result
+    timeout: 600
+    max_parallel: 10"]
+
+    style Base fill:#e1f5ff
+    style Inter fill:#fff3e0
+    style Final fill:#f3e5f5
+    style Result fill:#e8f5e9
+```
+
+**Figure**: Layered extension chain - each level can override values from its parent.
+
 ```yaml
 # base.yml
 name: base-config
@@ -221,6 +285,26 @@ max_parallel: 10
 ### Path Resolution
 
 When resolving base workflow paths, Prodigy searches the following locations in order:
+
+```mermaid
+flowchart LR
+    Start["extends: ci-base"] --> S1["./bases/ci-base.yml"]
+    S1 -->|Not found| S2["./templates/ci-base.yml"]
+    S2 -->|Not found| S3["./workflows/ci-base.yml"]
+    S3 -->|Not found| S4["./ci-base.yml"]
+    S4 -->|Not found| Error["Error: Base not found"]
+
+    S1 -->|Found| Load["Load base workflow"]
+    S2 -->|Found| Load
+    S3 -->|Found| Load
+    S4 -->|Found| Load
+
+    style Start fill:#e1f5ff
+    style Load fill:#e8f5e9
+    style Error fill:#ffebee
+```
+
+**Figure**: Path resolution search order - first match wins.
 
 1. `./bases/{name}.yml`
 2. `./templates/{name}.yml`
