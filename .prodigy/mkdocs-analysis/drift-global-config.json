@@ -1,0 +1,174 @@
+{
+  "item_type": "page",
+  "page_id": "global-config",
+  "page_title": "global config",
+  "page_file": "docs/configuration/global-config.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good quality documentation with minor source reference inaccuracies. The page is comprehensive, well-structured, uses MkDocs Material features effectively (admonitions, content tabs, code annotations), and accurately describes the configuration system. Minor issues with line number references in source comments.",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Configuration Structure",
+      "description": "Source reference shows 'src/config/mod.rs:45-59' but the GlobalConfig struct is actually at lines 69-77 (struct definition at 68-77)",
+      "current_content": "// Source: src/config/mod.rs:45-59",
+      "should_be": "// Source: src/config/mod.rs:68-77",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/mod.rs:68-77"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "File Locations",
+      "description": "Source reference shows 'src/config/mod.rs:26-31' for get_global_prodigy_dir but the function is at lines 40-44",
+      "current_content": "// Source: src/config/mod.rs:26-31",
+      "should_be": "// Source: src/config/mod.rs:40-44",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/mod.rs:40-44"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Default Values",
+      "description": "Source reference shows 'src/config/mod.rs:88-99' for Default impl but it's at lines 108-120",
+      "current_content": "// Source: src/config/mod.rs:88-99",
+      "should_be": "// Source: src/config/mod.rs:108-120",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/mod.rs:108-120"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Precedence Examples - API Key",
+      "description": "Source reference shows 'src/config/mod.rs:133-138' for get_claude_api_key but it's at lines 205-210",
+      "current_content": "// Source: src/config/mod.rs:133-138",
+      "should_be": "// Source: src/config/mod.rs:205-210",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/mod.rs:205-210"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Precedence Examples - Auto-Commit",
+      "description": "Source reference shows 'src/config/mod.rs:140-146' for get_auto_commit but it's at lines 212-218",
+      "current_content": "// Source: src/config/mod.rs:140-146",
+      "should_be": "// Source: src/config/mod.rs:212-218",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/mod.rs:212-218"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Environment Variables",
+      "description": "Source reference shows 'src/config/mod.rs:111-131' for merge_env_vars but it's at lines 183-203",
+      "current_content": "// Source: src/config/mod.rs:111-131",
+      "should_be": "// Source: src/config/mod.rs:183-203",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/mod.rs:183-203"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Configuration Loading",
+      "description": "Source reference shows 'src/config/loader.rs:31-55' for load_with_explicit_path but it's at lines 35-55",
+      "current_content": "// Source: src/config/loader.rs:31-55",
+      "should_be": "// Source: src/config/loader.rs:35-55",
+      "fix_suggestion": "Update the line number reference to match current source location",
+      "source_reference": "src/config/loader.rs:35-55"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Configuration Format",
+      "description": "Source reference shows 'src/config/loader.rs:65-69' for extension validation but it's at lines 65-69 which is within load_from_path (line 58-83)",
+      "current_content": "// Source: src/config/loader.rs:65-69",
+      "should_be": "// Source: src/config/loader.rs:65-69",
+      "fix_suggestion": "This reference is accurate - no change needed",
+      "source_reference": "src/config/loader.rs:65-69"
+    },
+    {
+      "type": "minor_discrepancy",
+      "severity": "low",
+      "section": "Plugin Configuration",
+      "description": "Documentation shows PluginConfig struct at 'src/config/mod.rs:81-86' but the current code has OldPluginConfig at lines 101-106 with a deprecation notice pointing to PluginConfig in prodigy_config module",
+      "current_content": "pub struct PluginConfig",
+      "should_be": "pub struct OldPluginConfig (deprecated, use PluginConfig from prodigy_config)",
+      "fix_suggestion": "Consider updating the documentation to reference the new PluginConfig from prodigy_config module, or add a note about the migration path",
+      "source_reference": "src/config/mod.rs:94-106 and src/config/prodigy_config.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all GlobalConfig fields with clear explanations",
+    "Excellent use of MkDocs Material features: content tabs for platform-specific paths, admonitions for notes/tips/warnings",
+    "Well-structured configuration precedence diagram using Mermaid",
+    "Helpful code annotations (numbered annotations with explanations)",
+    "Clear examples for minimal, full, and project override configurations",
+    "Security warnings for API key handling",
+    "Good cross-references to related documentation pages",
+    "Accurate documentation of environment variable support and precedence"
+  ],
+  "improvement_suggestions": [
+    "Update all source code line number references to match current code locations",
+    "Add note about OldPluginConfig deprecation and migration to new PluginConfig",
+    "Consider adding a troubleshooting section for common configuration issues",
+    "The Related Documentation links are accurate and all files exist"
+  ],
+  "cross_references": [
+    "project-configuration-structure",
+    "workflow-configuration",
+    "environment-variables",
+    "installation"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "validated_links": [
+      {
+        "text": "Project Configuration",
+        "target": "project-configuration-structure.md",
+        "status": "valid"
+      },
+      {
+        "text": "Workflow Configuration",
+        "target": "workflow-configuration.md",
+        "status": "valid"
+      },
+      {
+        "text": "Environment Variables",
+        "target": "environment-variables.md",
+        "status": "valid"
+      },
+      {
+        "text": "Installation",
+        "target": "../installation.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "GlobalConfig structure",
+      "Configuration fields",
+      "File locations",
+      "Platform-specific paths",
+      "Configuration precedence",
+      "Environment variables",
+      "Claude API settings",
+      "Configuration loading",
+      "Default values",
+      "Plugin configuration",
+      "Complete examples"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "mkdocs_features_used": [
+      "content tabs (===)",
+      "admonitions (note, tip, warning, info)",
+      "mermaid diagrams",
+      "code annotations (numbered)",
+      "syntax highlighting"
+    ]
+  }
+}
