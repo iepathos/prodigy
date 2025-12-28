@@ -113,6 +113,31 @@ env_files:
 3. Earlier files in `env_files` list
 4. Parent process environment
 
+```mermaid
+graph LR
+    subgraph Sources["Environment Sources"]
+        direction LR
+        P["Parent Process
+        Environment"] --> E1["Earlier env_files
+        (.env)"]
+        E1 --> E2["Later env_files
+        (.env.local)"]
+        E2 --> Y["Workflow YAML
+        env: block"]
+    end
+
+    Y --> R["Resolved
+    Value"]
+
+    style P fill:#f5f5f5,stroke:#999
+    style E1 fill:#e3f2fd,stroke:#1976d2
+    style E2 fill:#bbdefb,stroke:#1976d2
+    style Y fill:#c8e6c9,stroke:#388e3c
+    style R fill:#fff9c4,stroke:#f9a825
+```
+
+**Figure**: Environment value resolution flow - later sources override earlier ones.
+
 ### File Paths and Resolution
 
 Environment file paths can be:
