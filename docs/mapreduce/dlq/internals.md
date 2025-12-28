@@ -5,12 +5,27 @@
 !!! tip "Choosing the Right Approach"
     Before retrying failed items, analyze the failure patterns with `prodigy dlq analyze` to determine if the issue is transient (safe to retry) or systematic (requires code changes first).
 
+```mermaid
+flowchart LR
+    Analyze["Analyze Failure
+    prodigy dlq analyze"] --> Type{Failure Type?}
+    Type -->|Transient| Retry["Automatic Retry
+    prodigy dlq retry"]
+    Type -->|Systematic| Fix[Fix Code First]
+    Fix --> Retry
+    Retry --> Success{Success?}
+    Success -->|Yes| Done[Item Resolved]
+    Success -->|No| Review[Manual Review]
+```
+
 **Automatic Retry** (via `prodigy dlq retry`):
+
 - Transient failures (network timeouts, resource contention)
 - Flaky tests or intermittent issues
 - Items that may succeed with more resources (`--max-parallel 1`)
 
 **Manual Fix** (code changes, then retry):
+
 - Logic errors in processing code
 - Invalid assumptions about item data
 - Missing dependencies or configuration
