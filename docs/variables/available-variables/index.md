@@ -26,7 +26,7 @@ Prodigy provides a comprehensive set of built-in variables that are automaticall
 
     ---
 
-    Git context tracking, file change monitoring, and merge phase variables
+    Git context tracking, file change monitoring, commit tracking, and merge phase variables
 
     [:octicons-arrow-right-24: Git and Merge Variables](git-merge-variables.md)
 
@@ -48,6 +48,8 @@ Prodigy provides a comprehensive set of built-in variables that are automaticall
 |----------|-------------|
 | `${last.output}` | Output from the last command of any type |
 | `${shell.output}` | Output from the last shell command |
+| `${shell.last_output}` | Alias for shell.output |
+| `${shell.exit_code}` | Exit code from the last shell command |
 | `${claude.output}` | Output from the last Claude command |
 | `${env.VAR_NAME}` | Read environment variable |
 | `${file:path}` | Read file contents |
@@ -55,14 +57,28 @@ Prodigy provides a comprehensive set of built-in variables that are automaticall
 | `${date:format}` | Current date/time with format |
 | `${uuid}` | Generate random UUID v4 |
 
+### Context Variables
+
+| Variable | Description |
+|----------|-------------|
+| `${session.id}` | Current session identifier |
+| `${project.root}` | Root directory of the project |
+| `${project.name}` | Name of the current project |
+| `${worktree.name}` | Name of the current worktree |
+| `${worktree.path}` | Path to the current worktree |
+
 ### MapReduce Variables
 
 | Variable | Phase | Description |
 |----------|-------|-------------|
 | `${item.*}` | Map | Access work item fields |
+| `${item.id}` | Map | Work item identifier |
+| `${item.index}` | Map | Work item index (0-based) |
 | `${map.total}` | Reduce | Total items processed |
-| `${map.successful}` | Reduce | Successfully processed items |
+| `${map.successful}` | Reduce | Number of successfully processed items |
+| `${map.failed}` | Reduce | Number of failed items |
 | `${map.results}` | Reduce | All map results as JSON |
+| `${reduce.output}` | Reduce | Output from the reduce phase |
 
 ### Git Variables
 
