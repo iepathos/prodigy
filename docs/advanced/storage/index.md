@@ -28,6 +28,11 @@ This section covers the complete storage architecture:
 ├── dlq/                        # Dead Letter Queue
 ├── state/                      # State and checkpoints
 ├── sessions/                   # Session tracking
+├── logs/                       # Per-repository logs
 ├── worktrees/                  # Git worktrees
+├── resume_locks/               # Concurrent resume protection
 └── orphaned_worktrees/         # Cleanup failure tracking
 ```
+
+!!! tip "Custom Storage Location"
+    Override the default storage location by setting `PRODIGY_HOME` environment variable.
