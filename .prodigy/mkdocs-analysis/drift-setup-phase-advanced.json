@@ -1,0 +1,130 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "setup-phase-advanced",
+  "page_title": "setup phase advanced",
+  "page_file": "docs/mapreduce/setup-phase-advanced.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive but has minor source reference line number inaccuracies and lacks visual enhancements",
+  "issues": [
+    {
+      "type": "incorrect_reference",
+      "severity": "low",
+      "section": "Capture Source Options",
+      "description": "Source code line reference is slightly inaccurate",
+      "current_content": "src/cook/execution/variable_capture.rs:96-103",
+      "should_be": "src/cook/execution/variable_capture.rs:98-103",
+      "fix_suggestion": "Update the line reference from 96-103 to 98-103 for the CaptureSource enum",
+      "source_reference": "src/cook/execution/variable_capture.rs:98"
+    },
+    {
+      "type": "incorrect_reference",
+      "severity": "low",
+      "section": "Multiline Options",
+      "description": "Source code line reference is slightly inaccurate",
+      "current_content": "src/cook/execution/variable_capture.rs:114-129",
+      "should_be": "src/cook/execution/variable_capture.rs:117-129",
+      "fix_suggestion": "Update the line reference from 114-129 to 117-129 for the MultilineHandling enum",
+      "source_reference": "src/cook/execution/variable_capture.rs:117"
+    },
+    {
+      "type": "incorrect_reference",
+      "severity": "low",
+      "section": "Capture Source Options (Example)",
+      "description": "Test file line reference is inaccurate",
+      "current_content": "src/cook/execution/variable_capture_test.rs:210",
+      "should_be": "src/cook/execution/variable_capture_test.rs:203-232",
+      "fix_suggestion": "Update the test file reference to point to the actual test function range",
+      "source_reference": "src/cook/execution/variable_capture_test.rs:203"
+    },
+    {
+      "type": "incorrect_reference",
+      "severity": "low",
+      "section": "Multiline Options (Examples)",
+      "description": "Test file line reference range is inaccurate",
+      "current_content": "src/cook/execution/variable_capture_test.rs:103-145",
+      "should_be": "src/cook/execution/variable_capture_test.rs:89-170",
+      "fix_suggestion": "Update the test file reference to point to the actual test_capture_with_multiline_handling function",
+      "source_reference": "src/cook/execution/variable_capture_test.rs:89"
+    },
+    {
+      "type": "incorrect_reference",
+      "severity": "low",
+      "section": "Pattern Extraction (Example)",
+      "description": "Test file line reference is inaccurate",
+      "current_content": "src/cook/execution/variable_capture_test.rs:35",
+      "should_be": "src/cook/execution/variable_capture_test.rs:27-56",
+      "fix_suggestion": "Update the test file reference to point to the test_capture_with_pattern function range",
+      "source_reference": "src/cook/execution/variable_capture_test.rs:27"
+    },
+    {
+      "type": "missing_visual_enhancement",
+      "severity": "low",
+      "section": "Execution Context",
+      "description": "The setup phase execution flow would benefit from a Mermaid flowchart",
+      "fix_suggestion": "Add a Mermaid diagram showing: Parent Worktree Creation -> Setup Commands Execution -> Variable Capture -> Checkpoint Creation -> Map Phase Ready",
+      "source_reference": "src/cook/execution/mapreduce/phases/setup.rs"
+    },
+    {
+      "type": "missing_visual_enhancement",
+      "severity": "low",
+      "section": "Capture Source Options",
+      "description": "The capture source options table would benefit from visual aids or admonitions",
+      "fix_suggestion": "Add MkDocs Material admonitions (tip, warning) for use case guidance, particularly for 'combined' vs 'both' distinction",
+      "source_reference": "src/cook/execution/variable_capture.rs:98-103"
+    },
+    {
+      "type": "missing_cross_reference",
+      "severity": "low",
+      "section": "Best Practices",
+      "description": "No links to related MapReduce pages for deeper context",
+      "fix_suggestion": "Add cross-references to checkpoint-and-resume.md and troubleshooting.md for related content",
+      "source_reference": null
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all CaptureConfig options",
+    "Clear examples for each configuration format (simple and detailed)",
+    "Accurate descriptions of capture source options matching implementation",
+    "Correct multiline handling options table with all five modes",
+    "Good best practices section with actionable guidance",
+    "Proper explanation of idempotent operations and timeout sizing",
+    "Correct setup phase failure behavior documented (workflow stops on failure)"
+  ],
+  "improvement_suggestions": [
+    "Add a Mermaid flowchart showing the setup phase execution pipeline",
+    "Include MkDocs Material admonitions for tips and warnings",
+    "Add code tabs to show YAML examples for different scenarios side-by-side",
+    "Update source code line references to match current implementation",
+    "Add cross-references to related documentation pages (checkpoint-resume, troubleshooting)",
+    "Consider adding a 'Common Patterns' subsection with real-world examples"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "troubleshooting",
+    "environment-variables-in-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Setup phase execution",
+      "Variable capture",
+      "Output capture configuration",
+      "Multiline handling",
+      "Pattern extraction",
+      "Timeout configuration"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/execution/variable_capture.rs",
+      "src/cook/execution/variable_capture_test.rs",
+      "src/cook/execution/mapreduce/phases/setup.rs"
+    ],
+    "link_validation": {
+      "internal_links_found": 0,
+      "broken_links": 0,
+      "all_links_valid": true
+    }
+  }
+}
