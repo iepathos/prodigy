@@ -1,0 +1,59 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "index",
+  "page_file": "docs/mapreduce/dlq/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has a broken cross-reference link that will cause build errors. Content structure and navigation to subpages is well organized.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 1 broken internal link to mapreduce-worktree-architecture.md",
+      "broken_links": [
+        {
+          "link_text": "Worktree Architecture",
+          "original_target": "../mapreduce-worktree-architecture.md",
+          "expected_resolved_path": "docs/mapreduce/mapreduce-worktree-architecture.md",
+          "current_file": "docs/mapreduce/dlq/index.md",
+          "actual_file_location": "docs/mapreduce-worktree-architecture.md",
+          "suggested_fix": "../../mapreduce-worktree-architecture.md"
+        }
+      ],
+      "fix_suggestion": "Update the cross-reference link from '../mapreduce-worktree-architecture.md' to '../../mapreduce-worktree-architecture.md' - the file is at docs/ level, not docs/mapreduce/ level.",
+      "source_reference": "docs/mapreduce/dlq/index.md:32"
+    }
+  ],
+  "positive_aspects": [
+    "Clear introduction explaining DLQ purpose and fault tolerance benefits",
+    "Well-organized navigation to subpages (overview, commands, debugging, internals)",
+    "Practical Quick Start section with working CLI examples",
+    "Good cross-references to related documentation (checkpoint-and-resume, event-tracking, error-handling, retry-metrics)",
+    "Subpage links (overview.md, commands.md, debugging.md, internals.md) all verified as valid"
+  ],
+  "improvement_suggestions": [
+    "Consider adding MkDocs Material admonitions for visual emphasis on key concepts",
+    "Add a brief diagram showing DLQ flow within MapReduce workflow",
+    "Include a note about the stub status of CLI commands (currently documented in commands.md but not visible in index)"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "event-tracking",
+    "error-handling",
+    "retry-metrics-and-observability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["DLQ overview", "Navigation", "Quick Start"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "links_validated": {
+      "total_internal_links": 9,
+      "broken_links": 1,
+      "valid_links": 8,
+      "external_links_skipped": 0
+    }
+  }
+}
