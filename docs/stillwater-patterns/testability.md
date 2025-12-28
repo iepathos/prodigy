@@ -65,6 +65,32 @@ async fn test_workflow_execution() {
 
 ## Stillwater Solution: Effect<T, E, Env> + Pure Core
 
+```mermaid
+graph LR
+    subgraph Before["Before: Tightly Coupled"]
+        direction LR
+        BT[Test] --> BO[Orchestrator]
+        BO --> BD[(Database)]
+        BO --> BG[Git Repo]
+        BO --> BF[File System]
+    end
+
+    subgraph After["After: Pure/Effect Separation"]
+        direction LR
+        AT1[Unit Test] --> AP[Pure Functions]
+        AT2[Integration Test] --> AE[Effects]
+        AE --> AM[Mock Env]
+    end
+
+    Before -.->|"Refactor"| After
+
+    style BD fill:#ffebee
+    style BG fill:#ffebee
+    style BF fill:#ffebee
+    style AP fill:#e8f5e9
+    style AM fill:#e1f5ff
+```
+
 The orchestrator is organized into distinct modules following "pure core, imperative shell":
 
 ```
@@ -206,6 +232,10 @@ pub fn run_workflow_effect(
 
 ### 5. Testing Pure Functions (Zero Setup)
 
+!!! tip "Testing Strategy"
+    Always test pure functions first—they require zero setup and run in microseconds.
+    Only test effects when you need to verify I/O integration behavior.
+
 ```rust
 // Source: src/cook/orchestrator/pure.rs (tests module)
 #[test]
@@ -259,6 +289,10 @@ fn test_should_continue_iteration() {
 ```
 
 ### 6. Testing Effects with Mock Environment
+
+!!! example "When to Use Mock Environments"
+    Use mock environments when testing I/O behavior: verifying that the right services
+    are called with the right arguments, or testing error handling paths.
 
 ```rust
 // Source: src/cook/orchestrator/environment.rs:70-136
