@@ -2,31 +2,34 @@
 
 This guide covers installing Prodigy and the prerequisite tools needed to run AI-powered workflow automation.
 
+!!! success "Quick Install"
+    ```bash
+    cargo install prodigy && prodigy --version
+    ```
+    For detailed prerequisites and troubleshooting, continue reading below.
+
 ## Prerequisites
 
-Before installing Prodigy, ensure you have:
+Before installing Prodigy, ensure you have the required dependencies.
 
-**Required:**
-- **Claude Code CLI** - Prodigy executes Claude commands via the Claude Code CLI
-  - Install from: https://github.com/anthropics/claude-code
-  - Verify: `claude --version`
-- **Rust 1.70+** - Required for building Prodigy from source
-  - Install from: https://rustup.rs/
-  - Verify: `rustc --version`
-  - Source: Cargo.toml:4 (edition = "2021" requires Rust 1.56+, recommended 1.70+)
+!!! note "Required Dependencies"
+    | Tool | Version | Install | Verify |
+    |------|---------|---------|--------|
+    | Claude Code CLI | Latest | [github.com/anthropics/claude-code](https://github.com/anthropics/claude-code) | `claude --version` |
+    | Rust | 1.70+ | [rustup.rs](https://rustup.rs/) | `rustc --version` |
 
-**Required for MapReduce Workflows:**
-- **Git 2.25+** - Required for worktree isolation and parallel execution
-  - Install from: https://git-scm.com/
-  - Verify: `git --version`
-  - Note: Git worktrees are used to isolate parallel work in MapReduce workflows
+!!! warning "Required for MapReduce Workflows"
+    | Tool | Version | Install | Verify |
+    |------|---------|---------|--------|
+    | Git | 2.25+ | [git-scm.com](https://git-scm.com/) | `git --version` |
 
-**Optional:**
-- **mdBook** - Required only for documentation workflows
-  - Install: `cargo install mdbook`
-  - Verify: `mdbook --version`
-- **jq** - Useful for inspecting JSON outputs and DLQ items
-  - Install from: https://jqlang.github.io/jq/
+    Git worktrees are used to isolate parallel work in MapReduce workflows.
+
+!!! info "Optional Dependencies"
+    | Tool | Purpose | Install | Verify |
+    |------|---------|---------|--------|
+    | mdBook | Documentation workflows | `cargo install mdbook` | `mdbook --version` |
+    | jq | JSON inspection | [jqlang.github.io/jq](https://jqlang.github.io/jq/) | `jq --version` |
 
 ## Using Cargo (Recommended)
 
@@ -44,7 +47,7 @@ This command:
 **Verify installation:**
 ```bash
 prodigy --version
-# Expected output: prodigy 0.2.7
+# Expected output: prodigy 0.4.4
 ```
 
 **Source**: README.md:51-55
@@ -53,20 +56,25 @@ prodigy --version
 
 To install the latest development version or contribute to Prodigy, build from source:
 
-```bash
-# Clone the repository
-git clone https://github.com/iepathos/prodigy
-cd prodigy
+!!! example "Build Commands"
+    ```bash
+    # Clone the repository
+    git clone https://github.com/iepathos/prodigy
+    cd prodigy
 
-# Build and install
-cargo build --release
-cargo install --path .
-```
+    # Build and install
+    cargo build --release
+    cargo install --path .
+    ```
 
 **Build process:**
-1. `cargo build --release` compiles with optimizations (takes 3-5 minutes)
+
+1. `cargo build --release` compiles with optimizations
 2. Binary is created at `target/release/prodigy`
 3. `cargo install --path .` copies binary to `~/.cargo/bin/`
+
+!!! info "Build Time Estimate"
+    First-time builds typically take **3-5 minutes** depending on system performance. Subsequent rebuilds are faster due to incremental compilation.
 
 **Verify installation:**
 ```bash
@@ -83,7 +91,15 @@ Prodigy includes comprehensive man pages for CLI reference. Install them with:
 ./scripts/install-man-pages.sh
 ```
 
-This installs man pages to `/usr/local/share/man/man1/`. After installation:
+This installs man pages to `/usr/local/share/man/man1/` when run with sudo. When running without elevated permissions, man pages install to `~/.local/share/man/man1` instead.
+
+!!! tip "User-local installation"
+    If installing to `~/.local/share/man/man1`, add this to your shell configuration:
+    ```bash
+    export MANPATH="$HOME/.local/share/man:$MANPATH"
+    ```
+
+After installation:
 
 ```bash
 # View main Prodigy documentation
@@ -162,20 +178,36 @@ sudo ./scripts/install-man-pages.sh
 
 ## Platform-Specific Notes
 
-**macOS:**
-- Xcode Command Line Tools recommended for best compatibility
-- Man pages install to `/usr/local/share/man/man1/` by default
-- Homebrew users: Cargo is included with `brew install rust`
+=== "macOS"
+    - Xcode Command Line Tools recommended for best compatibility
+    - Man pages install to `/usr/local/share/man/man1/` by default
+    - Homebrew users: Cargo is included with `brew install rust`
 
-**Linux:**
-- Build essentials package required for compilation
-- Man pages may require sudo for installation
-- Consider using system package manager if available
+    ```bash
+    # Install Xcode Command Line Tools
+    xcode-select --install
+    ```
 
-**Windows:**
-- Visual Studio Build Tools required for Rust compilation
-- Consider using WSL2 for better compatibility with git worktrees
-- Man pages not supported on Windows (use `prodigy --help` instead)
+=== "Linux"
+    - Build essentials package required for compilation
+    - Man pages may require sudo for installation
+    - Consider using system package manager if available
+
+    ```bash
+    # Debian/Ubuntu
+    sudo apt-get install build-essential
+
+    # Fedora/RHEL
+    sudo dnf groupinstall "Development Tools"
+    ```
+
+=== "Windows"
+    - Visual Studio Build Tools required for Rust compilation
+    - Consider using WSL2 for better compatibility with git worktrees
+    - Man pages not supported on Windows (use `prodigy --help` instead)
+
+    !!! tip
+        WSL2 provides the best experience for running Prodigy on Windows, especially for MapReduce workflows that use git worktrees.
 
 ## Next Steps
 
