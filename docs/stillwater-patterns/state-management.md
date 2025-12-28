@@ -3,27 +3,41 @@
 !!! abstract "Pattern Overview"
     This page demonstrates the "pure core, imperative shell" architecture pattern for state management. Pure functions handle state transitions while Effects wrap I/O operations, enabling easy testing and clear separation of concerns.
 
+```mermaid
+graph LR
+    subgraph PureCore["Pure Core (Testable)"]
+        direction TB
+        T1["State transitions"]
+        T2["apply_agent_result"]
+        T3["start_reduce_phase"]
+        T4["mark_complete"]
+    end
+
+    subgraph EffectShell["Effect Shell (I/O Operations)"]
+        direction TB
+        E1["save_checkpoint()"]
+        E2["load_checkpoint()"]
+        E3["transition_to_reduce()"]
+        E4["complete_batch()"]
+    end
+
+    T1 --> E1
+    T2 --> E2
+    T3 --> E3
+    T4 --> E4
+
+    style PureCore fill:#e8f5e9,stroke:#4caf50
+    style EffectShell fill:#e3f2fd,stroke:#2196f3
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     State Management Architecture               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────────────────┐    ┌───────────────────────────────┐ │
-│   │    Pure Core         │    │    Effect Shell               │ │
-│   │    (Testable)        │    │    (I/O Operations)           │ │
-│   ├──────────────────────┤    ├───────────────────────────────┤ │
-│   │ • State transitions  │───>│ • save_checkpoint()           │ │
-│   │ • apply_agent_result │    │ • load_checkpoint()           │ │
-│   │ • start_reduce_phase │    │ • transition_to_reduce()      │ │
-│   │ • mark_complete      │    │ • complete_batch()            │ │
-│   └──────────────────────┘    └───────────────────────────────┘ │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+**Figure**: State management architecture separating pure functions from I/O effects.
 
 ## Current Problem
 
 **Location**: `src/cook/execution/state.rs:1-1856`
+
+!!! warning "Anti-Pattern"
+    Mixing state mutations with I/O operations makes testing slow and fragile. Every test requires file system setup, and failures are hard to diagnose.
 
 **Symptom**: State updates mixed with I/O, difficult to test state transitions without file system.
 
@@ -311,22 +325,34 @@ pub enum WorkItemEvent {
 }
 ```
 
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Initial
+
+    Pending --> InProgress: AgentStart
+
+    InProgress --> Completed: AgentComplete
+    InProgress --> Failed: AgentFailed
+    InProgress --> Pending: Interrupt
+
+    Failed --> Pending: Retry
+    Failed --> DeadLettered: Max Retries
+
+    Completed --> [*]
+    DeadLettered --> [*]
+
+    note right of Pending
+        Ready to be
+        picked up by agent
+    end note
+
+    note right of DeadLettered
+        Exhausted retries
+        Preserved for analysis
+    end note
 ```
-┌─────────┐  AgentStart   ┌────────────┐
-│ Pending │ ─────────────> │ InProgress │
-└────┬────┘                └──────┬─────┘
-     ^                            │
-     │                            │ AgentComplete
-     │ Interrupt/                 v
-     │ Retry         ┌───────────┐    AgentFailed   ┌────────┐
-     └───────────────┤ Completed │ <────────────────┤ Failed │
-                     └───────────┘                  └────┬───┘
-                                                         │
-                                                         v (max retries)
-                                                   ┌────────────┐
-                                                   │DeadLettered│
-                                                   └────────────┘
-```
+
+**Figure**: Work item state machine showing transitions between processing states.
 
 ```rust
 // Source: src/cook/execution/mapreduce/checkpoint/pure/state_transitions.rs:117-186
@@ -384,6 +410,9 @@ pub fn transition_work_item(
 ```
 
 ## Testing Pure Functions
+
+!!! tip "Testing Strategy"
+    Maximize pure function coverage for fast, deterministic tests. Reserve Effect tests for integration scenarios where you need to verify I/O behavior.
 
 !!! success "Key Benefit"
     Pure state transitions can be tested without any I/O setup - no temp directories, no mocks, instant execution.
