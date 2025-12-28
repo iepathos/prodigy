@@ -1,0 +1,138 @@
+{
+  "item_type": "page",
+  "page_id": "real-world-example-prodigys-own-documentation",
+  "page_title": "real world example prodigys own documentation",
+  "page_file": "docs/automated-documentation/real-world-example-prodigys-own-documentation.md",
+  "drift_detected": true,
+  "severity": "critical",
+  "quality_assessment": "Page has significant drift - documents mdBook workflow but is in MkDocs docs. Should document the MkDocs workflow instead.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "critical",
+      "section": "Entire Page",
+      "description": "Page documents mdBook workflow (book-docs-drift.yml) but is located in MkDocs documentation. Should document mkdocs-drift.yml workflow instead.",
+      "current_content": "References book/src/, book-docs-drift.yml, book-config.json, prodigy-chapters.json for mdBook",
+      "should_be": "References docs/, mkdocs-drift.yml, mkdocs-config.json, mkdocs-chapters.json for MkDocs",
+      "fix_suggestion": "Rewrite entire page to document the MkDocs workflow (workflows/mkdocs-drift.yml) and MkDocs configuration (.prodigy/mkdocs-config.json)",
+      "source_reference": "workflows/mkdocs-drift.yml, .prodigy/mkdocs-config.json"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Book Configuration",
+      "description": "Shows .prodigy/book-config.json but MkDocs uses .prodigy/mkdocs-config.json with different structure",
+      "current_content": "book_dir, book_src, book_build_dir fields",
+      "should_be": "docs_dir, mkdocs_config, theme, features, plugins, markdown_extensions fields",
+      "fix_suggestion": "Replace with mkdocs-config.json content showing docs_dir, theme, features, plugins, markdown_extensions",
+      "source_reference": ".prodigy/mkdocs-config.json"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Chapter Structure",
+      "description": "Shows workflows/data/prodigy-chapters.json but MkDocs uses workflows/data/mkdocs-chapters.json",
+      "current_content": "prodigy-chapters.json with book/src/ paths",
+      "should_be": "mkdocs-chapters.json with docs/ paths",
+      "fix_suggestion": "Replace with mkdocs-chapters.json content and update paths",
+      "source_reference": "workflows/data/mkdocs-chapters.json"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Workflow Configuration",
+      "description": "Shows book-docs-drift.yml but should show mkdocs-drift.yml",
+      "current_content": "References book-docs-drift.yml with book-specific commands like /prodigy-analyze-subsection-drift",
+      "should_be": "References mkdocs-drift.yml with MkDocs-specific commands like /prodigy-analyze-mkdocs-drift",
+      "fix_suggestion": "Replace with mkdocs-drift.yml content showing MkDocs-specific commands",
+      "source_reference": "workflows/mkdocs-drift.yml"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "MkDocs-specific Features",
+      "description": "Missing documentation for MkDocs Material features used by the workflow",
+      "feature_reference": "mkdocs_config.features, mkdocs_config.plugins, mkdocs_config.markdown_extensions",
+      "fix_suggestion": "Add section explaining MkDocs Material features (admonitions, tabs, code annotations) and how the workflow enhances pages with them",
+      "source_reference": ".prodigy/mkdocs-config.json:8-33"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Visual Enhancement Phase",
+      "description": "Missing documentation for the /prodigy-enhance-mkdocs-page command that adds visual features",
+      "feature_reference": "mkdocs-drift.yml agent_template step 3",
+      "fix_suggestion": "Add section explaining how the workflow enhances pages with diagrams, admonitions, and code annotations",
+      "source_reference": "workflows/mkdocs-drift.yml:89-92"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Mermaid Diagram Validation",
+      "description": "Missing documentation for Mermaid diagram validation in reduce phase",
+      "feature_reference": "mkdocs-drift.yml reduce phase mermaid-sonar",
+      "fix_suggestion": "Add section explaining Mermaid validation with mermaid-sonar and /prodigy-fix-mermaid-diagrams",
+      "source_reference": "workflows/mkdocs-drift.yml:115-120"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Auto-Discovery",
+      "description": "Missing documentation for the auto-discovery feature that finds all markdown files",
+      "feature_reference": "mkdocs-drift.yml setup step 5",
+      "fix_suggestion": "Add section explaining how the workflow auto-discovers all .md files in docs/ directory",
+      "source_reference": "workflows/mkdocs-drift.yml:49-64"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Study These Files",
+      "description": "References book-specific paths and commands",
+      "current_content": "book-config.json, prodigy-chapters.json, book-docs-drift.yml, prodigy-analyze-subsection-drift, prodigy-fix-subsection-drift",
+      "should_be": "mkdocs-config.json, mkdocs-chapters.json, mkdocs-drift.yml, prodigy-analyze-mkdocs-drift, prodigy-fix-mkdocs-drift",
+      "fix_suggestion": "Update all file references to MkDocs equivalents",
+      "source_reference": "workflows/mkdocs-drift.yml, .prodigy/mkdocs-config.json"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Source Line References",
+      "description": "Source references point to book files with incorrect line numbers",
+      "current_content": ".prodigy/book-config.json:1-46, workflows/data/prodigy-chapters.json:1-80, workflows/book-docs-drift.yml:1-101",
+      "should_be": "References should point to MkDocs files with correct line numbers",
+      "fix_suggestion": "Update source references to MkDocs files",
+      "source_reference": ".prodigy/mkdocs-config.json, workflows/data/mkdocs-chapters.json, workflows/mkdocs-drift.yml"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of MapReduce parallelism concept",
+    "Good coverage of validation with thresholds pattern",
+    "Well-structured breakdown of workflow phases (setup, map, reduce)",
+    "Error handling with DLQ concept explained clearly",
+    "Custom merge workflow pattern demonstrated"
+  ],
+  "improvement_suggestions": [
+    "Rewrite page to document MkDocs workflow instead of mdBook workflow",
+    "Add section on MkDocs Material features and extensions",
+    "Include Mermaid diagram validation documentation",
+    "Document the auto-discovery mechanism for finding all markdown files",
+    "Add section on visual enhancement phase (admonitions, tabs, diagrams)",
+    "Update all file paths and source references to MkDocs equivalents",
+    "Include links to MkDocs Material documentation for extensions"
+  ],
+  "cross_references": [
+    "understanding-the-workflow",
+    "quick-start",
+    "advanced-configuration",
+    "troubleshooting"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T20:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["Real-World Example", "Prodigy's Own Documentation"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "actual_workflow_file": "workflows/mkdocs-drift.yml",
+    "actual_config_file": ".prodigy/mkdocs-config.json",
+    "actual_chapters_file": "workflows/data/mkdocs-chapters.json"
+  }
+}
