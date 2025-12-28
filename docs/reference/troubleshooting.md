@@ -59,6 +59,42 @@ flowchart TD
 
 ## Issue Categories
 
+```mermaid
+flowchart LR
+    Issue[Issue Type?] --> MapReduce{MapReduce?}
+    Issue --> Session{Session?}
+    Issue --> Variables{Variables?}
+    Issue --> Performance{Performance?}
+    Issue --> Worktree{Worktree?}
+
+    MapReduce -->|Agent failures| DLQ["Check DLQ
+    prodigy dlq list"]
+    MapReduce -->|Resume fails| Checkpoint["Check Checkpoints
+    ~/.prodigy/state/"]
+
+    Session -->|Not found| SessionList["prodigy sessions list"]
+    Session -->|Corrupted| SessionFile["Check session file"]
+
+    Variables -->|Not interpolating| Syntax["Check ${var} syntax"]
+    Variables -->|Empty values| EnvSection["Check env: section"]
+
+    Performance -->|Slow execution| Parallel["Reduce max_parallel"]
+    Performance -->|Timeouts| Timeout["Increase timeout"]
+
+    Worktree -->|Orphaned| CleanOrphaned["prodigy worktree
+    clean-orphaned"]
+    Worktree -->|Locked| Lsof["Check lsof"]
+
+    style Issue fill:#e1f5ff
+    style DLQ fill:#fff3e0
+    style Checkpoint fill:#fff3e0
+    style SessionList fill:#f3e5f5
+    style Parallel fill:#e8f5e9
+    style CleanOrphaned fill:#ffebee
+```
+
+**Figure**: Issue category decision tree for quick diagnosis.
+
 ### MapReduce Issues
 
 **Agents failing silently:**
