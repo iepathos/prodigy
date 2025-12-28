@@ -2,6 +2,42 @@
 
 This documentation you're reading is maintained by the same workflow described in this chapter. This is a complete, production-ready workflow that demonstrates:
 
+```mermaid
+graph LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        S1[Analyze Features] --> S2[Detect Gaps]
+        S2 --> S3[Analyze Structure]
+        S3 --> S4[Split Oversized]
+        S4 --> S5[Auto-Discover Pages]
+    end
+
+    subgraph Map["Map Phase (Parallel)"]
+        direction LR
+        M1[Analyze Drift] --> M2[Fix Drift]
+        M2 --> M3{Validate}
+        M3 -->|Pass| M4[Enhance Visuals]
+        M3 -->|Fail| M5[Complete Fix]
+        M5 --> M3
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1[Build Docs] --> R2[Validate Structure]
+        R2 --> R3[Check Consistency]
+        R3 --> R4[Validate Diagrams]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+```
+
+**Figure**: The MkDocs drift workflow showing how pages flow through setup, parallel processing in the map phase, and final validation in reduce.
+
 - **MapReduce parallelism** for processing multiple documentation pages concurrently
 - **Validation with thresholds** to ensure documentation meets quality standards
 - **Automatic gap-filling** to complete incomplete documentation
