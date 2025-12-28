@@ -1,0 +1,86 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "automatic-gap-detection",
+  "page_title": "automatic gap detection",
+  "page_file": "docs/automated-documentation/automatic-gap-detection.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is comprehensive but contains detailed documentation of features that may not be fully implemented in the actual command. Some documented phases and line number references appear outdated or aspirational.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Content Sufficiency Validation (Step 0)",
+      "description": "Documentation describes detailed content sufficiency validation with specific line references (.claude/commands/prodigy-detect-documentation-gaps.md:166-335) but the actual command file doesn't contain this detailed multi-step validation at those line numbers. The actual command is 399 lines total.",
+      "fix_suggestion": "Verify which validation features are actually implemented in the command and update line references accordingly. Remove or mark as planned any features not yet implemented.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Structure Validation (Phase 7.5)",
+      "description": "Documentation references 'Phase 7.5' structure validation with line references (.claude/commands/prodigy-detect-documentation-gaps.md:678-743) but actual command only has 399 lines. This phase may be documented aspirationally rather than reflecting current implementation.",
+      "fix_suggestion": "Audit the actual command phases against documented phases. Update or remove references to non-existent phases and line numbers.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "inconsistent_content",
+      "severity": "low",
+      "section": "Stub File Structure",
+      "description": "The test file (tests/documentation_gap_detection_test.rs:403-490) shows stub files including 'Best Practices', 'Use Cases', 'Examples', and 'Troubleshooting' sections, but the actual command documentation explicitly states 'Do NOT include Prerequisites, Installation, Best Practices, or Troubleshooting sections in chapter stubs'.",
+      "fix_suggestion": "Clarify the intended stub file structure - either update tests to match command guidance or update documentation to reflect actual test behavior.",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md:210"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall",
+      "description": "Page is text-heavy without MkDocs Material visual features such as admonitions (info, warning, tip boxes), tabs for alternative examples, or code annotations.",
+      "fix_suggestion": "Enhance page with MkDocs Material features: use admonitions for important notes and warnings, add tabs for different use cases, add code annotations where appropriate."
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "MkDocs Documentation Awareness",
+      "description": "The page documents book/mdbook gap detection but doesn't mention MkDocs documentation detection capabilities. For MkDocs documentation (like this site), different commands are used (prodigy-detect-mkdocs-gaps).",
+      "fix_suggestion": "Add a note clarifying this documents book/mdBook gap detection, and link to MkDocs-specific gap detection if that documentation exists.",
+      "source_reference": "This is docs/ which uses MkDocs, but page documents book/ workflows"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of gap detection workflow phases",
+    "Good code examples showing JSON structure for gap reports and flattened items",
+    "Clear explanation of severity classification (high, medium, low)",
+    "Well-structured with logical flow from overview to detailed phases",
+    "Includes test coverage information with file references",
+    "Good execution progress example showing real-world output",
+    "Covers both single-file and multi-subsection chapter handling"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for critical information (like 'MANDATORY' and 'CRITICAL' notes)",
+    "Consider adding a workflow diagram showing gap detection phases",
+    "Add cross-reference to related MkDocs gap detection documentation",
+    "Verify all line number references against actual source files",
+    "Add a 'Quick Reference' section summarizing key commands and outputs"
+  ],
+  "cross_references": [
+    "understanding-the-workflow",
+    "quick-start",
+    "tutorial"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "gap detection",
+      "documentation coverage",
+      "content sufficiency validation",
+      "structure validation",
+      "flattened items generation",
+      "chapter stub creation"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}
