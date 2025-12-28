@@ -2,7 +2,8 @@
 
 Templates provide reusable workflow patterns that can be instantiated with different parameters. Templates can be stored in a registry or loaded from files, enabling standardized workflows across teams and projects.
 
-**Source**: Implemented in src/cook/workflow/composition/mod.rs and src/cook/workflow/composition/registry.rs
+!!! info "Source"
+    Implemented in `src/cook/workflow/composition/mod.rs` and `src/cook/workflow/composition/registry.rs`
 
 ### Template Basics
 
@@ -14,9 +15,10 @@ A template is a reusable workflow definition that can be parameterized and insta
 
 ### Template Configuration
 
-Templates are defined using the `WorkflowTemplate` struct (src/cook/workflow/composition/mod.rs:67-83):
+Templates are defined using the `WorkflowTemplate` struct:
 
-```yaml
+```yaml title="Template definition" hl_lines="9-12"
+# Source: src/cook/workflow/composition/mod.rs:67-83
 template:
   # Template name (for identification)
   name: "standard-ci"
@@ -29,80 +31,79 @@ template:
     param1: "value1"
     param2: "value2"
 
-  # Override specific template fields
+  # Override specific template fields (fully implemented)
   override:
     timeout: 600
     max_parallel: 5
 ```
 
-**Source**: Field definitions from `WorkflowTemplate` struct in src/cook/workflow/composition/mod.rs:67-83
-
 ### Template Sources
 
-Prodigy uses an untagged enum for `TemplateSource` (src/cook/workflow/composition/mod.rs:85-95), which means the YAML format varies based on the source type:
+Prodigy uses an untagged enum for `TemplateSource`, which means the YAML format varies based on the source type:
 
-#### Registry Lookup (String)
+=== "Registry Lookup"
 
-Load a template by name from the template registry:
+    Load a template by name from the template registry:
 
-```yaml
-template:
-  name: "ci-pipeline"
-  source: "standard-ci"  # Simple string = registry lookup
-  with:
-    project_name: "my-project"
-```
+    ```yaml
+    # Source: src/cook/workflow/composition/mod.rs:92
+    template:
+      name: "ci-pipeline"
+      source: "standard-ci"  # Simple string = registry lookup
+      with:
+        project_name: "my-project"
+    ```
 
-**Source**: `TemplateSource::Registry(String)` variant in src/cook/workflow/composition/mod.rs:92
+    When the source is a plain string, Prodigy looks up the template in the configured registry directory.
 
-**How it works**: When the source is a plain string, Prodigy looks up the template in the registry at `~/.prodigy/templates/` or `.prodigy/templates/`. Example from test: tests/workflow_composition_test.rs:125-133
+=== "File Path"
 
-#### File Path
+    Load a template from a file:
 
-Load a template from a file:
+    ```yaml
+    # Source: src/cook/workflow/composition/mod.rs:90
+    template:
+      name: "deployment"
+      source:
+        file: "templates/k8s-deploy.yml"  # File path in struct format
+      with:
+        environment: "production"
+    ```
 
-```yaml
-template:
-  name: "deployment"
-  source:
-    file: "templates/k8s-deploy.yml"  # File path in struct format
-  with:
-    environment: "production"
-```
+    Paths can be relative (to workflow file) or absolute.
 
-**Source**: `TemplateSource::File(PathBuf)` variant in src/cook/workflow/composition/mod.rs:90
+=== "URL (Planned)"
 
-**How it works**: When the source uses a `file` field, Prodigy loads the template from the specified file path. Paths can be relative (to workflow file) or absolute.
+    Load a template from a remote URL:
 
-#### URL (Planned)
+    ```yaml
+    # Source: src/cook/workflow/composition/mod.rs:94
+    template:
+      name: "remote-template"
+      source: "https://templates.example.com/ci.yml"
+      with:
+        config: "production"
+    ```
 
-Load a template from a remote URL:
-
-```yaml
-template:
-  name: "remote-template"
-  source: "https://templates.example.com/ci.yml"  # String starting with https://
-  with:
-    config: "production"
-```
-
-**Source**: `TemplateSource::Url(String)` variant in src/cook/workflow/composition/mod.rs:94
-
-**Status**: Currently returns an error. Planned for future implementation. See src/cook/workflow/composition/composer.rs for URL handling code.
+    !!! warning "Not Yet Implemented"
+        URL-based template loading currently returns an error. Planned for future implementation.
 
 ### Template Registry
 
-The template registry stores reusable workflow templates. Templates can be stored in two locations (similar to git worktrees):
+The template registry stores reusable workflow templates with configurable storage locations.
 
-**Registry Locations:**
+!!! note "Default Storage Path"
+    The default `TemplateRegistry::new()` uses `templates/` as the base directory. Custom paths like `.prodigy/templates/` or `~/.prodigy/templates/` are conventions that can be configured via `FileTemplateStorage::new(base_dir)`.
+
+**Conventional Registry Locations:**
 ```
-# Local (project-specific)
+# Local (project-specific) - configure with custom storage
 .prodigy/templates/
 ├── project-ci.yml
 ├── custom-deployment.yml
 └── ...
 
-# Global (user-wide)
+# Global (user-wide) - configure with custom storage
 ~/.prodigy/templates/
 ├── standard-ci.yml
 ├── deployment-pipeline.yml
@@ -110,13 +111,25 @@ The template registry stores reusable workflow templates. Templates can be store
 └── ...
 ```
 
-**Implementation**: `FileTemplateStorage` in src/cook/workflow/composition/registry.rs:26-29 uses a configurable base directory (defaults to "templates").
+**Custom Storage Configuration:**
+```rust
+// Source: src/cook/workflow/composition/registry.rs:26-29
+use prodigy::cook::workflow::composition::registry::{TemplateRegistry, FileTemplateStorage};
+
+// Default: uses "templates" directory
+let registry = TemplateRegistry::new();
+
+// Custom path: use project-specific location
+let storage = FileTemplateStorage::new(PathBuf::from(".prodigy/templates"));
+let registry = TemplateRegistry::with_storage(Box::new(storage));
+```
 
 #### Programmatic Registration
 
-Register templates using the API (src/cook/workflow/composition/registry.rs:41-73):
+Register templates using the API:
 
-```rust
+```rust title="Template registration"
+// Source: src/cook/workflow/composition/registry.rs:41-73
 use prodigy::cook::workflow::composition::registry::TemplateRegistry;
 
 let registry = TemplateRegistry::new();
@@ -136,8 +149,6 @@ registry
     .await?;
 ```
 
-**Source**: Example from tests/workflow_composition_test.rs:177-199
-
 #### Manual Registry Management
 
 ```bash
@@ -154,56 +165,60 @@ cp my-template.yml ~/.prodigy/templates/my-template.yml
 
 Templates can define parameters that are substituted when the template is instantiated. See [Parameter Definitions](parameter-definitions.md) for detailed parameter syntax and validation.
 
-**Template with Parameters:**
-```yaml
-# templates/deployment.yml
-name: deployment-template
+=== "Template Definition"
 
-parameters:
-  required:
-    - environment
-    - version
-  optional:
-    - timeout
+    ```yaml title="templates/deployment.yml"
+    name: deployment-template
 
-commands:
-  - shell: "deploy --env ${environment} --version ${version}"
-  - shell: "verify-deployment ${environment}"
-```
+    parameters:
+      required:
+        - environment
+        - version
+      optional:
+        - timeout
 
-**Using Parameterized Template:**
-```yaml
-template:
-  source:
-    file: "templates/deployment.yml"
-  with:
-    environment: "staging"
-    version: "2.0.0"
-    timeout: "300"
-```
+    commands:
+      - shell: "deploy --env ${environment} --version ${version}"
+      - shell: "verify-deployment ${environment}"
+    ```
+
+=== "Template Usage"
+
+    ```yaml title="workflow.yml"
+    template:
+      source:
+        file: "templates/deployment.yml"
+      with:
+        environment: "staging"
+        version: "2.0.0"
+        timeout: "300"
+    ```
 
 ### Template Metadata
 
-Templates can include metadata for better organization and discovery (src/cook/workflow/composition/registry.rs:475-508):
+Templates can include metadata for better organization and discovery.
 
-**Metadata Fields:**
-- `description`: Human-readable description
-- `author`: Template author
-- `version`: Semantic version string
-- `tags`: List of categorization tags
-- `created_at`: Creation timestamp
-- `updated_at`: Last modification timestamp
+| Field | Description |
+|-------|-------------|
+| `description` | Human-readable description |
+| `author` | Template author |
+| `version` | Semantic version string |
+| `tags` | List of categorization tags |
+| `created_at` | Creation timestamp |
+| `updated_at` | Last modification timestamp |
 
-**Metadata Storage:**
-Templates registered with metadata store an additional `.meta.json` file alongside the template YAML. For example, `standard-ci.yml` has metadata in `standard-ci.yml.meta.json`.
+!!! info "Metadata Storage"
+    Templates registered with metadata store an additional `.meta.json` file alongside the template YAML. For example, `standard-ci.yml` has metadata in `standard-ci.yml.meta.json`.
 
-**Source**: `TemplateMetadata` struct in src/cook/workflow/composition/registry.rs:475-495
+    Source: `TemplateMetadata` struct in `src/cook/workflow/composition/registry.rs:475-508`
 
 ### Template Discovery
 
-The registry provides search and listing capabilities (src/cook/workflow/composition/registry.rs:156-168):
+The registry provides search and listing capabilities:
 
-```rust
+```rust title="Template discovery API"
+// Source: src/cook/workflow/composition/registry.rs:156-168
+
 // List all templates
 let templates = registry.list().await?;
 
@@ -219,22 +234,22 @@ let template = registry.get("standard-ci").await?;
 registry.delete("old-template").await?;
 ```
 
-**Source**: Methods in `TemplateRegistry` implementation
-
 ### Template Caching
 
 Prodigy caches loaded templates to improve performance:
+
 - Templates are loaded once and reused across workflow executions
 - Registry templates are cached until the registry is updated
-- In-memory cache stored in `Arc<RwLock<HashMap>>` (src/cook/workflow/composition/registry.rs:14)
+- In-memory cache stored in `Arc<RwLock<HashMap>>` (`src/cook/workflow/composition/registry.rs:14`)
 
-**File Change Detection**: The documentation previously claimed file-based templates are re-read on file changes, but this is not currently implemented in the caching layer. Templates are cached for the lifetime of the registry instance.
+!!! warning "File Change Detection"
+    Templates are cached for the lifetime of the registry instance. File-based templates are **not** automatically reloaded when the source file changes. Restart the registry or create a new instance to pick up template changes.
 
 ### Template Override
 
-The `override` field allows you to override specific template fields without modifying the template file:
+The `override` field allows you to override specific template fields without modifying the template file. Template overrides are fully implemented and applied during workflow composition.
 
-```yaml
+```yaml title="Basic override example"
 template:
   source: "standard-workflow"
   override:
@@ -242,59 +257,133 @@ template:
     max_parallel: 10  # Override concurrency limit
 ```
 
-**Implementation Status**: The `override_field` is defined in the `WorkflowTemplate` struct (src/cook/workflow/composition/mod.rs:80-83) and is properly deserialized, but the application logic in `apply_overrides()` is not yet implemented. The field is validated and stored but not applied during workflow composition.
+#### Supported Override Keys
 
-**Source**: See `override_field` in src/cook/workflow/composition/mod.rs:81-82
+The `apply_overrides()` function supports the following keys:
+
+| Key | Description | Value Type |
+|-----|-------------|------------|
+| `commands` | Replace the entire commands array | Array of command objects |
+| `env` | Replace environment variables | Object with key-value pairs |
+| `merge` | Replace merge workflow configuration | Merge config object |
+| `path.to.field` | Override nested values using dot notation | Any value |
+
+=== "Commands Override"
+
+    Replace the entire commands array:
+
+    ```yaml
+    # Source: src/cook/workflow/composition/composer.rs:539-543
+    template:
+      source: "base-workflow"
+      override:
+        commands:
+          - shell: "custom-build.sh"
+          - claude: "/deploy production"
+    ```
+
+=== "Environment Override"
+
+    Replace environment variables:
+
+    ```yaml
+    # Source: src/cook/workflow/composition/composer.rs:546-554
+    template:
+      source: "deployment-pipeline"
+      override:
+        env:
+          NODE_ENV: "production"
+          API_URL: "https://api.example.com"
+    ```
+
+=== "Merge Override"
+
+    Replace merge workflow configuration:
+
+    ```yaml
+    # Source: src/cook/workflow/composition/composer.rs:557-561
+    template:
+      source: "feature-workflow"
+      override:
+        merge:
+          commands:
+            - shell: "cargo test"
+            - shell: "cargo clippy"
+    ```
+
+=== "Nested Override"
+
+    Override specific nested values using dot notation:
+
+    ```yaml
+    # Source: src/cook/workflow/composition/composer.rs:564-567
+    template:
+      source: "standard-ci"
+      override:
+        commands.0.timeout: 600
+        map.max_parallel: 20
+    ```
+
+!!! tip "Unknown Override Keys"
+    Unknown override keys are logged as warnings but don't cause errors, allowing forward compatibility with future override options.
 
 ### Use Cases
 
-**Standardized CI/CD Pipelines:**
-```yaml
-# Use company-wide CI template
-template:
-  source: "company-ci-pipeline"
-  with:
-    project_type: "rust"
-    test_coverage: "80"
-    deploy_targets: ["staging", "production"]
-```
+=== "CI/CD Pipelines"
 
-**Environment-Specific Deployments:**
-```yaml
-# Reuse deployment template with different params
-template:
-  source:
-    file: "templates/k8s-deploy.yml"
-  with:
-    cluster: "us-west-2"
-    namespace: "production"
-    replicas: "5"
-```
+    Use company-wide CI template for standardization:
 
-**Testing Workflow Variations:**
-```yaml
-# Test different configurations using same template
-template:
-  source:
-    file: "templates/integration-tests.yml"
-  with:
-    database: "postgres"
-    cache: "redis"
-    message_queue: "rabbitmq"
-```
+    ```yaml title="Standardized CI workflow"
+    template:
+      source: "company-ci-pipeline"
+      with:
+        project_type: "rust"
+        test_coverage: "80"
+        deploy_targets: ["staging", "production"]
+    ```
+
+=== "Environment Deployments"
+
+    Reuse deployment template with different parameters:
+
+    ```yaml title="Environment-specific deployment"
+    template:
+      source:
+        file: "templates/k8s-deploy.yml"
+      with:
+        cluster: "us-west-2"
+        namespace: "production"
+        replicas: "5"
+    ```
+
+=== "Test Configurations"
+
+    Test different configurations using the same template:
+
+    ```yaml title="Integration test variations"
+    template:
+      source:
+        file: "templates/integration-tests.yml"
+      with:
+        database: "postgres"
+        cache: "redis"
+        message_queue: "rabbitmq"
+    ```
 
 ### Implementation Status
 
-- ✅ File-based template loading
-- ✅ Registry template storage and retrieval
-- ✅ Template parameter validation
-- ✅ Template caching (in-memory)
-- ✅ Template metadata and versioning
-- ✅ Template search and discovery
-- ✅ Programmatic registration API
-- ⏳ URL-based template loading (returns error, planned for future)
-- ⏳ Template override application (field exists but not applied in compose())
-- ⏳ File modification detection for cache invalidation
+| Feature | Status | Notes |
+|---------|--------|-------|
+| File-based template loading | :white_check_mark: | Fully implemented |
+| Registry template storage | :white_check_mark: | Fully implemented |
+| Template parameter validation | :white_check_mark: | Fully implemented |
+| Template caching (in-memory) | :white_check_mark: | Fully implemented |
+| Template metadata and versioning | :white_check_mark: | Fully implemented |
+| Template search and discovery | :white_check_mark: | Fully implemented |
+| Programmatic registration API | :white_check_mark: | Fully implemented |
+| Template override application | :white_check_mark: | Supports `commands`, `env`, `merge`, and nested paths |
+| URL-based template loading | :material-clock-outline: | Returns error, planned for future |
+| File modification detection | :material-clock-outline: | Cache invalidation planned |
 
 ### Related Topics
 
