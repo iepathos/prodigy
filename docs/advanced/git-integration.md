@@ -453,6 +453,33 @@ merge:
 
 ### Common Merge Conflict Scenarios
 
+Understanding when and how conflicts occur helps you choose the right resolution strategy:
+
+```mermaid
+flowchart LR
+    Conflict[Merge Conflict] --> Type{Conflict Type?}
+
+    Type -->|Same File| FileConflict[File Conflict]
+    Type -->|Lock File| LockConflict[Lock File]
+    Type -->|History| HistoryConflict[Divergent History]
+
+    FileConflict --> Auto{Auto-Resolvable?}
+    Auto -->|Yes| AIResolve[AI Resolution]
+    Auto -->|No| Manual[Manual Edit]
+
+    LockConflict --> Regen[Regenerate Locks]
+
+    HistoryConflict --> Strategy{Strategy?}
+    Strategy -->|Clean| Rebase[Rebase]
+    Strategy -->|Preserve| Merge[Merge Commit]
+
+    style Conflict fill:#ffebee
+    style AIResolve fill:#e8f5e9
+    style Regen fill:#e8f5e9
+```
+
+**Figure**: Decision flow for resolving different types of merge conflicts.
+
 #### Conflicting File Changes
 
 When multiple agents modify the same file:
@@ -468,27 +495,39 @@ git diff --name-only --diff-filter=U
 
 **Resolution strategies:**
 
-1. **Automatic resolution** (in merge workflow):
-   ```yaml
-   merge:
-     commands:
-       - shell: "git merge origin/main --no-commit"
-       - claude: "/resolve-conflicts"  # AI-assisted resolution
-       - shell: "git add -A && git commit -m 'Merge with conflict resolution'"
-   ```
+=== "AI-Assisted Resolution"
 
-2. **Manual resolution**:
-   ```bash
-   # Navigate to worktree
-   cd ~/.prodigy/worktrees/{repo}/session-xxx/
+    Let Claude resolve conflicts automatically in your merge workflow:
 
-   # Open in your editor, resolve conflicts
-   code .
+    ```yaml
+    merge:
+      commands:
+        - shell: "git merge origin/main --no-commit"
+        - claude: "/resolve-conflicts"  # AI-assisted resolution
+        - shell: "git add -A && git commit -m 'Merge with conflict resolution'"
+    ```
 
-   # Mark resolved and commit
-   git add -A
-   git commit -m "Resolve merge conflicts"
-   ```
+    !!! tip "When to Use AI Resolution"
+        AI resolution works best for semantic conflicts (different features touching same code) rather than binary/lock file conflicts.
+
+=== "Manual Resolution"
+
+    Resolve conflicts yourself in the worktree:
+
+    ```bash
+    # Navigate to worktree
+    cd ~/.prodigy/worktrees/{repo}/session-xxx/
+
+    # Open in your editor, resolve conflicts
+    code .
+
+    # Mark resolved and commit
+    git add -A
+    git commit -m "Resolve merge conflicts"
+    ```
+
+    !!! note "Editor Integration"
+        Your worktree is a full git repository. Use your preferred editor's git conflict resolution tools.
 
 #### Divergent Branch History
 
@@ -497,13 +536,31 @@ When the original branch has advanced significantly:
 ```bash
 # Check how far behind
 git log ${merge.target_branch}..HEAD --oneline
-
-# Rebase option (if linear history preferred)
-git rebase origin/${merge.target_branch}
-
-# Merge option (preserves history)
-git merge origin/${merge.target_branch}
 ```
+
+Choose your integration strategy:
+
+=== "Merge (Recommended)"
+
+    Preserves complete history and is safer for shared branches:
+
+    ```bash
+    git merge origin/${merge.target_branch}
+    ```
+
+    **Pros:** Safe for shared branches, preserves history, easy to revert
+    **Cons:** Creates merge commits, non-linear history
+
+=== "Rebase"
+
+    Creates linear history but rewrites commits:
+
+    ```bash
+    git rebase origin/${merge.target_branch}
+    ```
+
+    **Pros:** Clean linear history, easier to follow
+    **Cons:** Rewrites commits, dangerous for shared branches
 
 !!! warning "Rebase vs Merge"
     Rebasing creates cleaner history but rewrites commits. Use merge for shared branches or when preserving original commit history is important.
@@ -516,16 +573,31 @@ Conflicts in lock files (Cargo.lock, package-lock.json):
 merge:
   commands:
     - shell: "git fetch origin"
-    - shell: "git merge origin/main -X theirs -- '*.lock'"  # Accept upstream locks
-    - shell: "cargo update"  # Regenerate with both changes
-    - shell: "cargo test"
+    - shell: "git merge origin/main -X theirs -- '*.lock'"  # (1)!
+    - shell: "cargo update"  # (2)!
+    - shell: "cargo test"  # (3)!
 ```
+
+1. Accept upstream lock file version to avoid manual merge
+2. Regenerate lock file with combined dependencies from both branches
+3. Verify the regenerated dependencies work correctly
+
+!!! tip "Lock File Strategy"
+    Never manually merge lock files. Accept one version and regenerate to ensure dependency consistency.
 
 #### Stale Worktree State
 
 When worktree state doesn't match reality:
 
+!!! warning "Backup First"
+    Before force-cleaning worktrees, check if they contain uncommitted work you want to preserve.
+
 ```bash
+# Check for uncommitted work first
+cd ~/.prodigy/worktrees/{repo}/session-xxx/
+git status
+git stash list
+
 # Reset worktree tracking
 prodigy worktree clean -f
 
