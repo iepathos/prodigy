@@ -11,6 +11,11 @@ Git integration features:
 - **Smart merging**: Customizable merge workflows with validation
 - **Branch tracking**: Intelligent merge target detection
 
+**Related documentation:**
+
+- [Checkpoint and Resume](../mapreduce/checkpoint-and-resume.md) - How worktree state is preserved during resume
+- [Storage Architecture](storage.md) - Where worktree metadata and state files are stored
+
 ## Worktree Management
 
 Every Prodigy session executes in an isolated git worktree:
@@ -79,6 +84,45 @@ prodigy worktree clean -f
 # Clean orphaned worktrees (failed cleanup)
 prodigy worktree clean-orphaned <job_id>
 ```
+
+??? example "Example: `prodigy worktree ls` Output"
+    ```
+    Worktrees for prodigy:
+    ┌──────────────────────────────────────┬────────────┬──────────────────────────┬─────────────────────┐
+    │ Session ID                           │ Status     │ Original Branch          │ Created             │
+    ├──────────────────────────────────────┼────────────┼──────────────────────────┼─────────────────────┤
+    │ session-abc123-def456                │ InProgress │ feature/auth-refactor    │ 2025-01-15 10:30:00 │
+    │ session-789xyz-123abc                │ Completed  │ main                     │ 2025-01-15 09:00:00 │
+    │ session-old-session                  │ Merged     │ feature/ui-improvements  │ 2025-01-14 14:00:00 │
+    └──────────────────────────────────────┴────────────┴──────────────────────────┴─────────────────────┘
+    ```
+
+### Worktree Status Values
+
+Worktrees track their lifecycle state with these status values:
+
+```rust
+// Source: src/worktree/state.rs:38-46
+pub enum WorktreeStatus {
+    InProgress,   // Workflow currently executing
+    Completed,    // Workflow finished, awaiting merge decision
+    Merged,       // Changes merged back to original branch
+    CleanedUp,    // Worktree successfully removed
+    Failed,       // Workflow failed with error
+    Abandoned,    // User declined merge, worktree preserved
+    Interrupted,  // Execution interrupted (signal, power loss)
+}
+```
+
+| Status | Description | Next Actions |
+|--------|-------------|--------------|
+| `InProgress` | Workflow actively running | Wait for completion |
+| `Completed` | Workflow done, pending merge | Approve or decline merge |
+| `Merged` | Changes integrated to original branch | Clean up worktree |
+| `CleanedUp` | Worktree removed from disk | None (terminal state) |
+| `Failed` | Error during execution | Check logs, retry or clean |
+| `Abandoned` | User declined to merge | Access worktree manually if needed |
+| `Interrupted` | Unexpected termination | Resume with `prodigy resume` |
 
 !!! tip "Worktree Hygiene"
     Regularly clean up completed worktrees with `prodigy worktree clean` to free disk space. Each worktree is a full copy of your repository, so they can accumulate quickly during development.
@@ -403,4 +447,178 @@ merge:
     - shell: "cargo doc --no-deps"
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
   timeout: 900
+```
+
+## Troubleshooting
+
+### Common Merge Conflict Scenarios
+
+Understanding when and how conflicts occur helps you choose the right resolution strategy:
+
+```mermaid
+flowchart LR
+    Conflict[Merge Conflict] --> Type{Conflict Type?}
+
+    Type -->|Same File| FileConflict[File Conflict]
+    Type -->|Lock File| LockConflict[Lock File]
+    Type -->|History| HistoryConflict[Divergent History]
+
+    FileConflict --> Auto{Auto-Resolvable?}
+    Auto -->|Yes| AIResolve[AI Resolution]
+    Auto -->|No| Manual[Manual Edit]
+
+    LockConflict --> Regen[Regenerate Locks]
+
+    HistoryConflict --> Strategy{Strategy?}
+    Strategy -->|Clean| Rebase[Rebase]
+    Strategy -->|Preserve| Merge[Merge Commit]
+
+    style Conflict fill:#ffebee
+    style AIResolve fill:#e8f5e9
+    style Regen fill:#e8f5e9
+```
+
+**Figure**: Decision flow for resolving different types of merge conflicts.
+
+#### Conflicting File Changes
+
+When multiple agents modify the same file:
+
+```bash
+# Check conflict status in worktree
+cd ~/.prodigy/worktrees/{repo}/session-xxx/
+git status
+
+# View conflict markers
+git diff --name-only --diff-filter=U
+```
+
+**Resolution strategies:**
+
+=== "AI-Assisted Resolution"
+
+    Let Claude resolve conflicts automatically in your merge workflow:
+
+    ```yaml
+    merge:
+      commands:
+        - shell: "git merge origin/main --no-commit"
+        - claude: "/resolve-conflicts"  # AI-assisted resolution
+        - shell: "git add -A && git commit -m 'Merge with conflict resolution'"
+    ```
+
+    !!! tip "When to Use AI Resolution"
+        AI resolution works best for semantic conflicts (different features touching same code) rather than binary/lock file conflicts.
+
+=== "Manual Resolution"
+
+    Resolve conflicts yourself in the worktree:
+
+    ```bash
+    # Navigate to worktree
+    cd ~/.prodigy/worktrees/{repo}/session-xxx/
+
+    # Open in your editor, resolve conflicts
+    code .
+
+    # Mark resolved and commit
+    git add -A
+    git commit -m "Resolve merge conflicts"
+    ```
+
+    !!! note "Editor Integration"
+        Your worktree is a full git repository. Use your preferred editor's git conflict resolution tools.
+
+#### Divergent Branch History
+
+When the original branch has advanced significantly:
+
+```bash
+# Check how far behind
+git log ${merge.target_branch}..HEAD --oneline
+```
+
+Choose your integration strategy:
+
+=== "Merge (Recommended)"
+
+    Preserves complete history and is safer for shared branches:
+
+    ```bash
+    git merge origin/${merge.target_branch}
+    ```
+
+    **Pros:** Safe for shared branches, preserves history, easy to revert
+    **Cons:** Creates merge commits, non-linear history
+
+=== "Rebase"
+
+    Creates linear history but rewrites commits:
+
+    ```bash
+    git rebase origin/${merge.target_branch}
+    ```
+
+    **Pros:** Clean linear history, easier to follow
+    **Cons:** Rewrites commits, dangerous for shared branches
+
+!!! warning "Rebase vs Merge"
+    Rebasing creates cleaner history but rewrites commits. Use merge for shared branches or when preserving original commit history is important.
+
+#### Lock Files and Generated Files
+
+Conflicts in lock files (Cargo.lock, package-lock.json):
+
+```yaml
+merge:
+  commands:
+    - shell: "git fetch origin"
+    - shell: "git merge origin/main -X theirs -- '*.lock'"  # (1)!
+    - shell: "cargo update"  # (2)!
+    - shell: "cargo test"  # (3)!
+```
+
+1. Accept upstream lock file version to avoid manual merge
+2. Regenerate lock file with combined dependencies from both branches
+3. Verify the regenerated dependencies work correctly
+
+!!! tip "Lock File Strategy"
+    Never manually merge lock files. Accept one version and regenerate to ensure dependency consistency.
+
+#### Stale Worktree State
+
+When worktree state doesn't match reality:
+
+!!! warning "Backup First"
+    Before force-cleaning worktrees, check if they contain uncommitted work you want to preserve.
+
+```bash
+# Check for uncommitted work first
+cd ~/.prodigy/worktrees/{repo}/session-xxx/
+git status
+git stash list
+
+# Reset worktree tracking
+prodigy worktree clean -f
+
+# Or manually remove git worktree
+git worktree remove ~/.prodigy/worktrees/{repo}/session-xxx --force
+
+# Clear orphaned registry if needed
+rm ~/.prodigy/orphaned_worktrees/{repo}/{job_id}.json
+```
+
+### Debugging Merge Failures
+
+```bash
+# View detailed merge output
+prodigy run workflow.yml -vv
+
+# Check Claude's decision-making
+prodigy logs --latest | jq 'select(.type == "tool_use")'
+
+# Inspect worktree state after failure
+cd ~/.prodigy/worktrees/{repo}/session-xxx/
+git log --oneline -10
+git status
 ```
