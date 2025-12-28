@@ -68,10 +68,12 @@ Shell-level environment overrides take **highest precedence** and apply only to 
 
 ```mermaid
 graph TD
-    A[Shell Override<br/>HIGHEST] --> B[Global env]
+    A["Shell Override
+    (HIGHEST)"] --> B[Global env]
     B --> C[Profile env]
     C --> D[.env file]
-    D --> E[System env<br/>LOWEST]
+    D --> E["System env
+    (LOWEST)"]
 
     style A fill:#4CAF50,color:white
     style E fill:#9E9E9E,color:white
