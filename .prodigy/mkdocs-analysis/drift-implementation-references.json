@@ -1,0 +1,107 @@
+{
+  "item_type": "section-page",
+  "section_id": "retry-configuration",
+  "section_title": "Retry Configuration",
+  "page_id": "implementation-references",
+  "page_title": "implementation references",
+  "page_file": "docs/retry-configuration/implementation-references.md",
+  "feature_mappings": [
+    "error_handling.retry_configuration",
+    "error_handling.advanced_features.circuit_breaker"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has accurate line number references that need verification and minor content updates",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Core Retry System - RetryConfig struct",
+      "description": "Line numbers in documentation (14-52) are accurate, but the FailureAction enum reference shows 'Fail' as a variant when the actual code uses 'Stop' as the default variant",
+      "current_content": "on_failure: FailureAction::Fail",
+      "should_be": "on_failure: FailureAction::Stop",
+      "fix_suggestion": "Update the example code to use FailureAction::Stop instead of FailureAction::Fail",
+      "source_reference": "src/cook/retry_v2.rs:157-165"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Workflow Error Policy - RetryConfig struct",
+      "description": "Documentation says RetryConfig is at lines 91-99 but the actual struct spans lines 91-99 (correct). However, the reference to WorkflowErrorPolicy struct says lines 131-140+ which should be 131-161 based on actual code",
+      "current_content": "WorkflowErrorPolicy struct (lines 131-140+)",
+      "should_be": "WorkflowErrorPolicy struct (lines 131-161)",
+      "fix_suggestion": "Update the line number reference to be more precise",
+      "source_reference": "src/cook/workflow/error_policy.rs:131-161"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Command Metadata",
+      "description": "Documentation references line 135 but CommandMetadata struct is at lines 132-154. The retries field is documented correctly.",
+      "current_content": "Command Metadata (src/config/command.rs:135)",
+      "should_be": "Command Metadata (src/config/command.rs:132-154)",
+      "fix_suggestion": "Update the header line reference to use a range that captures the full struct definition",
+      "source_reference": "src/config/command.rs:132-154"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Retry Metrics",
+      "description": "Documentation says RetryMetrics is at lines 399-422 but the actual struct and implementation spans lines 399-422 (the struct itself is at 399-406, methods at 408-421). The documentation mentions 'total_delay' field but actual code has 'retries: Vec<(u32, Duration)>' instead",
+      "current_content": "total_delay: Cumulative delay time across all retries",
+      "should_be": "retries: Vec of (attempt, Duration) pairs tracking retry delays",
+      "fix_suggestion": "Update the RetryMetrics field description to match actual implementation",
+      "source_reference": "src/cook/retry_v2.rs:399-422"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Retry Executor",
+      "description": "The documentation doesn't mention the RetryExecutor struct (lines 167-172) which is the main struct that orchestrates retry execution with circuit breaker support",
+      "feature_reference": "error_handling.retry_configuration",
+      "fix_suggestion": "Consider adding a section about RetryExecutor which is the primary interface for executing operations with retry logic",
+      "source_reference": "src/cook/retry_v2.rs:167-172"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of the retry system components",
+    "Good code examples showing actual usage patterns",
+    "Clear organization by component type (Core, Error Handling, Resilience, Observability)",
+    "Accurate documentation of BackoffStrategy variants",
+    "Correct ErrorMatcher documentation with all variant types",
+    "Good CircuitBreaker state machine documentation",
+    "Helpful cross-references to other subsections"
+  ],
+  "improvement_suggestions": [
+    "Add a section documenting the RetryExecutor struct which is the main entry point for using the retry system",
+    "Update FailureAction example from 'Fail' to 'Stop' to match current code",
+    "Consider adding more context about how these components integrate with MapReduce workflows",
+    "The page could benefit from a visual diagram showing component relationships"
+  ],
+  "cross_references": [
+    "complete-examples",
+    "basic-retry-configuration",
+    "backoff-strategies",
+    "troubleshooting"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:40:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "retry_v2.rs implementation",
+      "error_policy.rs implementation",
+      "command.rs metadata",
+      "circuit breaker",
+      "error matchers",
+      "retry metrics"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/retry_v2.rs",
+      "src/cook/workflow/error_policy.rs",
+      "src/config/command.rs"
+    ],
+    "internal_links_validated": true,
+    "broken_links": []
+  }
+}
