@@ -1,0 +1,120 @@
+{
+  "item_type": "page",
+  "page_id": "understanding-the-workflow",
+  "page_title": "Understanding the Workflow",
+  "page_file": "docs/automated-documentation/understanding-the-workflow.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Well-structured documentation with accurate explanations but contains outdated source file references that could confuse developers",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Map Phase (Parallel Processing)",
+      "description": "Source reference line numbers for executor.rs are incorrect - documentation states 'executor.rs:617-824' but actual function starts at line 877",
+      "current_content": "**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:617-824`",
+      "should_be": "**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:877-1000` (approximately)",
+      "fix_suggestion": "Update the line number reference to point to the actual execute_map_phase_internal function location around line 877",
+      "source_reference": "src/cook/execution/mapreduce/coordination/executor.rs:877"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Map Phase - Code Example",
+      "description": "The code example for semaphore creation shows line 617 but actual code is at line 900. The code pattern matches but the line numbers have drifted",
+      "current_content": "Parallel execution control (from `src/cook/execution/mapreduce/coordination/executor.rs:617-824`)",
+      "should_be": "Reference should indicate executor.rs around line 900 for semaphore creation",
+      "fix_suggestion": "Update source reference to reflect current line numbers in executor.rs",
+      "source_reference": "src/cook/execution/mapreduce/coordination/executor.rs:900"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Execution Model",
+      "description": "Source reference 'executor.rs:200-269' may be outdated due to file growth (file is now 1827 lines)",
+      "current_content": "**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:200-269`",
+      "should_be": "Verify line numbers match the current implementation structure",
+      "fix_suggestion": "Audit all executor.rs line references against current file structure",
+      "source_reference": "src/cook/execution/mapreduce/coordination/executor.rs"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Result Collection and Aggregation - AgentResult struct",
+      "description": "AgentResult source reference states 'agent/results.rs:44-79' but the struct is actually defined in 'agent/types.rs' at lines 45-79",
+      "current_content": "**Source**: `src/cook/execution/mapreduce/agent/results.rs:44-79`",
+      "should_be": "**Source**: `src/cook/execution/mapreduce/agent/types.rs:45-79`",
+      "fix_suggestion": "Update the file path reference to types.rs where AgentResult is actually defined",
+      "source_reference": "src/cook/execution/mapreduce/agent/types.rs:45"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "AgentResult struct",
+      "description": "Documentation shows AgentResult struct but is missing the 'worktree_session_id' field that exists in the actual implementation",
+      "current_content": "Shows 10 fields in AgentResult",
+      "should_be": "Should show 11 fields including worktree_session_id",
+      "fix_suggestion": "Add worktree_session_id: Option<String> field to the documented struct with description 'Worktree session ID for cleanup tracking'",
+      "source_reference": "src/cook/execution/mapreduce/agent/types.rs:72"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Error Handling and Recovery",
+      "description": "Source reference 'executor.rs:1486-1591' may be outdated given file structure changes",
+      "current_content": "**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:1486-1591`",
+      "should_be": "Verify line range still corresponds to error handling logic",
+      "fix_suggestion": "Audit the line number reference to ensure it points to the correct error handling section",
+      "source_reference": "src/cook/execution/mapreduce/coordination/executor.rs"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Variable Interpolation - Reduce Phase Variables",
+      "description": "Source reference 'aggregation/mod.rs:1637-1659' cannot be correct as the file is only about 100 lines",
+      "current_content": "**Source**: `src/cook/execution/mapreduce/aggregation/mod.rs:1637-1659`",
+      "should_be": "The reduce phase variable context may be in a different file or the aggregation module's submodule",
+      "fix_suggestion": "Locate the actual source of reduce phase variable context and update the reference - likely in executor.rs or a reducer module",
+      "source_reference": "src/cook/execution/mapreduce/aggregation/mod.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent four-phase execution model explanation with clear purpose and description for each phase",
+    "Well-documented worktree architecture diagram showing parent/child hierarchy",
+    "Clear isolation guarantees section explaining how each phase maintains isolation",
+    "Good use of code examples showing actual Rust implementations",
+    "Comprehensive coverage of agent lifecycle with trait definition",
+    "Helpful variable interpolation reference covering all phases",
+    "Accurate description of DLQ retry mechanism with CLI examples",
+    "Well-structured performance characteristics section",
+    "Quality guarantees section provides clear validation checkpoint descriptions"
+  ],
+  "improvement_suggestions": [
+    "Add cross-references to related documentation pages (DLQ, checkpoint-resume, observability)",
+    "Consider adding a troubleshooting section for common workflow execution issues",
+    "Add a diagram showing the agent lifecycle state machine",
+    "Include timing/duration metrics examples for performance monitoring",
+    "Add links to the specific workflow YAML files mentioned in source references"
+  ],
+  "cross_references": [
+    "mapreduce/checkpoint-and-resume",
+    "mapreduce/dlq/overview",
+    "advanced/observability/event-tracking"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "MapReduce execution phases",
+      "Worktree architecture",
+      "Agent lifecycle management",
+      "Variable interpolation",
+      "Error handling and DLQ",
+      "Quality guarantees",
+      "Performance characteristics"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_found": 0
+  }
+}
