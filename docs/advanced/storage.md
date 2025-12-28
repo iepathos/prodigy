@@ -313,10 +313,42 @@ Git worktrees are created per session:
 
 ### Worktree Lifecycle
 
-1. **Creation**: Worktree created when workflow starts
-2. **Execution**: All commands run in worktree context
-3. **Persistence**: Worktree remains until merge or cleanup
-4. **Cleanup**: Removed after successful merge
+```mermaid
+stateDiagram-v2
+    [*] --> Created: Workflow Start
+    Created --> Executing: Commands Run
+    Executing --> Executing: More Commands
+    Executing --> Persisted: Commands Complete
+    Persisted --> Merged: User Approves Merge
+    Persisted --> Cleanup: User Declines/Cancels
+    Merged --> [*]: Worktree Removed
+    Cleanup --> [*]: Worktree Removed
+    Executing --> Orphaned: Cleanup Fails
+
+    note right of Created
+        Branch created from parent
+        Isolated from main repo
+    end note
+
+    note right of Persisted
+        Changes preserved
+        Awaiting user decision
+    end note
+
+    note right of Orphaned
+        Registered in
+        orphaned_worktrees/
+    end note
+```
+
+**Figure**: Worktree lifecycle showing state transitions from creation to cleanup.
+
+**Lifecycle Stages**:
+
+1. **Created**: Worktree created when workflow starts
+2. **Executing**: All commands run in worktree context
+3. **Persisted**: Worktree remains until merge or cleanup
+4. **Merged/Cleanup**: Removed after successful merge or user cancellation
 
 ## Orphaned Worktree Tracking
 
