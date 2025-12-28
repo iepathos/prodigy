@@ -31,30 +31,62 @@ The `defaults` field is a HashMap<String, Value> that accepts any JSON-compatibl
 ```yaml
 defaults:
   # String values
-  environment: "staging"
+  environment: "staging"        # (1)!
   log_level: "debug"
 
   # Number values
-  timeout: 600
+  timeout: 600                  # (2)!
   max_retries: 5
 
   # Boolean values
-  dry_run: false
+  dry_run: false                # (3)!
   enable_cache: true
 
   # Array values
-  allowed_regions: ["us-west-2", "us-east-1"]
+  allowed_regions: ["us-west-2", "us-east-1"]  # (4)!
 
   # Object values
-  database_config:
+  database_config:              # (5)!
     host: "localhost"
     port: 5432
     pool_size: 10
 ```
 
+1. **String values** - Used for configuration names, modes, and text settings
+2. **Number values** - Used for timeouts, counts, and numeric thresholds
+3. **Boolean values** - Enable/disable features and flags
+4. **Array values** - Lists of allowed values, regions, or options
+5. **Object values** - Nested configuration with multiple related settings
+
 ### Parameter Precedence
 
 When multiple sources provide values for the same parameter, they are resolved in this order:
+
+```mermaid
+flowchart LR
+    Start[Resolve Parameter] --> CLI{"CLI flag
+    provided?"}
+    CLI -->|Yes| UseCLI["Use CLI Value
+    (highest priority)"]
+    CLI -->|No| Param{"Parameter
+    default?"}
+    Param -->|Yes| UseParam["Use Parameter Default
+    (medium priority)"]
+    Param -->|No| Workflow{"Workflow
+    default?"}
+    Workflow -->|Yes| UseWorkflow["Use Workflow Default
+    (lowest priority)"]
+    Workflow -->|No| Error[Error: No Value]
+
+    UseCLI --> Done[Done]
+    UseParam --> Done
+    UseWorkflow --> Done
+
+    style UseCLI fill:#c8e6c9
+    style UseParam fill:#fff3e0
+    style UseWorkflow fill:#e1f5fe
+    style Error fill:#ffcdd2
+```
 
 | Priority | Source | Description |
 |----------|--------|-------------|
@@ -143,6 +175,9 @@ prodigy run workflow.yml \
 **Source**: CLI parameter handling in src/cook/workflow/composer_integration.rs:68-72 shows that CLI params are merged with workflow defaults, with CLI params taking precedence.
 
 ### Defaults with Parameters
+
+!!! example "Simplifying Workflow Usage"
+    Defaults dramatically reduce the required parameters users must provide, making workflows easier to use while still allowing full customization when needed.
 
 Defaults simplify parameter requirements:
 
