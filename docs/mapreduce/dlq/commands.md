@@ -5,13 +5,18 @@
 
     **Current Status**:
 
-    - Command definitions exist in src/cli/args.rs:577-677
-    - Stub implementations in src/cli/commands/dlq.rs:1-74
+    - Command definitions exist in `src/cli/args.rs` (DlqCommands enum at lines 534-631)
+    - Stub implementations in `src/cli/commands/dlq.rs`
     - Commands will print confirmation messages but do not execute actual operations
 
     See [DLQ Integration](debugging.md#integration-with-mapreduce) for current workflow-level DLQ functionality.
 
 Prodigy provides comprehensive CLI commands for managing the DLQ. The following sections describe the planned command interface.
+
+!!! info "Related Documentation"
+    - [DLQ Overview](overview.md) - Core concepts and architecture
+    - [DLQ Internals](internals.md) - Implementation details
+    - [Debugging Guide](debugging.md) - Troubleshooting failed items
 
 ### List Command
 
@@ -30,6 +35,9 @@ prodigy dlq list --eligible
 # Limit results
 prodigy dlq list --limit 10
 ```
+
+!!! tip "Quick Filtering"
+    Use `--eligible` to focus on items that can be automatically retried, filtering out those requiring manual intervention.
 
 ### Inspect Command
 
@@ -72,12 +80,13 @@ Analysis output includes:
 
 ### Retry Command
 
-> **Warning**: This command is not yet implemented. Description below shows planned interface.
+!!! note "Planned Feature"
+    This command is not yet implemented. Description below shows planned interface.
 
 Reprocess failed items:
 
 ```bash
-# Source: src/cli/args.rs:640-659
+# Source: src/cli/args.rs:595-615
 # Retry all failed items for a workflow
 prodigy dlq retry <workflow_id>
 
@@ -95,13 +104,14 @@ prodigy dlq retry <workflow_id> --force
 ```
 
 **Command Parameters**:
-- `<workflow_id>`: The workflow/job identifier to retry items from (e.g., "mapreduce-1234567890")
-- `--parallel`: Number of concurrent retry workers (default: 10, src/cli/args.rs:653)
-- `--max-retries`: Maximum retry attempts per item (default: 3, src/cli/args.rs:649)
-- `--filter`: Expression to filter which items to retry (default: all eligible items, src/cli/args.rs:645)
-- `--force`: Force retry of items marked as not eligible (default: false, src/cli/args.rs:657)
 
-**Supported Flags**: `--parallel`, `--max-retries`, `--filter`, `--force`
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `<workflow_id>` | Workflow/job identifier to retry items from | Required |
+| `--parallel` | Number of concurrent retry workers | 10 |
+| `--max-retries` | Maximum retry attempts per item | 3 |
+| `--filter` | Expression to filter which items to retry | All eligible |
+| `--force` | Force retry of items marked as not eligible | false |
 
 #### Retry Behavior
 
@@ -116,22 +126,29 @@ The retry functionality is designed to handle large-scale DLQ reprocessing:
 - **Correlation tracking**: Maintains original item IDs and correlation metadata
 - **Interruption safe**: Supports stopping and resuming retry operations
 
-**Implementation Note**: The DLQ reprocessing logic uses the `DeadLetterQueue::reprocess` method (src/cook/execution/dlq.rs:202-233) which filters for `reprocess_eligible` items before attempting retry.
+!!! abstract "Implementation Details"
+    The DLQ reprocessing logic uses the `DeadLetterQueue::reprocess` method which filters for `reprocess_eligible` items before attempting retry. See [DLQ Internals](internals.md) for more details.
 
 ### Export Command
 
 Export DLQ items for external analysis:
 
-```bash
-# Export to JSON (default)
-prodigy dlq export dlq-items.json
+=== "JSON Format"
 
-# Export to CSV
-prodigy dlq export dlq-items.csv --format csv
+    ```bash
+    # Export to JSON (default)
+    prodigy dlq export dlq-items.json
 
-# Export specific job
-prodigy dlq export output.json --job-id mapreduce-1234567890
-```
+    # Export specific job
+    prodigy dlq export output.json --job-id mapreduce-1234567890
+    ```
+
+=== "CSV Format"
+
+    ```bash
+    # Export to CSV
+    prodigy dlq export dlq-items.csv --format csv
+    ```
 
 ### Stats Command
 
