@@ -1,0 +1,127 @@
+{
+  "item_type": "page",
+  "page_id": "backoff-strategy-comparison",
+  "page_title": "backoff strategy comparison",
+  "page_file": "docs/retry-configuration/backoff-strategy-comparison.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and well-aligned with source code. All backoff strategy formulas, examples, and YAML configurations match the implementation in retry_v2.rs.",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate source code line references for all strategy implementations",
+    "Correct formula documentation for Fixed, Linear, Exponential, Fibonacci, and Custom strategies",
+    "Working YAML configuration examples for all backoff strategies",
+    "Comprehensive comparison table with real-world use cases",
+    "Accurate max_delay capping behavior documented",
+    "Correct jitter formula and factor documentation",
+    "Valid cross-reference to jitter-for-distributed-systems.md",
+    "Performance comparison table with accurate timing calculations",
+    "Clear explanation of when to use each strategy"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a visual diagram (mermaid) showing delay progression for each strategy",
+    "Add code annotations to YAML examples for better MkDocs Material integration",
+    "Consider adding admonitions for the 'Key insight' notes"
+  ],
+  "cross_references": [
+    "jitter-for-distributed-systems.md"
+  ],
+  "validation_details": {
+    "source_references_verified": [
+      {
+        "doc_line": 3,
+        "reference": "src/cook/retry_v2.rs:304",
+        "verified": true,
+        "content": "max_delay cap in calculate_delay method"
+      },
+      {
+        "doc_line": 5,
+        "reference": "src/cook/retry_v2.rs:284-305",
+        "verified": true,
+        "content": "calculate_delay method implementation"
+      },
+      {
+        "doc_line": 17,
+        "reference": "src/cook/retry_v2.rs:92-97",
+        "verified": true,
+        "content": "Default BackoffStrategy implementation"
+      },
+      {
+        "doc_line": 23,
+        "reference": "src/cook/retry_v2.rs:286",
+        "verified": true,
+        "content": "Fixed backoff implementation"
+      },
+      {
+        "doc_line": 29,
+        "reference": "src/cook/retry_v2.rs:287-289",
+        "verified": true,
+        "content": "Linear backoff implementation"
+      },
+      {
+        "doc_line": 38,
+        "reference": "src/cook/retry_v2.rs:290-292",
+        "verified": true,
+        "content": "Exponential backoff implementation"
+      },
+      {
+        "doc_line": 52,
+        "reference": "src/cook/retry_v2.rs:294-297",
+        "verified": true,
+        "content": "Fibonacci backoff implementation"
+      },
+      {
+        "doc_line": 65,
+        "reference": "src/cook/retry_v2.rs:298-301",
+        "verified": true,
+        "content": "Custom delays implementation"
+      },
+      {
+        "doc_line": 73,
+        "reference": "src/cook/retry_v2.rs:304",
+        "verified": true,
+        "content": "Max delay capping"
+      },
+      {
+        "doc_line": 78,
+        "reference": "src/cook/retry_v2.rs:30",
+        "verified": true,
+        "content": "max_delay field declaration"
+      },
+      {
+        "doc_line": 86,
+        "reference": "src/cook/retry_v2.rs:308-317",
+        "verified": true,
+        "content": "Jitter application in apply_jitter method"
+      }
+    ],
+    "internal_links_verified": [
+      {
+        "link_text": "Jitter for Distributed Systems",
+        "target": "jitter-for-distributed-systems.md",
+        "verified": true,
+        "target_exists": true
+      }
+    ],
+    "formula_accuracy": {
+      "fixed": "verified - delay = initial_delay",
+      "linear": "verified - delay = initial_delay + increment * (attempt - 1)",
+      "exponential": "verified - delay = initial_delay * base^(attempt - 1)",
+      "fibonacci": "verified - delay = initial_delay * fibonacci(attempt)",
+      "custom": "verified - delay = delays[attempt - 1] or max_delay if out of bounds"
+    },
+    "yaml_examples_verified": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "backoff strategies",
+      "retry configuration",
+      "delay calculation",
+      "jitter",
+      "performance comparison"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
