@@ -19,6 +19,34 @@ This chapter focuses on the enhanced retry system which provides comprehensive r
 
 ### When to Use Each Retry System
 
+Use this decision flowchart to choose the appropriate retry system:
+
+```mermaid
+flowchart TD
+    Start[Need Retry Logic] --> Q1{What level<br/>of control?}
+    Q1 -->|Fine-grained| Q2{Individual command<br/>or work item?}
+    Q1 -->|Workflow-wide| WL[Workflow-Level Retry]
+
+    Q2 -->|Individual command| Q3{Need advanced features?}
+    Q2 -->|Work item| WL
+
+    Q3 -->|Yes: jitter, circuit breaker,<br/>conditional retry| ER[Enhanced Retry]
+    Q3 -->|No: simple retry| ER
+
+    WL --> WLUse["Use error_policy.rs
+    DLQ integration
+    Bulk operations"]
+
+    ER --> ERUse["Use retry_v2.rs
+    Backoff strategies
+    Error matchers"]
+
+    style ER fill:#e1f5ff
+    style WL fill:#fff3e0
+    style ERUse fill:#e1f5ff
+    style WLUse fill:#fff3e0
+```
+
 === "Enhanced Retry (retry_v2)"
 
     Use for fine-grained command-level control:
@@ -62,9 +90,39 @@ The `RetryConfig` struct controls retry behavior with the following fields:
 
 **Source**: RetryConfig struct defined in `src/cook/retry_v2.rs:14-52`
 
+The following diagram shows how these configuration options control the retry execution flow:
+
+```mermaid
+flowchart LR
+    Execute[Execute Command] --> Check{Success?}
+    Check -->|Yes| Done[Complete]
+    Check -->|No| Match{Error matches<br/>retry_on?}
+
+    Match -->|No match| Fail[Execute on_failure]
+    Match -->|Matches| Budget{Within<br/>retry_budget?}
+
+    Budget -->|Exceeded| Fail
+    Budget -->|OK| Attempts{attempts<br/>remaining?}
+
+    Attempts -->|Exhausted| Fail
+    Attempts -->|Yes| Backoff[Calculate delay<br/>using backoff strategy]
+
+    Backoff --> Jitter{jitter<br/>enabled?}
+    Jitter -->|Yes| AddJitter[Add random variation]
+    Jitter -->|No| Wait[Wait delay]
+    AddJitter --> Wait
+    Wait --> Execute
+
+    style Done fill:#e8f5e9
+    style Fail fill:#ffebee
+```
+
 ### YAML Configuration Syntax
 
 The RetryConfig fields map to YAML workflow syntax as follows:
+
+!!! example "Recommended Starting Configuration"
+    For most API calls, start with exponential backoff, jitter enabled, and selective error matching. This prevents thundering herd while only retrying transient failures.
 
 ```yaml
 commands:
