@@ -1,0 +1,104 @@
+{
+  "item_type": "page",
+  "page_id": "timeout-configuration",
+  "page_title": "timeout configuration",
+  "page_file": "docs/advanced/timeout-configuration.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good documentation with accurate technical content and working examples. Minor line number references need updating.",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Command-Level Timeouts",
+      "description": "Source reference says line 384 but timeout field is at line 138 (CommandMetadata) and line 380 (WorkflowStepCommand)",
+      "current_content": "**Source**: `src/config/command.rs:384` - `pub timeout: Option<u64>`",
+      "should_be": "**Source**: `src/config/command.rs:138` (CommandMetadata) and `src/config/command.rs:380` (WorkflowStepCommand) - `pub timeout: Option<u64>`",
+      "fix_suggestion": "Update source reference to line 138 for CommandMetadata struct or line 380 for WorkflowStepCommand",
+      "source_reference": "src/config/command.rs:138, src/config/command.rs:380"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Setup Phase Timeout",
+      "description": "Source reference says line 148 but deserialize_with is at line 146 and timeout field at line 148",
+      "current_content": "**Source**: `src/config/mapreduce.rs:148`",
+      "should_be": "**Source**: `src/config/mapreduce.rs:146-148`",
+      "fix_suggestion": "Update to line 146-148 to cover the serde attribute and field declaration",
+      "source_reference": "src/config/mapreduce.rs:146-148"
+    },
+    {
+      "type": "incorrect_workflow_reference",
+      "severity": "low",
+      "section": "Real-world examples from workflows",
+      "description": "Workflow example claims line 12 but actual content is at line 22-24",
+      "current_content": "From `workflows/complex-build-pipeline.yml:12`",
+      "should_be": "From `workflows/complex-build-pipeline.yml:22-24`",
+      "fix_suggestion": "Update line reference from 12 to 22-24",
+      "source_reference": "workflows/complex-build-pipeline.yml:22-24"
+    },
+    {
+      "type": "incorrect_workflow_reference",
+      "severity": "low",
+      "section": "Real-world examples from workflows",
+      "description": "Workflow example claims line 15 but actual content is at line 47-51",
+      "current_content": "From `workflows/documentation-drift.yml:15`",
+      "should_be": "From `workflows/documentation-drift.yml:47-51`",
+      "fix_suggestion": "Update line reference from 15 to 47-51",
+      "source_reference": "workflows/documentation-drift.yml:47-51"
+    },
+    {
+      "type": "incorrect_test_reference",
+      "severity": "low",
+      "section": "Real example from tests",
+      "description": "Test file reference claims lines 215-233 but file only has 141 lines total. The referenced YAML structure doesn't exist in the test file.",
+      "current_content": "**Real example from tests** (`tests/timeout_integration_test.rs:215-233`)",
+      "should_be": "Remove this reference or create a proper test fixture that demonstrates the advanced timeout configuration",
+      "fix_suggestion": "Either remove the test file reference or update tests/timeout_integration_test.rs to include a test case for advanced timeout_config options",
+      "source_reference": "tests/timeout_integration_test.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of both command-level and MapReduce timeout configurations",
+    "Clear distinction between simple timeouts (numeric only) and MapReduce timeouts (env var support)",
+    "Accurate documentation of TimeoutConfig struct fields and defaults",
+    "Correct TimeoutPolicy enum values and their behaviors",
+    "Correct TimeoutAction enum values and their effects",
+    "Well-organized table of default values",
+    "Good progression from simple to advanced configuration",
+    "Accurate YAML syntax examples for all features"
+  ],
+  "improvement_suggestions": [
+    "Add troubleshooting section for common timeout issues",
+    "Include example of combining multiple timeout features together",
+    "Add cross-reference to DLQ documentation for timeout_action: dlq behavior",
+    "Consider adding a visual diagram showing timeout flow"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "command-level timeouts",
+      "mapreduce timeouts",
+      "setup phase timeout",
+      "agent timeout",
+      "timeout policies",
+      "timeout actions",
+      "per-command timeouts",
+      "environment variable support"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/config/command.rs",
+      "src/config/mapreduce.rs",
+      "src/cook/execution/mapreduce/timeout.rs",
+      "workflows/complex-build-pipeline.yml",
+      "workflows/documentation-drift.yml",
+      "tests/timeout_integration_test.rs"
+    ],
+    "internal_links_validated": true,
+    "internal_links_found": 0,
+    "broken_links_found": 0
+  }
+}
