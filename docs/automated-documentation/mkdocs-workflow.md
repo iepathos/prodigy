@@ -6,6 +6,39 @@ The `mkdocs-drift.yml` workflow automatically generates and maintains MkDocs Mat
 
 This workflow is designed for projects using **MkDocs Material** as their documentation system. It provides the same capabilities as the mdbook workflow but targets MkDocs-specific features and structure.
 
+```mermaid
+flowchart LR
+    subgraph Setup["Setup Phase"]
+        direction TB
+        S1["Analyze Features"] --> S2["Detect Gaps"]
+        S2 --> S3["Analyze Structure"]
+        S3 --> S4["Split Oversized"]
+        S4 --> S5["Auto-Discover Pages"]
+    end
+
+    subgraph Map["Map Phase"]
+        direction TB
+        M1["Analyze Drift"] --> M2["Fix Drift"]
+        M2 --> M3["Validate Page"]
+        M3 --> M4["Enhance Features"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction TB
+        R1["Build MkDocs"] --> R2["Validate Structure"]
+        R2 --> R3["Check Consistency"]
+        R3 --> R4["Validate Diagrams"]
+        R4 --> R5["Cleanup"]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+```
+
 **Key Features:**
 - Automatic gap detection for undocumented features
 - Drift analysis comparing docs against source code
@@ -48,6 +81,9 @@ Merge session-abc123 to mkdocs? [y/N]
 ```
 
 Review the changes and merge when satisfied.
+
+!!! tip "Review Before Merging"
+    Always review generated changes before merging. Check `git diff master` in the worktree to see all modifications made by the workflow.
 
 ## Configuration Options
 
@@ -173,10 +209,10 @@ map:
   max_parallel: ${MAX_PARALLEL}
 ```
 
-**Guidelines:**
-- `1-3`: Conservative, good for development
-- `4-6`: Balanced, recommended for most projects
-- `7-10`: Aggressive, faster but higher resource usage
+!!! note "Parallelism Guidelines"
+    - **1-3**: Conservative, good for development
+    - **4-6**: Balanced, recommended for most projects
+    - **7-10**: Aggressive, faster but higher resource usage
 
 ## Workflow Phases
 
@@ -463,6 +499,9 @@ validate:
     fail_workflow: false  # Continue even if can't reach 100%
 ```
 
+!!! warning "Threshold Trade-offs"
+    A 100% threshold ensures complete documentation but may cause repeated fix attempts. Use 80% for faster workflows that accept minor gaps.
+
 ### Error Handling
 
 Configure how the workflow responds to failures:
@@ -696,6 +735,11 @@ mermaid-sonar docs/path/to/file.md --strict
 ```
 
 ## Best Practices
+
+!!! example "Recommended Workflow Cadence"
+    - **Weekly**: Active projects with frequent code changes
+    - **Monthly**: Stable projects with occasional updates
+    - **After releases**: Ensure docs match new features
 
 ### 1. Run Regularly
 
