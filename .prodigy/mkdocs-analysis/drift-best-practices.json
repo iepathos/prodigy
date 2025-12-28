@@ -1,0 +1,72 @@
+{
+  "item_type": "page",
+  "page_id": "best-practices",
+  "page_title": "best practices",
+  "page_file": "docs/git-context/best-practices.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page content is accurate and well-structured. Source code references are correct. Main improvement needed is adding MkDocs Material visual features for better readability.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire Document",
+      "description": "Page lacks MkDocs Material visual features (admonitions, tabs, icons) that would improve readability and user experience",
+      "fix_suggestion": "Add admonitions for tips, warnings, and info blocks. Use Material icons for visual interest. Consider tabs for alternative approaches.",
+      "source_reference": null
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Best Practices",
+      "description": "Best practices list lacks visual distinction and expanded explanations for each point",
+      "fix_suggestion": "Convert bullet points to admonition blocks with expanded explanations and examples where applicable",
+      "source_reference": null
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Performance Considerations",
+      "description": "Performance tips would benefit from admonition styling and more concrete recommendations",
+      "fix_suggestion": "Add performance-specific admonitions and quantify recommendations where possible",
+      "source_reference": null
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source code line number references (git_context.rs:489-505, context.rs:106-172)",
+    "Clear troubleshooting section with problem/cause/solution format",
+    "Good explanation of what works vs what doesn't for pattern syntax",
+    "Valid internal link to shell-filtering.md page",
+    "Honest documentation of planned but not-yet-implemented features",
+    "Practical debugging examples in troubleshooting sections",
+    "Well-organized structure with clear headings"
+  ],
+  "improvement_suggestions": [
+    "Add tip admonitions for best practices recommendations",
+    "Use warning admonitions for common pitfalls",
+    "Add info admonitions for the 'Future Features' planned syntax",
+    "Consider adding a summary admonition at the top of the page",
+    "Use code annotations to explain complex shell pipelines",
+    "Add Material icons to section headings for visual interest"
+  ],
+  "cross_references": [
+    "shell-filtering"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "best practices",
+      "performance considerations",
+      "troubleshooting",
+      "future features",
+      "shell filtering",
+      "git context variables"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links": [],
+    "source_references_verified": true,
+    "mkdocs_material_features_used": false
+  }
+}
