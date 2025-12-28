@@ -12,12 +12,50 @@ The `retry_config.backoff` field configures which backoff algorithm to use. All 
 - **max_delay**: Maximum cap on any calculated delay (default: `30s`)
 - **jitter**: Add randomness to prevent thundering herd (default: `false`)
 
+```mermaid
+flowchart LR
+    Strategy[Select Strategy] --> Calc["Calculate Base Delay
+    (Fixed, Linear, Exponential, etc.)"]
+    Calc --> Cap{"Exceeds
+    max_delay?"}
+    Cap -->|Yes| UseMax[Use max_delay]
+    Cap -->|No| UseCalc[Use calculated delay]
+    UseMax --> Jitter{"Jitter
+    enabled?"}
+    UseCalc --> Jitter
+    Jitter -->|Yes| AddRandom["Add random offset
+    ±(delay × jitter_factor)"]
+    Jitter -->|No| Final[Final Delay]
+    AddRandom --> Final
+
+    style Strategy fill:#e1f5ff
+    style Calc fill:#fff3e0
+    style Final fill:#e8f5e9
+```
+
+**Figure**: Delay calculation flow showing how the backoff strategy, max_delay cap, and jitter combine.
+
 !!! note "Default Strategy"
     If no backoff is specified, Prodigy uses **Exponential backoff with base 2.0**.
 
 Source: `src/cook/retry_v2.rs:92-98`
 
 ### Available Strategies
+
+The following diagram compares how delays grow across retry attempts for each strategy (assuming `initial_delay: 1s`):
+
+```mermaid
+xychart-beta
+    title "Delay Growth by Strategy (initial_delay: 1s)"
+    x-axis "Retry Attempt" [1, 2, 3, 4, 5, 6]
+    y-axis "Delay (seconds)" 0 --> 14
+    line "Fixed" [1, 1, 1, 1, 1, 1]
+    line "Linear (+1s)" [1, 2, 3, 4, 5, 6]
+    line "Exponential (2x)" [1, 2, 4, 8, 8, 8]
+    line "Fibonacci" [1, 1, 2, 3, 5, 8]
+```
+
+**Figure**: Delay progression showing how each strategy scales. Exponential caps at max_delay (8s in this example).
 
 #### Fixed Backoff
 
@@ -211,35 +249,40 @@ Backoff strategies are configured in the `retry_config` block, which can be part
 1. **WorkflowErrorPolicy** at workflow level (applies to all items)
 2. **TimeoutConfig** in map phase (more specific control)
 
-**Complete MapReduce Example**:
+!!! example "Complete MapReduce Example"
 
-```yaml
-name: resilient-mapreduce-job
-mode: mapreduce
+    ```yaml
+    name: resilient-mapreduce-job
+    mode: mapreduce
 
-map:
-  input: "items.json"
-  json_path: "$.items[*]"
+    map:
+      input: "items.json"
+      json_path: "$.items[*]"
 
-  # Workflow-level error policy
-  error_policy:
-    retry_config:
-      max_attempts: 5
-      backoff:
-        fibonacci:
-          initial: 1s
-      jitter: true
-      jitter_factor: 0.3
-    continue_on_failure: true
+      # Workflow-level error policy
+      error_policy:
+        retry_config:
+          max_attempts: 5             # (1)!
+          backoff:
+            fibonacci:                # (2)!
+              initial: 1s
+          jitter: true                # (3)!
+          jitter_factor: 0.3
+        continue_on_failure: true     # (4)!
 
-  agent_template:
-    - claude: "/process-item '${item.id}'"
-    - shell: "validate ${item.output}"
-      on_failure:
-        claude: "/fix-validation-error"
+      agent_template:
+        - claude: "/process-item '${item.id}'"
+        - shell: "validate ${item.output}"
+          on_failure:
+            claude: "/fix-validation-error"
 
-  max_parallel: 10
-```
+      max_parallel: 10
+    ```
+
+    1. Retry failed agents up to 5 times before giving up
+    2. Fibonacci backoff reduces retry storms in parallel workloads
+    3. Jitter prevents all agents from retrying at the same instant
+    4. Continue processing other items even if some fail
 
 **Source**: `src/cook/workflow/error_policy.rs:160` (retry_config field in WorkflowErrorPolicy)
 
@@ -395,13 +438,14 @@ Prodigy has **two BackoffStrategy implementations**:
 - Set `max_delay` to prevent excessively long waits
 - For MapReduce: Consider agent timeout interaction (delays count toward timeout)
 
-**Timeout Interaction**:
-Backoff delays count toward the agent's overall timeout. If you configure:
-- Agent timeout: 300s (5 minutes)
-- Max retries: 5
-- Fibonacci backoff with initial_delay: 10s
+!!! warning "Timeout Interaction"
+    Backoff delays count toward the agent's overall timeout. If you configure:
 
-Total delay could be: 10s + 10s + 20s + 30s + 50s = 120s of retries, leaving 180s for actual work.
+    - Agent timeout: 300s (5 minutes)
+    - Max retries: 5
+    - Fibonacci backoff with initial_delay: 10s
+
+    Total delay could be: 10s + 10s + 20s + 30s + 50s = 120s of retries, leaving 180s for actual work.
 
 ### Troubleshooting
 
