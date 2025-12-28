@@ -1,0 +1,1056 @@
+{
+  "analysis_date": "2025-12-27T16:30:00Z",
+  "project": "Prodigy",
+  "pages_analyzed": 95,
+  "thresholds": {
+    "size_threshold": 500,
+    "section_threshold": 100
+  },
+  "summary": {
+    "oversized_pages": 17,
+    "large_pages": 8,
+    "well_sized_pages": 61,
+    "multi_subsection_pages": 9
+  },
+  "recommendations": [
+    {
+      "chapter_id": "examples",
+      "chapter_title": "Examples",
+      "current_file": "docs/examples.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 1089,
+        "content_lines": 950,
+        "h2_sections": 14,
+        "substantial_sections": 12,
+        "code_block_ratio": 0.45
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/examples/index.md",
+        "subsections": [
+          {
+            "id": "basic-workflows",
+            "title": "Basic Workflows",
+            "file": "docs/examples/basic-workflows.md",
+            "estimated_lines": 150,
+            "source_sections": ["Example 1: Simple Build and Test", "Example 2: Foreach Iteration", "Example 3: Parallel Code Review"],
+            "reason": "Group simple/basic workflow examples for beginners"
+          },
+          {
+            "id": "conditional-workflows",
+            "title": "Conditional Workflows",
+            "file": "docs/examples/conditional-workflows.md",
+            "estimated_lines": 180,
+            "source_sections": ["Example 4: Conditional Deployment", "Example 5: Multi-Step Validation", "Example 6: Environment-Aware Workflow"],
+            "reason": "Group conditional and environment-aware workflows"
+          },
+          {
+            "id": "mapreduce-examples",
+            "title": "MapReduce Examples",
+            "file": "docs/examples/mapreduce-examples.md",
+            "estimated_lines": 200,
+            "source_sections": ["Example 7: Complex MapReduce with Error Handling", "Example 8: Generating Configuration Files"],
+            "reason": "Group MapReduce-specific examples"
+          },
+          {
+            "id": "advanced-examples",
+            "title": "Advanced Examples",
+            "file": "docs/examples/advanced-examples.md",
+            "estimated_lines": 250,
+            "source_sections": ["Example 9: Advanced Features", "Example 10: Circuit Breaker for Resilient Error Handling", "Example 11: Retry Configuration with Backoff Strategies"],
+            "reason": "Group advanced error handling and retry examples"
+          },
+          {
+            "id": "composition-examples",
+            "title": "Composition Examples",
+            "file": "docs/examples/composition-examples.md",
+            "estimated_lines": 150,
+            "source_sections": ["Example 12: Workflow Composition (Preview Feature)", "Example 13: Custom Merge Workflows"],
+            "reason": "Group composition and merge workflow examples"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "variables-available",
+      "chapter_title": "Available Variables",
+      "current_file": "docs/variables/available-variables.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 875,
+        "content_lines": 780,
+        "h2_sections": 1,
+        "h3_sections": 14,
+        "substantial_sections": 10,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/variables/available-variables/index.md",
+        "subsections": [
+          {
+            "id": "standard-variables",
+            "title": "Standard and Computed Variables",
+            "file": "docs/variables/available-variables/standard-variables.md",
+            "estimated_lines": 250,
+            "source_sections": ["Standard Variables", "Computed Variables", "Workflow Context Variables", "Step Context Variables"],
+            "reason": "Core variable categories used in all workflows"
+          },
+          {
+            "id": "mapreduce-variables",
+            "title": "MapReduce Variables",
+            "file": "docs/variables/available-variables/mapreduce-variables.md",
+            "estimated_lines": 200,
+            "source_sections": ["Item Variables (Map Phase Only)", "MapReduce Variables (Reduce Phase Only)", "Reduce Phase Access to Item Data"],
+            "reason": "MapReduce-specific variable documentation"
+          },
+          {
+            "id": "git-merge-variables",
+            "title": "Git and Merge Variables",
+            "file": "docs/variables/available-variables/git-merge-variables.md",
+            "estimated_lines": 180,
+            "source_sections": ["Git Context Variables", "Merge Variables (Merge Phase Only)", "Validation Variables"],
+            "reason": "Git integration and merge workflow variables"
+          },
+          {
+            "id": "interpolation-reference",
+            "title": "Interpolation Reference",
+            "file": "docs/variables/available-variables/interpolation-reference.md",
+            "estimated_lines": 200,
+            "source_sections": ["Variable Interpolation Syntax", "Legacy Variable Aliases", "Variable Scoping and Precedence", "Performance: Template Caching"],
+            "reason": "Technical reference for interpolation syntax and performance"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "stillwater-pattern-mapping",
+      "chapter_title": "Stillwater Pattern Mapping",
+      "current_file": "docs/stillwater-pattern-mapping.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 793,
+        "content_lines": 720,
+        "h2_sections": 8,
+        "substantial_sections": 5,
+        "code_block_ratio": 0.25
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/stillwater-patterns/index.md",
+        "subsections": [
+          {
+            "id": "error-accumulation",
+            "title": "Error Accumulation Pattern",
+            "file": "docs/stillwater-patterns/error-accumulation.md",
+            "estimated_lines": 200,
+            "source_sections": ["1. Error Accumulation: Work Item Validation"],
+            "reason": "Standalone pattern documentation"
+          },
+          {
+            "id": "testability",
+            "title": "Testability Pattern",
+            "file": "docs/stillwater-patterns/testability.md",
+            "estimated_lines": 220,
+            "source_sections": ["2. Testability: Orchestrator Without Mocks"],
+            "reason": "Standalone pattern documentation"
+          },
+          {
+            "id": "error-context",
+            "title": "Error Context Pattern",
+            "file": "docs/stillwater-patterns/error-context.md",
+            "estimated_lines": 180,
+            "source_sections": ["3. Error Context: Debugging MapReduce Failures"],
+            "reason": "Standalone pattern documentation"
+          },
+          {
+            "id": "state-management",
+            "title": "State Management Pattern",
+            "file": "docs/stillwater-patterns/state-management.md",
+            "estimated_lines": 200,
+            "source_sections": ["4. State Management: Pure Transitions"],
+            "reason": "Standalone pattern documentation"
+          },
+          {
+            "id": "semigroup-composition",
+            "title": "Semigroup Composition Pattern",
+            "file": "docs/stillwater-patterns/semigroup-composition.md",
+            "estimated_lines": 180,
+            "source_sections": ["5. Variable Aggregation: Semigroup Composition"],
+            "reason": "Standalone pattern documentation"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "workflow-basics-error-handling",
+      "chapter_title": "Error Handling",
+      "current_file": "docs/workflow-basics/error-handling.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 755,
+        "content_lines": 680,
+        "h2_sections": 4,
+        "substantial_sections": 3,
+        "code_block_ratio": 0.38
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/workflow-basics/error-handling/index.md",
+        "subsections": [
+          {
+            "id": "command-level",
+            "title": "Command-Level Error Handling",
+            "file": "docs/workflow-basics/error-handling/command-level.md",
+            "estimated_lines": 250,
+            "source_sections": ["Command-Level Error Handling"],
+            "reason": "Substantial content covering per-command error handling"
+          },
+          {
+            "id": "workflow-level",
+            "title": "Workflow-Level Error Policy",
+            "file": "docs/workflow-basics/error-handling/workflow-level.md",
+            "estimated_lines": 300,
+            "source_sections": ["Workflow-Level Error Policy (MapReduce)"],
+            "reason": "Substantial content covering workflow-wide error policies"
+          },
+          {
+            "id": "dlq",
+            "title": "Dead Letter Queue",
+            "file": "docs/workflow-basics/error-handling/dlq.md",
+            "estimated_lines": 100,
+            "source_sections": ["Dead Letter Queue (DLQ)"],
+            "reason": "DLQ error handling specific documentation"
+          },
+          {
+            "id": "best-practices",
+            "title": "Best Practices",
+            "file": "docs/workflow-basics/error-handling/best-practices.md",
+            "estimated_lines": 100,
+            "source_sections": ["Best Practices"],
+            "reason": "Consolidated best practices for error handling"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "automated-doc-gap-detection",
+      "chapter_title": "Automatic Gap Detection",
+      "current_file": "docs/automated-documentation/automatic-gap-detection.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 723,
+        "content_lines": 650,
+        "h2_sections": 12,
+        "substantial_sections": 8,
+        "code_block_ratio": 0.30
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/automated-documentation/gap-detection/index.md",
+        "subsections": [
+          {
+            "id": "overview",
+            "title": "Gap Detection Overview",
+            "file": "docs/automated-documentation/gap-detection/overview.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "Command Usage", "Gap Severity Classification"],
+            "reason": "Introduction and basic concepts"
+          },
+          {
+            "id": "validation-phases",
+            "title": "Validation Phases",
+            "file": "docs/automated-documentation/gap-detection/validation-phases.md",
+            "estimated_lines": 250,
+            "source_sections": ["Content Sufficiency Validation (Step 0)", "Structure Validation (Phase 7.5)", "Flattened Items Generation (Phase 8)"],
+            "reason": "Core validation phase documentation"
+          },
+          {
+            "id": "topic-normalization",
+            "title": "Topic Normalization",
+            "file": "docs/automated-documentation/gap-detection/topic-normalization.md",
+            "estimated_lines": 100,
+            "source_sections": ["Topic Normalization", "Idempotence"],
+            "reason": "Topic processing specifics"
+          },
+          {
+            "id": "gap-report",
+            "title": "Gap Report Structure",
+            "file": "docs/automated-documentation/gap-detection/gap-report.md",
+            "estimated_lines": 150,
+            "source_sections": ["Gap Report Structure", "Execution Progress", "Error Handling", "Testing"],
+            "reason": "Output format and error handling"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "configuration-examples",
+      "chapter_title": "Complete Configuration Examples",
+      "current_file": "docs/configuration/complete-configuration-examples.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 679,
+        "content_lines": 600,
+        "h2_sections": 1,
+        "substantial_sections": 1,
+        "code_block_ratio": 0.55
+      },
+      "recommended_action": "no_action",
+      "reason": "High code block ratio - examples file where splitting would reduce coherence"
+    },
+    {
+      "chapter_id": "automated-doc-mkdocs-workflow",
+      "chapter_title": "MkDocs Workflow",
+      "current_file": "docs/automated-documentation/mkdocs-workflow.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 657,
+        "content_lines": 580,
+        "h2_sections": 10,
+        "substantial_sections": 7,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/automated-documentation/mkdocs-workflow/index.md",
+        "subsections": [
+          {
+            "id": "getting-started",
+            "title": "Getting Started",
+            "file": "docs/automated-documentation/mkdocs-workflow/getting-started.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "Quick Start", "Configuration Options"],
+            "reason": "Introduction and setup"
+          },
+          {
+            "id": "workflow-phases",
+            "title": "Workflow Phases",
+            "file": "docs/automated-documentation/mkdocs-workflow/workflow-phases.md",
+            "estimated_lines": 200,
+            "source_sections": ["Workflow Phases", "Workflow Commands Reference"],
+            "reason": "Core workflow documentation"
+          },
+          {
+            "id": "advanced-usage",
+            "title": "Advanced Usage",
+            "file": "docs/automated-documentation/mkdocs-workflow/advanced-usage.md",
+            "estimated_lines": 200,
+            "source_sections": ["Advanced Configuration", "Using with Existing MkDocs Projects", "Best Practices", "Examples"],
+            "reason": "Advanced configuration and best practices"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "mapreduce-work-distribution",
+      "chapter_title": "Work Distribution",
+      "current_file": "docs/mapreduce/work-distribution.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 617,
+        "content_lines": 550,
+        "h2_sections": 11,
+        "substantial_sections": 8,
+        "code_block_ratio": 0.40
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/mapreduce/work-distribution/index.md",
+        "subsections": [
+          {
+            "id": "input-sources",
+            "title": "Input Sources",
+            "file": "docs/mapreduce/work-distribution/input-sources.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "Input Sources", "JSONPath Extraction"],
+            "reason": "How to provide work items to MapReduce"
+          },
+          {
+            "id": "filtering-sorting",
+            "title": "Filtering and Sorting",
+            "file": "docs/mapreduce/work-distribution/filtering-sorting.md",
+            "estimated_lines": 200,
+            "source_sections": ["Filtering", "Sorting", "Deduplication"],
+            "reason": "Work item transformation operations"
+          },
+          {
+            "id": "pagination",
+            "title": "Pagination and Pipeline",
+            "file": "docs/mapreduce/work-distribution/pagination.md",
+            "estimated_lines": 150,
+            "source_sections": ["Pagination", "Processing Pipeline Order"],
+            "reason": "Batching and processing order"
+          },
+          {
+            "id": "examples",
+            "title": "Complete Examples",
+            "file": "docs/mapreduce/work-distribution/examples.md",
+            "estimated_lines": 150,
+            "source_sections": ["Complete Examples", "Integration with Map Phase", "Troubleshooting"],
+            "reason": "Working examples and troubleshooting"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "workflow-basics-environment",
+      "chapter_title": "Environment Variables",
+      "current_file": "docs/workflow-basics/environment.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 614,
+        "content_lines": 540,
+        "h2_sections": 11,
+        "substantial_sections": 7,
+        "code_block_ratio": 0.42
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/workflow-basics/environment/index.md",
+        "subsections": [
+          {
+            "id": "basics",
+            "title": "Environment Basics",
+            "file": "docs/workflow-basics/environment/basics.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "Defining Environment Variables", "Variable Interpolation"],
+            "reason": "Core environment variable concepts"
+          },
+          {
+            "id": "secrets-profiles",
+            "title": "Secrets and Profiles",
+            "file": "docs/workflow-basics/environment/secrets-profiles.md",
+            "estimated_lines": 180,
+            "source_sections": ["Secrets Management", "Profiles", "Environment Files"],
+            "reason": "Security and profile configuration"
+          },
+          {
+            "id": "workflow-usage",
+            "title": "Workflow Usage",
+            "file": "docs/workflow-basics/environment/workflow-usage.md",
+            "estimated_lines": 150,
+            "source_sections": ["Usage in Workflow Phases", "Per-Step Environment"],
+            "reason": "How to use env vars in workflows"
+          },
+          {
+            "id": "patterns",
+            "title": "Patterns and Troubleshooting",
+            "file": "docs/workflow-basics/environment/patterns.md",
+            "estimated_lines": 130,
+            "source_sections": ["Best Practices", "Common Patterns", "Troubleshooting"],
+            "reason": "Best practices and problem solving"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "composition-troubleshooting",
+      "chapter_title": "Composition Troubleshooting",
+      "current_file": "docs/composition/troubleshooting.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 589,
+        "content_lines": 520,
+        "h2_sections": 1,
+        "substantial_sections": 1,
+        "code_block_ratio": 0.40
+      },
+      "recommended_action": "no_action",
+      "reason": "Single-topic troubleshooting guide - splitting would reduce utility"
+    },
+    {
+      "chapter_id": "mapreduce-dlq",
+      "chapter_title": "Dead Letter Queue",
+      "current_file": "docs/mapreduce/dead-letter-queue-dlq.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 574,
+        "content_lines": 500,
+        "h2_sections": 7,
+        "substantial_sections": 5,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/mapreduce/dlq/index.md",
+        "subsections": [
+          {
+            "id": "overview",
+            "title": "DLQ Overview",
+            "file": "docs/mapreduce/dlq/overview.md",
+            "estimated_lines": 220,
+            "source_sections": ["Dead Letter Queue (DLQ)"],
+            "reason": "Core DLQ concepts and structure"
+          },
+          {
+            "id": "commands",
+            "title": "DLQ Commands",
+            "file": "docs/mapreduce/dlq/commands.md",
+            "estimated_lines": 180,
+            "source_sections": ["DLQ Commands"],
+            "reason": "CLI commands for DLQ management"
+          },
+          {
+            "id": "debugging",
+            "title": "Debugging with DLQ",
+            "file": "docs/mapreduce/dlq/debugging.md",
+            "estimated_lines": 100,
+            "source_sections": ["Debugging with DLQ", "Integration with MapReduce"],
+            "reason": "Debug techniques and integration"
+          },
+          {
+            "id": "internals",
+            "title": "Storage Internals",
+            "file": "docs/mapreduce/dlq/internals.md",
+            "estimated_lines": 100,
+            "source_sections": ["Best Practices", "Advanced: DLQ Storage Internals"],
+            "reason": "Advanced storage details"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "environment-common-patterns",
+      "chapter_title": "Common Patterns",
+      "current_file": "docs/environment/common-patterns.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 566,
+        "content_lines": 500,
+        "h2_sections": 1,
+        "substantial_sections": 1,
+        "code_block_ratio": 0.50
+      },
+      "recommended_action": "no_action",
+      "reason": "Examples-heavy file where code blocks are the main content - splitting would reduce coherence"
+    },
+    {
+      "chapter_id": "workflow-basics-command-level-options",
+      "chapter_title": "Command-Level Options",
+      "current_file": "docs/workflow-basics/command-level-options.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 558,
+        "content_lines": 490,
+        "h2_sections": 8,
+        "substantial_sections": 6,
+        "code_block_ratio": 0.38
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/workflow-basics/command-options/index.md",
+        "subsections": [
+          {
+            "id": "core-options",
+            "title": "Core Options",
+            "file": "docs/workflow-basics/command-options/core-options.md",
+            "estimated_lines": 150,
+            "source_sections": ["Core Options"],
+            "reason": "Essential command options"
+          },
+          {
+            "id": "output-capture",
+            "title": "Output Capture",
+            "file": "docs/workflow-basics/command-options/output-capture.md",
+            "estimated_lines": 150,
+            "source_sections": ["Output Capture Options"],
+            "reason": "Output capture configuration"
+          },
+          {
+            "id": "error-conditional",
+            "title": "Error and Conditional Options",
+            "file": "docs/workflow-basics/command-options/error-conditional.md",
+            "estimated_lines": 150,
+            "source_sections": ["Error Handling", "Conditional Execution"],
+            "reason": "Error handling and conditional execution options"
+          },
+          {
+            "id": "advanced-options",
+            "title": "Advanced Options",
+            "file": "docs/workflow-basics/command-options/advanced-options.md",
+            "estimated_lines": 130,
+            "source_sections": ["Advanced Options", "Option Combinations", "Troubleshooting"],
+            "reason": "Advanced usage and troubleshooting"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "workflow-basics-command-types",
+      "chapter_title": "Command Types",
+      "current_file": "docs/workflow-basics/command-types.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 557,
+        "content_lines": 480,
+        "h2_sections": 1,
+        "substantial_sections": 1,
+        "code_block_ratio": 0.42
+      },
+      "recommended_action": "no_action",
+      "reason": "Reference documentation for command types - single logical unit"
+    },
+    {
+      "chapter_id": "git-context-advanced",
+      "chapter_title": "Git Context Advanced",
+      "current_file": "docs/git-context-advanced.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 553,
+        "content_lines": 480,
+        "h2_sections": 9,
+        "substantial_sections": 6,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/git-context/index.md",
+        "subsections": [
+          {
+            "id": "overview",
+            "title": "Git Context Overview",
+            "file": "docs/git-context/overview.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "How Git Tracking Works", "Git Context Variables"],
+            "reason": "Core concepts and variables"
+          },
+          {
+            "id": "shell-filtering",
+            "title": "Shell-Based Filtering",
+            "file": "docs/git-context/shell-filtering.md",
+            "estimated_lines": 150,
+            "source_sections": ["Shell-Based Filtering and Formatting"],
+            "reason": "Shell filtering techniques"
+          },
+          {
+            "id": "use-cases",
+            "title": "Use Cases",
+            "file": "docs/git-context/use-cases.md",
+            "estimated_lines": 150,
+            "source_sections": ["Use Cases"],
+            "reason": "Practical applications"
+          },
+          {
+            "id": "best-practices",
+            "title": "Best Practices and Troubleshooting",
+            "file": "docs/git-context/best-practices.md",
+            "estimated_lines": 150,
+            "source_sections": ["Best Practices", "Performance Considerations", "Troubleshooting", "Future Features"],
+            "reason": "Guidance and troubleshooting"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "advanced-composition",
+      "chapter_title": "Workflow Composition",
+      "current_file": "docs/advanced/composition.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 552,
+        "content_lines": 480,
+        "h2_sections": 11,
+        "substantial_sections": 8,
+        "code_block_ratio": 0.38
+      },
+      "recommended_action": "no_action",
+      "reason": "Already has dedicated composition/ directory with subsections - this is a summary page"
+    },
+    {
+      "chapter_id": "advanced-observability",
+      "chapter_title": "Observability and Logging",
+      "current_file": "docs/advanced/observability.md",
+      "priority": "high",
+      "issue": "oversized",
+      "metrics": {
+        "total_lines": 544,
+        "content_lines": 470,
+        "h2_sections": 10,
+        "substantial_sections": 7,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/advanced/observability/index.md",
+        "subsections": [
+          {
+            "id": "event-tracking",
+            "title": "Event Tracking",
+            "file": "docs/advanced/observability/event-tracking.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "Event Tracking"],
+            "reason": "Core event system documentation"
+          },
+          {
+            "id": "claude-observability",
+            "title": "Claude Observability",
+            "file": "docs/advanced/observability/claude-observability.md",
+            "estimated_lines": 150,
+            "source_sections": ["Claude Observability", "Verbosity Control"],
+            "reason": "Claude-specific logging and verbosity"
+          },
+          {
+            "id": "debugging",
+            "title": "Debugging and Metrics",
+            "file": "docs/advanced/observability/debugging.md",
+            "estimated_lines": 150,
+            "source_sections": ["Debugging MapReduce Failures", "Performance Metrics", "Event Query Examples"],
+            "reason": "Debug techniques and performance metrics"
+          },
+          {
+            "id": "log-management",
+            "title": "Log Management",
+            "file": "docs/advanced/observability/log-management.md",
+            "estimated_lines": 100,
+            "source_sections": ["Log Management", "Examples"],
+            "reason": "Log management and examples"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "mapreduce-checkpoint-resume",
+      "chapter_title": "Checkpoint and Resume",
+      "current_file": "docs/mapreduce/checkpoint-and-resume.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 538,
+        "content_lines": 470,
+        "h2_sections": 1,
+        "substantial_sections": 1,
+        "code_block_ratio": 0.40
+      },
+      "recommended_action": "no_action",
+      "reason": "Single focused topic - checkpoint/resume documentation - splitting would fragment the narrative"
+    },
+    {
+      "chapter_id": "automated-doc-troubleshooting",
+      "chapter_title": "Troubleshooting",
+      "current_file": "docs/automated-documentation/troubleshooting.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 539,
+        "content_lines": 470,
+        "h2_sections": 8,
+        "substantial_sections": 5,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "no_action",
+      "reason": "Troubleshooting guide - cohesive reference that users need in one place"
+    },
+    {
+      "chapter_id": "advanced-storage",
+      "chapter_title": "Storage Architecture",
+      "current_file": "docs/advanced/storage.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 534,
+        "content_lines": 460,
+        "h2_sections": 14,
+        "substantial_sections": 8,
+        "code_block_ratio": 0.30
+      },
+      "recommended_action": "split_into_subsections",
+      "proposed_structure": {
+        "type": "multi-subsection",
+        "index_file": "docs/advanced/storage/index.md",
+        "subsections": [
+          {
+            "id": "structure",
+            "title": "Storage Structure",
+            "file": "docs/advanced/storage/structure.md",
+            "estimated_lines": 150,
+            "source_sections": ["Overview", "Storage Structure", "Event Storage", "State Storage"],
+            "reason": "Core storage structure documentation"
+          },
+          {
+            "id": "session-dlq",
+            "title": "Session and DLQ Storage",
+            "file": "docs/advanced/storage/session-dlq.md",
+            "estimated_lines": 100,
+            "source_sections": ["Session Storage", "Dead Letter Queue Storage"],
+            "reason": "Session and error storage"
+          },
+          {
+            "id": "worktree-storage",
+            "title": "Worktree Storage",
+            "file": "docs/advanced/storage/worktree-storage.md",
+            "estimated_lines": 100,
+            "source_sections": ["Worktree Storage", "Orphaned Worktree Tracking", "Session-Job Mapping"],
+            "reason": "Git worktree management storage"
+          },
+          {
+            "id": "maintenance",
+            "title": "Performance and Maintenance",
+            "file": "docs/advanced/storage/maintenance.md",
+            "estimated_lines": 150,
+            "source_sections": ["Performance Characteristics", "Storage Benefits", "Storage Maintenance", "Migration from Local Storage", "Examples"],
+            "reason": "Performance tuning and maintenance"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_id": "configuration-troubleshooting",
+      "chapter_title": "Configuration Troubleshooting",
+      "current_file": "docs/configuration/troubleshooting.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 530,
+        "content_lines": 460,
+        "h2_sections": 1,
+        "substantial_sections": 1,
+        "code_block_ratio": 0.45
+      },
+      "recommended_action": "no_action",
+      "reason": "Single-topic troubleshooting guide - users need cohesive reference"
+    },
+    {
+      "chapter_id": "commands",
+      "chapter_title": "Commands Reference",
+      "current_file": "docs/commands.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 527,
+        "content_lines": 450,
+        "h2_sections": 8,
+        "substantial_sections": 5,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "no_action",
+      "reason": "Command reference - cohesive reference documentation"
+    },
+    {
+      "chapter_id": "workflow-basics-variables",
+      "chapter_title": "Variables and Interpolation",
+      "current_file": "docs/workflow-basics/variables.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 521,
+        "content_lines": 450,
+        "h2_sections": 8,
+        "substantial_sections": 5,
+        "code_block_ratio": 0.38
+      },
+      "recommended_action": "no_action",
+      "reason": "Core variable documentation - already exists as summary with detailed docs in variables/"
+    },
+    {
+      "chapter_id": "workflow-basics-conditional",
+      "chapter_title": "Conditional Execution",
+      "current_file": "docs/workflow-basics/conditional-execution.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 513,
+        "content_lines": 440,
+        "h2_sections": 7,
+        "substantial_sections": 5,
+        "code_block_ratio": 0.40
+      },
+      "recommended_action": "no_action",
+      "reason": "Core conditional execution documentation - cohesive topic"
+    },
+    {
+      "chapter_id": "stillwater-validation-migration",
+      "chapter_title": "Stillwater Validation Migration",
+      "current_file": "docs/stillwater-validation-migration.md",
+      "priority": "medium",
+      "issue": "large",
+      "metrics": {
+        "total_lines": 502,
+        "content_lines": 430,
+        "h2_sections": 7,
+        "substantial_sections": 4,
+        "code_block_ratio": 0.35
+      },
+      "recommended_action": "no_action",
+      "reason": "Migration guide - cohesive reference that should remain as single document"
+    },
+    {
+      "chapter_id": "automated-doc-quick-start",
+      "chapter_title": "Quick Start",
+      "current_file": "docs/automated-documentation/quick-start.md",
+      "priority": "low",
+      "issue": "approaching_threshold",
+      "metrics": {
+        "total_lines": 492,
+        "content_lines": 420,
+        "h2_sections": 6,
+        "substantial_sections": 4,
+        "code_block_ratio": 0.40
+      },
+      "recommended_action": "no_action",
+      "reason": "Tutorial content - splitting would fragment learning path"
+    }
+  ],
+  "well_organized_pages": [
+    {
+      "chapter_id": "index",
+      "metrics": {
+        "total_lines": 123,
+        "h2_sections": 3
+      }
+    },
+    {
+      "chapter_id": "installation",
+      "metrics": {
+        "total_lines": 191,
+        "h2_sections": 5
+      }
+    },
+    {
+      "chapter_id": "workflow-structure",
+      "metrics": {
+        "total_lines": 203,
+        "h2_sections": 4
+      }
+    },
+    {
+      "chapter_id": "mapreduce-overview",
+      "metrics": {
+        "total_lines": 386,
+        "h2_sections": 6
+      }
+    },
+    {
+      "chapter_id": "git-integration",
+      "metrics": {
+        "total_lines": 406,
+        "h2_sections": 7
+      }
+    },
+    {
+      "chapter_id": "sessions",
+      "metrics": {
+        "total_lines": 389,
+        "h2_sections": 8
+      }
+    },
+    {
+      "chapter_id": "global-config",
+      "metrics": {
+        "total_lines": 463,
+        "h2_sections": 10
+      }
+    },
+    {
+      "chapter_id": "reference-troubleshooting",
+      "metrics": {
+        "total_lines": 299,
+        "h2_sections": 5
+      }
+    }
+  ],
+  "multi_subsection_chapters": [
+    {
+      "section_id": "workflow-basics",
+      "total_files": 14,
+      "total_lines": 4463,
+      "index_lines": 37,
+      "status": "well_balanced",
+      "oversized_subsections": ["error-handling.md (755)", "environment.md (614)", "command-level-options.md (558)", "command-types.md (557)"]
+    },
+    {
+      "section_id": "mapreduce",
+      "total_files": 13,
+      "total_lines": 4217,
+      "index_lines": 161,
+      "status": "well_balanced",
+      "oversized_subsections": ["work-distribution.md (617)", "dead-letter-queue-dlq.md (574)", "checkpoint-and-resume.md (538)"]
+    },
+    {
+      "section_id": "advanced",
+      "total_files": 10,
+      "total_lines": 3571,
+      "index_lines": 299,
+      "status": "well_balanced",
+      "oversized_subsections": ["composition.md (552)", "observability.md (544)", "storage.md (534)"]
+    },
+    {
+      "section_id": "configuration",
+      "total_files": 11,
+      "total_lines": 3618,
+      "index_lines": 164,
+      "status": "well_balanced",
+      "oversized_subsections": ["complete-configuration-examples.md (679)", "troubleshooting.md (530)"]
+    },
+    {
+      "section_id": "composition",
+      "total_files": 9,
+      "total_lines": 3273,
+      "index_lines": 371,
+      "status": "well_balanced",
+      "oversized_subsections": ["troubleshooting.md (589)"]
+    },
+    {
+      "section_id": "environment",
+      "total_files": 8,
+      "total_lines": 2104,
+      "index_lines": 249,
+      "status": "well_balanced",
+      "oversized_subsections": ["common-patterns.md (566)"]
+    },
+    {
+      "section_id": "variables",
+      "total_files": 4,
+      "total_lines": 1647,
+      "index_lines": 33,
+      "status": "imbalanced",
+      "oversized_subsections": ["available-variables.md (875)"],
+      "note": "available-variables.md is 53% of total content - consider splitting"
+    },
+    {
+      "section_id": "retry-configuration",
+      "total_files": 13,
+      "total_lines": 3395,
+      "index_lines": 168,
+      "status": "well_balanced",
+      "oversized_subsections": []
+    },
+    {
+      "section_id": "automated-documentation",
+      "total_files": 11,
+      "total_lines": 4607,
+      "index_lines": 115,
+      "status": "well_balanced",
+      "oversized_subsections": ["automatic-gap-detection.md (723)", "mkdocs-workflow.md (657)", "troubleshooting.md (539)"]
+    }
+  ]
+}
