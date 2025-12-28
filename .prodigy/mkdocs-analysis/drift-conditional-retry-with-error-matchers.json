@@ -1,0 +1,112 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "conditional-retry-with-error-matchers",
+  "page_title": "conditional retry with error matchers",
+  "page_file": "docs/retry-configuration/conditional-retry-with-error-matchers.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is well-written and accurate. Minor source line reference discrepancies due to code evolution. Content is comprehensive with excellent case sensitivity documentation.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Source References",
+      "description": "Several source line references are slightly off from actual implementation. ErrorMatcher enum is at lines 100-114, not 100-151. Pattern matching logic is at lines 142-148 as documented.",
+      "current_content": "src/cook/retry_v2.rs:100-151 (ErrorMatcher enum definition)",
+      "should_be": "src/cook/retry_v2.rs:100-114 (ErrorMatcher enum definition)",
+      "fix_suggestion": "Update source line references to match current implementation: ErrorMatcher enum is at lines 100-114, Network matcher at 121-126, Timeout at 127-128, ServerError at 130-135, RateLimit at 137-140, Pattern at 142-148",
+      "source_reference": "src/cook/retry_v2.rs:100-150"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Network Errors Source Reference",
+      "description": "Network matcher source reference shows lines 128-132 but actual implementation is at lines 121-126",
+      "current_content": "src/cook/retry_v2.rs:128-132",
+      "should_be": "src/cook/retry_v2.rs:121-126",
+      "fix_suggestion": "Update to correct line numbers",
+      "source_reference": "src/cook/retry_v2.rs:121-126"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Timeout Errors Source Reference",
+      "description": "Timeout matcher source reference shows lines 133-137 but actual implementation is at lines 127-129",
+      "current_content": "src/cook/retry_v2.rs:133-137",
+      "should_be": "src/cook/retry_v2.rs:127-129",
+      "fix_suggestion": "Update to correct line numbers",
+      "source_reference": "src/cook/retry_v2.rs:127-129"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Server Errors Source Reference",
+      "description": "ServerError matcher source reference shows lines 138-142 but actual implementation is at lines 130-136",
+      "current_content": "src/cook/retry_v2.rs:138-142",
+      "should_be": "src/cook/retry_v2.rs:130-136",
+      "fix_suggestion": "Update to correct line numbers",
+      "source_reference": "src/cook/retry_v2.rs:130-136"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Rate Limit Errors Source Reference",
+      "description": "RateLimit matcher source reference shows lines 143-147 but actual implementation is at lines 137-141",
+      "current_content": "src/cook/retry_v2.rs:143-147",
+      "should_be": "src/cook/retry_v2.rs:137-141",
+      "fix_suggestion": "Update to correct line numbers",
+      "source_reference": "src/cook/retry_v2.rs:137-141"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Testing Error Matchers",
+      "description": "Documentation correctly notes that Pattern matcher tests are not yet implemented, but the test section shows test code that doesn't exist in the actual test file for pattern matching",
+      "fix_suggestion": "Consider adding Pattern matcher tests to the codebase or updating documentation to reflect actual test coverage",
+      "source_reference": "src/cook/retry_v2.rs:463-725 (test module)"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent documentation of case sensitivity behavior for all matcher types",
+    "Clear explanation of Pattern matcher with (?i) flag for case-insensitive matching",
+    "Comprehensive table comparing case sensitivity across matcher types",
+    "Accurate documentation of OR logic for multiple matchers",
+    "Good examples showing both case-sensitive and case-insensitive patterns",
+    "Helpful implementation details section with code example",
+    "Clear use case descriptions for each matcher type",
+    "Accurate documentation of empty retry_on behavior",
+    "Good selective retry example showing fail-fast for non-matching errors",
+    "Documentation of invalid regex handling is accurate"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for case sensitivity warnings",
+    "Add tabbed content blocks for YAML vs programmatic usage examples",
+    "Consider adding a visual diagram showing retry flow with error matching",
+    "Add cross-references to backoff-strategies.md for complete retry configuration",
+    "Add code annotations to the Rust implementation example for better clarity",
+    "Consider adding a 'Common Mistakes' section for pattern matching pitfalls"
+  ],
+  "cross_references": [],
+  "internal_links_validated": {
+    "total_internal_links": 0,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "error matchers",
+      "conditional retry",
+      "regex patterns",
+      "case sensitivity",
+      "network errors",
+      "timeout errors",
+      "server errors",
+      "rate limiting"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_file_analyzed": "src/cook/retry_v2.rs",
+    "source_lines_verified": "100-150, 463-725"
+  }
+}
