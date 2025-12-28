@@ -2,6 +2,47 @@
 
 Prodigy tracks metadata about workflow composition for debugging and dependency analysis. This metadata provides visibility into how workflows are composed, what dependencies exist, and when composition occurred.
 
+```mermaid
+graph LR
+    subgraph Input["Input Sources"]
+        direction TB
+        Main[Main Workflow]
+        Base[Base Config]
+        Imports[Imports]
+        Templates[Templates]
+    end
+
+    subgraph Composer["WorkflowComposer"]
+        direction TB
+        Parse[Parse YAML]
+        Resolve[Resolve Dependencies]
+        Merge[Merge Configurations]
+        Track[Track Metadata]
+    end
+
+    subgraph Output["ComposedWorkflow"]
+        direction TB
+        Workflow[Merged Workflow]
+        Metadata[CompositionMetadata]
+    end
+
+    Main --> Parse
+    Base --> Resolve
+    Imports --> Resolve
+    Templates --> Resolve
+    Parse --> Resolve
+    Resolve --> Merge
+    Merge --> Track
+    Track --> Workflow
+    Track --> Metadata
+
+    style Input fill:#e1f5ff
+    style Composer fill:#fff3e0
+    style Output fill:#e8f5e9
+```
+
+**Figure**: Composition metadata is generated as the WorkflowComposer processes input sources, resolves dependencies, and merges configurations.
+
 !!! info "Implementation Status"
     The composition metadata types and dependency tracking are fully implemented in the core composition system. These features are accessible programmatically via the WorkflowComposer API. CLI integration for viewing composition metadata in workflows is under development (Spec 131-133).
 
@@ -66,6 +107,31 @@ pub struct DependencyInfo {
 ### Dependency Types
 
 Prodigy tracks four types of dependencies:
+
+```mermaid
+graph LR
+    Workflow[Your Workflow] --> Extends["Extends
+    (Inheritance)"]
+    Workflow --> Import["Import
+    (Shared Code)"]
+    Workflow --> Template["Template
+    (Registry)"]
+    Workflow --> SubWorkflow["SubWorkflow
+    (Nested Execution)"]
+
+    Extends --> Base[Base Config]
+    Import --> Shared[Shared Utilities]
+    Template --> Registry[Template Registry]
+    SubWorkflow --> Nested[Nested Workflow]
+
+    style Workflow fill:#e1f5ff
+    style Extends fill:#fff3e0
+    style Import fill:#e8f5e9
+    style Template fill:#f3e5f5
+    style SubWorkflow fill:#fce4ec
+```
+
+**Figure**: The four dependency types represent different ways workflows can reference external resources.
 
 **Source**: `src/cook/workflow/composition/mod.rs:185-193`
 
@@ -337,7 +403,11 @@ workflow.yml
 
 ### Use Cases
 
+!!! tip "When Metadata Is Most Valuable"
+    Composition metadata is essential when debugging complex workflows with multiple inheritance levels or when auditing which configurations were applied during production runs.
+
 **Debugging Composition Issues:**
+
 - Verify which files were loaded
 - Check parameter resolution order
 - Identify circular dependencies
