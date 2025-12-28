@@ -135,22 +135,20 @@ Profiles are ideal for managing environment-specific configuration:
 When a profile is active, environment variables are resolved in this order (highest to lowest precedence):
 
 ```mermaid
-flowchart TB
-    subgraph Precedence["Resolution Order (Highest → Lowest)"]
-        direction TB
-        A["1️⃣ Step-level environment<br/><code>env:</code> in command blocks"]
-        B["2️⃣ Active profile environment<br/>Variables from activated profile"]
-        C["3️⃣ Global environment<br/>Top-level <code>env:</code> block"]
-        D["4️⃣ System environment<br/>Inherited from shell"]
-    end
-
-    A --> B --> C --> D
+flowchart LR
+    A["Step-level
+    env: in commands"] --> B["Active Profile
+    Profile variables"] --> C["Global env:
+    Top-level block"] --> D["System
+    Shell environment"]
 
     style A fill:#e8f5e9,stroke:#2e7d32
     style B fill:#e3f2fd,stroke:#1565c0
     style C fill:#fff3e0,stroke:#ef6c00
     style D fill:#f3e5f5,stroke:#7b1fa2
 ```
+
+**Figure**: Environment variable resolution order - higher precedence sources on the left override those on the right.
 
 !!! note "Source Reference"
     Precedence chain implemented in `src/cook/environment/manager.rs:88-156` and tested in `tests/environment_workflow_test.rs`.
