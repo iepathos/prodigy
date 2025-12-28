@@ -2,6 +2,38 @@
 
 Storage configuration controls where and how Prodigy stores data including events, state, DLQ (Dead Letter Queue), sessions, and worktrees. By default, Prodigy uses **global storage** (`~/.prodigy/`) to enable cross-worktree data sharing and centralized management.
 
+```mermaid
+graph LR
+    subgraph GlobalStorage["~/.prodigy/ (Global Storage)"]
+        direction TB
+        Sessions["sessions/
+        Session state"]
+        Events["events/{repo}/
+        Event logs"]
+        DLQ["dlq/{repo}/
+        Failed items"]
+        State["state/{repo}/
+        Checkpoints"]
+        Worktrees["worktrees/{repo}/
+        Git worktrees"]
+    end
+
+    Workflow1["Workflow 1"] --> GlobalStorage
+    Workflow2["Workflow 2"] --> GlobalStorage
+    Workflow3["Workflow N"] --> GlobalStorage
+
+    GlobalStorage --> Monitor["Centralized
+    Monitoring"]
+    GlobalStorage --> Resume["Resume
+    Operations"]
+
+    style GlobalStorage fill:#e1f5ff
+    style Monitor fill:#e8f5e9
+    style Resume fill:#e8f5e9
+```
+
+**Figure**: Global storage architecture showing how multiple workflows share centralized storage for events, state, and worktrees.
+
 !!! tip "Recommended Configuration"
     Global storage (`use_global: true`) is the default and strongly recommended. It enables cross-worktree event aggregation, persistent state across sessions, and centralized monitoring.
 
@@ -128,6 +160,9 @@ storage:
 
 ### Connection and Performance
 
+!!! tip "When to Tune These Settings"
+    Most users can use the defaults. Consider adjusting these settings only when running high-concurrency MapReduce workflows with 50+ parallel agents, or when you observe storage-related bottlenecks in your logs.
+
 #### `connection_pool_size`
 
 **Type**: Integer
@@ -167,6 +202,35 @@ storage:
 ### Retry Policy
 
 Configure automatic retries for transient failures:
+
+```mermaid
+graph LR
+    Op["Storage
+    Operation"] --> Fail1{"Fails?"}
+    Fail1 -->|No| Success1["Success"]
+    Fail1 -->|Yes| Wait1["Wait 1s"]
+    Wait1 --> Retry1["Retry 1"]
+    Retry1 --> Fail2{"Fails?"}
+    Fail2 -->|No| Success2["Success"]
+    Fail2 -->|Yes| Wait2["Wait 2s"]
+    Wait2 --> Retry2["Retry 2"]
+    Retry2 --> Fail3{"Fails?"}
+    Fail3 -->|No| Success3["Success"]
+    Fail3 -->|Yes| Wait3["Wait 4s"]
+    Wait3 --> Retry3["Retry 3"]
+    Retry3 --> Final{"Fails?"}
+    Final -->|No| Success4["Success"]
+    Final -->|Yes| Error["Error
+    (max retries)"]
+
+    style Success1 fill:#e8f5e9
+    style Success2 fill:#e8f5e9
+    style Success3 fill:#e8f5e9
+    style Success4 fill:#e8f5e9
+    style Error fill:#ffebee
+```
+
+**Figure**: Exponential backoff retry flow with 2x multiplier (1s → 2s → 4s delays).
 
 ```yaml
 storage:
