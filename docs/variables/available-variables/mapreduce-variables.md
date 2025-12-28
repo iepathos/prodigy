@@ -2,6 +2,34 @@
 
 This section covers variables available during MapReduce workflow execution, including item variables for the map phase and aggregated result variables for the reduce phase.
 
+```mermaid
+flowchart LR
+    subgraph Map["Map Phase"]
+        I["Work Items"]
+        IV["item.* variables"]
+        A1["Agent 1"]
+        A2["Agent 2"]
+        AN["Agent N"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        MR["map.results"]
+        MO["map.outputs"]
+        MS["map.successful
+        map.failed
+        map.success_rate"]
+    end
+
+    I --> IV
+    IV --> A1 & A2 & AN
+    A1 & A2 & AN --> MR
+    A1 & A2 & AN --> MO
+    A1 & A2 & AN --> MS
+
+    style Map fill:#e1f5fe
+    style Reduce fill:#f3e5f5
+```
+
 ## Item Variables (Map Phase Only)
 
 Variables for accessing work item data during parallel processing. The `${item.*}` syntax supports **arbitrary field access** - you can access any field present in your JSON work items, not just the predefined ones shown below.
@@ -21,6 +49,9 @@ Variables for accessing work item data during parallel processing. The `${item.*
 **Available in:** Map phase only
 
 ### Arbitrary Field Access
+
+!!! tip "Design Your JSON for Variable Access"
+    Structure your work items with descriptive field names—they become your variable names directly. Fields like `priority`, `owner`, and `metadata.reviewer` are immediately accessible as `${item.priority}`, `${item.owner}`, and `${item.metadata.reviewer}`.
 
 The `${item.*}` syntax provides full access to any field in your JSON work items. This includes:
 
@@ -64,15 +95,17 @@ map:
 
 Variables for accessing aggregated results from map phase. Map results support **indexed access** for retrieving individual agent results and **nested field access** for extracting specific properties.
 
-**Source:** src/cook/execution/mapreduce/utils.rs:119-121, src/cook/execution/mapreduce/reduce_phase.rs:146
+**Source:** src/cook/execution/mapreduce/utils.rs:119-121, src/cook/execution/mapreduce/reduce_phase.rs:143-171
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `${map.total}` | Total items in map phase | `echo "Processed ${map.total} items"` |
 | `${map.successful}` | Successfully processed items | `echo "${map.successful} succeeded"` |
 | `${map.failed}` | Failed items count | `echo "${map.failed} failed"` |
+| `${map.success_rate}` | Success rate as percentage (0-100) | `echo "Success rate: ${map.success_rate}%"` |
 | `${map.results}` | All map results as JSON array | `echo '${map.results}' \| jq` |
 | `${map.results_json}` | Alias for `map.results` (same value) | `echo '${map.results_json}' \| jq` |
+| `${map.outputs}` | JSON array of successful agent outputs | `echo '${map.outputs}' \| jq` |
 | `${map.results[index]}` | Individual result by index (0-based) | `${map.results[0]}`, `${map.results[5]}` |
 | `${map.results[index].field}` | Nested field access | `${map.results[0].output}`, `${map.results[2].item_id}` |
 | `${map.key}` | Key for map output (optional) | `${map.key}` |
@@ -80,7 +113,13 @@ Variables for accessing aggregated results from map phase. Map results support *
 
 **Available in:** Reduce phase only
 
+!!! tip "Choosing Between `${map.results}` and `${map.outputs}`"
+    Use `${map.results}` when you need the full result objects including metadata (success status, item_id, errors). Use `${map.outputs}` when you only need the output strings from successful agents—it's pre-filtered and simpler to work with.
+
 ### Indexed Access to Map Results
+
+!!! warning "Index Bounds"
+    Ensure your index is within range—accessing `${map.results[10]}` when only 5 items were processed will result in an empty value. Use `${map.total}` to verify the result count before indexed access.
 
 You can access individual agent results using bracket notation `[index]` and drill into nested fields with dot notation.
 
@@ -113,6 +152,9 @@ reduce:
 ```
 
 ### Full Array Processing
+
+!!! example "When to Use Full Array Processing"
+    Use `jq` with `${map.results}` for aggregations across all results: counting errors, calculating averages, filtering by status, or extracting specific fields from every result.
 
 For processing all results, use `${map.results}` with JSON tools like `jq`:
 
@@ -171,3 +213,6 @@ reduce:
       echo '${map.results}' | jq '[.[] | select(.item.priority > 5) | .item.name]'
     capture_output: "high_priority_items"
 ```
+
+!!! note "Semigroup-Based Aggregations"
+    For advanced aggregation patterns (count, sum, average, median, unique values, etc.) across parallel agents, Prodigy uses semigroup composition. This enables safe parallel aggregation with type validation. See [Semigroup Composition](../../stillwater-patterns/semigroup-composition.md) for details on workflow-level aggregation variables.
