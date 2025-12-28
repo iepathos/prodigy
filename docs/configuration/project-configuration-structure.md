@@ -9,16 +9,31 @@ Project configuration is stored in `.prodigy/config.yml` within your project rep
 - **Format**: YAML
 - **Version Control**: Committed to git (recommended, except for secrets)
 
+### Field Reference
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | String | None | Project identifier for logs and UI |
+| `description` | String | None | Human-readable description |
+| `version` | String | None | Project version (semver recommended) |
+| `spec_dir` | Path | `specs` | Directory for specification files |
+| `claude_api_key` | String | Inherited | Project-specific API key |
+| `auto_commit` | Boolean | `true` | Auto-commit after operations |
+| `variables` | Object | `{}` | Project variables for workflows |
+| `storage` | Object | Inherited | Storage backend configuration |
+| `plugins` | Object | Disabled | Plugin system configuration |
+
 ### Fields
 
-#### `name` (required)
+#### `name` (recommended)
 
-**Type**: String
-**Default**: None (required field)
+**Type**: String (optional)
+**Default**: None
 
-Project identifier used in logs, events, and UI.
+Project identifier used in logs, events, and UI. While not strictly required by the parser, providing a name is recommended for better observability.
 
 ```yaml
+# Source: .prodigy/config.yml
 name: my-project
 ```
 
@@ -66,7 +81,8 @@ Project-specific Claude API key. **Overrides** global config and **is overridden
 claude_api_key: "sk-ant-api03-..."
 ```
 
-**Security Warning**: Do NOT commit API keys to version control. Use environment variables or `.prodigy/config.local.yml` (gitignored) instead.
+!!! warning "Security Warning"
+    Do NOT commit API keys to version control. Use environment variables or `.prodigy/config.local.yml` (gitignored) instead. See [Secrets Management](#secrets-management) below.
 
 #### `auto_commit`
 
@@ -97,7 +113,8 @@ variables:
 
 These variables can be referenced in workflows using `${variable_name}` syntax.
 
-**Note**: For workflow-level environment variables (with secrets, profiles, and step-level overrides), use the `env:` block in workflow files instead. See [Environment Variables](environment-variables.md) for details.
+!!! note "Workflow Environment Variables"
+    For workflow-level environment variables (with secrets, profiles, and step-level overrides), use the `env:` block in workflow files instead. See [Environment Variables](environment-variables.md) for details.
 
 #### `storage`
 
@@ -107,67 +124,133 @@ These variables can be referenced in workflows using `${variable_name}` syntax.
 Project-specific storage configuration. See [Storage Configuration](storage-configuration.md) for details.
 
 ```yaml
+# Source: src/config/prodigy_config.rs:127-139
 storage:
-  backend: file
-  backend_config:
-    base_dir: /custom/project/storage
+  backend: filesystem        # or "memory" for testing
+  base_path: /custom/project/storage
+  compression_level: 6       # 0-9, 0 = no compression
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `backend` | String | `filesystem` | Storage backend: `filesystem` or `memory` |
+| `base_path` | Path | `~/.prodigy/` | Base directory for storage |
+| `compression_level` | Integer | `0` | Checkpoint compression (0-9) |
+
+#### `plugins`
+
+**Type**: Object (optional)
+**Default**: Disabled
+
+Configuration for the Prodigy plugin system.
+
+```yaml
+# Source: src/config/prodigy_config.rs:146-158
+plugins:
+  enabled: true
+  directory: .prodigy/plugins
+  auto_load:
+    - my-custom-plugin
+    - another-plugin
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | Boolean | `false` | Enable plugin system |
+| `directory` | Path | None | Directory containing plugin files |
+| `auto_load` | List | `[]` | Plugins to load on startup |
 
 ### Complete Example
 
 ```yaml
 # .prodigy/config.yml
-name: prodigy
+name: prodigy # (1)!
 description: "Workflow orchestration tool for Claude Code"
 version: "0.1.0"
-spec_dir: specs
+spec_dir: specs # (2)!
 
-auto_commit: true
+auto_commit: true # (3)!
 
-variables:
+variables: # (4)!
   default_branch: master
   test_suite: full
   timeout_seconds: 600
+
+storage:
+  backend: filesystem # (5)!
+  compression_level: 6 # (6)!
+
+plugins:
+  enabled: false
 ```
+
+1. Project identifier for logs, events, and UI display
+2. Directory containing specification files (relative to project root)
+3. Automatically commit after successful operations
+4. Variables available via `${variable_name}` in workflows
+5. Storage backend: `filesystem` (persistent) or `memory` (testing)
+6. Checkpoint compression level: 0 (none) to 9 (maximum)
 
 ### Secrets Management
 
 For sensitive values like API keys, use one of these approaches:
 
-#### Option 1: Environment Variables (Recommended)
+=== "Environment Variables (Recommended)"
 
-```yaml
-# .prodigy/config.yml (committed)
-name: my-project
-# No claude_api_key here
-```
+    ```yaml
+    # .prodigy/config.yml (committed)
+    name: my-project
+    # No claude_api_key here
+    ```
 
-```bash
-# Set in environment
-export PRODIGY_CLAUDE_API_KEY="sk-ant-api03-..."
-```
+    ```bash
+    # Set in environment
+    export PRODIGY_CLAUDE_API_KEY="sk-ant-api03-..."
+    ```
 
-#### Option 2: Local Config File (Not Committed)
+=== "Local Config File"
 
-Create `.prodigy/config.local.yml` and add it to `.gitignore`:
+    Create `.prodigy/config.local.yml` and add it to `.gitignore`:
 
-```yaml
-# .prodigy/config.local.yml (gitignored)
-claude_api_key: "sk-ant-api03-..."
-```
+    ```yaml
+    # .prodigy/config.local.yml (gitignored)
+    claude_api_key: "sk-ant-api03-..."
+    ```
 
-```bash
-# .gitignore
-.prodigy/config.local.yml
-```
+    ```bash
+    # .gitignore
+    .prodigy/config.local.yml
+    ```
 
-#### Option 3: Secret Management Service
+=== "Secret Management Service"
 
-Use a secret management service (AWS Secrets Manager, HashiCorp Vault, etc.) and retrieve the key at runtime via environment variables.
+    Use a secret management service (AWS Secrets Manager, HashiCorp Vault, etc.) and retrieve the key at runtime via environment variables.
+
+!!! tip "Recommended Approach"
+    Environment variables provide the best balance of security and flexibility. They work across all environments (local, CI/CD, production) without code changes.
 
 ### Relationship to Global Config
 
 Project config **overrides** global config on a per-field basis:
+
+```mermaid
+graph LR
+    Global["Global Config
+    ~/.prodigy/config.yml"] --> Merge["Merged Config"]
+    Project["Project Config
+    .prodigy/config.yml"] --> Merge
+    Merge --> Final["Final Settings"]
+
+    subgraph Precedence["Override Rules"]
+        direction TB
+        P1["Project field specified → Use project value"]
+        P2["Project field missing → Inherit global value"]
+    end
+
+    style Project fill:#e1f5ff
+    style Global fill:#fff3e0
+    style Final fill:#e8f5e9
+```
 
 - Fields specified in project config **replace** global config values
 - Fields NOT specified in project config **inherit** global config values
@@ -179,7 +262,7 @@ Project config **overrides** global config on a per-field basis:
 # ~/.prodigy/config.yml (global)
 log_level: info
 auto_commit: true
-max_concurrent_specs: 1
+max_concurrent_specs: 4
 ```
 
 ```yaml
@@ -189,7 +272,7 @@ log_level: debug  # Override global
 # auto_commit and max_concurrent_specs inherited from global
 ```
 
-**Result**: Project uses `log_level: debug` but inherits `auto_commit: true` and `max_concurrent_specs: 1` from global config.
+**Result**: Project uses `log_level: debug` but inherits `auto_commit: true` and `max_concurrent_specs: 4` from global config.
 
 ### Project Variables in Workflows
 
@@ -225,8 +308,11 @@ auto_commit: true
 EOF
 ```
 
-Or use the init command (if available):
+Or use the init command:
 
 ```bash
 prodigy init
 ```
+
+!!! tip "Quick Start"
+    For most projects, start with just `name` and `auto_commit`. Add other fields as needed. The complete field reference above documents all available options.
