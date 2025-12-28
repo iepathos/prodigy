@@ -2,6 +2,9 @@
 
 Define parameters with type validation to create flexible, reusable workflows. Parameters enable workflows and templates to accept inputs with enforced types, default values, and validation rules.
 
+!!! abstract "Overview"
+    Parameters provide a type-safe way to pass values into workflows. They support six types (`String`, `Number`, `Boolean`, `Array`, `Object`, `Any`), default values, and validation rules.
+
 ### Basic Parameter Definition
 
 ```yaml
@@ -61,11 +64,12 @@ parameters:
       description: "Free-form data of any type"
 ```
 
-**Source**: `ParameterDefinitions` structure in src/cook/workflow/composition/mod.rs:97-107
+!!! info "Source Reference"
+    `ParameterDefinitions` structure in `src/cook/workflow/composition/mod.rs:99-107`
 
 ### Parameter Types
 
-Prodigy supports six parameter types with validation (defined in src/cook/workflow/composition/mod.rs:131-141):
+Prodigy supports six parameter types with validation:
 
 | Type | Description | Example Values |
 |------|-------------|----------------|
@@ -76,15 +80,15 @@ Prodigy supports six parameter types with validation (defined in src/cook/workfl
 | `Object` | Key-value map | `{"key": "value"}` |
 | `Any` | Any JSON value | Any valid JSON |
 
-**Source**: `ParameterType` enum in src/cook/workflow/composition/mod.rs:131-141
+!!! info "Source Reference"
+    `ParameterType` enum in `src/cook/workflow/composition/mod.rs:134-141`
 
-**Type Validation:**
-- Type checking is enforced when parameters are provided (src/cook/workflow/composition/mod.rs:226-280)
-- Mismatched types cause workflow validation errors
-- `Any` type accepts any value without validation
-- Validation logic in `validate_parameters` function
-
-**Test example**: tests/workflow_composition_test.rs:49-79 demonstrates parameter validation with String type
+!!! tip "Type Validation"
+    - Type checking is enforced when parameters are provided
+    - Mismatched types cause workflow validation errors
+    - `Any` type accepts any value without validation
+    - See `validate_parameters` function in `src/cook/workflow/composition/mod.rs:226-280`
+    - Test examples in `tests/workflow_composition_test.rs:49-79`
 
 ### Default Values
 
@@ -132,7 +136,7 @@ parameters:
       default: 300  # Overridden by workflow defaults
 ```
 
-**Source**: `defaults` field in src/cook/workflow/composition/mod.rs:204, `default` field in src/cook/workflow/composition/mod.rs:123-124
+Source: `defaults` field in `src/cook/workflow/composition/mod.rs:204`, `default` field in `src/cook/workflow/composition/mod.rs:123-124`
 
 ### Validation Expressions
 
@@ -154,7 +158,8 @@ parameters:
       validation: "in(['pending', 'active', 'completed'])"
 ```
 
-*Note: Validation expressions are currently stored and validated for syntax, but custom expression evaluation is not yet implemented. Type validation is fully functional.*
+!!! warning "Implementation Status"
+    Validation expressions are currently stored and validated for syntax, but custom expression evaluation is not yet implemented. Type validation is fully functional.
 
 ### Providing Parameter Values
 
@@ -167,12 +172,12 @@ prodigy run workflow.yml --param environment=production --param timeout=600
 prodigy run workflow.yml --param-file params.json
 ```
 
-**Automatic Type Inference:**
+!!! tip "Automatic Type Inference"
+    When using `--param` flags, Prodigy automatically infers parameter types:
 
-When using `--param` flags, Prodigy automatically infers parameter types:
-- **Numbers**: `--param port=8080` → parsed as Number (i64 or f64)
-- **Booleans**: `--param debug=true` → parsed as Boolean
-- **Strings**: `--param name=app` → parsed as String (default if no other type matches)
+    - **Numbers**: `--param port=8080` → parsed as Number (i64 or f64)
+    - **Booleans**: `--param debug=true` → parsed as Boolean
+    - **Strings**: `--param name=app` → parsed as String (default if no other type matches)
 
 ```bash
 # These are automatically typed correctly:
@@ -183,7 +188,7 @@ prodigy run workflow.yml \
   --param environment=prod      # String
 ```
 
-**Source**: `parse_param_value` function in src/cli/params.rs:51-72
+Source: `parse_param_value` function in `src/cli/params.rs:51-72`
 
 **params.json:**
 ```json
@@ -195,11 +200,11 @@ prodigy run workflow.yml \
 }
 ```
 
-**Parameter Precedence:**
-1. CLI `--param` flags (highest priority)
-2. `--param-file` values
-3. Workflow `defaults` values
-4. Parameter `default` values (lowest priority)
+!!! note "Parameter Precedence"
+    1. CLI `--param` flags (highest priority)
+    2. `--param-file` values
+    3. Workflow `defaults` values
+    4. Parameter `default` values (lowest priority)
 
 ### Using Parameters in Workflows
 
@@ -221,63 +226,65 @@ commands:
 
 Parameters are resolved during variable interpolation before command execution, making them available everywhere workflow variables are supported.
 
-**Source**: Variable interpolation system in src/cook/workflow/variables.rs
+Source: Variable interpolation system in `src/cook/workflow/variables.rs`
 
 ### Complete Example
 
-```yaml
-name: database-migration
-mode: standard
+!!! example "Database Migration Workflow"
+    ```yaml
+    name: database-migration
+    mode: standard
 
-parameters:
-  required:
-    - name: database_url
-      type: String
-      description: "Database connection string"
-      validation: "matches('^postgres://')"
+    parameters:
+      required:
+        - name: database_url
+          type: String
+          description: "Database connection string"
+          validation: "matches('^postgres://')"
 
-    - name: migration_version
-      type: String
-      description: "Target migration version"
+        - name: migration_version
+          type: String
+          description: "Target migration version"
 
-  optional:
-    - name: dry_run
-      type: Boolean
-      description: "Run in dry-run mode"
-      default: false
+      optional:
+        - name: dry_run
+          type: Boolean
+          description: "Run in dry-run mode"
+          default: false
 
-    - name: timeout
-      type: Number
-      description: "Migration timeout in seconds"
-      default: 300
+        - name: timeout
+          type: Number
+          description: "Migration timeout in seconds"
+          default: 300
 
-commands:
-  - shell: "echo Running migration to ${migration_version}"
-  - shell: |
-      migrate --database-url ${database_url} \
-              --target ${migration_version} \
-              --timeout ${timeout} \
-              $( [ "${dry_run}" = "true" ] && echo "--dry-run" )
-```
+    commands:
+      - shell: "echo Running migration to ${migration_version}"
+      - shell: |
+          migrate --database-url ${database_url} \
+                  --target ${migration_version} \
+                  --timeout ${timeout} \
+                  $( [ "${dry_run}" = "true" ] && echo "--dry-run" )
+    ```
 
-**Run with parameters:**
-```bash
-prodigy run migration.yml \
-  --param database_url="postgres://localhost/mydb" \
-  --param migration_version="20250109_001" \
-  --param dry_run=true
-```
+    **Run with parameters:**
+    ```bash
+    prodigy run migration.yml \
+      --param database_url="postgres://localhost/mydb" \
+      --param migration_version="20250109_001" \
+      --param dry_run=true
+    ```
 
 ### Parameter Validation Errors
 
 When validation fails, Prodigy provides clear error messages:
 
-```
-Error: Parameter validation failed
-  - 'environment': Expected String, got Number
-  - 'port': Value 99999 exceeds valid range
-  - 'config': Required parameter not provided
-```
+!!! failure "Example Validation Error"
+    ```
+    Error: Parameter validation failed
+      - 'environment': Expected String, got Number
+      - 'port': Value 99999 exceeds valid range
+      - 'config': Required parameter not provided
+    ```
 
 ### Implementation Status
 
