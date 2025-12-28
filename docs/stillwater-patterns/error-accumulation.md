@@ -2,6 +2,42 @@
 
 Prodigy uses Stillwater's `Validation<T, E>` applicative functor to collect ALL validation errors in a single pass, eliminating the frustrating "fix one error, resubmit, find next error" cycle.
 
+## Validation Flow Comparison
+
+```mermaid
+flowchart LR
+    subgraph FailFast["Fail-Fast (Traditional)"]
+        direction LR
+        I1[Item 1] --> V1{Valid?}
+        V1 -->|No| Stop1[Stop: 1 error]
+        V1 -->|Yes| I2[Item 2]
+        I2 --> V2{Valid?}
+        V2 -->|No| Stop2[Stop: 1 error]
+        V2 -->|Yes| I3[Item 3...]
+    end
+
+    subgraph Accumulate["Error Accumulation"]
+        direction LR
+        A1[Item 1] --> C1{Valid?}
+        C1 -->|No| E1[Collect error]
+        C1 -->|Yes| OK1[✓]
+        E1 --> A2[Item 2]
+        OK1 --> A2
+        A2 --> C2{Valid?}
+        C2 -->|No| E2[Collect error]
+        C2 -->|Yes| OK2[✓]
+        E2 --> A3[Item 3...]
+        OK2 --> A3
+        A3 --> Final[Return ALL errors]
+    end
+
+    style Stop1 fill:#ffebee
+    style Stop2 fill:#ffebee
+    style Final fill:#e8f5e9
+```
+
+**Figure**: Fail-fast stops at first error; error accumulation continues through all items.
+
 ## The Problem: Fail-Fast Validation
 
 **Location**: `src/cook/execution/data_pipeline/validation.rs`, `src/cook/execution/mapreduce/validation.rs`
@@ -28,6 +64,11 @@ pub fn validate_and_load_items(path: &Path) -> Result<Vec<WorkItem>> {
     Each iteration takes time—loading the workflow, parsing items, running validation.
 
 ## The Solution: Error Accumulation
+
+!!! note "Applicative Functor"
+    Unlike `Result` which short-circuits on first error, `Validation<T, E>` is an
+    applicative functor that can combine independent validations while accumulating
+    all failures. This is the key insight from functional programming.
 
 Stillwater's `Validation` type accumulates ALL errors before returning, so users see everything at once:
 
