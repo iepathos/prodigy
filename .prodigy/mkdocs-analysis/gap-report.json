@@ -1,28 +1,92 @@
 {
-  "analysis_date": "2025-01-11T18:00:00Z",
-  "features_analyzed": 13,
-  "documented_pages": 34,
+  "analysis_date": "2025-12-27T00:00:00Z",
+  "features_analyzed": 14,
+  "documented_pages": 21,
   "gaps_found": 0,
   "gaps": [],
   "actions_taken": [
     {
-      "action": "verified_stub_files_exist",
-      "verified_count": 9,
-      "note": "All page definitions in mkdocs-chapters.json now have corresponding stub files"
-    },
-    {
       "action": "generated_flattened_items",
       "file_path": ".prodigy/mkdocs-analysis/flattened-items.json",
-      "total_pages": 19,
-      "note": "Flattened items ready for map phase drift detection"
+      "pages_count": 21
     }
   ],
-  "summary": {
-    "status": "no_gaps_found",
-    "all_features_documented": true,
-    "pages_with_definitions": 19,
-    "pages_with_files": 19,
-    "meta_content_skipped": true,
-    "skip_reason": "meta_content type belongs in reference/troubleshooting section"
+  "analysis_summary": {
+    "major_features": 13,
+    "meta_features": 1,
+    "features_with_pages": 13,
+    "features_skipped_meta": 1
+  },
+  "feature_coverage": {
+    "workflow_basics": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["workflow-structure", "command-types", "variables", "environment", "conditional-execution", "error-handling"]
+    },
+    "mapreduce_workflows": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["mapreduce-overview", "work-distribution", "checkpoint-resume", "dlq"]
+    },
+    "command_types": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["command-types"]
+    },
+    "variable_system": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["variables"]
+    },
+    "environment_management": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["environment"]
+    },
+    "error_handling": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["error-handling"]
+    },
+    "workflow_composition": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["composition"]
+    },
+    "git_integration": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["git-integration"]
+    },
+    "session_management": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["sessions"]
+    },
+    "observability": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["observability"]
+    },
+    "storage_architecture": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["storage"]
+    },
+    "conditional_execution": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["conditional-execution"]
+    },
+    "configuration_system": {
+      "type": "major_feature",
+      "documented": true,
+      "pages": ["global-config"]
+    },
+    "meta_content": {
+      "type": "meta",
+      "documented": false,
+      "skipped_reason": "Meta content goes in reference section, not standalone pages"
+    }
   }
 }
