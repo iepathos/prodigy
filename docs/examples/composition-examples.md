@@ -2,31 +2,40 @@
 
 This section covers workflow composition (preview feature) and custom merge workflows.
 
+!!! abstract "Related Documentation"
+    - [Composition Guide](../composition/index.md) - Full composition documentation
+    - [MapReduce Overview](../mapreduce/index.md) - MapReduce workflow concepts
+    - [Git Integration](../advanced/git-integration.md) - Worktree and branch management
+
+---
+
 ## Example 12: Workflow Composition (Preview Feature)
 
-> **Note**: Workflow composition features are partially implemented. Core composition logic exists but CLI integration is pending (Spec 131-133). This example shows the planned syntax.
+!!! warning "Preview Feature"
+    Workflow composition features are partially implemented. Core composition logic exists but CLI integration is pending (Spec 131-133). This example shows the planned syntax.
 
-```yaml
+```yaml title="extended-ci-workflow.yml"
+# Source: Composition architecture from features.json:workflow_composition
 # Import reusable workflow fragments
 imports:
-  - "./workflows/common/test-suite.yml"
+  - "./workflows/common/test-suite.yml"  # (1)!
   - "./workflows/common/deploy.yml"
 
 # Extend base workflow
-extends: "./workflows/base-ci.yml"
+extends: "./workflows/base-ci.yml"  # (2)!
 
 name: extended-ci-workflow
 mode: standard
 
 # Template for reusable command sets
 templates:
-  rust_test:
+  rust_test:  # (3)!
     - shell: "cargo build"
     - shell: "cargo test"
     - shell: "cargo clippy"
 
   deploy_to_env:
-    parameters:
+    parameters:  # (4)!
       - env_name
       - target_url
     commands:
@@ -42,27 +51,27 @@ steps:
       target_url: "${API_URL}"
 ```
 
-**Source**: Composition architecture from features.json:workflow_composition, implementation status note from drift analysis
+1. **Imports** - Reuse workflow fragments from other files
+2. **Extends** - Inherit from a base workflow with selective overrides
+3. **Templates** - Define reusable command sets with a descriptive name
+4. **Parameters** - Type-safe parameterization for template flexibility
 
 ### Planned Composition Features
 
-- **Imports**: Reuse workflow fragments across projects
-- **Extends**: Inherit from base workflows with overrides
-- **Templates**: Parameterized command sets for DRY workflows
-- **Parameters**: Type-safe template parameterization
-
-### Current Status
-
-- Core composition logic: Implemented
-- Configuration parsing: Implemented
-- CLI integration: Pending (Spec 131-133)
-- Template rendering: Pending
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Imports** | Reuse workflow fragments across projects | :material-check: Implemented |
+| **Extends** | Inherit from base workflows with overrides | :material-check: Implemented |
+| **Templates** | Parameterized command sets for DRY workflows | :material-clock-outline: Pending |
+| **Parameters** | Type-safe template parameterization | :material-clock-outline: Pending |
+| **CLI Integration** | Full CLI support for composition commands | :material-clock-outline: Pending (Spec 131-133) |
 
 ### Workaround Until CLI Integration
 
-Use YAML anchors and aliases for basic composition:
+!!! tip "Use YAML Anchors"
+    YAML anchors and aliases provide basic composition today without waiting for full CLI integration.
 
-```yaml
+```yaml title="Current workaround using YAML anchors"
 # Define reusable blocks with anchors
 .rust_test: &rust_test
   - shell: "cargo build"
@@ -83,7 +92,21 @@ workflow:
 
 MapReduce workflows execute in isolated git worktrees. When the workflow completes, you can define a custom merge workflow to control how changes are merged back to your original branch.
 
-```yaml
+```mermaid
+flowchart LR
+    subgraph Worktree["Isolated Worktree"]
+        A[Agent Work] --> B[Reduce Phase]
+    end
+    B --> C{Merge Workflow}
+    C -->|Tests Pass| D[Merge to Target]
+    C -->|Tests Fail| E[on_failure Handler]
+    E -->|Fixed| C
+    E -->|Max Attempts| F[Manual Review]
+    D --> G[Target Branch Updated]
+```
+
+```yaml title="code-review-with-merge.yml"
+# Source: workflows/mapreduce-env-example.yml:83-94
 name: code-review-with-merge
 mode: mapreduce
 
@@ -110,19 +133,13 @@ reduce:
 # Custom merge workflow (executed when merging worktree back to original branch)
 merge:
   commands:
-    # Merge-specific variables are available:
-    # ${merge.worktree} - Worktree name (e.g., "session-abc123")
-    # ${merge.source_branch} - Source branch in worktree
-    # ${merge.target_branch} - Target branch (where you started workflow)
-    # ${merge.session_id} - Session ID for correlation
-
     # Pre-merge validation
-    - shell: "echo 'Preparing to merge ${merge.worktree}'"
-    - shell: "echo 'Source: ${merge.source_branch} → Target: ${merge.target_branch}'"
+    - shell: "echo 'Preparing to merge ${merge.worktree}'"  # (1)!
+    - shell: "echo 'Source: ${merge.source_branch} → Target: ${merge.target_branch}'"  # (2)!
 
     # Run tests before merging
     - shell: "cargo test --all"
-      on_failure:
+      on_failure:  # (3)!
         claude: "/fix-failing-tests before merge"
         commit_required: true
         max_attempts: 2
@@ -136,51 +153,85 @@ merge:
     # Optional: Custom validation via Claude
     - claude: "/validate-merge-readiness ${merge.source_branch} ${merge.target_branch}"
 
-    # Actually perform the merge using prodigy-merge-worktree
-    # IMPORTANT: Always pass both source and target branches
-    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
+    # Actually perform the merge
+    - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"  # (4)!
 
     # Post-merge notifications (using env vars)
     - shell: "echo 'Successfully merged ${PROJECT_NAME} changes from ${merge.worktree}'"
-    # - shell: "curl -X POST ${NOTIFICATION_URL} -d 'Merge completed for ${PROJECT_NAME}'"
 
   # Optional: Timeout for entire merge phase (seconds)
   timeout: 600  # 10 minutes
 ```
 
-**Source**: Merge workflow configuration from src/config/mapreduce.rs:84-94, merge variables from worktree merge orchestrator, example from workflows/mapreduce-env-example.yml:83-94, test from tests/merge_workflow_integration.rs:64-121
+1. `${merge.worktree}` - Name of the worktree being merged (e.g., "session-abc123")
+2. `${merge.source_branch}` and `${merge.target_branch}` - Branch names for the merge operation
+3. **on_failure** handlers automatically attempt to fix issues before retrying
+4. Always pass **both** source and target branches to ensure correct merge target
+
+### Merge-Specific Variables
+
+!!! info "Automatically Provided Variables"
+    These variables are available in all merge commands without additional configuration.
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `${merge.worktree}` | Name of the worktree being merged | `session-abc123` |
+| `${merge.source_branch}` | Branch in worktree | `prodigy-mapreduce-...` |
+| `${merge.target_branch}` | Your original branch | `main`, `feature-xyz` |
+| `${merge.session_id}` | Session ID for tracking | `abc123-def456` |
 
 ### Merge Workflow Features
 
-1. **Merge-Specific Variables** (automatically provided):
-   - `${merge.worktree}` - Name of the worktree being merged
-   - `${merge.source_branch}` - Branch in worktree (usually `prodigy-mapreduce-...`)
-   - `${merge.target_branch}` - Your original branch (main, master, feature-xyz, etc.)
-   - `${merge.session_id}` - Session ID for tracking
+=== "Pre-Merge Validation"
 
-2. **Pre-Merge Validation**:
-   - Run tests, linting, or custom checks before merging
-   - Use Claude commands for intelligent validation
-   - Use `on_failure` handlers to fix issues automatically
+    Run tests, linting, or custom checks before merging:
 
-3. **Environment Variables**:
-   - Global `env` variables are available in merge commands
-   - Useful for notifications, project-specific settings
-   - Secrets are masked in merge command output
+    ```yaml
+    merge:
+      commands:
+        - shell: "cargo test --all"
+        - shell: "cargo clippy -- -D warnings"
+        - claude: "/validate-merge-readiness"
+    ```
 
-4. **Timeout Control**:
-   - Optional `timeout` field (in seconds) for the merge phase
-   - Prevents merge workflows from hanging indefinitely
+=== "Environment Variables"
+
+    Global `env` variables are available in merge commands:
+
+    ```yaml
+    env:
+      PROJECT_NAME: "my-project"
+      SLACK_WEBHOOK: "https://..."
+
+    merge:
+      commands:
+        - shell: "echo 'Merging ${PROJECT_NAME}'"
+    ```
+
+    !!! note
+        Secrets are automatically masked in merge command output.
+
+=== "Timeout Control"
+
+    Prevent merge workflows from hanging indefinitely:
+
+    ```yaml
+    merge:
+      commands:
+        - shell: "cargo test"
+      timeout: 600  # 10 minutes
+    ```
 
 ### Important Notes
 
-- Always pass **both** `${merge.source_branch}` and `${merge.target_branch}` to `/prodigy-merge-worktree`
-- This ensures the merge targets your original branch, not a hardcoded main/master
-- Without a custom merge workflow, you'll be prompted interactively to merge
+!!! warning "Always Specify Both Branches"
+    Always pass **both** `${merge.source_branch}` and `${merge.target_branch}` to `/prodigy-merge-worktree`. This ensures the merge targets your original branch, not a hardcoded `main` or `master`.
+
+Without a custom merge workflow, you'll be prompted interactively to merge.
 
 ### Handling Merge Failures
 
-If merge validation fails (e.g., tests fail, linting fails), the `on_failure` handlers will attempt to fix the issues. If fixes cannot be applied automatically, the merge workflow will fail, and changes remain in the worktree for manual review:
+If merge validation fails, the `on_failure` handlers attempt to fix issues automatically:
 
 ```yaml
 # Source: Pattern from workflows/mapreduce-env-example.yml:83-94
@@ -195,16 +246,32 @@ If merge validation fails (e.g., tests fail, linting fails), the `on_failure` ha
 
 ### Recovery from Failed Merge
 
-1. Navigate to the worktree: `cd ~/.prodigy/worktrees/{repo_name}/{session_id}/`
-2. Fix issues manually and commit changes
-3. Resume the merge workflow: `prodigy resume {session_id}`
-4. Or manually merge: `git checkout {target_branch} && git merge {source_branch}`
+!!! example "Manual Recovery Steps"
+    If automatic recovery fails, follow these steps:
+
+    1. Navigate to the worktree:
+       ```bash
+       cd ~/.prodigy/worktrees/{repo_name}/{session_id}/
+       ```
+
+    2. Fix issues manually and commit changes
+
+    3. Resume the merge workflow:
+       ```bash
+       prodigy resume {session_id}
+       ```
+
+    4. Or manually merge:
+       ```bash
+       git checkout {target_branch} && git merge {source_branch}
+       ```
 
 ### Simplified Format
 
-If you don't need timeout configuration, you can use the simplified format:
+If you don't need timeout configuration, use the simplified format:
 
-```yaml
+```yaml title="Simplified merge configuration"
+# Source: src/config/mapreduce.rs:96-124
 merge:
   - shell: "cargo test"
   - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
