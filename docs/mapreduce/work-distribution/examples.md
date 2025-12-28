@@ -166,29 +166,32 @@ Each stage transforms the item set:
 | **Offset** | Skip N items | `offset: 10` → 20 items |
 | **Max Items** | Limit count | `max_items: 5` → 5 items |
 
+!!! tip "Pipeline Order Matters"
+    The stages always execute in this order: Extract → Filter → Sort → Distinct → Offset → Max Items. This means filtering happens before sorting, so you only sort items that pass the filter. Similarly, `offset` and `max_items` apply after deduplication, letting you paginate through unique results.
+
 ## Troubleshooting
 
 ### Common Issues
 
-**JSONPath returns no items:**
-- Verify the input JSON structure matches your path
-- Test JSONPath expressions using online tools
-- Check for typos in field names
+!!! warning "JSONPath returns no items"
+    - Verify the input JSON structure matches your path
+    - Test JSONPath expressions using online tools
+    - Check for typos in field names
 
-**Filter excludes all items:**
-- Test filter expressions on sample data
-- Check for correct field names and types
-- Verify nested field paths are accurate
+!!! warning "Filter excludes all items"
+    - Test filter expressions on sample data
+    - Check for correct field names and types
+    - Verify nested field paths are accurate
 
-**Sorting doesn't work as expected:**
-- Ensure sort field exists in all items
-- Use `NULLS LAST` to handle missing values
-- Check field types (strings sort alphabetically, numbers numerically)
+!!! warning "Sorting doesn't work as expected"
+    - Ensure sort field exists in all items
+    - Use `NULLS LAST` to handle missing values
+    - Check field types (strings sort alphabetically, numbers numerically)
 
-**Deduplication removes too many items:**
-- Verify the distinct field has the granularity you expect
-- Remember that null values are treated as identical
-- Check if nested field paths are correct
+!!! warning "Deduplication removes too many items"
+    - Verify the distinct field has the granularity you expect
+    - Remember that null values are treated as identical
+    - Check if nested field paths are correct
 
 ### Debugging Tips
 
