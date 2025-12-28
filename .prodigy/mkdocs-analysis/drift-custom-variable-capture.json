@@ -1,0 +1,73 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "custom-variable-capture",
+  "page_title": "custom variable capture",
+  "page_file": "docs/variables/custom-variable-capture.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is comprehensive and accurate. Minor issues with duplicate content at end and missing MkDocs Material visual features. All core functionality is correctly documented.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "End of file (lines 299-303)",
+      "description": "Duplicate/orphaned code block appears at the end of the file. Lines 299-303 contain incomplete YAML examples that seem to be leftover from an incomplete edit or copy-paste error.",
+      "current_content": "```\n# Access fields directly\n- shell: \"cd ${metadata.workspace_root}\"\n- shell: \"echo 'Package: ${metadata.packages[0].name}'\"\n```",
+      "fix_suggestion": "Remove the orphaned code block at lines 299-303 or integrate it properly into the preceding section.",
+      "source_reference": "docs/variables/custom-variable-capture.md:299-303"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Source Reference at line 353",
+      "description": "The source reference 'Examples from book/src/variables/custom-variable-capture.md:143-161, 289-297' may be inaccurate. Line references in source documentation can become stale as files change.",
+      "fix_suggestion": "Consider removing specific line number references or updating them to be more general, e.g., 'Examples from book/src/variables/custom-variable-capture.md'",
+      "source_reference": "docs/variables/custom-variable-capture.md:353"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Page lacks MkDocs Material visual features such as admonitions (!!! note, !!! warning, !!! tip), code annotations, or tabs that could enhance readability and user experience.",
+      "fix_suggestion": "Add admonitions for tips (e.g., 'Recommendation: Use custom variable names'), warnings (e.g., 'Important: Setup phase captures...'), and notes. Consider using tabs to show different capture format examples side by side.",
+      "source_reference": "MkDocs Material best practices"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of capture_output, capture_format, and capture_streams features",
+    "Accurate documentation of CaptureStreams struct defaults matching src/cook/workflow/variables.rs:269-291",
+    "Clear explanation of variable scoping across workflow phases (Setup, Map, Reduce, Merge)",
+    "Well-structured with tables for quick reference of default variable names and metadata fields",
+    "Practical examples for each capture format (string, json, lines, number, boolean)",
+    "Good coverage of common patterns including conditional execution and statistics",
+    "Clear distinction between using capture_format:json vs manual jq parsing with trade-offs explained",
+    "Source code reference correctly points to src/cook/workflow/variables.rs:269-291"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions for tips and warnings to improve visual hierarchy",
+    "Add code annotations to explain complex YAML examples inline",
+    "Consider using MkDocs Material tabs to show different capture formats side by side",
+    "Add a 'Quick Reference' section with a summary table of all capture options",
+    "Remove orphaned code block at end of file",
+    "Add cross-reference links to related pages (mapreduce overview, variable scoping)"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "capture_output",
+      "capture_format",
+      "capture_streams",
+      "variable scoping",
+      "metadata fields",
+      "JSON parsing",
+      "command output capture"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_verified": true,
+    "source_reference_check": {
+      "src/cook/workflow/variables.rs:269-291": "CaptureStreams struct definition verified - defaults match documentation"
+    }
+  }
+}
