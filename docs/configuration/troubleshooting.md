@@ -2,6 +2,62 @@
 
 This page covers common configuration issues and their solutions, organized by category.
 
+### Quick Diagnostic Flow
+
+Use this flowchart to identify which section to consult based on your symptoms:
+
+```mermaid
+flowchart LR
+    Start[Error Occurred] --> Type{"What type
+    of error?"}
+
+    Type -->|"Config not found
+    or invalid YAML"| Config[Configuration
+    File Issues]
+    Type -->|"Variable not found
+    or secret exposed"| Env[Environment
+    Variable Issues]
+    Type -->|"Permission denied
+    or lock timeout"| Storage[Storage
+    Issues]
+    Type -->|"Workflow not
+    interpolating"| Workflow[Workflow
+    Configuration]
+    Type -->|"API key
+    invalid"| API[API and
+    Authentication]
+    Type -->|"Running slow
+    or disk full"| Perf[Performance
+    Issues]
+
+    Config --> Fix1[Check file location
+    and YAML syntax]
+    Env --> Fix2[Check variable definition
+    and precedence]
+    Storage --> Fix3[Check permissions
+    and lock files]
+    Workflow --> Fix4[Check syntax and
+    JSONPath expressions]
+    API --> Fix5[Verify API key
+    at Anthropic Console]
+    Perf --> Fix6[Adjust parallelism
+    and enable caching]
+
+    style Start fill:#ffebee
+    style Config fill:#e1f5ff
+    style Env fill:#e1f5ff
+    style Storage fill:#e1f5ff
+    style Workflow fill:#e1f5ff
+    style API fill:#e1f5ff
+    style Perf fill:#e1f5ff
+    style Fix1 fill:#e8f5e9
+    style Fix2 fill:#e8f5e9
+    style Fix3 fill:#e8f5e9
+    style Fix4 fill:#e8f5e9
+    style Fix5 fill:#e8f5e9
+    style Fix6 fill:#e8f5e9
+```
+
 ---
 
 ### Configuration File Issues
@@ -177,6 +233,30 @@ This page covers common configuration issues and their solutions, organized by c
     2. Profile environment
     3. Workflow environment
     4. System environment
+
+```mermaid
+graph LR
+    Lookup["Variable
+    Lookup"] --> Step{"Step
+    env?"}
+    Step -->|Found| Use1[Use Value]
+    Step -->|Not found| Profile{"Profile
+    env?"}
+    Profile -->|Found| Use2[Use Value]
+    Profile -->|Not found| Workflow{"Workflow
+    env?"}
+    Workflow -->|Found| Use3[Use Value]
+    Workflow -->|Not found| System{"System
+    env?"}
+    System -->|Found| Use4[Use Value]
+    System -->|Not found| Error[Error: Not Found]
+
+    style Use1 fill:#e8f5e9
+    style Use2 fill:#e8f5e9
+    style Use3 fill:#e8f5e9
+    style Use4 fill:#e8f5e9
+    style Error fill:#ffebee
+```
 
 #### "Secret not being masked in logs"
 
