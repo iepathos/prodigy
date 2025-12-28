@@ -1,0 +1,96 @@
+{
+  "item_type": "page",
+  "page_id": "composition",
+  "page_title": "composition",
+  "page_file": "docs/advanced/composition.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is well-structured and mostly accurate. Minor issues with inheritance override documentation and sub-workflow implementation status. Excellent use of MkDocs Material features including code annotations, admonitions, and content tabs.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Sub-Workflows",
+      "description": "The sub-workflow syntax in the documentation shows a simplified inline definition syntax that differs from the actual SubWorkflow struct implementation which requires a source path, not inline commands",
+      "current_content": "sub_workflows:\n  build:\n    name: build-subworkflow\n    - shell: \"cargo build --release\"",
+      "should_be": "sub_workflows:\n  build:\n    source: ./sub-workflows/build.yml\n    parameters: {}\n    outputs: [\"result\"]",
+      "fix_suggestion": "Update examples to show the actual SubWorkflow configuration structure which requires source path rather than inline command definitions. Reference src/cook/workflow/composition/sub_workflow.rs:14-46 for accurate struct fields.",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:14-46"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Inheritance - Override Behavior",
+      "description": "The override behavior documentation states 'Steps from parent executed first' but the code in merge_workflows_with_inheritance shows child commands replace parent commands entirely, not append to them",
+      "current_content": "Steps from parent executed first",
+      "should_be": "Child commands override parent commands entirely (parent commands are replaced, not prepended)",
+      "fix_suggestion": "Clarify that inheritance follows replacement semantics for commands, not additive semantics. Reference src/cook/workflow/composition/composer.rs:326-356.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:326-356"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Template Storage",
+      "description": "The template storage priority documentation lists '~/.prodigy/templates/' as first priority, but the code uses directories::ProjectDirs which may resolve to a different path like '~/Library/Application Support/com.prodigy.prodigy/templates' on macOS",
+      "current_content": "~/.prodigy/templates/ (global, shared across repos)",
+      "should_be": "The global template directory is determined by platform conventions (e.g., ~/Library/Application Support/com.prodigy.prodigy/templates on macOS, ~/.local/share/prodigy/templates on Linux)",
+      "fix_suggestion": "Update to reflect actual platform-specific paths from directories::ProjectDirs, or note the path varies by platform. Reference src/cook/workflow/composer_integration.rs:93-136.",
+      "source_reference": "src/cook/workflow/composer_integration.rs:93-136"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Template Registry",
+      "description": "The Template Registry section shows CLI commands but doesn't document all available subcommands (show, delete, search, validate, init)",
+      "current_content": "# Register template\nprodigy template register ./templates/rust-ci.yml --name rust-ci\n\n# List available templates\nprodigy template list",
+      "should_be": "Additional commands: prodigy template show, prodigy template delete, prodigy template search, prodigy template validate, prodigy template init",
+      "fix_suggestion": "Add documentation for all template subcommands: register, list, show, delete, search, validate, init. Reference src/cli/args.rs:787-863.",
+      "source_reference": "src/cli/args.rs:787-863"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Import Caching",
+      "description": "The source code reference in the Import Caching section points to lines 661-698 but the caching implementation is in the WorkflowLoader struct at different line numbers",
+      "current_content": "Source: src/cook/workflow/composition/composer.rs:661-698",
+      "should_be": "Source: src/cook/workflow/composition/composer.rs:646-681 (WorkflowLoader cache implementation)",
+      "fix_suggestion": "Update line number references to match current code location of the caching implementation in WorkflowLoader struct.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:646-681"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material features: code annotations (1-4 syntax), tabbed content (===), admonitions (!!! tip, note, warning, example)",
+    "Clear and professional mermaid diagrams showing composition architecture and resolution flow",
+    "Well-organized progression from basic imports to advanced sub-workflows",
+    "Good code examples with realistic YAML workflow configurations",
+    "Helpful source code references linking documentation to implementation",
+    "Comprehensive parameter types and validation documentation",
+    "Clear template storage priority explanation with tabbed examples",
+    "Good composition sequence diagram showing the full workflow execution flow"
+  ],
+  "improvement_suggestions": [
+    "Add a section on parameter type coercion and how different parameter types are handled during substitution",
+    "Include examples of error messages users might see for common mistakes (missing parameters, circular dependencies)",
+    "Add cross-reference to the docs/composition/ subdirectory which has more detailed pages on each topic",
+    "Document the behavior when template files are not found (error handling)",
+    "Add a section on testing composed workflows before production use"
+  ],
+  "cross_references": [
+    "docs/composition/index.md",
+    "docs/composition/sub-workflows.md",
+    "docs/composition/template-system.md",
+    "docs/composition/parameter-definitions.md"
+  ],
+  "links_validated": {
+    "total_internal_links": 0,
+    "broken_links": 0,
+    "note": "No internal markdown links found in this file (uses only internal page anchors and code references)"
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:11:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["imports", "inheritance", "templates", "parameters", "sub-workflows", "template registry"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "mkdocs_features_used": ["code-annotations", "content-tabs", "admonitions", "mermaid-diagrams"]
+  }
+}
