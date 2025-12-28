@@ -232,22 +232,22 @@ name: deployment-workflow
 
 env:
   # Project configuration
-  PROJECT_NAME: "my-app"
+  PROJECT_NAME: "my-app"  # (1)!
   VERSION: "2.1.0"
 
   # Environment-specific settings
-  DEPLOY_TARGET:
+  DEPLOY_TARGET:  # (2)!
     default: "dev-server"
     staging: "staging-cluster"
     prod: "prod-cluster"
 
   # Secrets (masked in logs)
-  DEPLOY_TOKEN:
+  DEPLOY_TOKEN:  # (3)!
     secret: true
     default: "${DEV_TOKEN}"
     prod:
       secret: true
-      value: "${PROD_TOKEN}"
+      value: "${PROD_TOKEN}"  # (4)!
 
 commands:
   - shell: "echo Deploying $PROJECT_NAME v$VERSION to $DEPLOY_TARGET"
@@ -255,6 +255,11 @@ commands:
   - shell: "deploy --target $DEPLOY_TARGET --token $DEPLOY_TOKEN"
   # Output: deploy --target prod-cluster --token ***
 ```
+
+1. Plain variables are available in all commands via `$VAR` or `${VAR}` syntax
+2. Profile-aware variables select value based on `active_profile` setting
+3. Secret values are automatically masked as `***` in logs and error messages
+4. Reference system environment variables for production secrets
 
 Run with:
 
@@ -631,6 +636,9 @@ export $(cat .env | xargs)
 
 ### Security Best Practices
 
+!!! danger "Secret Handling"
+    API keys and tokens exposed in version control are immediately compromised. Automated scanners continuously search public repositories for secrets.
+
 1. **Never commit API keys** to version control
 2. **Use environment variables** for secrets (not config files)
 3. **Use `.env` files** (gitignored) for local development
@@ -655,6 +663,29 @@ For any given setting, the effective value comes from (highest to lowest):
 3. **Project config** (`.prodigy/config.yml`)
 4. **Global config** (`~/.prodigy/config.yml`)
 5. **Defaults** (built-in values)
+
+```mermaid
+graph LR
+    subgraph Resolution["Variable Resolution Order"]
+        direction LR
+        CLI["CLI Flags"] --> ENV["Environment Variables"]
+        ENV --> PROJ["Project Config"]
+        PROJ --> GLOBAL["Global Config"]
+        GLOBAL --> DEFAULT["Defaults"]
+    end
+
+    CLI -.->|"Highest Priority"| RESULT["Effective Value"]
+    DEFAULT -.->|"Lowest Priority"| RESULT
+
+    style CLI fill:#e8f5e9
+    style ENV fill:#fff3e0
+    style PROJ fill:#e1f5ff
+    style GLOBAL fill:#f3e5f5
+    style DEFAULT fill:#fafafa
+    style RESULT fill:#c8e6c9
+```
+
+**Figure**: Configuration sources are checked in order from left to right. The first source with a value wins.
 
 Example:
 
