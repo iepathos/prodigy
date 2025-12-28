@@ -1,0 +1,65 @@
+{
+  "item_type": "page",
+  "page_id": "mapreduce-examples",
+  "page_title": "mapreduce examples",
+  "page_file": "docs/examples/mapreduce-examples.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is well-written with accurate MapReduce examples. Minor issues with documented write_file syntax that differs slightly from implementation.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Example 8: Generating Configuration Files",
+      "description": "The write_file examples show 'format: json/yaml/text' and 'content' as an object for JSON/YAML formats, but the implementation (src/config/command.rs:278-313) expects 'content' to always be a string that gets parsed/serialized based on format. The example with YAML object content would need to be expressed as a string.",
+      "current_content": "content:\n  environment: production\n  api_url: \"${API_URL}\"",
+      "should_be": "content: |\n  environment: production\n  api_url: \"${API_URL}\"",
+      "fix_suggestion": "Update write_file examples to show content as a string (possibly YAML/JSON literal), or document that structured content is automatically serialized based on format.",
+      "source_reference": "src/config/command.rs:WriteFileConfig"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Timeout configuration",
+      "description": "The timeout_config section documents agent_timeout_secs and cleanup_grace_period_secs but doesn't mention other available timeout_config options like timeout_policy (PerAgent, PerCommand, Hybrid), timeout_action (Dlq, Skip, Fail, GracefulTerminate), or command_timeouts map for per-command overrides.",
+      "fix_suggestion": "Add brief mention of additional timeout_config options or link to timeout configuration documentation page.",
+      "source_reference": "src/cook/execution/mapreduce/timeout.rs:TimeoutConfig"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material code annotations (1)! - (14)! to explain each configuration field",
+    "Clear admonition warning about resource management for max_parallel",
+    "Comprehensive on_failure syntax documentation with nesting examples",
+    "Well-explained error_policy block with defaults documented",
+    "Thorough deduplication explanation with distinct field",
+    "Complete resume workflow documentation including session-job mapping",
+    "Helpful DLQ debugging section with CLI examples",
+    "Source references linking to specs and actual files"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference to dedicated timeout configuration page (docs/advanced/timeout-configuration.md)",
+    "Consider adding a tip admonition about using env var references for max_parallel (e.g., ${MAX_AGENTS})",
+    "Add example showing timeout_config with per-command timeouts for more complex workflows",
+    "Consider adding visual diagram showing MapReduce phase flow (setup -> map -> reduce)"
+  ],
+  "cross_references": [
+    "docs/mapreduce/overview.md",
+    "docs/mapreduce/checkpoint-and-resume.md",
+    "docs/mapreduce/dead-letter-queue-dlq.md",
+    "docs/advanced/timeout-configuration.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "MapReduce workflows",
+      "Error handling",
+      "Timeout configuration",
+      "Deduplication",
+      "Resume and checkpointing",
+      "Dead Letter Queue",
+      "Configuration file generation"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
