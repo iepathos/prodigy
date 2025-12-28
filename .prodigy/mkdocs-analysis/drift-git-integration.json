@@ -1,0 +1,84 @@
+{
+  "item_type": "page",
+  "page_id": "git-integration",
+  "page_title": "git integration",
+  "page_file": "docs/advanced/git-integration.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Comprehensive and accurate documentation with excellent visual diagrams and practical examples. All major git integration features are well-documented and match the implementation.",
+  "issues": [],
+  "positive_aspects": [
+    "Excellent use of Mermaid diagrams for worktree lifecycle and branch tracking flows",
+    "MkDocs Material admonitions used effectively (tips, warnings, notes)",
+    "Code annotations explain YAML configuration inline (numbered annotations)",
+    "Accurate documentation of commit_required with PRODIGY_NO_COMMIT_VALIDATION bypass",
+    "Correct merge variable documentation (merge.worktree, merge.source_branch, merge.target_branch, merge.session_id)",
+    "MapReduce worktree isolation clearly documented with hierarchy diagram",
+    "Orphaned worktree recovery workflow well-explained with CLI commands",
+    "Real-world examples for feature branch workflows and CI validation",
+    "Source code references point to correct files and line numbers",
+    "No broken internal links detected"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference links to related pages (mapreduce/checkpoint-and-resume.md, advanced/storage.md)",
+    "Consider adding troubleshooting section for common git merge conflict scenarios",
+    "Could mention the WorktreeStatus enum values (InProgress, Completed, Merged, CleanedUp, Failed, Abandoned, Interrupted) for advanced users",
+    "Consider adding example output showing what the worktree ls command returns"
+  ],
+  "verified_against_source": {
+    "worktree_state": {
+      "file": "src/worktree/state.rs",
+      "verified": true,
+      "notes": "WorktreeState struct correctly documents original_branch tracking, WorktreeStatus enum matches states shown in mermaid diagram"
+    },
+    "commit_required": {
+      "file": "src/cook/workflow/executor.rs:869-876",
+      "verified": true,
+      "notes": "head_before capture and commit verification logic matches documentation"
+    },
+    "PRODIGY_NO_COMMIT_VALIDATION": {
+      "file": "src/cook/workflow/executor/pure.rs:46",
+      "verified": true,
+      "notes": "Environment variable correctly documented as skip_validation flag"
+    },
+    "merge_variables": {
+      "file": "src/worktree/merge_orchestrator.rs",
+      "verified": true,
+      "notes": "merge.source_branch and merge.target_branch used in execute_merge_workflow"
+    },
+    "orphaned_worktrees": {
+      "file": "src/cli/commands/worktree/orphaned_cleanup.rs",
+      "verified": true,
+      "notes": "Registry path ~/.prodigy/orphaned_worktrees/{repo_name}/ matches documentation"
+    },
+    "commit_validation_error": {
+      "file": "src/cook/workflow/executor/commands.rs:335",
+      "verified": true,
+      "notes": "Error message 'No changes were committed by [command]' matches documentation"
+    }
+  },
+  "link_validation": {
+    "internal_links_found": 0,
+    "broken_links": [],
+    "all_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:14:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "worktree management",
+      "commit tracking",
+      "branch tracking",
+      "merge workflows",
+      "mapreduce worktree isolation",
+      "orphaned worktree recovery"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "mkdocs_material_features_used": [
+      "admonitions (tip, warning, note)",
+      "mermaid diagrams (stateDiagram-v2, flowchart, graph)",
+      "code annotations (numbered comments)",
+      "code blocks with source references"
+    ]
+  }
+}
