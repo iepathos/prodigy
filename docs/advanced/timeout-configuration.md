@@ -6,7 +6,7 @@ Set execution timeouts to prevent workflows from hanging indefinitely. Prodigy s
 
 Command-level timeouts apply to individual commands in standard workflows. These accept numeric values only (in seconds).
 
-**Source**: `src/config/command.rs:384` - `pub timeout: Option<u64>`
+**Source**: `src/config/command.rs:138` (CommandMetadata) and `src/config/command.rs:380` (WorkflowStepCommand) - `pub timeout: Option<u64>`
 
 ```yaml
 commands:
@@ -24,14 +24,14 @@ commands:
 
 **Real-world examples from workflows:**
 
-From `workflows/complex-build-pipeline.yml:12`:
+From `workflows/complex-build-pipeline.yml:22-24`:
 ```yaml
 - shell: "cargo bench"
   timeout: 600  # 10 minutes
   capture_output: "benchmark_results"
 ```
 
-From `workflows/documentation-drift.yml:15`:
+From `workflows/documentation-drift.yml:47-51`:
 ```yaml
 - shell: "cargo test --doc"
   timeout: 300  # 5 minutes
@@ -49,7 +49,7 @@ MapReduce workflows support more sophisticated timeout configuration with enviro
 
 Control how long the setup phase can run before timing out.
 
-**Source**: `src/config/mapreduce.rs:148` - Uses `deserialize_optional_u64_or_string`
+**Source**: `src/config/mapreduce.rs:146-148` - Uses `deserialize_optional_u64_or_string`
 
 ```yaml
 mode: mapreduce
@@ -116,7 +116,7 @@ map:
     - shell: "test ${item.path}"     # Uses 60s from command_timeouts
 ```
 
-**Real example from tests** (`tests/timeout_integration_test.rs:215-233`):
+**Comprehensive example:**
 ```yaml
 agent_timeout_secs: 600
 timeout_config:
