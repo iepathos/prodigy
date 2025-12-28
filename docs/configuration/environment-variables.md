@@ -7,6 +7,21 @@ Prodigy supports two types of environment variables:
 
 This page documents both types. For details on how environment variables interact with other configuration sources, see [Configuration Precedence Rules](configuration-precedence-rules.md).
 
+??? abstract "Quick Reference: System Environment Variables"
+    | Variable | Purpose | Default |
+    |----------|---------|---------|
+    | `PRODIGY_CLAUDE_API_KEY` | Claude API key | None |
+    | `PRODIGY_LOG_LEVEL` | Logging verbosity | `info` |
+    | `PRODIGY_HOME` | Base storage directory | `~/.prodigy` |
+    | `PRODIGY_AUTO_COMMIT` | Auto-commit behavior | `true` |
+    | `PRODIGY_EDITOR` | Default editor | None |
+    | `PRODIGY_AUTO_CLEANUP` | Auto worktree cleanup | `false` |
+    | `PRODIGY_RETENTION_DAYS` | Worktree retention | `7` |
+    | `PRODIGY_AUTO_MERGE` | Auto-merge agents | Not set |
+    | `PRODIGY_AUTO_CONFIRM` | Skip confirmations | Not set |
+    | `PRODIGY_AUTOMATION` | Automated mode flag | Not set |
+    | `PRODIGY_VALIDATION` | Validation mode flag | Not set |
+
 ---
 
 ## Workflow Environment Variables
@@ -99,20 +114,30 @@ env:
       secret: true
       value: "${PROD_API_KEY}"
 
+# Activate the profile in the workflow
+active_profile: staging
+
 commands:
   - shell: "curl -H 'Authorization: Bearer ${API_KEY}' ${API_URL}/health"
 ```
 
 **Activate a profile**:
 
-```bash
-# Use staging profile
-prodigy run workflow.yml --profile staging
+Set the `active_profile` field in your workflow YAML:
 
-# Use prod profile via environment variable
-export PRODIGY_PROFILE=prod
-prodigy run workflow.yml
+```yaml
+# workflow.yml
+name: my-workflow
+active_profile: prod  # Use prod profile values
+
+env:
+  API_URL:
+    default: "http://localhost:3000"
+    prod: "https://api.com"
 ```
+
+!!! note "Profile Activation"
+    Profiles are currently activated via the `active_profile` field in the workflow YAML configuration. CLI flag (`--profile`) and environment variable (`PRODIGY_PROFILE`) support is planned for a future release.
 
 ### Step-Level Environment Overrides
 
@@ -148,7 +173,6 @@ name: parallel-processing
 mode: mapreduce
 
 env:
-  MAX_PARALLEL: "10"
   TIMEOUT: "300"
   OUTPUT_DIR: "/tmp/results"
 
@@ -159,7 +183,7 @@ setup:
 map:
   input: "items.json"
   json_path: "$[*]"
-  max_parallel: ${MAX_PARALLEL}  # Use env var for parallelism
+  max_parallel: 10  # Use integer values directly for config fields
 
   agent_template:
     - claude: "/process ${item.file} --timeout $TIMEOUT"
@@ -169,20 +193,25 @@ reduce:
   - shell: "echo Processed ${map.total} items to $OUTPUT_DIR"
 ```
 
-**Advanced MapReduce Usage**:
-- Use env vars for `max_parallel`, `timeout`, `agent_timeout_secs`
-- Reference in `filter` and `sort_by` expressions
-- Pass to validation and gap-filling commands
+!!! warning "Variable Interpolation Scope"
+    Environment variable interpolation (`${VAR}` or `$VAR`) works in **command strings** (shell, claude commands) but not in **YAML configuration fields** like `max_parallel`, `timeout`, or `agent_timeout_secs`. Use integer values directly for these fields.
+
+**Environment Variables in Commands**:
+- Available in shell command strings
+- Available in claude command arguments
+- Reference with `$VAR` or `${VAR}` syntax
 
 ### Environment Files (`.env`)
 
-Load variables from dotenv-format files (not yet implemented in Prodigy, but planned):
+Load variables from dotenv-format files. Variables from `.env` files are loaded in order, with later files overriding earlier ones:
 
 ```yaml
+# Source: src/cook/environment/config.rs:21-23
 env:
   env_files:
-    - ".env"
-    - ".env.${PRODIGY_PROFILE}"
+    - ".env"           # Base environment
+    - ".env.local"     # Local overrides (gitignored)
+    - ".env.${active_profile}"  # Profile-specific
 
 # .env file format:
 # PROJECT_NAME=prodigy
@@ -190,7 +219,11 @@ env:
 # API_KEY=sk-abc123
 ```
 
-**Note**: This feature is planned but not yet available. Use system environment variables as a workaround.
+!!! tip "Env File Loading"
+    - Files are loaded in order; later files override earlier ones
+    - Missing files are silently skipped (no error)
+    - Standard dotenv format: `KEY=value`, comments with `#`
+    - Quoted values (single or double) are unquoted automatically
 
 ### Complete Workflow Example
 
@@ -226,19 +259,86 @@ commands:
 Run with:
 
 ```bash
-# Development deployment
+# Development deployment (uses default profile)
 prodigy run deploy.yml
 
-# Production deployment
+# Production deployment (set active_profile in workflow YAML)
 export PROD_TOKEN="secret-prod-token"
-prodigy run deploy.yml --profile prod
+prodigy run deploy-prod.yml  # workflow with active_profile: prod
 ```
+
+### Dynamic and Conditional Values
+
+Environment values can be computed dynamically or conditionally:
+
+=== "Dynamic (Command-Based)"
+
+    ```yaml
+    # Source: src/cook/environment/config.rs:62-70
+    env:
+      GIT_COMMIT:
+        command: "git rev-parse --short HEAD"
+        cache: true  # Cache the result for the workflow duration
+
+      CURRENT_TIME:
+        command: "date +%Y%m%d_%H%M%S"
+        cache: false  # Re-evaluate each time
+    ```
+
+=== "Conditional (Expression-Based)"
+
+    ```yaml
+    # Source: src/cook/environment/config.rs:72-81
+    env:
+      LOG_LEVEL:
+        condition: "${CI:-false}"
+        when_true: "warn"
+        when_false: "debug"
+
+      DEPLOY_HOST:
+        condition: "${PRODUCTION:-false}"
+        when_true: "prod.example.com"
+        when_false: "dev.example.com"
+    ```
 
 ---
 
 ## System Environment Variables
 
 System environment variables control Prodigy's global behavior and configuration.
+
+### Environment Variable Naming
+
+Prodigy supports two patterns for environment variable naming:
+
+=== "Legacy Single Underscore"
+
+    Explicit mappings for common settings:
+
+    | Environment Variable | Config Field |
+    |---------------------|--------------|
+    | `PRODIGY_CLAUDE_API_KEY` | `claude_api_key` |
+    | `PRODIGY_LOG_LEVEL` | `log_level` |
+    | `PRODIGY_AUTO_COMMIT` | `auto_commit` |
+    | `PRODIGY_EDITOR` | `default_editor` |
+    | `PRODIGY_MAX_CONCURRENT` | `max_concurrent_specs` |
+
+=== "Double Underscore Path Mapping"
+
+    Use `PRODIGY__` prefix with double underscores for nested config fields:
+
+    ```bash
+    # Source: src/config/builder.rs:90-92
+    # Pattern: PRODIGY__SECTION__FIELD -> section.field
+
+    export PRODIGY__PROJECT__NAME="my-project"      # -> project.name
+    export PRODIGY__STORAGE__BACKEND="file"         # -> storage.backend
+    export PRODIGY__STORAGE__COMPRESSION_LEVEL="5"  # -> storage.compression_level
+    ```
+
+!!! tip "Choosing a Pattern"
+    - Use **single underscore** (`PRODIGY_LOG_LEVEL`) for well-known settings
+    - Use **double underscore** (`PRODIGY__STORAGE__BACKEND`) for nested or custom config fields
 
 ### Claude API Configuration
 
@@ -342,6 +442,65 @@ export PRODIGY_STORAGE_BASE_PATH=/custom/storage/path
 - `PRODIGY_STORAGE_DIR`
 - `PRODIGY_STORAGE_PATH`
 
+#### `PRODIGY_HOME`
+
+**Purpose**: Override base directory for all Prodigy storage
+**Default**: `~/.prodigy`
+**Overrides**: All storage paths
+
+```bash
+# Source: src/storage/mod.rs:63-78
+export PRODIGY_HOME=/custom/prodigy/home
+```
+
+This is the primary way to redirect all Prodigy storage (sessions, worktrees, DLQ, events) to a custom location. Useful for testing or running multiple isolated Prodigy instances.
+
+### Worktree Management
+
+#### `PRODIGY_AUTO_CLEANUP`
+
+**Purpose**: Enable automatic worktree cleanup after workflow completion
+**Default**: `false`
+**Valid values**: `true`, `false`
+
+```bash
+# Source: src/worktree/manager_queries.rs:278-280
+export PRODIGY_AUTO_CLEANUP=true
+```
+
+#### `PRODIGY_CONFIRM_CLEANUP`
+
+**Purpose**: Require confirmation before cleaning up worktrees
+**Default**: `true`
+**Valid values**: `true`, `false`
+
+```bash
+# Source: src/worktree/manager_queries.rs:281-283
+export PRODIGY_CONFIRM_CLEANUP=false  # Skip confirmation prompts
+```
+
+#### `PRODIGY_RETENTION_DAYS`
+
+**Purpose**: Number of days to retain completed worktrees before cleanup
+**Default**: `7`
+**Valid values**: Any positive integer
+
+```bash
+# Source: src/worktree/manager_queries.rs:284-287
+export PRODIGY_RETENTION_DAYS=14
+```
+
+#### `PRODIGY_DRY_RUN`
+
+**Purpose**: Preview worktree operations without executing them
+**Default**: `false`
+**Valid values**: `true`, `false`
+
+```bash
+# Source: src/worktree/manager_queries.rs:288-290
+export PRODIGY_DRY_RUN=true  # Show what would be done without doing it
+```
+
 ### Workflow Execution
 
 #### `PRODIGY_AUTOMATION`
@@ -367,6 +526,58 @@ export PRODIGY_CLAUDE_CONSOLE_OUTPUT=true
 ```
 
 When set to `true`, forces JSON streaming output even when verbosity is 0. Useful for debugging specific runs without changing command flags.
+
+#### `PRODIGY_VALIDATION`
+
+**Purpose**: Signal validation execution mode
+**Default**: Not set
+**Set by**: Prodigy during validation workflows
+
+```bash
+# Source: src/cook/workflow/executor/validation.rs:752
+export PRODIGY_VALIDATION=true
+```
+
+This variable is **set automatically** by Prodigy when running validation commands. Used to detect automated validation context.
+
+#### `PRODIGY_AUTO_MERGE`
+
+**Purpose**: Control automatic merge behavior after agent completion
+**Default**: Not set
+**Valid values**: `true`, `false`
+
+```bash
+# Source: src/cook/orchestrator/execution_pipeline.rs:973
+export PRODIGY_AUTO_MERGE=true  # Automatically merge successful agents
+```
+
+#### `PRODIGY_AUTO_CONFIRM`
+
+**Purpose**: Skip confirmation prompts in automated contexts
+**Default**: Not set
+**Valid values**: `true`, `false`
+
+```bash
+# Source: src/cook/orchestrator/execution_pipeline.rs:977
+export PRODIGY_AUTO_CONFIRM=true  # Skip all confirmation prompts
+```
+
+!!! warning "Use with Caution"
+    `PRODIGY_AUTO_CONFIRM=true` bypasses safety prompts. Only use in fully automated CI/CD pipelines where you trust all operations.
+
+#### `PRODIGY_TEST_MODE`
+
+**Purpose**: Internal testing mode flag
+**Default**: Not set
+**Valid values**: `true`, `false`
+
+```bash
+# Source: src/cook/orchestrator/session_ops.rs:114
+export PRODIGY_TEST_MODE=true
+```
+
+!!! note "Internal Use"
+    This variable is primarily for internal testing. It modifies certain behaviors to facilitate automated tests.
 
 ### Complete Example
 
