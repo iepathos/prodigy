@@ -1,5 +1,37 @@
 ## FAQ
 
+Use this quick reference to find solutions to common issues.
+
+```mermaid
+flowchart LR
+    Start[What's the issue?] --> VarIssue{Variable<br/>problems?}
+    Start --> ExecIssue{Execution<br/>problems?}
+    Start --> CleanupIssue{Cleanup<br/>problems?}
+
+    VarIssue -->|"${var} not replaced"| VarInterp["Variable Interpolation"]
+    VarIssue -->|"Env var missing"| EnvVar["Environment Variables"]
+
+    ExecIssue -->|"Resume fails"| Checkpoint["Checkpoint Resume"]
+    ExecIssue -->|"Items not found"| ItemsNotFound["MapReduce Items"]
+    ExecIssue -->|"Command times out"| Timeout["Timeout Errors"]
+    ExecIssue -->|"claude not found"| CmdNotFound["Command Not Found"]
+
+    CleanupIssue -->|"Failed items"| DLQ["DLQ Retry"]
+    CleanupIssue -->|"Orphaned worktrees"| Worktree["Worktree Cleanup"]
+
+    style Start fill:#e1f5ff
+    style VarInterp fill:#fff3e0
+    style EnvVar fill:#fff3e0
+    style Checkpoint fill:#f3e5f5
+    style ItemsNotFound fill:#f3e5f5
+    style Timeout fill:#f3e5f5
+    style CmdNotFound fill:#f3e5f5
+    style DLQ fill:#e8f5e9
+    style Worktree fill:#e8f5e9
+```
+
+---
+
 ### How do I debug variable interpolation issues?
 
 When `${var}` appears literally in output instead of being replaced:
