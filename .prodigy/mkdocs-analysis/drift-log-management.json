@@ -1,0 +1,85 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "log-management",
+  "page_title": "log management",
+  "page_file": "docs/advanced/observability/log-management.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides useful log location and cleanup information, but has several drift issues including incorrect command syntax and missing current log directory",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Cleanup",
+      "description": "The 'prodigy sessions clean --completed' command does not exist. The CLI only supports 'prodigy sessions clean' with '--all' and '--force' flags",
+      "current_content": "prodigy sessions clean --completed",
+      "should_be": "prodigy sessions clean --all",
+      "fix_suggestion": "Update command to use valid CLI flags: 'prodigy sessions clean --all' or 'prodigy sessions clean -f' for force mode",
+      "source_reference": "src/cli/args.rs:SessionCommands::Clean (lines 307-316)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Log Locations",
+      "description": "The Claude logs location shown is outdated. Current implementation uses ~/.claude/projects/ not ~/.local/state/claude/logs/",
+      "current_content": "~/.local/state/claude/logs/",
+      "should_be": "~/.claude/projects/",
+      "fix_suggestion": "Update the Claude logs path in all platform tabs to ~/.claude/projects/ which is the current implementation",
+      "source_reference": "src/cli/commands/logs.rs:get_claude_log_dir() (lines 33-36)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Cleanup",
+      "description": "The find command for cleaning old Claude logs uses the wrong path",
+      "current_content": "find ~/.local/state/claude/logs -name \"*.json\" -mtime +30 -delete",
+      "should_be": "find ~/.claude/projects -name \"*.jsonl\" -mtime +30 -delete",
+      "fix_suggestion": "Update the path and file extension (.jsonl is the primary format) to match actual log location",
+      "source_reference": "src/cli/commands/logs.rs:is_log_file() (lines 147-151)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Log Locations",
+      "description": "Missing information about the 'prodigy logs' command for managing Claude logs",
+      "fix_suggestion": "Add reference to 'prodigy logs' command which provides --latest, --tail, and --summary options for viewing Claude logs",
+      "source_reference": "src/cli/args.rs:Commands::Logs (lines 253-270)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Examples",
+      "description": "Missing the 'prodigy clean logs' command for cleaning Claude logs with duration-based retention",
+      "fix_suggestion": "Add example using 'prodigy clean logs --older-than 30d' which provides integrated log cleanup with dry-run support",
+      "source_reference": "src/cli/args.rs:CleanCommands::Logs (lines 736-747)"
+    }
+  ],
+  "positive_aspects": [
+    "Good use of MkDocs Material tabbed content for cross-platform paths",
+    "Helpful warning admonition about disk space considerations",
+    "Clear examples for debugging workflow failures and monitoring MapReduce",
+    "Good structure covering locations, cleanup, and usage examples"
+  ],
+  "improvement_suggestions": [
+    "Add section on using 'prodigy logs' command for integrated log viewing",
+    "Include 'prodigy clean logs' command as the preferred cleanup method",
+    "Add code annotations to explain jq filters in examples",
+    "Consider adding a troubleshooting section for common log analysis scenarios"
+  ],
+  "cross_references": [
+    "claude-observability",
+    "debugging",
+    "event-tracking"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "log locations",
+      "log cleanup",
+      "debugging workflows",
+      "monitoring MapReduce"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
