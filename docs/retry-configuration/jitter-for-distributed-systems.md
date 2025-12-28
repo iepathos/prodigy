@@ -16,8 +16,12 @@ retry:
 ```
 
 **Configuration options:**
+
 - `jitter`: Boolean flag to enable/disable jitter (default: `false`)
 - `jitter_factor`: Controls the randomness range as a fraction of the base delay (default: `0.3`)
+
+!!! tip "Recommended jitter_factor"
+    A `jitter_factor` of **0.3** (the default) provides a good balance between spreading retries over time and maintaining predictable delay behavior. Start with this value and adjust based on your system's contention patterns.
 
 **Source**: Configuration structure defined in `src/cook/retry_v2.rs:455-457` (default_jitter_factor)
 
@@ -60,7 +64,7 @@ For a 20 second base delay:
 2. `jitter = random(-5s, +5s)`
 3. `final_delay = 20s + jitter` → **Range: 15s to 25s**
 
-**Source**: Test validation in `src/cook/retry_v2.rs:654-658`
+**Source**: Test validation in `src/cook/retry_v2.rs:645-658`
 
 ### Interaction with Max Delay
 
@@ -70,7 +74,8 @@ Jitter is applied **after** backoff calculation and max_delay capping. The execu
 2. Apply `max_delay` cap if configured
 3. Apply jitter to the capped delay
 
-This means jittered delays can still exceed `max_delay` temporarily, but only by the jitter amount. If you need strict delay caps, consider using a lower `jitter_factor`.
+!!! warning "Jittered delays can exceed max_delay"
+    Since jitter is applied **after** the `max_delay` cap, the final delay can temporarily exceed the configured maximum by up to half the jitter range. For example, with `max_delay: 30s` and `jitter_factor: 0.3`, the actual delay could reach ~34.5s. If you need strict delay caps, use a lower `jitter_factor`.
 
 **Source**: Execution order in `src/cook/retry_v2.rs:234-235` (calculate_delay followed by apply_jitter)
 
@@ -121,3 +126,9 @@ retry:
 ```
 Delay sequence (without jitter): 5s, 7s, 9s, 11s, 13s
 Delay sequence (with jitter): ~4s-6s, ~5.6s-8.4s, ~7.2s-10.8s, ~8.8s-13.2s, ~10.4s-15.6s
+
+### See Also
+
+- [Backoff Strategies](backoff-strategies.md) - Complete documentation on exponential, linear, and fixed backoff strategies that jitter applies to
+- [Retry Budget](retry-budget.md) - How retry budgets interact with jittered retries to prevent resource exhaustion
+- [Workflow-Level vs Command-Level Retry](workflow-level-vs-command-level-retry.md) - Where jitter configuration applies in your workflow hierarchy
