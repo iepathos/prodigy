@@ -26,12 +26,13 @@ commands:
 - Network-dependent operations
 - Transient failure recovery
 
-**Retry sequence**:
-- Attempt 1: Immediate
-- Attempt 2: ~2s delay
-- Attempt 3: ~4s delay
-- Attempt 4: ~8s delay
-- Attempt 5: ~16s delay
+**Retry sequence** (delays occur after each failed attempt):
+
+- Attempt 1: Immediate (no prior failure)
+- Attempt 2: ~2s delay after attempt 1 fails
+- Attempt 3: ~4s delay after attempt 2 fails
+- Attempt 4: ~8s delay after attempt 3 fails
+- Attempt 5: ~16s delay after attempt 4 fails
 
 ### Example 2: Exponential Backoff with Jitter (Distributed Systems)
 
@@ -58,6 +59,9 @@ map:
 ```
 
 **Why jitter matters**: Without jitter, all 10 parallel agents would retry at exactly the same time, overwhelming the recovering service.
+
+!!! note "Understanding jitter range"
+    With `jitter_factor: 0.3`, actual delays vary by ±15% of the calculated value. For example, a 2s base delay becomes 1.7s-2.3s (half the jitter factor applied in each direction).
 
 **Source**: Jitter implementation in src/cook/retry_v2.rs:308-317
 
@@ -242,7 +246,7 @@ commands:
 
 **Why Fibonacci**: Grows slower than exponential, giving services more time to recover without aggressive backoff.
 
-**Source**: Fibonacci calculation in src/cook/retry_v2.rs:424-440
+**Source**: Fibonacci calculation in src/cook/retry_v2.rs:425-440
 
 ### Example 10: Linear Backoff for Predictable Delays
 
@@ -262,7 +266,7 @@ commands:
       initial_delay: "1s"
 ```
 
-**Delay sequence**: 1s, 4s, 7s, 10s, 13s (initial + n * increment)
+**Delay sequence**: 1s, 4s, 7s, 10s, 13s (initial + (attempt-1) × increment)
 
 **Source**: BackoffStrategy::Linear in src/cook/retry_v2.rs:77-80
 
@@ -388,7 +392,7 @@ reduce:
 3. Processing continues for other items
 4. After map phase, retry DLQ items with: `prodigy dlq retry <job_id>`
 
-**Source**: Workflow-level retry in src/cook/workflow/error_policy.rs:90-129
+**Source**: WorkflowErrorPolicy in src/cook/workflow/error_policy.rs:132-178
 
 ### Testing Your Retry Configuration
 
