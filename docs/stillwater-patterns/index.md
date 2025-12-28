@@ -16,26 +16,33 @@
 The following diagram shows how Stillwater patterns relate to each other and their primary use cases in Prodigy:
 
 ```mermaid
-flowchart TB
-    subgraph "Error Handling"
-        V["Validation&lt;T, E&gt;<br/><em>Error Accumulation</em>"]
-        C["ContextError&lt;E&gt;<br/><em>Error Context</em>"]
+flowchart LR
+    subgraph Errors["Error Handling"]
+        direction TB
+        V["Validation
+        Error Accumulation"]
+        C["ContextError
+        Error Context"]
     end
 
-    subgraph "Architecture"
-        E["Effect&lt;T, E, Env&gt;<br/><em>Testable I/O</em>"]
-        P["Pure Functions<br/><em>State Transitions</em>"]
+    subgraph Arch["Architecture"]
+        direction TB
+        E["Effect
+        Testable I/O"]
+        P["Pure Functions
+        State Transitions"]
     end
 
-    subgraph "Composition"
-        S["Semigroup<br/><em>Aggregation</em>"]
+    subgraph Comp["Composition"]
+        S["Semigroup
+        Aggregation"]
     end
 
-    V -->|"validates work items"| E
-    C -->|"preserves context in"| V
-    C -->|"preserves context in"| E
-    P -->|"pure logic within"| E
-    S -->|"aggregates results from"| E
+    V -->|validates| E
+    C -->|context in| V
+    C -->|context in| E
+    P -->|pure logic| E
+    S -->|aggregates| E
 
     style V fill:#e1f5fe
     style C fill:#fff3e0
@@ -82,23 +89,33 @@ This guide is organized into the following sections:
 
 All Stillwater patterns are now implemented in Prodigy. Key source locations:
 
-```
+```text
 src/cook/execution/mapreduce/
-├── validation.rs          # Validation<T, E> for work items
-├── effects/               # Effect<T, E, Env> for I/O
+├── validation.rs          # (1)!
+├── effects/               # (2)!
 │   ├── mod.rs
-│   ├── worktree.rs
-│   ├── commands.rs
-│   └── merge.rs
-└── mock_environment.rs    # Test environments
+│   ├── worktree.rs        # (3)!
+│   ├── commands.rs        # (4)!
+│   └── merge.rs           # (5)!
+└── mock_environment.rs    # (6)!
 
 src/cook/error/
-├── mod.rs                 # ContextError<E> re-export
-└── ext.rs                 # ResultExt trait for .context()
+├── mod.rs                 # (7)!
+└── ext.rs                 # (8)!
 
 src/cook/execution/variables/
-└── semigroup.rs           # Semigroup aggregations
+└── semigroup.rs           # (9)!
 ```
+
+1. `Validation<T, E>` - Accumulates all work item errors instead of failing on first
+2. `Effect<T, E, Env>` - Separates I/O from pure logic for testability
+3. Worktree creation/cleanup effects with environment dependency injection
+4. Command execution effects (Claude, shell) with retry and timeout handling
+5. Git merge effects for combining agent results back to parent
+6. Mock environments for testing effects without real I/O
+7. Re-exports `ContextError<E>` from Stillwater for error wrapping
+8. `ResultExt` trait adds `.context()` and `.with_context()` to Result types
+9. `Semigroup` implementations for Count, Sum, Collect, Average, and more
 
 ---
 
