@@ -37,6 +37,31 @@ When using `capture_output: true`, the variable name depends on the command type
 
 Control how output is parsed and structured using `capture_format`:
 
+```mermaid
+flowchart LR
+    Output[Command Output] --> Type{Output Type?}
+
+    Type -->|"Plain text"| String["string (default)"]
+    Type -->|"JSON data"| JSON["json"]
+    Type -->|"Multi-line"| Lines["lines"]
+    Type -->|"Count/Size"| Number["number"]
+    Type -->|"Pass/Fail"| Boolean["boolean"]
+
+    String --> AccessStr["${var}"]
+    JSON --> AccessJSON["${var.field}"]
+    Lines --> AccessLines["${var[0]}"]
+    Number --> AccessNum["${var} + 1"]
+    Boolean --> AccessBool["if ${var}"]
+
+    style String fill:#e8f5e9
+    style JSON fill:#e1f5ff
+    style Lines fill:#fff3e0
+    style Number fill:#f3e5f5
+    style Boolean fill:#fce4ec
+```
+
+**Figure**: Choose capture format based on output type and how you'll access the data.
+
 ```yaml
 # String format (default) - raw output
 - shell: "cat readme.txt"
@@ -154,6 +179,36 @@ Customize which streams and metadata are captured using `capture_streams`:
 
 Captured variables have different scopes depending on the workflow phase:
 
+```mermaid
+graph LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        S1["capture: metadata"] --> S2["capture: config"]
+    end
+
+    subgraph Map["Map Phase (Parallel)"]
+        direction TB
+        A1["Agent 1<br/>capture: result1"]
+        A2["Agent 2<br/>capture: result2"]
+        A3["Agent N<br/>capture: resultN"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1["capture: summary"] --> R2["capture: report"]
+    end
+
+    Setup -->|"metadata, config<br/>available"| Map
+    Setup -->|"metadata, config<br/>available"| Reduce
+    Map -->|"map.results<br/>aggregated"| Reduce
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+```
+
+**Figure**: Variable scoping - setup variables flow to all phases; map variables stay agent-local.
+
 | Phase | Scope | Available To |
 |-------|-------|--------------|
 | Setup | Workflow-wide | All map agents and reduce steps |
@@ -204,6 +259,9 @@ When using `capture_format: "json"`, access nested fields with dot notation:
     ```
 
 ### Complete Examples
+
+!!! example "Practical Patterns"
+    The following examples demonstrate common variable capture patterns across different workflow phases.
 
 #### Example 1: Setup Phase Variables
 
