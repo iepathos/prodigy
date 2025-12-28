@@ -14,6 +14,25 @@ All backoff strategies use `initial_delay` as the base delay and respect the `ma
 | **Fibonacci** | Natural sequence | Balanced backoff |
 | **Custom** | User-defined | Specific timing requirements |
 
+```mermaid
+---
+config:
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#4CAF50, #2196F3, #FF9800, #9C27B0"
+---
+xychart-beta
+    title "Backoff Strategy Delay Growth (initial_delay=1s)"
+    x-axis "Attempt" [1, 2, 3, 4, 5, 6]
+    y-axis "Delay (seconds)" 0 --> 35
+    line "Fixed" [1, 1, 1, 1, 1, 1]
+    line "Linear (+2s)" [1, 3, 5, 7, 9, 11]
+    line "Exponential (2x)" [1, 2, 4, 8, 16, 32]
+    line "Fibonacci" [1, 1, 2, 3, 5, 8]
+```
+
+**Figure**: Delay growth comparison across backoff strategies (before `max_delay` capping).
+
 !!! info "max_delay Capping"
     All calculated delays are capped at `max_delay` (default: 30s). For example, with exponential backoff (base=2, initial=1s), attempt 7 would calculate 64s but be capped to `max_delay`. This prevents unbounded delays while still allowing aggressive backoff.
 
@@ -82,6 +101,9 @@ map:
 - API rate limiting scenarios with linear cooldown
 
 ### Exponential Backoff
+
+!!! tip "Recommended Default"
+    Exponential backoff is Prodigy's default strategy. For most retry scenarios—especially network requests and API calls—you don't need to specify a backoff strategy at all.
 
 Exponential backoff multiplies the delay by a base factor for each retry, causing delays to grow rapidly. This is the **default strategy** and is recommended for most retry scenarios.
 
@@ -212,9 +234,11 @@ map:
 - Complex retry scenarios with non-standard delay patterns
 - Testing specific timing scenarios
 
-**Edge Cases**:
-- Empty delays array: Falls back to `max_delay` for all attempts
-- Fewer delays than attempts: Uses `max_delay` for remaining attempts
+!!! warning "Edge Cases"
+    - **Empty delays array**: Falls back to `max_delay` for all attempts
+    - **Fewer delays than attempts**: Uses `max_delay` for remaining attempts
+
+    Ensure your delays array has at least as many entries as `attempts - 1` to get predictable behavior.
 
 ## Integration with RetryConfig
 
