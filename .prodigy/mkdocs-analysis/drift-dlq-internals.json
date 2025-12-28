@@ -1,0 +1,79 @@
+{
+  "item_type": "section-page",
+  "section_id": "dlq",
+  "section_title": "Dead Letter Queue",
+  "page_id": "internals",
+  "page_title": "internals",
+  "page_file": "docs/mapreduce/dlq/internals.md",
+  "feature_mappings": [
+    "mapreduce_workflows.core_capabilities.failure_handling",
+    "error_handling.advanced_features.dead_letter_queue",
+    "storage_architecture"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is generally accurate with minor issues: one broken link to moved worktree architecture page, and source code line reference is slightly outdated. Content accurately documents DLQ internals including storage structure, CLI commands, and best practices.",
+  "issues": [
+    {
+      "type": "broken_links",
+      "severity": "medium",
+      "section": "Cross-References",
+      "description": "Found 1 broken internal link",
+      "broken_links": [
+        {
+          "link_text": "Worktree Architecture",
+          "original_target": "../mapreduce-worktree-architecture.md",
+          "expected_resolved_path": "docs/mapreduce/mapreduce-worktree-architecture.md",
+          "file_does_not_exist": true,
+          "suggested_fix": "docs/advanced/storage/worktree-storage.md"
+        }
+      ],
+      "fix_suggestion": "Update link from '../mapreduce-worktree-architecture.md' to '../../advanced/storage/worktree-storage.md'"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Index File Structure",
+      "description": "Source code line reference is slightly outdated",
+      "current_content": "src/cook/execution/dlq.rs:608-637",
+      "should_be": "src/cook/execution/dlq.rs:614-644",
+      "fix_suggestion": "Update line number reference to match current source code",
+      "source_reference": "src/cook/execution/dlq.rs:update_index"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material admonitions (tip and warning boxes)",
+    "Clear categorization of when to retry vs manual fix",
+    "Accurate documentation of index.json structure",
+    "Practical CLI examples for direct file access debugging",
+    "Good best practices for DLQ management (monitoring, analyzing patterns, cleanup)",
+    "Performance considerations are well documented",
+    "Cross-references to related documentation pages are comprehensive"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a diagram showing the DLQ storage path hierarchy",
+    "Add example JSON output from 'prodigy dlq analyze' command",
+    "Consider documenting the nested path structure (dlq_dir/mapreduce/dlq/job_id) which may confuse users"
+  ],
+  "cross_references": [
+    "checkpoint-and-resume",
+    "event-tracking",
+    "error-handling",
+    "worktree-storage",
+    "retry-metrics-and-observability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "DLQ best practices",
+      "retry vs manual fix guidance",
+      "DLQ management workflow",
+      "performance considerations",
+      "storage internals",
+      "index file structure",
+      "direct file access"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
