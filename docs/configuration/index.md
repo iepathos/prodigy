@@ -15,8 +15,10 @@ Prodigy uses two distinct types of configuration files:
 Create `.prodigy/config.yml`:
 
 ```yaml
-name: my-project  # Required: Project identifier
+name: my-project  # (1)!
 ```
+
+1. **Required**: Project identifier used for session tracking and storage paths.
 
 The `name` field is the only required field. All other settings have sensible defaults.
 
@@ -27,10 +29,14 @@ The `name` field is the only required field. All other settings have sensible de
 Create `.prodigy/workflow.yml` or any `.yml` file:
 
 ```yaml
-commands:  # List of commands to execute in sequence
-  - prodigy-code-review  # Slash prefix is optional in workflow files
-  - /prodigy-lint        # Both styles work the same
+commands:  # (1)!
+  - prodigy-code-review  # (2)!
+  - /prodigy-lint        # (3)!
 ```
+
+1. **Required**: List of commands to execute in sequence.
+2. Slash prefix is optional in workflow files.
+3. Both styles work the same - `/prodigy-lint` and `prodigy-lint` are equivalent.
 
 Workflows define a sequence of commands to execute. Each command is a Prodigy slash command - the `/` prefix is optional in workflow files.
 
@@ -42,6 +48,24 @@ Workflows define a sequence of commands to execute. Each command is a Prodigy sl
 ## Configuration File Locations
 
 Prodigy uses a search hierarchy to find configuration files. Configuration can come from multiple sources with the following precedence (highest to lowest):
+
+```mermaid
+graph LR
+    CLI["CLI Flags"] --> Env["Environment Variables"]
+    Env --> Project["Project Config
+    .prodigy/config.yml"]
+    Project --> Global["Global Config
+    ~/.prodigy/config.yml"]
+    Global --> Defaults["Built-in Defaults"]
+
+    style CLI fill:#e8f5e9,stroke:#4caf50
+    style Env fill:#e1f5ff,stroke:#03a9f4
+    style Project fill:#fff3e0,stroke:#ff9800
+    style Global fill:#f3e5f5,stroke:#9c27b0
+    style Defaults fill:#f5f5f5,stroke:#9e9e9e
+```
+
+**Figure**: Configuration precedence - left overrides right.
 
 1. **CLI Flags** - Command-line arguments override all other settings
 2. **Environment Variables** - Environment variables (e.g., `PRODIGY_CLAUDE_API_KEY`)
@@ -84,12 +108,27 @@ Both files can exist in the `.prodigy/` directory and serve different purposes.
 
 Prodigy uses a three-tier configuration structure internally:
 
+```mermaid
+graph TD
+    Root["Config (Root)"] --> Global["GlobalConfig
+    User-wide settings"]
+    Root --> Project["ProjectConfig
+    Project-specific settings"]
+    Root --> Workflow["WorkflowConfig
+    Workflow definitions"]
+
+    Global --> GlobalFile["~/.prodigy/config.yml"]
+    Project --> ProjectFile[".prodigy/config.yml"]
+    Workflow --> WorkflowFile[".prodigy/workflow.yml
+    or explicit path"]
+
+    style Root fill:#e8f5e9,stroke:#4caf50
+    style Global fill:#f3e5f5,stroke:#9c27b0
+    style Project fill:#fff3e0,stroke:#ff9800
+    style Workflow fill:#e1f5ff,stroke:#03a9f4
 ```
-Config (Root)
-├── GlobalConfig      - User-wide settings (~/.prodigy/config.yml)
-├── ProjectConfig     - Project-specific settings (.prodigy/config.yml)
-└── WorkflowConfig    - Workflow definitions (.prodigy/workflow.yml or explicit path)
-```
+
+**Figure**: Three-tier configuration hierarchy with file locations.
 
 **Source**: Config struct hierarchy in src/config/mod.rs:51-56
 
