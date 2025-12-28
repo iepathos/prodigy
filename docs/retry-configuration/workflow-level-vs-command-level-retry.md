@@ -313,6 +313,26 @@ map:
 
 #### Scope of Retry
 
+```mermaid
+graph LR
+    subgraph CMD["Command-Level Scope"]
+        direction LR
+        C1[Command] -->|Retry 1| C2[Command]
+        C2 -->|Retry 2| C3[Command]
+        C3 -->|Retry 3| C4[Command]
+    end
+
+    subgraph WF["Workflow-Level Scope"]
+        direction LR
+        W1["Work Item
+        step1 → step2 → step3"] -->|"Fail → DLQ"| W2["Work Item
+        step1 → step2 → step3"]
+    end
+
+    style CMD fill:#e8f5e9
+    style WF fill:#fff3e0
+```
+
 **Command-Level**: Single command execution
 ```yaml
 commands:
@@ -359,6 +379,39 @@ map:
 | Error collection | ❌ No | ✅ Yes (Aggregate/Immediate/Batched) |
 
 ### Decision Tree
+
+```mermaid
+flowchart TD
+    Start[Need Retry Logic?] --> Q1{MapReduce<br/>Workflow?}
+
+    Q1 -->|No| CMD[Use Command-Level<br/>retry_config]
+    Q1 -->|Yes| Q2{Need DLQ or<br/>Failure Thresholds?}
+
+    Q2 -->|Yes| WF[Use Workflow-Level<br/>error_policy]
+    Q2 -->|No| Q3{Transient Errors<br/>Need Fast Retry?}
+
+    Q3 -->|Yes| BOTH[Use Both Systems]
+    Q3 -->|No| WF
+
+    CMD --> CMD_USE["• Fine-grained error matching
+    • Jitter for thundering herd
+    • Retry budget time caps
+    • Fallback commands"]
+
+    WF --> WF_USE["• DLQ for failed items
+    • Failure rate thresholds
+    • Batch error collection
+    • Manual review before retry"]
+
+    BOTH --> BOTH_USE["• Fast transient recovery
+    • DLQ for persistent failures
+    • Continue processing others"]
+
+    style Start fill:#e1f5fe
+    style CMD fill:#c8e6c9
+    style WF fill:#fff9c4
+    style BOTH fill:#e1bee7
+```
 
 **Use command-level retry** when:
 - You need fine-grained control over which errors to retry
