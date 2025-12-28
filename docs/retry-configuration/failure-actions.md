@@ -55,6 +55,37 @@ The simplest form specifies just the Claude command to run on failure:
 
 ## Configuration Options
 
+Use this decision flowchart to choose the right settings for your use case:
+
+```mermaid
+flowchart LR
+    Start[Command Failed] --> Critical{"Is command
+    critical?"}
+    Critical -->|Yes| FailTrue["fail_workflow: true"]
+    Critical -->|No| FailFalse["fail_workflow: false"]
+
+    FailTrue --> Complexity{"Issue
+    complexity?"}
+    FailFalse --> Complexity
+
+    Complexity -->|Simple| Low["max_attempts: 1-2"]
+    Complexity -->|Medium| Med["max_attempts: 3"]
+    Complexity -->|Complex| High["max_attempts: 5+"]
+
+    Low --> ModifiesCode{"Debug command
+    modifies code?"}
+    Med --> ModifiesCode
+    High --> ModifiesCode
+
+    ModifiesCode -->|Yes| CommitTrue["commit_required: true"]
+    ModifiesCode -->|No| CommitFalse["commit_required: false"]
+
+    style FailTrue fill:#ffebee
+    style FailFalse fill:#e8f5e9
+    style CommitTrue fill:#e1f5ff
+    style CommitFalse fill:#fff3e0
+```
+
 ### Full Configuration
 
 All `on_failure` options:
