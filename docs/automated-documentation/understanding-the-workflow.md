@@ -6,6 +6,39 @@ The automated documentation workflow uses a MapReduce architecture to process do
 
 The documentation workflow consists of four sequential phases, each with a specific responsibility:
 
+```mermaid
+flowchart LR
+    subgraph Setup ["1. Setup Phase"]
+        S1[Scan codebase]
+        S2[Build feature inventory]
+        S3[Generate work items]
+        S1 --> S2 --> S3
+    end
+
+    subgraph Map ["2. Map Phase"]
+        M1[Agent 1]
+        M2[Agent 2]
+        M3[Agent N]
+    end
+
+    subgraph Reduce ["3. Reduce Phase"]
+        R1[Validate changes]
+        R2[Build documentation]
+        R3[Fix errors]
+        R1 --> R2 --> R3
+    end
+
+    subgraph Merge ["4. Merge Phase"]
+        MG1[User confirmation]
+        MG2[Merge to branch]
+        MG1 --> MG2
+    end
+
+    Setup --> Map
+    Map --> Reduce
+    Reduce --> Merge
+```
+
 #### 1. Setup Phase (Feature Analysis)
 
 **Purpose**: Analyze the codebase and prepare work items for parallel processing.
@@ -49,15 +82,18 @@ The documentation workflow consists of four sequential phases, each with a speci
 
 **Source**: `workflows/book-docs-drift.yml:37-59`
 
-**Parallel execution control** (from `src/cook/execution/mapreduce/coordination/executor.rs:617-824`):
+**Parallel execution control** (from `src/cook/execution/mapreduce/coordination/executor.rs:877-920`):
 ```rust
-// Create semaphore to control concurrency
+// Source: src/cook/execution/mapreduce/coordination/executor.rs:900
+// Create semaphore for parallel control
 let semaphore = Arc::new(Semaphore::new(max_parallel));
 
-// Spawn async task per work item
+// Spawn parallel agents for each work item
 let agent_futures: Vec<_> = work_items
     .into_iter()
-    .map(|(item)| {
+    .enumerate()
+    .map(|(index, item)| {
+        let sem = Arc::clone(&semaphore);
         tokio::spawn(async move {
             let _permit = sem.acquire().await?;  // Wait for slot
             execute_agent_for_item(...).await
@@ -79,12 +115,13 @@ let agent_futures: Vec<_> = work_items
 
 **Source**: `workflows/book-docs-drift.yml:62-82`
 
-**Variable context** (from `src/cook/execution/mapreduce/aggregation/mod.rs:1637-1659`):
+**Variable context** (from `src/cook/execution/mapreduce/coordination/executor.rs:1537-1565`):
 ```rust
+// Source: src/cook/execution/mapreduce/coordination/executor.rs:1552-1562
 // Reduce phase has access to map results
-context.set("map.successful", summary.successful);
-context.set("map.failed", summary.failed);
-context.set("map.total", summary.total);
+context.set("map.successful", serde_json::json!(summary.successful));
+context.set("map.failed", serde_json::json!(summary.failed));
+context.set("map.total", serde_json::json!(summary.total));
 context.set("map.results", results_value);  // Full agent results
 ```
 
@@ -153,7 +190,7 @@ Parent Worktree (session-abc123)
 
 The MapReduce coordinator orchestrates parallel execution with precise control over resources and failures.
 
-**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:200-269`
+**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:210-275`
 
 #### Work Item Distribution
 
@@ -212,9 +249,10 @@ pub trait AgentLifecycleManager: Send + Sync {
 
 Agent results are collected and aggregated for the reduce phase:
 
-**Source**: `src/cook/execution/mapreduce/agent/results.rs:44-79`
+**Source**: `src/cook/execution/mapreduce/agent/types.rs:45-79`
 
 ```rust
+// Source: src/cook/execution/mapreduce/agent/types.rs:45-79
 pub struct AgentResult {
     pub item_id: String,
     pub status: AgentStatus,
@@ -225,6 +263,7 @@ pub struct AgentResult {
     pub error: Option<String>,
     pub worktree_path: Option<PathBuf>,
     pub branch_name: Option<String>,
+    pub worktree_session_id: Option<String>,  // Worktree session ID for cleanup tracking
     pub json_log_location: Option<String>,
     pub cleanup_status: Option<CleanupStatus>,
 }
@@ -249,7 +288,7 @@ pub struct AggregationSummary {
 
 **On-Failure Handlers**: Workflows can define custom error recovery commands that execute when agents fail.
 
-**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:1486-1591`
+**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:1567-1650`
 
 ### Quality Guarantees
 
@@ -324,7 +363,7 @@ The workflow uses variable interpolation to pass data between phases:
 - `${map.total}` - Total work items
 - `${map.results}` - Full agent results as JSON
 
-**Source**: `src/cook/execution/mapreduce/aggregation/mod.rs:1637-1659`
+**Source**: `src/cook/execution/mapreduce/coordination/executor.rs:1537-1565`
 
 ### Performance Characteristics
 
