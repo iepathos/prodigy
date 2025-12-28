@@ -234,10 +234,13 @@ Choose your format based on these questions:
 ```mermaid
 flowchart TD
     A[Start] --> B{MapReduce workflow?}
-    B -->|Yes| C[Use mode: mapreduce<br/>with direct array syntax]
-    B -->|No| D{Need env vars<br/>or profiles?}
+    B -->|Yes| C["Use mode: mapreduce
+    with direct array syntax"]
+    B -->|No| D{"Need env vars
+    or profiles?"}
     D -->|Yes| E[Use full configuration format]
-    D -->|No| F{Quick one-off<br/>workflow?}
+    D -->|No| F{"Quick one-off
+    workflow?"}
     F -->|Yes| G[Use simple array format]
     F -->|No| E
 ```
