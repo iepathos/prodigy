@@ -6,6 +6,41 @@
 
 This chapter demonstrates practical Prodigy workflows with real-world examples. Examples progress from simple to advanced, covering standard workflows, MapReduce parallel processing, error handling, and advanced features.
 
+## Learning Path
+
+```mermaid
+graph LR
+    Start([Start Here]) --> Basic["Basic Workflows
+    Examples 1-3"]
+    Basic --> Conditional["Conditional Workflows
+    Examples 4-6"]
+    Conditional --> MapReduce["MapReduce
+    Examples 7-8"]
+    MapReduce --> Advanced["Advanced
+    Examples 9-11"]
+    Advanced --> Composition["Composition
+    Examples 12-13"]
+
+    style Start fill:#e8f5e9,stroke:#4caf50
+    style Basic fill:#e3f2fd,stroke:#2196f3
+    style Conditional fill:#fff3e0,stroke:#ff9800
+    style MapReduce fill:#f3e5f5,stroke:#9c27b0
+    style Advanced fill:#fce4ec,stroke:#e91e63
+    style Composition fill:#e0f2f1,stroke:#009688
+```
+
+**Figure**: Recommended learning progression through examples.
+
+!!! info "Prerequisites"
+    Before running these examples, ensure you have:
+
+    - Prodigy installed (`cargo install prodigy`)
+    - A Git repository to work in
+    - Claude Code available for Claude commands
+
+!!! tip "New to Prodigy?"
+    Start with **Example 1** in [Basic Workflows](basic-workflows.md) for a simple build/test pipeline, then progress through the examples in order. Each builds on concepts from the previous ones.
+
 ## Quick Reference
 
 Find the right example for your use case:
