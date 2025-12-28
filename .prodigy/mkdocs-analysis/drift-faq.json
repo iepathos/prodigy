@@ -1,0 +1,115 @@
+{
+  "item_type": "page",
+  "page_id": "faq",
+  "page_title": "faq",
+  "page_file": "docs/troubleshooting/faq.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has several command syntax discrepancies and an incorrect log path, but structure and explanations are generally good",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "How do I view Claude execution logs?",
+      "description": "Claude JSON log path is incorrect",
+      "current_content": "cat ~/.local/state/claude/logs/session-*.json",
+      "should_be": "Logs are in ~/.claude/projects/ directory (not ~/.local/state/claude/logs/)",
+      "fix_suggestion": "Update path to ~/.claude/projects/ and note that logs are .jsonl files organized by project",
+      "source_reference": "src/cli/commands/logs.rs:35 - get_claude_log_dir() returns ~/.claude/projects"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "How do I retry failed DLQ items?",
+      "description": "DLQ retry command uses incorrect argument names",
+      "current_content": "prodigy dlq retry <job_id> --parallel 10",
+      "should_be": "The CLI uses 'workflow_id' as the positional argument, not 'job_id'. Also --parallel is correct but default is 10 not shown",
+      "fix_suggestion": "Clarify that the positional argument is workflow/job ID. Command structure: prodigy dlq retry <workflow_id> [--parallel N]",
+      "source_reference": "src/cli/args.rs:596-615 - DlqCommands::Retry takes workflow_id"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "How do I retry failed DLQ items?",
+      "description": "DLQ list command uses --job-id but CLI shows different flag name",
+      "current_content": "prodigy dlq list --job-id <job_id>",
+      "should_be": "prodigy dlq list --job-id <job_id> (flag is correct, but should be consistent with retry command terminology)",
+      "fix_suggestion": "Ensure terminology is consistent between list and retry examples",
+      "source_reference": "src/cli/args.rs:536-548 - DlqCommands::List uses --job-id flag"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "How do I retry failed DLQ items?",
+      "description": "Missing information about --max-retries and --force flags for DLQ retry",
+      "current_content": "Only shows basic retry and --parallel flag",
+      "should_be": "Include --max-retries (default 3) and --force options",
+      "fix_suggestion": "Add examples showing --max-retries and --force flags",
+      "source_reference": "src/cli/args.rs:600-614"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Why are my MapReduce items not being found?",
+      "description": "JSONPath test example uses invalid jq syntax",
+      "current_content": "cat items.json | jq '$.items[*]'",
+      "should_be": "jq '.items[]' items.json - jq uses different syntax than JSONPath",
+      "fix_suggestion": "Fix jq command to use correct jq filter syntax: jq '.items[]' items.json",
+      "source_reference": "jq uses its own filter syntax, not JSONPath"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Where are event logs stored?",
+      "description": "Events ls command doesn't show --job-id flag correctly in CLI",
+      "current_content": "prodigy events ls --job-id <job_id>",
+      "should_be": "This is correct but could mention more filtering options like --event-type, --agent-id, --since",
+      "fix_suggestion": "Add note about additional filtering options available",
+      "source_reference": "src/cli/args.rs:414-441"
+    }
+  ],
+  "positive_aspects": [
+    "Good organization with clear question-based headings",
+    "Practical debugging steps provided for each issue",
+    "Cross-references to detailed documentation pages",
+    "Source file references included for some sections",
+    "Covers key troubleshooting scenarios users commonly encounter",
+    "Examples use code blocks for clarity"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions (warning, tip, note) using MkDocs Material syntax for important information",
+    "Add collapsible sections for longer command examples",
+    "Include a 'Common Error Messages' section explaining what specific errors mean",
+    "Add links to related CLI help commands (prodigy <command> --help)",
+    "Consider adding a troubleshooting flowchart using Mermaid diagrams"
+  ],
+  "cross_references": [
+    "mapreduce/checkpoint-and-resume.md",
+    "environment/index.md"
+  ],
+  "internal_links_validated": {
+    "total_links": 2,
+    "broken_links": 0,
+    "valid_links": [
+      "../mapreduce/checkpoint-and-resume.md",
+      "../environment/index.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "variable interpolation debugging",
+      "checkpoint resume troubleshooting",
+      "DLQ retry operations",
+      "MapReduce input issues",
+      "Claude log viewing",
+      "Claude CLI installation",
+      "worktree cleanup",
+      "environment variable resolution",
+      "timeout debugging",
+      "event log locations"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
