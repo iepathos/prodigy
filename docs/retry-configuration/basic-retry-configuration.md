@@ -60,6 +60,9 @@ commands:
 
 ### Default Behavior
 
+!!! tip "Start Simple"
+    Begin with just `attempts: 3` and add additional configuration only as needed. The defaults are designed for common transient failure scenarios like network timeouts and temporary service unavailability.
+
 When `retry_config` is omitted entirely, commands run **without retry**. When `retry_config` is present but fields are omitted, defaults from `RetryConfig::default()` apply:
 
 ```rust
@@ -136,6 +139,9 @@ All YAML retry configuration maps directly to the `RetryConfig` struct fields:
     ```
 
     This uses exponential backoff with 1s initial delay, 30s max delay, no jitter, and retries on all errors.
+
+!!! warning "Jitter for Distributed Systems"
+    When multiple agents may retry the same service simultaneously, enable `jitter: true` to prevent the "thundering herd" problem where all retries hit the service at the same time.
 
 === "Full"
 
