@@ -8,8 +8,9 @@ This document maps specific Prodigy architectural problems to Stillwater solutio
 
 ## 1. Error Accumulation: Work Item Validation
 
-### Current Problem
-**Location**: `src/cook/execution/data_pipeline/mod.rs:428-512`
+!!! warning "Current Problem"
+
+**Location**: `src/cook/execution/data_pipeline/validation.rs`
 
 **Symptom**: Users submit 100 work items, get error about item #1. Fix item #1, resubmit, get error about item #7. Repeat 10+ times.
 
@@ -30,7 +31,7 @@ pub fn validate_and_load_items(path: &Path) -> Result<Vec<WorkItem>> {
 
 **Problem**: Each validation error requires a full workflow restart. With 100 items, could take 100 iterations to find all errors.
 
-### Stillwater Solution: Validation<T, E>
+!!! success "Stillwater Solution: Validation<T, E>"
 
 ```rust
 use stillwater::Validation;
@@ -89,8 +90,9 @@ pub fn validate_and_load_items(path: &Path) -> Result<Vec<ValidWorkItem>> {
 
 ## 2. Testability: Orchestrator Without Mocks
 
-### Current Problem
-**Location**: `src/cook/orchestrator/core.rs:145-2884`
+!!! warning "Current Problem"
+
+**Location**: `src/cook/orchestrator/core.rs` and `src/cook/orchestrator/pure.rs`
 
 **Symptom**: Cannot test orchestrator logic without:
 - Full database setup
@@ -142,7 +144,7 @@ async fn test_workflow_execution() {
 - Cannot test business logic in isolation
 - Hard to test edge cases (git failures, disk full, etc.)
 
-### Stillwater Solution: Effect<T, E, Env> + Pure Core
+!!! success "Stillwater Solution: Effect<T, E, Env> + Pure Core"
 
 ```rust
 use stillwater::Effect;
@@ -296,7 +298,8 @@ async fn test_workflow_handles_git_failure() {
 
 ## 3. Error Context: Debugging MapReduce Failures
 
-### Current Problem
+!!! warning "Current Problem"
+
 **Location**: `src/cook/execution/mapreduce/coordination/executor.rs:400-598`
 
 **Symptom**: MapReduce agent fails with generic error, difficult to understand what operation was being performed.
@@ -322,7 +325,7 @@ pub async fn execute_agent(&self, item: WorkItem) -> Result<AgentResult> {
 - No context about what work item was being processed
 - Difficult to debug DLQ items
 
-### Stillwater Solution: ContextError<E>
+!!! success "Stillwater Solution: ContextError<E>"
 
 ```rust
 use stillwater::ContextError;
@@ -401,8 +404,9 @@ prodigy dlq show job-123
 
 ## 4. State Management: Pure Transitions
 
-### Current Problem
-**Location**: `src/cook/execution/state.rs:1-1856`
+!!! warning "Current Problem"
+
+**Location**: `src/cook/execution/state.rs:1-1782`
 
 **Symptom**: State updates mixed with I/O, difficult to test state transitions without file system.
 
@@ -453,7 +457,7 @@ async fn test_agent_completion() {
 - Unclear what operations are pure vs I/O
 - Difficult to reason about state machine
 
-### Stillwater Solution: Pure State + Effect I/O
+!!! success "Stillwater Solution: Pure State + Effect I/O"
 
 ```rust
 // 1. Immutable state (pure)
@@ -606,8 +610,9 @@ async fn test_save_checkpoint() {
 
 ## 5. Variable Aggregation: Semigroup Composition
 
-### Current Problem
-**Location**: `src/cook/execution/variables.rs:100-500`
+!!! warning "Current Problem"
+
+**Location**: `src/cook/execution/variables/semigroup.rs`
 
 **Symptom**: Duplicated aggregation logic across 15 aggregate types, custom merge implementations.
 
@@ -662,7 +667,7 @@ pub fn merge_aggregate_results(a: AggregateResult, b: AggregateResult) -> Aggreg
 - Manual implementation of merge logic
 - No mathematical guarantees (associativity)
 
-### Stillwater Solution: Semigroup Trait
+!!! success "Stillwater Solution: Semigroup Trait"
 
 ```rust
 use stillwater::Semigroup;
@@ -685,7 +690,11 @@ impl Semigroup for AggregateResult {
                 a.merge(b);  // Merge is also a Semigroup
                 AggregateResult::Merge(a)
             }
-            _ => panic!("Cannot combine incompatible aggregate types"),
+            // Incompatible types - should be validated before combining
+            _ => unreachable!(
+                "Type mismatch in aggregation. Use `aggregate_map_results` or \
+                 `combine_homogeneous` to validate types before combining."
+            ),
         }
     }
 }
@@ -774,20 +783,20 @@ mod tests {
 
 ## Recommended Starting Point
 
-**Quick Win**: Error Context (ContextError<E>)
-- **Why**: Immediate value, low effort, touches many modules
-- **Timeline**: 3-5 days
-- **Files**: 20-30 files (add .context() calls)
-- **Benefit**: Better error messages across entire codebase
+!!! tip "Quick Win: Error Context (ContextError<E>)"
 
-**High Impact**: Work Item Validation (Validation<T, E>)
-- **Why**: Solves major user pain point, clear demonstration of value
-- **Timeline**: 2-3 days
-- **Files**: 3-4 files
-- **Benefit**: 90% reduction in validation iteration cycles
+    - **Why**: Immediate value, low effort, touches many modules
+    - **Effort**: Low (20-30 files, add `.context()` calls)
+    - **Benefit**: Better error messages across entire codebase
 
-**Long Term**: Orchestrator Effects (Effect<T, E, Env>)
-- **Why**: Transforms architecture, enables testability
-- **Timeline**: 2-3 weeks
-- **Files**: 10-15 files
-- **Benefit**: 60% increase in testability, clear separation of concerns
+!!! tip "High Impact: Work Item Validation (Validation<T, E>)"
+
+    - **Why**: Solves major user pain point, clear demonstration of value
+    - **Effort**: Low-Medium (3-4 files)
+    - **Benefit**: 90% reduction in validation iteration cycles
+
+!!! tip "Long Term: Orchestrator Effects (Effect<T, E, Env>)"
+
+    - **Why**: Transforms architecture, enables testability
+    - **Effort**: High (10-15 files, architectural change)
+    - **Benefit**: 60% increase in testability, clear separation of concerns
