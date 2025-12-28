@@ -4,12 +4,71 @@
 
 This document maps specific Prodigy architectural problems to Stillwater solutions.
 
+```mermaid
+graph LR
+    subgraph Problems["Prodigy Problems"]
+        P1["Sequential Validation"]
+        P2["Coupled I/O"]
+        P3["Generic Errors"]
+        P4["Mixed State"]
+        P5["Duplicated Logic"]
+    end
+
+    subgraph Patterns["Stillwater Patterns"]
+        S1["Validation&lt;T, E&gt;"]
+        S2["Effect&lt;T, E, Env&gt;"]
+        S3["ContextError&lt;E&gt;"]
+        S4["Pure Functions"]
+        S5["Semigroup"]
+    end
+
+    subgraph Benefits["Benefits"]
+        B1["All Errors at Once"]
+        B2["Testable Logic"]
+        B3["Full Context Trail"]
+        B4["Immutable Updates"]
+        B5["Composable Ops"]
+    end
+
+    P1 --> S1 --> B1
+    P2 --> S2 --> B2
+    P3 --> S3 --> B3
+    P4 --> S4 --> B4
+    P5 --> S5 --> B5
+
+    style Problems fill:#ffebee
+    style Patterns fill:#e1f5ff
+    style Benefits fill:#e8f5e9
+```
+
 ---
 
 ## 1. Error Accumulation: Work Item Validation
 
-### Current Problem
-**Location**: `src/cook/execution/data_pipeline/mod.rs:428-512`
+```mermaid
+graph LR
+    subgraph FailFast["Fail-Fast (Current)"]
+        direction LR
+        FF1["Item 1"] -->|"Error"| FFStop["STOP"]
+        FF2["Item 2"] -.->|"Not checked"| FFSkip["..."]
+        FF3["Item N"] -.->|"Not checked"| FFSkip
+    end
+
+    subgraph Accumulate["Accumulating (Stillwater)"]
+        direction LR
+        AC1["Item 1"] -->|"Error 1"| ACCollect["Collect All"]
+        AC2["Item 2"] -->|"OK"| ACCollect
+        AC3["Item N"] -->|"Error 2"| ACCollect
+        ACCollect --> ACReport["Report All Errors"]
+    end
+
+    style FFStop fill:#ffebee
+    style ACReport fill:#e8f5e9
+```
+
+!!! warning "Current Problem"
+
+**Location**: `src/cook/execution/data_pipeline/validation.rs`
 
 **Symptom**: Users submit 100 work items, get error about item #1. Fix item #1, resubmit, get error about item #7. Repeat 10+ times.
 
@@ -30,7 +89,7 @@ pub fn validate_and_load_items(path: &Path) -> Result<Vec<WorkItem>> {
 
 **Problem**: Each validation error requires a full workflow restart. With 100 items, could take 100 iterations to find all errors.
 
-### Stillwater Solution: Validation<T, E>
+!!! success "Stillwater Solution: Validation<T, E>"
 
 ```rust
 use stillwater::Validation;
@@ -89,8 +148,34 @@ pub fn validate_and_load_items(path: &Path) -> Result<Vec<ValidWorkItem>> {
 
 ## 2. Testability: Orchestrator Without Mocks
 
-### Current Problem
-**Location**: `src/cook/orchestrator/core.rs:145-2884`
+```mermaid
+graph TD
+    subgraph Shell["Imperative Shell (I/O)"]
+        Entry["run_workflow()"] --> Effect["Effect::run()"]
+        Effect --> SM["SessionManager"]
+        Effect --> Git["GitOperations"]
+        Effect --> Exec["CommandExecutor"]
+    end
+
+    subgraph Core["Pure Core (Testable)"]
+        Classify["classify_workflow()"]
+        Validate["validate_config()"]
+        NextStep["next_step()"]
+        Complete["is_complete()"]
+    end
+
+    Entry -.->|"calls"| Classify
+    Entry -.->|"calls"| Validate
+    Effect -.->|"uses"| NextStep
+    Effect -.->|"uses"| Complete
+
+    style Shell fill:#fff3e0
+    style Core fill:#e8f5e9
+```
+
+!!! warning "Current Problem"
+
+**Location**: `src/cook/orchestrator/core.rs` and `src/cook/orchestrator/pure.rs`
 
 **Symptom**: Cannot test orchestrator logic without:
 - Full database setup
@@ -142,7 +227,7 @@ async fn test_workflow_execution() {
 - Cannot test business logic in isolation
 - Hard to test edge cases (git failures, disk full, etc.)
 
-### Stillwater Solution: Effect<T, E, Env> + Pure Core
+!!! success "Stillwater Solution: Effect<T, E, Env> + Pure Core"
 
 ```rust
 use stillwater::Effect;
@@ -296,7 +381,32 @@ async fn test_workflow_handles_git_failure() {
 
 ## 3. Error Context: Debugging MapReduce Failures
 
-### Current Problem
+```mermaid
+graph LR
+    subgraph Trail["Context Trail (ContextError)"]
+        direction LR
+        Root["File not found"]
+        C1["Executing commands"]
+        C2["Processing item-42"]
+        C3["Map phase job-123"]
+        Root --> C1 --> C2 --> C3
+    end
+
+    subgraph Display["Error Display"]
+        Msg["Error: File not found
+        → Executing commands for item-42
+        → Processing work item item-42
+        → Executing map phase job-123"]
+    end
+
+    Trail --> Display
+
+    style Root fill:#ffebee
+    style Display fill:#e1f5ff
+```
+
+!!! warning "Current Problem"
+
 **Location**: `src/cook/execution/mapreduce/coordination/executor.rs:400-598`
 
 **Symptom**: MapReduce agent fails with generic error, difficult to understand what operation was being performed.
@@ -322,7 +432,7 @@ pub async fn execute_agent(&self, item: WorkItem) -> Result<AgentResult> {
 - No context about what work item was being processed
 - Difficult to debug DLQ items
 
-### Stillwater Solution: ContextError<E>
+!!! success "Stillwater Solution: ContextError<E>"
 
 ```rust
 use stillwater::ContextError;
@@ -401,8 +511,31 @@ prodigy dlq show job-123
 
 ## 4. State Management: Pure Transitions
 
-### Current Problem
-**Location**: `src/cook/execution/state.rs:1-1856`
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Job Created
+    Pending --> Map: Items Loaded
+
+    state Map {
+        [*] --> Active
+        Active --> Active: Agent Completes
+        Active --> [*]: All Done
+    }
+
+    Map --> Reduce: Pure Transition
+    Reduce --> Completed: Results Merged
+
+    note right of Map
+        Pure: apply_agent_result()
+        I/O: save_checkpoint()
+    end note
+
+    Completed --> [*]
+```
+
+!!! warning "Current Problem"
+
+**Location**: `src/cook/execution/state.rs:1-1782`
 
 **Symptom**: State updates mixed with I/O, difficult to test state transitions without file system.
 
@@ -453,7 +586,7 @@ async fn test_agent_completion() {
 - Unclear what operations are pure vs I/O
 - Difficult to reason about state machine
 
-### Stillwater Solution: Pure State + Effect I/O
+!!! success "Stillwater Solution: Pure State + Effect I/O"
 
 ```rust
 // 1. Immutable state (pure)
@@ -606,8 +739,31 @@ async fn test_save_checkpoint() {
 
 ## 5. Variable Aggregation: Semigroup Composition
 
-### Current Problem
-**Location**: `src/cook/execution/variables.rs:100-500`
+```mermaid
+graph LR
+    subgraph Agents["Parallel Agents"]
+        A1["Agent 1: Count(5)"]
+        A2["Agent 2: Count(3)"]
+        A3["Agent 3: Count(2)"]
+    end
+
+    subgraph Combine["Semigroup::combine"]
+        C1["5 + 3 = 8"]
+        C2["8 + 2 = 10"]
+    end
+
+    A1 --> C1
+    A2 --> C1
+    C1 --> C2
+    A3 --> C2
+    C2 --> Result["Count(10)"]
+
+    style Result fill:#e8f5e9
+```
+
+!!! warning "Current Problem"
+
+**Location**: `src/cook/execution/variables/semigroup.rs`
 
 **Symptom**: Duplicated aggregation logic across 15 aggregate types, custom merge implementations.
 
@@ -662,7 +818,7 @@ pub fn merge_aggregate_results(a: AggregateResult, b: AggregateResult) -> Aggreg
 - Manual implementation of merge logic
 - No mathematical guarantees (associativity)
 
-### Stillwater Solution: Semigroup Trait
+!!! success "Stillwater Solution: Semigroup Trait"
 
 ```rust
 use stillwater::Semigroup;
@@ -685,7 +841,11 @@ impl Semigroup for AggregateResult {
                 a.merge(b);  // Merge is also a Semigroup
                 AggregateResult::Merge(a)
             }
-            _ => panic!("Cannot combine incompatible aggregate types"),
+            // Incompatible types - should be validated before combining
+            _ => unreachable!(
+                "Type mismatch in aggregation. Use `aggregate_map_results` or \
+                 `combine_homogeneous` to validate types before combining."
+            ),
         }
     }
 }
@@ -774,20 +934,23 @@ mod tests {
 
 ## Recommended Starting Point
 
-**Quick Win**: Error Context (ContextError<E>)
-- **Why**: Immediate value, low effort, touches many modules
-- **Timeline**: 3-5 days
-- **Files**: 20-30 files (add .context() calls)
-- **Benefit**: Better error messages across entire codebase
+!!! note "Adoption Strategy"
+    Start with low-effort, high-impact patterns to build confidence and demonstrate value before tackling architectural changes.
 
-**High Impact**: Work Item Validation (Validation<T, E>)
-- **Why**: Solves major user pain point, clear demonstration of value
-- **Timeline**: 2-3 days
-- **Files**: 3-4 files
-- **Benefit**: 90% reduction in validation iteration cycles
+!!! tip "Quick Win: Error Context (ContextError<E>)"
 
-**Long Term**: Orchestrator Effects (Effect<T, E, Env>)
-- **Why**: Transforms architecture, enables testability
-- **Timeline**: 2-3 weeks
-- **Files**: 10-15 files
-- **Benefit**: 60% increase in testability, clear separation of concerns
+    - **Why**: Immediate value, low effort, touches many modules
+    - **Effort**: Low (20-30 files, add `.context()` calls)
+    - **Benefit**: Better error messages across entire codebase
+
+!!! tip "High Impact: Work Item Validation (Validation<T, E>)"
+
+    - **Why**: Solves major user pain point, clear demonstration of value
+    - **Effort**: Low-Medium (3-4 files)
+    - **Benefit**: 90% reduction in validation iteration cycles
+
+!!! tip "Long Term: Orchestrator Effects (Effect<T, E, Env>)"
+
+    - **Why**: Transforms architecture, enables testability
+    - **Effort**: High (10-15 files, architectural change)
+    - **Benefit**: 60% increase in testability, clear separation of concerns
