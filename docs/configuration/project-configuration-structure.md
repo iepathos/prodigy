@@ -164,25 +164,32 @@ plugins:
 
 ```yaml
 # .prodigy/config.yml
-name: prodigy
+name: prodigy # (1)!
 description: "Workflow orchestration tool for Claude Code"
 version: "0.1.0"
-spec_dir: specs
+spec_dir: specs # (2)!
 
-auto_commit: true
+auto_commit: true # (3)!
 
-variables:
+variables: # (4)!
   default_branch: master
   test_suite: full
   timeout_seconds: 600
 
 storage:
-  backend: filesystem
-  compression_level: 6
+  backend: filesystem # (5)!
+  compression_level: 6 # (6)!
 
 plugins:
   enabled: false
 ```
+
+1. Project identifier for logs, events, and UI display
+2. Directory containing specification files (relative to project root)
+3. Automatically commit after successful operations
+4. Variables available via `${variable_name}` in workflows
+5. Storage backend: `filesystem` (persistent) or `memory` (testing)
+6. Checkpoint compression level: 0 (none) to 9 (maximum)
 
 ### Secrets Management
 
@@ -225,6 +232,25 @@ For sensitive values like API keys, use one of these approaches:
 ### Relationship to Global Config
 
 Project config **overrides** global config on a per-field basis:
+
+```mermaid
+graph LR
+    Global["Global Config
+    ~/.prodigy/config.yml"] --> Merge["Merged Config"]
+    Project["Project Config
+    .prodigy/config.yml"] --> Merge
+    Merge --> Final["Final Settings"]
+
+    subgraph Precedence["Override Rules"]
+        direction TB
+        P1["Project field specified → Use project value"]
+        P2["Project field missing → Inherit global value"]
+    end
+
+    style Project fill:#e1f5ff
+    style Global fill:#fff3e0
+    style Final fill:#e8f5e9
+```
 
 - Fields specified in project config **replace** global config values
 - Fields NOT specified in project config **inherit** global config values
@@ -287,3 +313,6 @@ Or use the init command:
 ```bash
 prodigy init
 ```
+
+!!! tip "Quick Start"
+    For most projects, start with just `name` and `auto_commit`. Add other fields as needed. The complete field reference above documents all available options.
