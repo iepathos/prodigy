@@ -43,6 +43,9 @@ Find the right example for your use case:
 
 ## Example 2: Foreach Iteration
 
+!!! tip "Foreach vs MapReduce"
+    Use `foreach` for simple iteration within a single process. Use `mapreduce` mode when you need isolated git worktrees and parallel agent execution with full checkpointing.
+
 ```yaml
 # Test multiple configurations in sequence
 - foreach:
@@ -217,6 +220,24 @@ The validation system follows this flow:
 4. **Populate `validation.gaps`** - If score < threshold, extract gaps from result file
 5. **Execute `on_incomplete`** - Pass gaps to Claude for targeted fixes
 
+```mermaid
+flowchart LR
+    Execute[Execute Validation<br/>Commands] --> Parse[Parse Result File]
+    Parse --> Check{Score ≥<br/>Threshold?}
+    Check -->|Yes| Success[Validation<br/>Passed]
+    Check -->|No| Gaps[Extract Gaps]
+    Gaps --> Fix[Execute<br/>on_incomplete]
+    Fix --> Retry{Attempts<br/>Remaining?}
+    Retry -->|Yes| Execute
+    Retry -->|No| Fail[Validation<br/>Failed]
+
+    style Success fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Check fill:#fff3e0
+```
+
+**Figure**: Validation lifecycle showing iterative gap filling until threshold is met or max attempts exhausted.
+
 **Result File Format:**
 
 The validation result file (`validation.json`) should contain:
@@ -306,6 +327,25 @@ env_files:
 ```
 
 **Source**: Environment configuration from src/cook/environment/config.rs:12-36, secret masking from src/cook/environment/config.rs:84-96
+
+```mermaid
+flowchart LR
+    Step["Step env:"] --> Profile["Profile env:"]
+    Profile --> Workflow["Workflow env:"]
+    Workflow --> EnvFiles[".env files"]
+    EnvFiles --> System["System Environment"]
+
+    Step -.->|Highest Priority| Final[Final Value]
+    Profile -.-> Final
+    Workflow -.-> Final
+    EnvFiles -.-> Final
+    System -.->|Lowest Priority| Final
+
+    style Step fill:#e8f5e9
+    style Final fill:#e1f5ff
+```
+
+**Figure**: Environment variable resolution order. Step-level overrides have highest priority, falling back through profiles and workflow definitions to system environment.
 
 **Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example:
 ```bash
@@ -1035,6 +1075,25 @@ merge:
 ```
 
 **Source**: Merge workflow configuration from src/config/mapreduce.rs:84-94, merge variables from worktree merge orchestrator, example from workflows/mapreduce-env-example.yml:83-94, test from tests/merge_workflow_integration.rs:64-121
+
+```mermaid
+flowchart LR
+    Start[MapReduce<br/>Complete] --> Validate[Pre-Merge<br/>Validation]
+    Validate --> Tests{Tests<br/>Pass?}
+    Tests -->|No| Fix[on_failure<br/>Handler]
+    Fix --> Retry{Retry<br/>Available?}
+    Retry -->|Yes| Validate
+    Retry -->|No| Manual[Manual<br/>Recovery]
+    Tests -->|Yes| Merge[Execute<br/>Merge]
+    Merge --> Notify[Post-Merge<br/>Notification]
+    Notify --> Done[Complete]
+
+    style Done fill:#e8f5e9
+    style Manual fill:#ffebee
+    style Merge fill:#e1f5ff
+```
+
+**Figure**: Custom merge workflow execution flow with validation, automatic fix attempts, and recovery paths.
 
 **Merge Workflow Features:**
 
