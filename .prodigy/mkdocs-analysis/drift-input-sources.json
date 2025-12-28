@@ -1,0 +1,78 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "input-sources",
+  "page_title": "input sources",
+  "page_file": "docs/mapreduce/work-distribution/input-sources.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides solid basic coverage of JSON file and command output input sources, but is missing documentation for advanced JSONPath features (recursive descent, filter expressions) and command output parsing behavior",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "JSONPath Extraction",
+      "description": "Missing documentation for recursive descent operator (..) that allows searching nested structures",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Add section documenting recursive descent JSONPath syntax like '$.items..name' to find all 'name' fields at any depth",
+      "source_reference": "src/cook/execution/data_pipeline/json_path.rs:46-51"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "JSONPath Extraction",
+      "description": "Missing documentation for filter expressions in JSONPath that allow conditional item selection",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Add documentation for filter syntax like '$.[?(@.priority > 5)]' with supported operators (==, !=, >, <, >=, <=)",
+      "source_reference": "src/cook/execution/data_pipeline/json_path.rs:62-68"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command Output",
+      "description": "Missing documentation for command output parsing behavior - the code supports JSON array, single JSON value (wrapped in array), and line-based parsing with automatic JSON detection per line",
+      "feature_reference": "mapreduce_workflows.phases.map",
+      "fix_suggestion": "Add section explaining how command output is parsed: 1) Full JSON array returned as-is, 2) Single JSON value wrapped in array, 3) Non-JSON lines become {item: 'line content'}",
+      "source_reference": "src/cook/execution/input_source.rs:94-127"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "JSON Files",
+      "description": "Documentation doesn't mention that any existing file (not just .json extension) can be used as input source",
+      "feature_reference": "mapreduce_workflows.core_capabilities.work_distribution",
+      "fix_suggestion": "Clarify that input detection checks if file exists - .json files are preferred but any readable file is treated as JSON input",
+      "source_reference": "src/cook/execution/input_source.rs:52-56"
+    }
+  ],
+  "positive_aspects": [
+    "Clear distinction between JSON file and command output input sources",
+    "Good practical examples with Source comments indicating real workflow files",
+    "Effective use of MkDocs Material admonitions (tip, note, example)",
+    "Well-structured Common JSONPath Patterns section with practical examples",
+    "Clear explanation of how JSONPath extracts work items with concrete JSON example"
+  ],
+  "improvement_suggestions": [
+    "Add an admonition explaining the automatic input type detection logic",
+    "Include a complete example showing command-based input generation with JSON output",
+    "Add cross-reference to filtering-sorting.md for post-extraction filtering",
+    "Consider adding a troubleshooting tip for debugging JSONPath expressions"
+  ],
+  "cross_references": [
+    "filtering-sorting",
+    "pagination",
+    "examples"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:40:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "JSON file input",
+      "Command output input",
+      "JSONPath extraction",
+      "Work item loading"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
