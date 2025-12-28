@@ -23,7 +23,8 @@ Variables tracking git changes throughout workflow execution:
 
 ### Format Modifiers
 
-**Important:** These format modifiers work with **all git context variables that return file or commit lists**, not just the examples shown. Apply them to any of: `step.files_added`, `step.files_modified`, `step.files_deleted`, `step.files_changed`, `step.commits`, `workflow.commits`, and merge phase git variables.
+!!! info "Applies to all git list variables"
+    These format modifiers work with **all git context variables that return file or commit lists**, including merge phase variables like `merge.commits` and `merge.modified_files`. Note that merge variables return JSON by default.
 
 Git context variables support multiple output formats:
 
@@ -58,7 +59,35 @@ Git context variables support multiple output formats:
 
 Variables available during the merge phase when integrating worktree changes. Merge variables include both basic context and comprehensive git tracking information.
 
-**Source:** src/worktree/merge_orchestrator.rs:340-423
+```mermaid
+flowchart LR
+    subgraph Worktree["Worktree Execution"]
+        W1[Commands run]
+        W2[Commits created]
+        W3[Files modified]
+    end
+
+    subgraph MergePhase["Merge Phase"]
+        M1["merge.commits<br/>(JSON array)"]
+        M2["merge.modified_files<br/>(JSON array)"]
+        M3["merge.commit_count<br/>merge.file_count"]
+    end
+
+    subgraph Usage["Workflow Usage"]
+        U1[Validation]
+        U2[Logging]
+        U3[Conditional logic]
+    end
+
+    W2 --> M1
+    W3 --> M2
+    M1 --> M3
+    M2 --> M3
+    M1 --> U1
+    M2 --> U1
+    M3 --> U2
+    M3 --> U3
+```
 
 ### Basic Merge Context
 
@@ -82,9 +111,35 @@ Additional variables tracking git changes during the merge operation:
 | `${merge.file_count}` | Number of modified files | Integer | `echo "${merge.file_count} files"` |
 | `${merge.file_list}` | File paths | Comma-separated | `echo ${merge.file_list}` |
 
-**Available in:** Merge phase only
+!!! note "Availability"
+    These variables are only available in the merge phase of workflows.
 
-**Limits:** Capped at 100 commits and 500 files to prevent overwhelming workflows (configurable in GitOperationsConfig).
+!!! warning "Limits"
+    Capped at 100 commits and 500 files to prevent overwhelming workflows. These limits are configurable in `GitOperationsConfig`.
+
+### Fallback Behavior
+
+When git information cannot be retrieved (e.g., worktree doesn't exist yet or git operations fail), variables are set to safe defaults:
+
+| Variable | Fallback Value |
+|----------|----------------|
+| `merge.commits` | `[]` (empty JSON array) |
+| `merge.modified_files` | `[]` (empty JSON array) |
+| `merge.commit_count` | `0` |
+| `merge.file_count` | `0` |
+| `merge.file_list` | (empty string) |
+| `merge.commit_ids` | (empty string) |
+
+!!! tip "Handling empty results"
+    Always check counts before processing arrays to handle edge cases gracefully:
+    ```yaml
+    - shell: |
+        if [ ${merge.file_count} -gt 0 ]; then
+          echo '${merge.modified_files}' | jq -r '.[].path'
+        else
+          echo "No files modified"
+        fi
+    ```
 
 ### Merge Context Examples
 
@@ -133,28 +188,57 @@ merge:
 The `${merge.commits}` variable contains an array of commit objects with this structure:
 
 ```json
+// Source: src/cook/execution/mapreduce/resources/git_operations.rs:282-293
 [
   {
     "id": "full-sha-hash",
     "short_id": "abc1234",
     "author": {
       "name": "Author Name",
-      "email": "author@example.com"
+      "email": "author@example.com",
+      "timestamp": "2025-01-10T12:00:00Z"
+    },
+    "committer": {
+      "name": "Committer Name",
+      "email": "committer@example.com",
+      "timestamp": "2025-01-10T12:05:00Z"
     },
     "message": "Commit message",
     "timestamp": "2025-01-10T12:00:00Z",
+    "parent_ids": ["parent-sha-1", "parent-sha-2"],
+    "tree_id": "tree-sha-hash",
+    "stats": {
+      "files_changed": 3,
+      "insertions": 45,
+      "deletions": 12
+    },
     "files_changed": ["file1.rs", "file2.rs"]
   }
 ]
 ```
 
-**Source:** src/cook/execution/mapreduce/resources/git_operations.rs:280-293
+!!! note "Optional fields"
+    The `stats` field is optional and may be `null` if commit statistics are not available.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Full SHA hash of the commit |
+| `short_id` | string | Short (7-character) commit ID |
+| `author` | object | Author information with name, email, and timestamp |
+| `committer` | object | Committer information (may differ from author) |
+| `message` | string | Full commit message |
+| `timestamp` | string | ISO 8601 timestamp |
+| `parent_ids` | array | SHA hashes of parent commits |
+| `tree_id` | string | SHA hash of the tree object |
+| `stats` | object/null | Optional commit statistics |
+| `files_changed` | array | List of file paths changed in this commit |
 
 ### File Object Structure
 
 The `${merge.modified_files}` variable contains an array of file modification objects:
 
 ```json
+// Source: src/cook/execution/mapreduce/resources/git_operations.rs:313-322
 [
   {
     "path": "src/main.rs",
@@ -162,9 +246,46 @@ The `${merge.modified_files}` variable contains an array of file modification ob
     "size_before": 1024,
     "size_after": 1156,
     "last_modified": "2025-01-10T12:00:00Z",
-    "commit_id": "abc1234"
+    "commit_id": "abc1234",
+    "diff_stats": {
+      "lines_added": 15,
+      "lines_removed": 3,
+      "lines_context": 42
+    },
+    "content_diff": null
   }
 ]
 ```
 
-**Source:** src/cook/execution/mapreduce/resources/git_operations.rs:311-322
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | string | File path relative to repository root |
+| `modification_type` | string/object | Type of modification (see below) |
+| `size_before` | number/null | File size before modification (bytes) |
+| `size_after` | number/null | File size after modification (bytes) |
+| `last_modified` | string | ISO 8601 timestamp of last modification |
+| `commit_id` | string/null | Short commit ID where change occurred |
+| `diff_stats` | object/null | Optional line-level diff statistics |
+| `content_diff` | string/null | Optional unified diff content |
+
+#### Modification Types
+
+The `modification_type` field can be one of:
+
+| Type | Value | Description |
+|------|-------|-------------|
+| Added | `"Added"` | New file created |
+| Modified | `"Modified"` | Existing file changed |
+| Deleted | `"Deleted"` | File removed |
+| Renamed | `{"Renamed": {"from": "old/path.rs"}}` | File moved/renamed |
+| Copied | `{"Copied": {"from": "source/path.rs"}}` | File copied from another location |
+
+!!! example "Handling renamed files"
+    ```yaml
+    - shell: |
+        echo '${merge.modified_files}' | jq -r '
+          .[] | select(.modification_type | type == "object") |
+          select(.modification_type.Renamed) |
+          "\(.modification_type.Renamed.from) -> \(.path)"
+        '
+    ```
