@@ -29,6 +29,39 @@ pub async fn execute_agent(&self, item: WorkItem) -> Result<AgentResult> {
 
 Stillwater's `ContextError<E>` wraps an error with a trail of context messages, preserving the full operation stack.
 
+```mermaid
+flowchart LR
+    subgraph Layer1["Layer 1: Root Operation"]
+        E1[Error Occurs]
+    end
+
+    subgraph Layer2["Layer 2: Intermediate"]
+        C2[".context('operation 2')"]
+    end
+
+    subgraph Layer3["Layer 3: Top-Level"]
+        C3[".context('operation 3')"]
+    end
+
+    subgraph Output["Error Output"]
+        Result["Error: root cause
+        Context:
+          → operation 2
+          → operation 3"]
+    end
+
+    E1 --> C2
+    C2 --> C3
+    C3 --> Result
+
+    style E1 fill:#ffebee
+    style C2 fill:#fff3e0
+    style C3 fill:#e1f5ff
+    style Result fill:#e8f5e9
+```
+
+**Figure**: Context accumulates as errors propagate up the call stack, building a complete operation trail.
+
 ### Using the ResultExt Trait
 
 Prodigy provides the `ResultExt` extension trait for ergonomic context addition:
@@ -162,6 +195,11 @@ prodigy dlq show job-123
     [Claude Observability](../reference/observability.md) for log analysis techniques.
 
 ## Chaining Context Across Layers
+
+!!! warning "Preserve Context When Re-throwing"
+    When catching and re-throwing errors, always add context rather than replacing the error.
+    Using `.context()` or `.with_context()` preserves the entire context chain. Creating a new
+    error loses all accumulated context.
 
 Context accumulates as errors propagate up the call stack:
 
