@@ -38,10 +38,10 @@ For advanced debugging or direct file access, understanding the DLQ storage stru
 
 ### Index File Structure
 
-The `index.json` file provides metadata about the DLQ (src/cook/execution/dlq.rs:608-637):
+The `index.json` file provides metadata about the DLQ (src/cook/execution/dlq.rs:615-644):
 
 ```json
-# Source: src/cook/execution/dlq.rs:608-637 (index structure)
+// Source: src/cook/execution/dlq.rs:615-644 (update_index function)
 {
   "job_id": "mapreduce-1234567890",
   "item_count": 3,
@@ -54,17 +54,20 @@ This index is automatically updated when items are added or removed from the DLQ
 
 ### Direct File Access
 
+!!! info "Storage Path Structure"
+    DLQ items are stored at `~/.prodigy/dlq/{repo}/mapreduce/dlq/{job_id}/items/`. The examples below show paths for a job in the "prodigy" repository.
+
 To inspect DLQ items directly:
 
 ```bash
 # List all DLQ items for a job
-ls ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/
+ls ~/.prodigy/dlq/prodigy/mapreduce/dlq/mapreduce-1234567890/items/
 
 # View a specific item
-cat ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/items/item-123.json | jq
+cat ~/.prodigy/dlq/prodigy/mapreduce/dlq/mapreduce-1234567890/items/item-123.json | jq
 
 # Count total items
-jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapreduce-1234567890/index.json
+jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce/dlq/mapreduce-1234567890/index.json
 ```
 
 **Note**: Direct file access is provided for debugging. Always use the Prodigy CLI commands for production operations to ensure data consistency.
@@ -74,5 +77,5 @@ jq '.item_count' ~/.prodigy/dlq/prodigy/mapreduce-1234567890/mapreduce/dlq/mapre
 - [Checkpoint and Resume](../checkpoint-and-resume.md): DLQ state preserved in checkpoints
 - [Event Tracking](../event-tracking.md): DLQ operations emit trackable events
 - [Error Handling](../../workflow-basics/error-handling.md): Broader error handling strategies
-- [Worktree Architecture](../mapreduce-worktree-architecture.md): Agent isolation and artifact preservation
+- [Worktree Storage](../../advanced/storage/worktree-storage.md): Agent isolation and artifact preservation
 - [Retry Metrics and Observability](../../retry-configuration/retry-metrics-and-observability.md): Monitoring retry behavior and failures
