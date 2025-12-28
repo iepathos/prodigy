@@ -4,6 +4,32 @@ This section covers advanced workflow features including nested error handling, 
 
 ## Example 9: Advanced Features
 
+### Nested Error Handling Flow
+
+```mermaid
+flowchart LR
+    Start[Execute Command] --> Success{Success?}
+    Success -->|Yes| OnSuccess[Run on_success Handler]
+    Success -->|No| OnFailure[Run on_failure Handler]
+
+    OnFailure --> Recovery{Recovery Success?}
+    Recovery -->|Yes| NestedSuccess[Run Nested on_success]
+    Recovery -->|No| Fail[Command Failed]
+
+    NestedSuccess --> Retry{max_attempts > 0?}
+    Retry -->|Yes| RetryCmd[Retry Original Command]
+    Retry -->|No| Continue[Continue Workflow]
+
+    RetryCmd --> Start
+    OnSuccess --> Continue
+
+    style Success fill:#e8f5e9
+    style OnFailure fill:#fff3e0
+    style Fail fill:#ffebee
+```
+
+**Figure**: Nested error handling showing how `on_failure` and `on_success` handlers chain together with retry logic.
+
 ```yaml
 # Nested error handling with retry configuration
 - shell: "cargo build --release"
@@ -77,6 +103,36 @@ This section covers advanced workflow features including nested error handling, 
 
 Prodigy automatically tracks file changes during workflow execution and exposes them as variables:
 
+```mermaid
+graph LR
+    subgraph Step["Step Scope"]
+        direction LR
+        SA[files_added] --> SM[files_modified]
+        SM --> SD[files_deleted]
+        SD --> SC[commits]
+    end
+
+    subgraph Workflow["Workflow Scope"]
+        direction LR
+        WC[commit_count] --> WM[files_modified]
+    end
+
+    subgraph Git["Git Scope"]
+        direction LR
+        GS[staged_files] --> GU[unstaged_files]
+        GU --> GM[modified_files]
+    end
+
+    Step -->|Aggregates to| Workflow
+    Git -->|Live state| Step
+
+    style Step fill:#e1f5ff
+    style Workflow fill:#f3e5f5
+    style Git fill:#fff3e0
+```
+
+**Figure**: Git context variable scopes showing how step-level changes aggregate to workflow-level and how git state feeds into tracking.
+
 ```yaml
 # Access files changed in current step
 - shell: "echo 'Modified files: ${step.files_modified}'"
@@ -133,6 +189,9 @@ Prodigy automatically tracks file changes during workflow execution and exposes 
 **Source**: Git context tracking from src/cook/workflow/git_context.rs:1-120, variable resolution from src/cook/workflow/git_context.rs:36-42
 
 ### Troubleshooting MapReduce Cleanup
+
+!!! warning "Cleanup Failures Don't Affect Results"
+    Agent execution status is independent of cleanup status. If an agent completes successfully but cleanup fails, the agent is still marked as successful and all results are preserved. Don't retry agents just because cleanup failed.
 
 If agent worktree cleanup fails (due to disk full, permission errors, etc.), use the orphaned worktree cleanup command:
 ```bash
@@ -246,6 +305,31 @@ stateDiagram-v2
 ---
 
 ## Example 11: Retry Configuration with Backoff Strategies
+
+### Retry Flow with Backoff
+
+```mermaid
+flowchart LR
+    Execute[Execute Command] --> Check{Success?}
+    Check -->|Yes| Done[Complete]
+    Check -->|No| Attempts{Attempts Left?}
+
+    Attempts -->|No| Action{on_failure}
+    Action -->|continue| Next[Next Command]
+    Action -->|fail| Fail[Workflow Failed]
+    Action -->|dlq| DLQ[Send to DLQ]
+
+    Attempts -->|Yes| Backoff[Calculate Backoff]
+    Backoff --> Wait["Wait
+    (with jitter)"]
+    Wait --> Execute
+
+    style Done fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Backoff fill:#e1f5ff
+```
+
+**Figure**: Retry flow showing backoff calculation, jitter, and exhaustion handling.
 
 ```yaml
 name: resilient-deployment
@@ -367,6 +451,15 @@ error_policy:
 | **Fibonacci** | Gradual backoff | Fibonacci(n) × initial | 1s, 1s, 2s, 3s, 5s |
 | **Fixed** | Rate limiting, polling | constant | 5s, 5s, 5s, 5s |
 | **Custom** | Complex SLA requirements | user-defined | 1s, 5s, 15s, 60s |
+
+!!! example "Common Retry Patterns"
+    **API calls with rate limits**: Use exponential backoff with `retry_on: [rate_limit]` to respect 429 responses.
+
+    **Database connections**: Use fibonacci backoff for gradual recovery during connection pool exhaustion.
+
+    **Health checks**: Use fixed backoff with short delays for consistent polling intervals.
+
+    **Deployment scripts**: Use custom delays like `[5s, 30s, 120s]` to match deployment verification windows.
 
 **Jitter Benefits** (from retry_v2.rs:644-659):
 - Prevents thundering herd when multiple agents retry simultaneously
