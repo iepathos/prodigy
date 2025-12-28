@@ -1,0 +1,120 @@
+{
+  "item_type": "page",
+  "page_id": "failure-actions",
+  "page_title": "failure actions",
+  "page_file": "docs/retry-configuration/failure-actions.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive. Minor discrepancy in line number references and some workflow file examples show slightly different configurations than documented. Overall, excellent documentation quality with clear explanations and real-world examples.",
+  "issues": [
+    {
+      "type": "source_reference_drift",
+      "severity": "low",
+      "section": "What is TestDebugConfig?",
+      "description": "Documentation references src/config/command.rs:168-183 for TestDebugConfig struct, but actual code shows it at lines 166-183. Line 168 is the struct definition itself, not the start of the doc block.",
+      "current_content": "**Source**: `src/config/command.rs:168-183`",
+      "should_be": "**Source**: `src/config/command.rs:166-183`",
+      "fix_suggestion": "Update line number reference to accurately reflect struct location including doc comment",
+      "source_reference": "src/config/command.rs:166-183"
+    },
+    {
+      "type": "minor_example_drift",
+      "severity": "low",
+      "section": "Example 1: Test Debugging with Multiple Attempts",
+      "description": "Documentation states 'From workflows/implement.yml' with line numbers 19-24, but actual file uses 'just test' instead of 'cargo test' and has different line structure",
+      "current_content": "Example shows 'cargo test' with timeout: 600",
+      "should_be": "Actual workflow uses 'just test' without explicit timeout in the shell command",
+      "fix_suggestion": "Update example to match current implement.yml or clarify that this is a representative example rather than exact copy",
+      "source_reference": "workflows/implement.yml:19-24"
+    },
+    {
+      "type": "minor_example_drift",
+      "severity": "low",
+      "section": "Example 2: Critical vs Non-Critical Commands",
+      "description": "Documentation claims workflow shows 'cargo test --lib' and 'cargo test --doc' with fail_workflow: true/false respectively, but actual coverage-with-test-debug.yml uses 'cargo test' (not --lib) and doesn't have fail_workflow: true on the first command",
+      "current_content": "Shows 'cargo test --lib' with fail_workflow: true",
+      "should_be": "Actual workflow shows 'cargo test' (not --lib) with fail_workflow: false",
+      "fix_suggestion": "Update example to accurately reflect coverage-with-test-debug.yml contents or mark as conceptual example",
+      "source_reference": "workflows/coverage-with-test-debug.yml:13-24"
+    },
+    {
+      "type": "accurate_but_enhanced",
+      "severity": "info",
+      "section": "Example 3: Chaining with on_success",
+      "description": "Example accurately represents implement-with-tests.yml nested on_failure/on_success pattern. Good documentation of advanced use case.",
+      "current_content": "Nested retry logic with on_success verification",
+      "should_be": "N/A - accurate",
+      "fix_suggestion": "No changes needed",
+      "source_reference": "workflows/implement-with-tests.yml:27-39"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall",
+      "description": "Page lacks MkDocs Material visual enhancements (admonitions, tabs, code annotations) that could improve readability for auto-discovered page",
+      "current_content": "Plain markdown with standard blockquotes",
+      "should_be": "MkDocs Material admonitions for IMPORTANT notices, tabs for configuration options",
+      "fix_suggestion": "Add Material admonitions (!!! note, !!! warning) for important callouts and consider tabbed examples for configuration options",
+      "source_reference": null
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of TestDebugConfig mechanism with all configuration options",
+    "Clear distinction between on_failure (TestDebugConfig) and theoretical retry_config",
+    "Excellent execution flow documentation with step-by-step explanation",
+    "Helpful comparison table distinguishing different retry mechanisms",
+    "Good migration guide from deprecated test: syntax",
+    "Clear 'Limitations and Gotchas' section with common pitfalls",
+    "Real-world workflow examples from actual project files",
+    "Accurate documentation of default values with source references",
+    "Logical progression from basic syntax to advanced patterns"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for IMPORTANT notices (convert blockquotes to !!! warning)",
+    "Add tabbed examples for viewing options side-by-side",
+    "Update workflow file references to match current file contents exactly",
+    "Consider adding a flowchart or diagram for the retry loop execution flow",
+    "Add code annotations to YAML examples for inline explanations"
+  ],
+  "cross_references": [
+    "workflow-level-vs-command-level-retry"
+  ],
+  "internal_links_validation": {
+    "total_internal_links": 1,
+    "broken_links": 0,
+    "validated_links": [
+      {
+        "link_text": "Workflow-Level vs Command-Level Retry",
+        "target": "./workflow-level-vs-command-level-retry.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T14:11:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "on_failure handler",
+      "TestDebugConfig",
+      "automatic debugging",
+      "retry mechanism",
+      "commit_required",
+      "max_attempts",
+      "fail_workflow"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "code_verification": {
+      "test_debug_config_struct": {
+        "verified": true,
+        "location": "src/config/command.rs:166-183",
+        "fields_match": true,
+        "default_values_match": true
+      },
+      "workflow_step_command_on_failure": {
+        "verified": true,
+        "location": "src/config/command.rs:367-368",
+        "type": "Option<TestDebugConfig>"
+      }
+    }
+  }
+}
