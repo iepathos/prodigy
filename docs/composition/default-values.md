@@ -2,6 +2,14 @@
 
 Set default parameter values and environment variables at the workflow level. Defaults reduce required parameters and simplify workflow usage by providing sensible fallback values.
 
+!!! tip "When to Use Defaults"
+    Use defaults for values that work in most cases but may need occasional overrides:
+
+    - Development environment settings (`environment: "development"`)
+    - Reasonable timeouts (`timeout: 300`)
+    - Common log levels (`log_level: "info"`)
+    - Standard retry counts (`retry_count: 3`)
+
 ### Basic Syntax
 
 ```yaml
@@ -23,36 +31,73 @@ The `defaults` field is a HashMap<String, Value> that accepts any JSON-compatibl
 ```yaml
 defaults:
   # String values
-  environment: "staging"
+  environment: "staging"        # (1)!
   log_level: "debug"
 
   # Number values
-  timeout: 600
+  timeout: 600                  # (2)!
   max_retries: 5
 
   # Boolean values
-  dry_run: false
+  dry_run: false                # (3)!
   enable_cache: true
 
   # Array values
-  allowed_regions: ["us-west-2", "us-east-1"]
+  allowed_regions: ["us-west-2", "us-east-1"]  # (4)!
 
   # Object values
-  database_config:
+  database_config:              # (5)!
     host: "localhost"
     port: 5432
     pool_size: 10
 ```
 
+1. **String values** - Used for configuration names, modes, and text settings
+2. **Number values** - Used for timeouts, counts, and numeric thresholds
+3. **Boolean values** - Enable/disable features and flags
+4. **Array values** - Lists of allowed values, regions, or options
+5. **Object values** - Nested configuration with multiple related settings
+
 ### Parameter Precedence
 
 When multiple sources provide values for the same parameter, they are resolved in this order:
 
-1. **CLI `--param` flags** (highest priority) - Always override all other sources
-2. **Parameter `default` values** - Defined in parameter definitions
-3. **Workflow `defaults` values** (lowest priority) - Only used if parameter has no default
+```mermaid
+flowchart LR
+    Start[Resolve Parameter] --> CLI{"CLI flag
+    provided?"}
+    CLI -->|Yes| UseCLI["Use CLI Value
+    (highest priority)"]
+    CLI -->|No| Param{"Parameter
+    default?"}
+    Param -->|Yes| UseParam["Use Parameter Default
+    (medium priority)"]
+    Param -->|No| Workflow{"Workflow
+    default?"}
+    Workflow -->|Yes| UseWorkflow["Use Workflow Default
+    (lowest priority)"]
+    Workflow -->|No| Error[Error: No Value]
 
-**Source**: Parameter precedence implemented in src/cook/workflow/composition/composer.rs:245-254 and src/cook/workflow/composer_integration.rs:68-72
+    UseCLI --> Done[Done]
+    UseParam --> Done
+    UseWorkflow --> Done
+
+    style UseCLI fill:#c8e6c9
+    style UseParam fill:#fff3e0
+    style UseWorkflow fill:#e1f5fe
+    style Error fill:#ffcdd2
+```
+
+| Priority | Source | Description |
+|----------|--------|-------------|
+| 1 (highest) | CLI `--param` flags | Always override all other sources |
+| 2 | Parameter `default` values | Defined in parameter definitions |
+| 3 (lowest) | Workflow `defaults` values | Only used if parameter has no default |
+
+!!! info "Precedence Rule"
+    CLI flags always win. Parameter defaults override workflow defaults. Workflow defaults are the fallback when no other value is provided.
+
+**Source**: Parameter precedence implemented in `src/cook/workflow/composition/composer.rs:245-254` and `src/cook/workflow/composer_integration.rs:68-72`
 
 ### Example with Precedence
 
@@ -131,6 +176,9 @@ prodigy run workflow.yml \
 
 ### Defaults with Parameters
 
+!!! example "Simplifying Workflow Usage"
+    Defaults dramatically reduce the required parameters users must provide, making workflows easier to use while still allowing full customization when needed.
+
 Defaults simplify parameter requirements:
 
 **Without defaults:**
@@ -188,7 +236,7 @@ commands:
 
 ### Template Integration
 
-Templates can use defaults for parameterization:
+Templates can use defaults for parameterization. See [Template System](template-system.md) for complete template documentation.
 
 ```yaml
 # template.yml
@@ -217,6 +265,9 @@ template:
     # Uses defaults: replicas=3, environment=staging
 ```
 
+!!! note "Template Defaults vs Workflow Defaults"
+    When using templates, defaults defined in the template are inherited by the consuming workflow. The consuming workflow can override template defaults using the `with:` block.
+
 ### Implementation Status
 
 All default value features are fully implemented and functional:
@@ -228,7 +279,30 @@ All default value features are fully implemented and functional:
 - ✅ Merge logic with parameter definitions (composer.rs:245-254)
 - ✅ CLI parameter override support (composer_integration.rs:68-72)
 
-The `apply_defaults` function at src/cook/workflow/composition/composer.rs:217-257 handles:
+The `apply_defaults` function at `src/cook/workflow/composition/composer.rs:217-257` handles:
+
 1. Applying defaults to environment variables (only if not already set)
 2. Applying defaults to parameter definitions (only if parameter has no default value)
 3. Type conversion for environment variable values (strings, numbers, booleans)
+
+!!! warning "Common Gotcha"
+    If a parameter definition has its own `default` value, the workflow-level `defaults` value for that parameter is ignored. This can cause confusion when you expect the workflow default to be used.
+
+    ```yaml
+    defaults:
+      timeout: 300  # This is IGNORED for 'timeout' parameter
+
+    parameters:
+      definitions:
+        timeout:
+          type: Number
+          default: 600  # This value is used, not 300
+    ```
+
+---
+
+## See Also
+
+- [Parameter Definitions](parameter-definitions.md) - Define parameter types, validation, and defaults
+- [Template System](template-system.md) - Create reusable workflow templates with defaults
+- [Workflow Extension & Inheritance](workflow-extension-inheritance.md) - Extend workflows and inherit defaults
