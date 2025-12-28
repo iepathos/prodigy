@@ -36,6 +36,12 @@ The setup phase is typically used for:
 - **Download data** - Fetch datasets, clone repositories, pull artifacts
 - **Prepare configuration** - Generate configs, resolve templates, validate settings
 
+!!! example "Typical Setup Script"
+    ```bash
+    # Generate work items for parallel processing
+    find src -name "*.rs" -type f | jq -R -s 'split("\n") | map(select(. != "")) | {items: .}' > items.json
+    ```
+
 ### Configuration Formats
 
 The setup phase supports two formats: simple array OR full configuration object.
@@ -197,6 +203,20 @@ pub enum MultilineHandling {
 
 Use the `pattern` field to extract specific text using regex capture groups:
 
+```mermaid
+flowchart LR
+    A[Raw Output] --> B{Pattern<br/>Defined?}
+    B -->|Yes| C[Regex<br/>Extract]
+    B -->|No| D{JSON Path<br/>Defined?}
+    C --> D
+    D -->|Yes| E[JSON Path<br/>Extract]
+    D -->|No| F{Multiline<br/>Handling}
+    E --> F
+    F --> G[Final<br/>Value]
+```
+
+The extraction pipeline applies transformations in order: pattern → json_path → multiline handling.
+
 ```rust
 // Source: src/cook/execution/variable_capture.rs:29
 pattern: Option<String>,
@@ -219,6 +239,9 @@ The pattern uses regex capture groups. The first capture group `(...)` is extrac
     Remember to escape backslashes in YAML strings. Use `\\d` for digit patterns, not `\d`.
 
 ### Best Practices
+
+!!! tip "Design for Resume"
+    Since setup phase is checkpointed, design commands to be safe for re-execution after resume. Check for existing artifacts before recreating them.
 
 **Idempotent Operations:**
 
