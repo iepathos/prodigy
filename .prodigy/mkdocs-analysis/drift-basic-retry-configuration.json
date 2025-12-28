@@ -1,0 +1,77 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "basic-retry-configuration",
+  "page_title": "basic retry configuration",
+  "page_file": "docs/retry-configuration/basic-retry-configuration.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Documentation accurately reflects the RetryConfig implementation with correct source references and default values",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate source references to src/cook/retry_v2.rs with correct line numbers",
+    "Complete and accurate documentation of all RetryConfig fields",
+    "Correct default values matching the Rust implementation",
+    "Clear distinction between minimal and full configuration",
+    "Accurate mapping table between YAML fields and Rust struct fields",
+    "Good explanation of retry behavior flow (7-step process)",
+    "Valid cross-reference to workflow-level-vs-command-level-retry.md",
+    "Proper use of code blocks with syntax highlighting for YAML and Rust",
+    "Includes both minimal and complete configuration examples"
+  ],
+  "improvement_suggestions": [
+    {
+      "type": "enhancement",
+      "description": "Add MkDocs Material admonition for the Note block instead of using blockquote",
+      "current_content": "> **Note**: This documents the enhanced retry system",
+      "suggested": "Use !!! note admonition syntax for better visual presentation"
+    },
+    {
+      "type": "enhancement",
+      "description": "Add code annotations to explain key parts of the configuration examples",
+      "section": "Complete Basic Configuration",
+      "suggested": "Add numbered annotations to explain each field inline"
+    },
+    {
+      "type": "enhancement",
+      "description": "Consider adding a visual diagram showing the retry execution flow",
+      "section": "Relationship to Command Execution",
+      "suggested": "Add Mermaid flowchart showing the 7-step retry process"
+    },
+    {
+      "type": "enhancement",
+      "description": "Add tabbed examples for minimal vs full configuration",
+      "section": "Minimal vs Full Configuration",
+      "suggested": "Use MkDocs Material tabs extension for better comparison"
+    }
+  ],
+  "cross_references": [
+    {
+      "target": "workflow-level-vs-command-level-retry.md",
+      "status": "valid",
+      "description": "Cross-reference to related retry documentation"
+    }
+  ],
+  "validation_results": {
+    "source_references_verified": true,
+    "default_values_accurate": true,
+    "yaml_syntax_valid": true,
+    "internal_links_valid": true,
+    "code_examples_runnable": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "RetryConfig struct",
+      "Default retry values",
+      "Basic retry configuration",
+      "YAML to Rust field mapping",
+      "Retry execution flow"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "implementation_verified_against": [
+      "src/cook/retry_v2.rs:14-68 (RetryConfig struct and defaults)",
+      "src/cook/retry_v2.rs:191-262 (RetryExecutor::execute_with_retry)"
+    ]
+  }
+}
