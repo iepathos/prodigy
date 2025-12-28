@@ -26,6 +26,33 @@ parameters:
 
 Parameters are organized into `required` and `optional` arrays. Each parameter specifies its type, description, and validation rules:
 
+```mermaid
+flowchart LR
+    Input[Parameter Input] --> Check{"Required
+    or Optional?"}
+
+    Check -->|Required| ReqCheck{"Value
+    provided?"}
+    ReqCheck -->|No| Error[Validation Error]
+    ReqCheck -->|Yes| TypeCheck
+
+    Check -->|Optional| OptCheck{"Value
+    provided?"}
+    OptCheck -->|No| UseDefault[Use Default]
+    OptCheck -->|Yes| TypeCheck
+
+    UseDefault --> TypeCheck{"Type
+    matches?"}
+    TypeCheck -->|No| Error
+    TypeCheck -->|Yes| Valid[Parameter Valid]
+
+    style Error fill:#ffebee
+    style Valid fill:#e8f5e9
+    style UseDefault fill:#fff3e0
+```
+
+**Figure**: Parameter validation flow showing required vs optional handling.
+
 ```yaml
 parameters:
   required:
@@ -205,6 +232,28 @@ Source: `parse_param_value` function in `src/cli/params.rs:51-72`
     2. `--param-file` values
     3. Workflow `defaults` values
     4. Parameter `default` values (lowest priority)
+
+```mermaid
+graph LR
+    CLI["CLI --param
+    (highest)"] --> ParamFile["--param-file
+    values"]
+    ParamFile --> WorkflowDefaults["Workflow
+    defaults"]
+    WorkflowDefaults --> ParamDefaults["Parameter
+    default
+    (lowest)"]
+    ParamDefaults --> Resolved["Resolved
+    Value"]
+
+    style CLI fill:#e8f5e9
+    style ParamFile fill:#e1f5ff
+    style WorkflowDefaults fill:#fff3e0
+    style ParamDefaults fill:#f3e5f5
+    style Resolved fill:#c8e6c9
+```
+
+**Figure**: Parameter value resolution order. Higher priority sources override lower priority ones.
 
 ### Using Parameters in Workflows
 
