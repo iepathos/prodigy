@@ -20,13 +20,16 @@ Prodigy supports two interpolation syntaxes:
 - Environment variables in shell context
 - Quick substitutions without special characters
 
-**Best Practice:** Always use `${VAR}` syntax for consistency and reliability.
+!!! tip "Best Practice"
+    Always use `${VAR}` syntax for consistency and reliability.
 
 ## Legacy Variable Aliases
 
 For backward compatibility, Prodigy supports legacy variable aliases from earlier versions. These are still functional but **deprecated** - prefer the current variable names in new workflows.
 
-**Source:** src/cook/workflow/variables.rs (legacy alias definitions)
+```text
+# Source: src/cook/workflow/variables.rs
+```
 
 | Legacy Alias | Current Variable | Context | Status |
 |--------------|------------------|---------|--------|
@@ -36,21 +39,25 @@ For backward compatibility, Prodigy supports legacy variable aliases from earlie
 | `${FILE_PATH}` | `${item.path}` | Map phase | Deprecated |
 
 **Example:**
-```yaml
-# Old style (still works but discouraged)
-map:
-  agent_template:
-    - shell: "process ${ARG}"
-    - shell: "cat ${FILE}"
 
-# New style (recommended)
-map:
-  agent_template:
-    - shell: "process ${item.value}"
-    - shell: "cat ${item.path}"
-```
+=== "Legacy Style (Deprecated)"
+    ```yaml
+    map:
+      agent_template:
+        - shell: "process ${ARG}"
+        - shell: "cat ${FILE}"
+    ```
 
-**Migration Recommendation:** Update legacy aliases to current variable names when maintaining older workflows. The current names are more explicit and work better with arbitrary JSON field access.
+=== "Current Style (Recommended)"
+    ```yaml
+    map:
+      agent_template:
+        - shell: "process ${item.value}"
+        - shell: "cat ${item.path}"
+    ```
+
+!!! warning "Migration Recommendation"
+    Update legacy aliases to current variable names when maintaining older workflows. The current names are more explicit and work better with arbitrary JSON field access.
 
 ## Default Values
 
@@ -58,7 +65,9 @@ Provide fallback values for undefined or missing variables using the `:-` syntax
 
 **Syntax:** `${variable:-default_value}`
 
-**Source:** src/cook/execution/interpolation.rs:277
+```text
+# Source: src/cook/execution/interpolation.rs:276-290 (parse_variable_expression function)
+```
 
 **Examples:**
 ```yaml
@@ -76,6 +85,7 @@ Provide fallback values for undefined or missing variables using the `:-` syntax
 ```
 
 **Behavior with Interpolation Modes:**
+
 - **Non-strict mode (default):** Uses default value if variable is undefined
 - **Strict mode:** Default value syntax prevents errors for optional variables
 
@@ -83,24 +93,28 @@ Provide fallback values for undefined or missing variables using the `:-` syntax
 
 Prodigy supports two modes for handling undefined variables:
 
-**Non-strict Mode (Default):**
-- Leaves placeholders unresolved when variable is undefined
-- Example: `${undefined}` remains as `${undefined}` in output
-- With default: `${undefined:-fallback}` becomes `fallback`
-- Use case: Workflows that can handle partial variable resolution
+=== "Non-strict Mode (Default)"
+    - Leaves placeholders unresolved when variable is undefined
+    - Example: `${undefined}` remains as `${undefined}` in output
+    - With default: `${undefined:-fallback}` becomes `fallback`
+    - Use case: Workflows that can handle partial variable resolution
 
-**Strict Mode:**
-- Fails immediately on undefined variables
-- Example: `${undefined}` causes workflow to fail with comprehensive error
-- Error message lists all available variables for debugging
-- Use case: Production workflows requiring all variables to be properly defined
+=== "Strict Mode"
+    - Fails immediately on undefined variables
+    - Example: `${undefined}` causes workflow to fail with comprehensive error
+    - Error message lists all available variables for debugging
+    - Use case: Production workflows requiring all variables to be properly defined
 
-**Source:** src/cook/execution/interpolation.rs:16-17, 104-137
+```text
+# Source: src/cook/execution/interpolation.rs:15-22 (InterpolationEngine struct),
+#         src/cook/execution/interpolation.rs:80-139 (resolve_template_segments with strict mode)
+```
 
 **Configuration:**
 Strict mode is configured per InterpolationEngine instance and controlled at the workflow execution level.
 
-**Best Practice:** Use strict mode during development to catch variable name typos and scope issues early. Use default values (`${var:-default}`) for truly optional configuration.
+!!! tip "Best Practice"
+    Use strict mode during development to catch variable name typos and scope issues early. Use default values (`${var:-default}`) for truly optional configuration.
 
 **Examples:**
 ```yaml
@@ -126,7 +140,8 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 | Reduce | Standard, workflow context, step context, git context, MapReduce variables, custom captured |
 | Merge | Standard, workflow context, step context, merge variables, custom captured |
 
-**Important:** Setup phase captures are available in map and reduce phases. Map phase captures are only available within that specific agent. Reduce phase captures are available to subsequent reduce steps.
+!!! note "Variable Inheritance"
+    Setup phase captures are available in map and reduce phases. Map phase captures are only available within that specific agent. Reduce phase captures are available to subsequent reduce steps.
 
 ### Variable Precedence (highest to lowest)
 
@@ -138,9 +153,32 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 6. **Environment variables** (static workflow-level `env` block)
 7. **Computed variables** (`env.*`, `file:*`, `cmd:*`, `json:*`, `date:*`, `uuid`)
 
-**Note:** Computed variables have lowest precedence because they're evaluated on-demand. If a custom variable has the same name as a computed variable, the custom variable wins.
+### Dual Interpolation Systems
 
-**Shadowing Warning:** Custom captures can shadow built-in variable names. Avoid using names like `item`, `map`, `workflow`, etc. as custom variable names.
+Prodigy uses two complementary interpolation systems:
+
+| System | Location | Purpose |
+|--------|----------|---------|
+| **InterpolationEngine** | `src/cook/execution/interpolation.rs` | Basic variable resolution, template parsing, strict mode handling |
+| **VariableContext** | `src/cook/execution/variables.rs` | Computed variables, scoped lookups, LRU caching |
+
+The `InterpolationEngine` handles basic `${variable}` substitution with context inheritance. The `VariableContext` provides advanced features like computed variables (`env.*`, `file:*`, `cmd:*`, `json:*`, `date:*`, `uuid`) with three scope levels:
+
+```text
+# Source: src/cook/execution/variables.rs:394-399 (ScopeLevel enum)
+```
+
+| Scope Level | Priority | Description |
+|-------------|----------|-------------|
+| **Local** | Highest | Variables set within current command/step |
+| **Phase** | Medium | Variables available throughout the phase |
+| **Global** | Lowest | Workflow-wide variables |
+
+!!! note "Computed Variable Precedence"
+    Computed variables have lowest precedence because they're evaluated on-demand. If a custom variable has the same name as a computed variable, the custom variable wins.
+
+!!! warning "Shadowing Warning"
+    Custom captures can shadow built-in variable names. Avoid using names like `item`, `map`, `workflow`, etc. as custom variable names.
 
 **Example:**
 ```yaml
@@ -157,9 +195,13 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 
 Variable resolution walks up a parent context chain when variables are not found in the current context. This enables variable inheritance across workflow phases and nested contexts.
 
-**Source:** src/cook/execution/interpolation.rs:200-226, InterpolationContext struct at :376-381
+```text
+# Source: src/cook/execution/interpolation.rs:376-383 (InterpolationContext struct),
+#         src/cook/execution/interpolation.rs:421-438 (resolve_path with parent resolution)
+```
 
 **Resolution Order:**
+
 1. Check current context
 2. If not found, check parent context
 3. If not found in parent, check parent's parent
@@ -168,6 +210,7 @@ Variable resolution walks up a parent context chain when variables are not found
 6. If not found in strict mode, fail with error listing available variables
 
 **Benefits:**
+
 - Nested workflow contexts inherit variables from parent workflows
 - Foreach loops access both loop-level and workflow-level variables
 - Map agents access setup phase variables
@@ -212,13 +255,17 @@ Reduce Context (map.results, workspace_root*, base_commit*)
 
 Prodigy implements **dual caching** for optimal performance: template parsing cache and operation result cache.
 
-**Source:** src/cook/execution/interpolation.rs:18-19, 68-75; src/cook/execution/variables.rs:218-256
+```text
+# Source: src/cook/execution/interpolation.rs:68-77 (template cache in get_or_parse_template),
+#         src/cook/execution/variables.rs:421-455 (VariableContext with LRU cache)
+```
 
 ### Template Parse Caching
 
 When the same variable template is used multiple times, the template is parsed once and reused:
 
 **How It Works:**
+
 - First use: Template is parsed and cached
 - Subsequent uses: Cached template is reused (no re-parsing)
 - Cache key: Exact template string
@@ -240,16 +287,22 @@ map:
 Expensive computed operations (file reads, command execution) have separate result caching:
 
 **Cached Operations:**
+
 - `${env.VAR}` - Environment variable lookups
 - `${file:path}` - File system reads
 - `${cmd:command}` - Shell command execution
 
 **Not Cached:**
-- `${json:path:from:var}` - JSON parsing is fast
+
+- `${json:path:from:variable}` - JSON path extraction is fast
 - `${date:format}` - Values change over time
-- `${uuid}` - Must be unique
+- `${uuid}` - Must be unique each time
+
+!!! note "JSON Variable Syntax"
+    Use `${json:path:from:variable}` to extract values from JSON. For example, `${json:database.host:from:config}` extracts the `database.host` field from the `config` variable.
 
 **Cache Details:**
+
 - **Type:** LRU (Least Recently Used) cache
 - **Size:** 100 entries maximum
 - **Scope:** Per workflow execution
@@ -268,15 +321,18 @@ Expensive computed operations (file reads, command execution) have separate resu
 ```
 
 **Benefits:**
+
 - **Faster interpolation** for repeated templates (template cache)
 - **Reduced I/O** for repeated file reads (operation cache)
 - **Lower CPU** for repeated command execution (operation cache)
 - **Reduced latency** in MapReduce workflows
 
 **When It Matters Most:**
+
 - MapReduce workflows with many work items (>100)
 - Workflows using the same computed variables repeatedly
 - High-frequency variable interpolation in loops
 - Templates with multiple variables and nested field access
 
-**Note:** All caching is transparent and automatic. You don't need any configuration to benefit from it. Both caches persist for the lifetime of the workflow execution.
+!!! note "Transparent Caching"
+    All caching is transparent and automatic. You don't need any configuration to benefit from it. Both caches persist for the lifetime of the workflow execution.
