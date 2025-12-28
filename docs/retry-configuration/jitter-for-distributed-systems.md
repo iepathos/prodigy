@@ -2,6 +2,34 @@
 
 Jitter adds randomness to retry delays to prevent the "thundering herd" problem where many clients retry at the same time. By introducing controlled randomness, jitter helps distribute retry attempts over time rather than having all clients retry simultaneously after a failure.
 
+```mermaid
+graph LR
+    subgraph without["Without Jitter"]
+        direction LR
+        F1[Failure] --> R1["All Clients
+        Retry at 10s"]
+        R1 --> Overload[Service Overload]
+    end
+
+    subgraph with["With Jitter"]
+        direction LR
+        F2[Failure] --> C1["Client A
+        Retry at 8.5s"]
+        F2 --> C2["Client B
+        Retry at 10.2s"]
+        F2 --> C3["Client C
+        Retry at 11.1s"]
+        C1 --> Spread[Load Spread]
+        C2 --> Spread
+        C3 --> Spread
+    end
+
+    style Overload fill:#ffebee
+    style Spread fill:#e8f5e9
+```
+
+**Figure**: Jitter distributes retry attempts over time, preventing synchronized retry storms.
+
 ### Configuration
 
 ```yaml
@@ -16,8 +44,12 @@ retry:
 ```
 
 **Configuration options:**
+
 - `jitter`: Boolean flag to enable/disable jitter (default: `false`)
 - `jitter_factor`: Controls the randomness range as a fraction of the base delay (default: `0.3`)
+
+!!! tip "Recommended jitter_factor"
+    A `jitter_factor` of **0.3** (the default) provides a good balance between spreading retries over time and maintaining predictable delay behavior. Start with this value and adjust based on your system's contention patterns.
 
 **Source**: Configuration structure defined in `src/cook/retry_v2.rs:455-457` (default_jitter_factor)
 
@@ -60,17 +92,32 @@ For a 20 second base delay:
 2. `jitter = random(-5s, +5s)`
 3. `final_delay = 20s + jitter` → **Range: 15s to 25s**
 
-**Source**: Test validation in `src/cook/retry_v2.rs:654-658`
+**Source**: Test validation in `src/cook/retry_v2.rs:645-658`
 
 ### Interaction with Max Delay
 
 Jitter is applied **after** backoff calculation and max_delay capping. The execution order is:
 
+```mermaid
+graph LR
+    Base["Calculate Base Delay
+    (backoff strategy)"] --> Cap{"Exceeds
+    max_delay?"}
+    Cap -->|Yes| Apply["Apply max_delay Cap"] --> Jitter["Apply Jitter
+    ± jitter_range/2"]
+    Cap -->|No| Jitter
+    Jitter --> Final[Final Delay]
+
+    style Cap fill:#fff3e0
+    style Jitter fill:#e1f5ff
+```
+
 1. Calculate base delay using backoff strategy
 2. Apply `max_delay` cap if configured
 3. Apply jitter to the capped delay
 
-This means jittered delays can still exceed `max_delay` temporarily, but only by the jitter amount. If you need strict delay caps, consider using a lower `jitter_factor`.
+!!! warning "Jittered delays can exceed max_delay"
+    Since jitter is applied **after** the `max_delay` cap, the final delay can temporarily exceed the configured maximum by up to half the jitter range. For example, with `max_delay: 30s` and `jitter_factor: 0.3`, the actual delay could reach ~34.5s. If you need strict delay caps, use a lower `jitter_factor`.
 
 **Source**: Execution order in `src/cook/retry_v2.rs:234-235` (calculate_delay followed by apply_jitter)
 
@@ -121,3 +168,9 @@ retry:
 ```
 Delay sequence (without jitter): 5s, 7s, 9s, 11s, 13s
 Delay sequence (with jitter): ~4s-6s, ~5.6s-8.4s, ~7.2s-10.8s, ~8.8s-13.2s, ~10.4s-15.6s
+
+### See Also
+
+- [Backoff Strategies](backoff-strategies.md) - Complete documentation on exponential, linear, and fixed backoff strategies that jitter applies to
+- [Retry Budget](retry-budget.md) - How retry budgets interact with jittered retries to prevent resource exhaustion
+- [Workflow-Level vs Command-Level Retry](workflow-level-vs-command-level-retry.md) - Where jitter configuration applies in your workflow hierarchy
