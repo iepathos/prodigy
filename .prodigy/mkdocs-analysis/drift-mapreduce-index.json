@@ -1,0 +1,103 @@
+{
+  "item_type": "page",
+  "page_id": "mapreduce-index",
+  "page_title": "MapReduce Workflows",
+  "page_file": "docs/mapreduce/index.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive. The page covers core MapReduce workflow concepts with correct examples matching source code. Minor improvements possible for MkDocs Material visual features.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Complete Structure",
+      "description": "Page lacks MkDocs Material visual enhancements (admonitions, tabs, annotations) that would improve readability",
+      "fix_suggestion": "Add tabbed examples showing simplified vs deprecated syntax, admonitions for important notes about deprecation, and code annotations for complex examples",
+      "source_reference": "MkDocs Material features"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Map Phase Variables",
+      "description": "Documentation mentions ${map.results}, ${map.successful}, and ${map.total} in examples but doesn't document additional available variables like ${map.success_count}, ${map.failure_count}, ${map.average_duration_secs}, ${map.total_duration_secs}",
+      "current_content": "${map.successful}/${map.total}",
+      "should_be": "Additional map phase variables available: ${map.success_count}, ${map.failure_count}, ${map.average_duration_secs}, ${map.total_duration_secs}",
+      "fix_suggestion": "Add a reference to the complete list of map phase variables or link to a dedicated variables section",
+      "source_reference": "src/cook/execution/mapreduce/agent/results.rs:AggregatedResults"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Quick Start",
+      "description": "Quick start section lacks a note about prerequisites (Claude Code CLI, git, etc.)",
+      "fix_suggestion": "Add a brief prerequisites note or link to installation documentation",
+      "source_reference": "General documentation best practice"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate and working YAML examples that match source code parsing",
+    "Clear distinction between modern and deprecated syntax for agent_template and reduce",
+    "Comprehensive coverage of map phase configuration options (filter, sort_by, max_items, offset, distinct)",
+    "Well-documented error_policy configuration with circuit breaker and retry options",
+    "Good cross-references to related documentation pages",
+    "Correct merge workflow syntax for both simplified and full formats",
+    "Environment variable references supported for max_parallel (confirmed in source code)",
+    "Backoff strategy enum correctly documented (fixed/linear/exponential/fibonacci)"
+  ],
+  "improvement_suggestions": [
+    "Add tabbed code examples to show both simplified and deprecated syntax side-by-side using MkDocs Material tabs feature",
+    "Add admonitions (warning/tip) to highlight deprecated syntax patterns",
+    "Add code annotations to explain complex configuration options in the Complete Structure example",
+    "Consider adding a visual diagram showing the MapReduce workflow phases (setup -> map -> reduce)",
+    "Add a tip admonition recommending the simplified syntax for new workflows"
+  ],
+  "cross_references": [
+    "environment-variables-in-configuration",
+    "backoff-strategies",
+    "error-collection-strategies",
+    "setup-phase-advanced",
+    "global-storage-architecture",
+    "event-tracking",
+    "checkpoint-and-resume",
+    "dead-letter-queue-dlq",
+    "workflow-format-comparison"
+  ],
+  "link_validation": {
+    "total_internal_links": 9,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      {"link": "environment-variables-in-configuration.md", "exists": true},
+      {"link": "backoff-strategies.md", "exists": true},
+      {"link": "error-collection-strategies.md", "exists": true},
+      {"link": "setup-phase-advanced.md", "exists": true},
+      {"link": "global-storage-architecture.md", "exists": true},
+      {"link": "event-tracking.md", "exists": true},
+      {"link": "checkpoint-and-resume.md", "exists": true},
+      {"link": "dead-letter-queue-dlq.md", "exists": true},
+      {"link": "workflow-format-comparison.md", "exists": true}
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:11:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "MapReduce workflow structure",
+      "Quick start example",
+      "Setup phase configuration",
+      "Map phase configuration",
+      "Reduce phase configuration",
+      "Error handling policy",
+      "Circuit breaker configuration",
+      "Retry configuration with backoff",
+      "Custom merge workflow",
+      "Convenience fields mapping"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_checked": [
+      "src/config/mapreduce.rs",
+      "src/cook/workflow/error_policy.rs",
+      "src/cook/execution/mapreduce/agent/results.rs"
+    ]
+  }
+}
