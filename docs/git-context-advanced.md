@@ -2,11 +2,11 @@
 
 This chapter covers automatic git tracking and git context variables in Prodigy workflows. Learn how to access file changes, commits, and modification statistics, and how to filter and format this data using shell commands.
 
-> **⚠️ Current Implementation Status**
->
-> Git context variables are currently provided as **space-separated strings only**. Advanced features like pattern filtering (`:*.rs`) and format modifiers (`:json`, `:lines`) are **not yet implemented** in the variable interpolation system, though the underlying infrastructure exists.
->
-> **For filtering and formatting**, use shell post-processing commands like `grep`, `tr`, `jq`, and `xargs`. See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting) for practical examples.
+!!! warning "Current Implementation Status"
+
+    Git context variables are currently provided as **space-separated strings only**. Advanced features like pattern filtering (`:*.rs`) and format modifiers (`:json`, `:lines`) are **not yet implemented** in the variable interpolation system, though the underlying infrastructure exists.
+
+    **For filtering and formatting**, use shell post-processing commands like `grep`, `tr`, `jq`, and `xargs`. See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting) for practical examples.
 
 ## Overview
 
@@ -19,6 +19,23 @@ Prodigy automatically tracks git changes throughout workflow execution and expos
 - Full integration with MapReduce workflows
 
 ## How Git Tracking Works
+
+```mermaid
+flowchart LR
+    A[Workflow Start] --> B[GitChangeTracker<br/>Initialized]
+    B --> C[begin_step]
+    C --> D[Command<br/>Execution]
+    D --> E[complete_step]
+    E --> F[StepChanges<br/>Captured]
+    F --> G[Variables Added to<br/>InterpolationContext]
+    G --> H{More<br/>Steps?}
+    H -->|Yes| C
+    H -->|No| I[Workflow<br/>Complete]
+
+    style B fill:#f9f,stroke:#333
+    style F fill:#9ff,stroke:#333
+    style G fill:#ff9,stroke:#333
+```
 
 ### Automatic Tracking
 
@@ -119,6 +136,16 @@ Track cumulative changes across all steps:
 ## Shell-Based Filtering and Formatting
 
 Since git context variables are provided as space-separated strings, all filtering and formatting must be done using shell commands. This section shows practical patterns for common tasks.
+
+!!! tip "Quick Reference"
+
+    | Task | Command Pattern |
+    |------|-----------------|
+    | Filter by extension | `echo ${var} \| tr ' ' '\n' \| grep '\.rs$'` |
+    | Convert to JSON | `echo ${var} \| tr ' ' '\n' \| jq -R \| jq -s` |
+    | Convert to lines | `echo ${var} \| tr ' ' '\n'` |
+    | Convert to CSV | `echo ${var} \| tr ' ' ','` |
+    | Count files | `echo ${var} \| tr ' ' '\n' \| wc -l` |
 
 ### Default Format (Space-Separated)
 
@@ -353,6 +380,14 @@ Use git context with shell conditions:
 
 ### MapReduce Workflows
 
+!!! example "Git Context Across Phases"
+
+    In MapReduce workflows, git tracking operates at multiple levels:
+
+    - **Setup phase**: Workflow-level tracking begins
+    - **Map agents**: Each agent has independent step-level tracking in its worktree
+    - **Reduce phase**: Workflow-level variables reflect cumulative changes from all agents
+
 Git context works across MapReduce phases:
 
 ```yaml
@@ -449,6 +484,10 @@ If all are empty, check:
 
 ### Pattern Syntax Not Working
 
+!!! danger "Pattern Modifiers Are Not Implemented"
+
+    Variable modifiers like `:*.rs`, `:json`, and `:lines` are **not supported** in workflow variable interpolation. Attempting to use them will produce literal strings or errors.
+
 **Issue**: Trying to use `:*.rs` or `:json` modifiers produces errors or unexpected results
 
 **Cause**: Pattern filtering and format modifiers are **not implemented** in variable interpolation. Git context variables are always space-separated strings.
@@ -463,16 +502,26 @@ If all are empty, check:
 
 **Solution**: Use shell commands for all filtering and formatting:
 
-```yaml
-# Filter with grep
-- shell: "echo ${step.files_changed} | tr ' ' '\n' | grep '\.rs$'"
+=== "Filter by Extension"
 
-# Format as JSON
-- shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
+    ```yaml
+    # Filter with grep
+    - shell: "echo ${step.files_changed} | tr ' ' '\n' | grep '\.rs$'"
+    ```
 
-# Format as newlines
-- shell: "echo ${workflow.files_modified} | tr ' ' '\n'"
-```
+=== "Format as JSON"
+
+    ```yaml
+    # Format as JSON array
+    - shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
+    ```
+
+=== "Format as Lines"
+
+    ```yaml
+    # Convert to newline-separated
+    - shell: "echo ${workflow.files_modified} | tr ' ' '\n'"
+    ```
 
 See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting) for complete examples.
 
@@ -517,37 +566,49 @@ See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting
     fi
 ```
 
-## Future Features
+## Future Enhancements
 
-The git context infrastructure includes methods that are not yet exposed to workflows. These are planned for future releases:
+!!! note "Infrastructure Status"
 
-### Pattern Filtering (Planned)
+    The git context implementation includes internal methods for pattern filtering and format modifiers. These capabilities exist in the codebase but are **not currently exposed** to workflow variable interpolation. There is no confirmed timeline for enabling these features.
 
-The `GitChangeTracker::resolve_variable()` method (src/cook/workflow/git_context.rs:489-505) supports pattern filtering, but it's not currently called during workflow execution.
+The following sections document internal capabilities that may be exposed in future releases.
 
-**Planned syntax**:
-```yaml
-# Not yet implemented - planned for future release
+### Pattern Filtering
+
+!!! info "Status: Internal Only"
+
+    The `GitChangeTracker::resolve_variable()` method exists in the codebase but is not called during workflow execution.
+
+The internal `resolve_variable` method (src/cook/workflow/git_context.rs:489-505) supports pattern filtering syntax. If exposed, it would enable:
+
+```yaml title="Conceptual syntax (not implemented)"
+# These patterns are recognized internally but NOT available in workflows
 - shell: "echo ${step.files_changed:*.rs}"
 - shell: "echo ${workflow.files_modified:src/**/*.rs}"
 ```
 
-Currently variables are pre-formatted as space-separated strings during interpolation context creation (src/cook/workflow/executor/context.rs:106-172).
+Currently, variables are pre-formatted as space-separated strings during interpolation context creation (src/cook/workflow/executor/context.rs:106-172), bypassing this method.
 
-### Format Modifiers (Planned)
+### Format Modifiers
 
-The `GitChangeTracker::format_file_list()` method (src/cook/workflow/git_context.rs:477-486) supports JSON, newline, and CSV formats, but it's not used during variable resolution.
+!!! info "Status: Internal Only"
 
-**Planned syntax**:
-```yaml
-# Not yet implemented - planned for future release
+    The `GitChangeTracker::format_file_list()` method exists but is not used during variable resolution.
+
+The internal `format_file_list` method (src/cook/workflow/git_context.rs:477-486) supports multiple output formats. If exposed, it would enable:
+
+```yaml title="Conceptual syntax (not implemented)"
+# These modifiers are recognized internally but NOT available in workflows
 - shell: "echo ${step.files_added:json}"
 - shell: "echo ${workflow.files_changed:lines}"
 - shell: "echo ${step.files_modified:csv}"
 ```
 
-### Implementation Note
+### What This Means for Users
 
-To enable these features, the interpolation engine would need to support custom resolvers that call `git_tracker.resolve_variable()` instead of using pre-formatted string values. This would allow runtime formatting and filtering based on variable modifier syntax.
+To enable these features in workflows, the interpolation engine would need modification to support custom resolvers that call `git_tracker.resolve_variable()` instead of using pre-formatted string values.
 
-**Until then**, use shell post-processing as documented in [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting).
+!!! tip "Recommended Approach"
+
+    Use shell post-processing for all filtering and formatting needs. This approach is flexible, well-documented, and works reliably. See [Shell-Based Filtering and Formatting](#shell-based-filtering-and-formatting) for complete examples.
