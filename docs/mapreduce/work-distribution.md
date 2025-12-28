@@ -22,13 +22,21 @@ Each stage is optional and can be configured independently to build the exact wo
 
 ```mermaid
 flowchart LR
-    Input[Input Source<br/>JSON file or command] --> JSONPath[JSONPath Extraction<br/>$.items[*]]
-    JSONPath --> Filter[Filtering<br/>score >= 5]
-    Filter --> Sort[Sorting<br/>priority DESC]
-    Sort --> Dedup[Deduplication<br/>distinct: id]
-    Dedup --> Offset[Offset<br/>skip first N]
-    Offset --> Limit[Limit<br/>take M items]
-    Limit --> Agents[Distribute to<br/>Parallel Agents]
+    Input["Input Source
+    JSON file or command"] --> JSONPath["JSONPath Extraction
+    $.items[*]"]
+    JSONPath --> Filter["Filtering
+    score >= 5"]
+    Filter --> Sort["Sorting
+    priority DESC"]
+    Sort --> Dedup["Deduplication
+    distinct: id"]
+    Dedup --> Offset["Offset
+    skip first N"]
+    Offset --> Limit["Limit
+    take M items"]
+    Limit --> Agents["Distribute to
+    Parallel Agents"]
 
     style Input fill:#e1f5ff
     style JSONPath fill:#fff3e0
