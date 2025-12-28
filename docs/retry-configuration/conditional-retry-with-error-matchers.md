@@ -131,6 +131,45 @@ retry_config:
     | `"(?i)SQLITE_BUSY"` | `SQLITE_BUSY`, `sqlite_busy`, `Sqlite_Busy` | — |
     | `"(?i)database.*locked"` | `Database is Locked`, `DATABASE LOCKED` | — |
 
+### Error Matching Flow
+
+When an error occurs, Prodigy evaluates it against configured matchers:
+
+```mermaid
+flowchart LR
+    Error[Error Occurs] --> Check{"retry_on
+    empty?"}
+    Check -->|Yes| Retry[Retry Error]
+    Check -->|No| Eval["Evaluate Each
+    Matcher"]
+
+    Eval --> M1{"Network
+    Match?"}
+    M1 -->|Yes| Retry
+    M1 -->|No| M2{"Timeout
+    Match?"}
+    M2 -->|Yes| Retry
+    M2 -->|No| M3{"Server Error
+    Match?"}
+    M3 -->|Yes| Retry
+    M3 -->|No| M4{"Rate Limit
+    Match?"}
+    M4 -->|Yes| Retry
+    M4 -->|No| M5{"Pattern
+    Match?"}
+    M5 -->|Yes| Retry
+    M5 -->|No| More{"More
+    Matchers?"}
+    More -->|Yes| M1
+    More -->|No| Fail[Fail Immediately]
+
+    style Retry fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Check fill:#e1f5ff
+```
+
+**Figure**: Error matching flow showing OR logic - first matcher that matches triggers retry.
+
 ### Combining Multiple Matchers
 
 You can specify multiple error matchers to retry on any of them:
@@ -154,6 +193,11 @@ This configuration retries if the error matches **any** of:
 
 !!! info "OR Logic"
     Matchers are evaluated with OR logic - if **any** matcher matches, the error is retryable.
+
+!!! tip "Choosing the Right Strategy"
+    - **Start broad**: Use built-in matchers (`network`, `timeout`) for common transient errors
+    - **Add specifics**: Use `pattern` for application-specific errors (database locks, auth failures)
+    - **Fail fast**: Only retry errors that are truly transient - retrying permanent failures wastes time
 
 ### Empty retry_on (Retry All Errors)
 
