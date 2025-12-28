@@ -8,6 +8,27 @@ This page covers performance characteristics, storage benefits, maintenance proc
 
 Prodigy uses JSONL (JSON Lines) format for event storage to enable efficient streaming:
 
+```mermaid
+flowchart LR
+    Start[Read Events] --> Size{"Event count?"}
+    Size -->|"< 1K events"| Batch["Batch Read
+    jq -s '.'"]
+    Size -->|"> 10K events"| Stream["Streaming Read
+    while read line"]
+    Size -->|"1K-10K"| Concurrent{"Concurrent
+    writers?"}
+    Concurrent -->|Yes| Stream
+    Concurrent -->|No| RealTime{"Real-time
+    monitoring?"}
+    RealTime -->|Yes| Stream
+    RealTime -->|No| Batch
+
+    style Batch fill:#e8f5e9
+    style Stream fill:#e1f5ff
+```
+
+**Figure**: Decision flow for choosing between streaming and batch event processing.
+
 **JSONL Streaming Benefits**:
 - **Incremental writes**: Events append without reading entire file
 - **Memory efficient**: Process one event at a time
@@ -76,6 +97,46 @@ cat ~/.prodigy/events/prodigy/job-123/events-*.jsonl | jq -s '.'
 ## Storage Benefits
 
 ### Cross-Worktree Data Sharing
+
+```mermaid
+graph LR
+    subgraph Global["~/.prodigy/ (Global Storage)"]
+        direction LR
+        Events["events/
+        Event logs"]
+        State["state/
+        Checkpoints"]
+        DLQ["dlq/
+        Failed items"]
+        Sessions["sessions/
+        Session data"]
+    end
+
+    subgraph Worktrees["Parallel Worktrees"]
+        direction LR
+        W1["Agent 1
+        worktree"]
+        W2["Agent 2
+        worktree"]
+        W3["Agent N
+        worktree"]
+    end
+
+    W1 -->|Read/Write| Events
+    W2 -->|Read/Write| Events
+    W3 -->|Read/Write| Events
+    W1 -->|Read/Write| State
+    W2 -->|Read/Write| State
+    W3 -->|Read/Write| State
+
+    style Global fill:#e1f5ff
+    style Events fill:#fff3e0
+    style State fill:#fff3e0
+    style DLQ fill:#fff3e0
+    style Sessions fill:#fff3e0
+```
+
+**Figure**: Multiple worktrees share centralized storage, enabling parallel execution visibility and consistent state management.
 
 Multiple worktrees working on same job share:
 - Event logs
@@ -155,6 +216,9 @@ du -sh ~/.prodigy/worktrees
 ```
 
 ## Migration from Local Storage
+
+!!! note "Migration Status"
+    Local storage is deprecated. New installations automatically use global storage at `~/.prodigy/`. Existing local storage is preserved but no longer updated.
 
 Legacy local storage (deprecated):
 ```
