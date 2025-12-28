@@ -2,16 +2,19 @@
 
 This section provides practical patterns and realistic examples for environment configuration in Prodigy workflows. All examples are validated against the actual implementation and real workflow files.
 
-> **Source References**: Examples based on:
-> - src/config/workflow.rs:12-39 (WorkflowConfig structure)
-> - src/cook/environment/config.rs:12-144 (Environment configuration types)
-> - workflows/mapreduce-env-example.yml (Complete working example)
+!!! note "Source References"
+    Examples based on:
+
+    - `src/config/workflow.rs:12-39` (WorkflowConfig structure)
+    - `src/cook/environment/config.rs:12-156` (Environment configuration types)
+    - `workflows/mapreduce-env-example.yml` (Complete working example)
 
 ### Multi-Environment Deployment Pattern
 
 Use profiles to manage different deployment environments with environment-specific configurations.
 
-> **Profile Support**: Profiles provide environment-specific variable overrides (src/cook/environment/config.rs:116-124). Activate with `--profile <name>` flag.
+!!! info "Profile Support"
+    Profiles provide environment-specific variable overrides (`src/cook/environment/config.rs:116-124`). Activate with `--profile <name>` flag.
 
 ```yaml
 name: multi-env-deployment
@@ -68,14 +71,49 @@ prodigy run deploy.yml --profile prod
 
 Combine env files with secret providers for secure credential management:
 
-> **Currently Supported Providers** (src/cook/environment/secret_store.rs:40-41):
-> - `env` - Environment variables
-> - `file` - File-based secrets
->
-> **Planned Providers** (defined but not yet implemented):
-> - `vault` - HashiCorp Vault integration
-> - `aws` - AWS Secrets Manager
-> - `custom` - Custom provider support
+```mermaid
+flowchart LR
+    subgraph Sources["Secret Sources"]
+        direction TB
+        EnvVar["Environment Variables"]
+        File["Secret Files"]
+        Vault["HashiCorp Vault"]
+        AWS["AWS Secrets Manager"]
+    end
+
+    subgraph Resolution["Secret Resolution"]
+        direction TB
+        Provider["Provider Lookup"]
+        Mask["Mask in Logs"]
+    end
+
+    EnvVar --> Provider
+    File --> Provider
+    Vault -.->|Planned| Provider
+    AWS -.->|Planned| Provider
+
+    Provider --> Mask
+    Mask --> Command["Command Execution"]
+
+    style EnvVar fill:#e8f5e9
+    style File fill:#e8f5e9
+    style Vault fill:#fff3e0
+    style AWS fill:#fff3e0
+```
+
+**Figure**: Secret resolution flow showing currently supported providers (green) and planned providers (orange).
+
+!!! tip "Secret Providers"
+    **Currently Supported** (`src/cook/environment/secret_store.rs:40-41`):
+
+    - `env` - Environment variables
+    - `file` - File-based secrets
+
+    **Planned Providers** (defined but not yet implemented):
+
+    - `vault` - HashiCorp Vault integration
+    - `aws` - AWS Secrets Manager
+    - `custom` - Custom provider support
 
 ```yaml
 name: secure-workflow
@@ -176,9 +214,10 @@ map:
 
 ### Environment Variable Composition Pattern
 
-Layer configuration from multiple sources with clear precedence (src/cook/environment/config.rs:12-36):
+Layer configuration from multiple sources with clear precedence (`src/cook/environment/config.rs:12-36`):
 
-> **Note**: env_files paths are static and don't support variable interpolation. Use profiles to handle environment-specific file loading.
+!!! warning "Static Paths"
+    `env_files` paths are static and don't support variable interpolation. Use profiles to handle environment-specific file loading.
 
 ```yaml
 name: layered-config
@@ -209,11 +248,24 @@ commands:
   - shell: "echo 'Mode: $EXECUTION_MODE, Workers: $MAX_WORKERS'"
 ```
 
-**Precedence Order** (highest to lowest):
-1. Profile variables (when profile is active)
-2. Global `env` variables
-3. Variables from `env_files` (later files override earlier)
-4. Inherited system environment variables
+!!! abstract "Precedence Order"
+    Variables are resolved in this order (highest to lowest priority):
+
+    1. **Profile variables** - When profile is active via `--profile`
+    2. **Global `env` variables** - Defined in workflow file
+    3. **Variables from `env_files`** - Later files override earlier
+    4. **Inherited system environment** - From parent process
+
+    ```mermaid
+    graph TD
+        A[System Environment] --> B[env_files]
+        B --> C[Global env]
+        C --> D[Profile Variables]
+        D --> E[Final Value]
+
+        style D fill:#4CAF50,color:#fff
+        style E fill:#2196F3,color:#fff
+    ```
 
 **File structure:**
 ```
@@ -225,59 +277,64 @@ commands:
 
 Use environment variables to make workflows portable across CI/CD systems.
 
-> **Conditional Execution**: Commands support the `when` field for conditional execution based on environment variables (src/config/command.rs:388).
+!!! info "Conditional Execution"
+    Commands support the `when` field for conditional execution based on environment variables (`src/config/command.rs:384`).
 
-```yaml
-name: ci-cd-workflow
+=== "Workflow"
 
-env:
-  # CI/CD environment detection
-  CI_MODE: "${CI:-false}"                    # GitHub Actions, GitLab CI set CI=true
-  BUILD_NUMBER: "${BUILD_NUMBER:-local}"     # Jenkins BUILD_NUMBER
-  COMMIT_SHA: "${GITHUB_SHA:-unknown}"       # GitHub Actions
-  BRANCH_NAME: "${BRANCH_NAME:-main}"        # Can be set by CI
+    ```yaml
+    name: ci-cd-workflow
 
-  # Resource limits for CI
-  MAX_WORKERS: "${CI_MAX_WORKERS:-5}"
-  TIMEOUT: "${CI_TIMEOUT:-300}"
+    env:
+      # CI/CD environment detection
+      CI_MODE: "${CI:-false}"                    # GitHub Actions, GitLab CI set CI=true
+      BUILD_NUMBER: "${BUILD_NUMBER:-local}"     # Jenkins BUILD_NUMBER
+      COMMIT_SHA: "${GITHUB_SHA:-unknown}"       # GitHub Actions
+      BRANCH_NAME: "${BRANCH_NAME:-main}"        # Can be set by CI
 
-  # Paths
-  ARTIFACT_DIR: "${WORKSPACE:-./artifacts}"
-  CACHE_DIR: "${CACHE_DIR:-./cache}"
+      # Resource limits for CI
+      MAX_WORKERS: "${CI_MAX_WORKERS:-5}"
+      TIMEOUT: "${CI_TIMEOUT:-300}"
 
-commands:
-  - shell: "echo 'CI Mode: $CI_MODE, Build: $BUILD_NUMBER'"
-  - shell: "echo 'Branch: $BRANCH_NAME, Commit: $COMMIT_SHA'"
+      # Paths
+      ARTIFACT_DIR: "${WORKSPACE:-./artifacts}"
+      CACHE_DIR: "${CACHE_DIR:-./cache}"
 
-  - shell: "cargo build --release"
-    when: "${CI_MODE} == 'true'"
+    commands:
+      - shell: "echo 'CI Mode: $CI_MODE, Build: $BUILD_NUMBER'"
+      - shell: "echo 'Branch: $BRANCH_NAME, Commit: $COMMIT_SHA'"
 
-  - shell: "cargo test --all"
-    timeout: ${TIMEOUT}
+      - shell: "cargo build --release"
+        when: "${CI_MODE} == 'true'"
 
-  - shell: "mkdir -p $ARTIFACT_DIR"
-  - shell: "cp target/release/app $ARTIFACT_DIR/"
-```
+      - shell: "cargo test --all"
+        timeout: ${TIMEOUT}
 
-**GitHub Actions example:**
-```yaml
-- name: Run Prodigy workflow
-  env:
-    CI_MAX_WORKERS: 10
-    CI_TIMEOUT: 600
-  run: prodigy run workflow.yml
-```
+      - shell: "mkdir -p $ARTIFACT_DIR"
+      - shell: "cp target/release/app $ARTIFACT_DIR/"
+    ```
 
-**Jenkins example:**
-```groovy
-environment {
-  CI_MAX_WORKERS = '10'
-  CI_TIMEOUT = '600'
-}
-steps {
-  sh 'prodigy run workflow.yml'
-}
-```
+=== "GitHub Actions"
+
+    ```yaml
+    - name: Run Prodigy workflow
+      env:
+        CI_MAX_WORKERS: 10
+        CI_TIMEOUT: 600
+      run: prodigy run workflow.yml
+    ```
+
+=== "Jenkins"
+
+    ```groovy
+    environment {
+      CI_MAX_WORKERS = '10'
+      CI_TIMEOUT = '600'
+    }
+    steps {
+      sh 'prodigy run workflow.yml'
+    }
+    ```
 
 ### Local Development Pattern
 
@@ -442,6 +499,31 @@ prodigy run deploy.yml --profile eu-west
 
 Use environment variables to control feature availability:
 
+```mermaid
+flowchart TD
+    Start[Start Workflow] --> CheckNew{"ENABLE_NEW_PIPELINE?"}
+
+    CheckNew -->|true| NewPipe["Run New Pipeline"]
+    CheckNew -->|false| LegacyPipe["Run Legacy Pipeline"]
+
+    NewPipe --> CheckExp{"ENABLE_EXPERIMENTAL?"}
+    LegacyPipe --> CheckExp
+
+    CheckExp -->|true| ExpFeatures["Run Experimental Features"]
+    CheckExp -->|false| SkipExp["Skip Experimental"]
+
+    ExpFeatures --> Validate["Validate Version"]
+    SkipExp --> Validate
+
+    Validate --> End[Complete]
+
+    style NewPipe fill:#e8f5e9
+    style LegacyPipe fill:#fff3e0
+    style ExpFeatures fill:#e1f5ff
+```
+
+**Figure**: Feature flag decision flow showing how environment variables control execution paths.
+
 ```yaml
 name: feature-flag-workflow
 
@@ -561,6 +643,7 @@ merge:
 ```
 
 See also:
+
 - [Environment Profiles](environment-profiles.md) for profile configuration details
 - [Secrets Management](secrets-management.md) for secure credential handling
 - [MapReduce Environment Variables](mapreduce-environment-variables.md) for MapReduce-specific usage
