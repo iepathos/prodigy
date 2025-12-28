@@ -1,0 +1,77 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "debugging",
+  "page_title": "debugging",
+  "page_file": "docs/advanced/observability/debugging.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good documentation with accurate examples and helpful workflow diagrams. Minor improvements possible for additional event types and MkDocs Material features.",
+  "issues": [
+    {
+      "type": "incomplete_content",
+      "severity": "low",
+      "section": "Event Query Examples",
+      "description": "Documentation shows limited event types. The codebase includes many more event types like AgentProgress, AgentRetrying, CheckpointCreated, WorktreeCreated, DLQItemAdded, ClaudeToolInvoked, etc. that could be documented for comprehensive debugging.",
+      "feature_reference": "observability.event_tracking",
+      "fix_suggestion": "Consider adding examples for other useful event types like ClaudeToolInvoked for debugging Claude interactions, CheckpointCreated for state issues, and DLQItemAdded for tracking failures.",
+      "source_reference": "src/cook/execution/events/event_types.rs:11-170"
+    },
+    {
+      "type": "missing_visual_feature",
+      "severity": "low",
+      "section": "Using JSON Logs",
+      "description": "The section would benefit from tabbed examples showing different command variations (e.g., with jq filters vs raw output) using MkDocs Material tabs feature.",
+      "fix_suggestion": "Add tabbed content blocks using ??? and !!! syntax for alternative approaches to log inspection.",
+      "source_reference": null
+    },
+    {
+      "type": "missing_visual_feature",
+      "severity": "low",
+      "section": "Performance Metrics",
+      "description": "The performance metrics section could benefit from admonitions (tips/info boxes) highlighting key metrics to watch for and warning signs.",
+      "fix_suggestion": "Add !!! tip and !!! warning admonitions around performance thresholds and best practices.",
+      "source_reference": null
+    },
+    {
+      "type": "incomplete_content",
+      "severity": "low",
+      "section": "Event Query Examples",
+      "description": "EventFilter supports additional filter fields like time_range and event_types that aren't shown in examples.",
+      "feature_reference": "observability.event_tracking",
+      "fix_suggestion": "Add examples showing time-based filtering and event type filtering for more targeted debugging.",
+      "source_reference": "src/cook/execution/events/filter.rs:14-21"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent Mermaid flowchart diagram for debugging workflow",
+    "Clear step-by-step debugging instructions",
+    "Accurate bash examples with jq for log inspection",
+    "Source code references with line numbers for transparency",
+    "Code annotations using MkDocs Material syntax (1)!, (2)!, (3)!",
+    "Practical calculation examples for success rate",
+    "Correlation ID tracking is well explained"
+  ],
+  "improvement_suggestions": [
+    "Add tabbed examples for different debugging scenarios (agent failure vs timeout vs resource issues)",
+    "Include admonitions for tips on common debugging patterns",
+    "Add cross-references to related pages (DLQ, event-tracking, log-management)",
+    "Consider adding a troubleshooting table for common error patterns",
+    "Document ClaudeToolInvoked and ClaudeTokenUsage events for AI-specific debugging"
+  ],
+  "cross_references": [
+    "event-tracking",
+    "log-management",
+    "claude-observability"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["debugging", "json_log_location", "correlation_id", "events", "performance_metrics"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/storage/types.rs:75 - correlation_id field confirmed",
+      "src/cook/execution/events/filter.rs - EventFilter structure confirmed",
+      "src/cook/execution/events/event_types.rs - MapReduceEvent types confirmed"
+    ]
+  }
+}
