@@ -47,14 +47,38 @@ prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
 ```
 
 2. **Inspect the Claude JSON log**:
-```bash
-cat /path/from/step1/session-xyz.json | jq
-```
+
+=== "Pretty Print"
+    ```bash
+    cat /path/from/step1/session-xyz.json | jq
+    ```
+
+=== "Raw Output"
+    ```bash
+    cat /path/from/step1/session-xyz.json
+    ```
+
+=== "Last Messages Only"
+    ```bash
+    cat /path/from/step1/session-xyz.json | jq '.messages[-5:]'
+    ```
 
 3. **Identify failing tool**:
-```bash
-cat /path/from/step1/session-xyz.json | jq '.messages[-3:]'
-```
+
+=== "Recent Context"
+    ```bash
+    cat /path/from/step1/session-xyz.json | jq '.messages[-3:]'
+    ```
+
+=== "Tool Calls Only"
+    ```bash
+    cat /path/from/step1/session-xyz.json | jq '[.messages[] | select(.type == "tool_use")]'
+    ```
+
+=== "Errors Only"
+    ```bash
+    cat /path/from/step1/session-xyz.json | jq '[.messages[] | select(.content | test("error"; "i"))]'
+    ```
 
 4. **Understand context**:
 - Review full conversation history
@@ -65,6 +89,12 @@ cat /path/from/step1/session-xyz.json | jq '.messages[-3:]'
 ## Performance Metrics
 
 ### Token Usage
+
+!!! tip "Key Metrics to Monitor"
+    - **input_tokens**: Prompt size - watch for context overflow
+    - **output_tokens**: Response size - may indicate verbosity issues
+    - **cache_read_tokens**: Cache hits - higher is better for performance
+    - **cache_creation_tokens**: Cache misses - high values may slow execution
 
 Track token consumption:
 ```json
@@ -79,6 +109,11 @@ Track token consumption:
 ```
 
 ### Execution Timing
+
+!!! warning "Performance Thresholds"
+    - Steps taking >60s may indicate tool timeouts
+    - High variance between agents suggests uneven workload distribution
+    - Total time >5min per agent warrants investigation
 
 Monitor performance:
 ```json
@@ -156,4 +191,102 @@ cat events.jsonl | \
   jq -c 'select(.type == "AgentCompleted") | {agent_id, duration: .duration.secs}' | \
   sort -k2 -n -r | \
   head -10
+```
+
+### Filter by Time Range
+
+```bash
+# Source: src/cook/execution/events/filter.rs:14-21
+# Filter events within a specific time window
+cat events.jsonl | \
+  jq -c 'select(.timestamp >= "2025-01-11T12:00:00Z" and .timestamp <= "2025-01-11T13:00:00Z")'
+```
+
+### Filter by Event Type
+
+```bash
+# Source: src/cook/execution/events/filter.rs:46-53
+# Filter for specific event types
+cat events.jsonl | \
+  jq -c 'select(.event_type == "checkpoint_created" or .event_type == "agent_completed")'
+```
+
+## Additional Event Types
+
+The event system tracks many events useful for debugging specific scenarios:
+
+### Claude-Specific Events
+
+Debug Claude interactions by tracking tool invocations and token usage:
+
+```json
+// Source: src/cook/execution/events/event_types.rs:145-157
+{
+  "event_type": "claude_tool_invoked",
+  "agent_id": "agent-1",
+  "tool_name": "Edit",
+  "tool_id": "tool_xyz",
+  "parameters": {"file_path": "/src/main.rs"},
+  "timestamp": "2025-01-11T12:05:00Z"
+}
+```
+
+```bash
+# Find all tool invocations for an agent
+cat events.jsonl | jq -c 'select(.event_type == "claude_tool_invoked" and .agent_id == "agent-1")'
+
+# Track token consumption across agents
+cat events.jsonl | jq -c 'select(.event_type == "claude_token_usage") | {agent_id, input_tokens, output_tokens}'
+```
+
+### Checkpoint Events
+
+Track checkpoint creation for debugging state issues:
+
+```json
+// Source: src/cook/execution/events/event_types.rs:74-87
+{
+  "event_type": "checkpoint_created",
+  "job_id": "mapreduce-123",
+  "version": 5,
+  "agents_completed": 42
+}
+```
+
+```bash
+# Monitor checkpoint progress
+cat events.jsonl | jq -c 'select(.event_type | startswith("checkpoint"))'
+```
+
+### DLQ Events
+
+Track items entering the Dead Letter Queue:
+
+```json
+// Source: src/cook/execution/events/event_types.rs:121-126
+{
+  "event_type": "dlq_item_added",
+  "job_id": "mapreduce-123",
+  "item_id": "work-item-99",
+  "error_signature": "timeout_exceeded",
+  "failure_count": 3
+}
+```
+
+```bash
+# Find all DLQ additions with error patterns
+cat events.jsonl | jq -c 'select(.event_type == "dlq_item_added") | {item_id, error_signature, failure_count}'
+```
+
+### Worktree Events
+
+Debug worktree lifecycle issues:
+
+```bash
+# Track worktree creation and cleanup
+cat events.jsonl | jq -c 'select(.event_type | startswith("worktree"))'
+
+# Find agents whose worktrees failed to merge
+cat events.jsonl | jq -c 'select(.event_type == "worktree_created" and .agent_id == "agent-X")'
+# Then check if corresponding worktree_merged event exists
 ```
