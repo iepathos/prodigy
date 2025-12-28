@@ -4,6 +4,9 @@ This section covers fundamental workflow patterns for getting started with Prodi
 
 ## Example 1: Simple Build and Test
 
+!!! warning "Sequential Execution"
+    Commands in a simple workflow run sequentially. If any command fails (and lacks an `on_failure` handler), the workflow stops immediately.
+
 !!! example "Basic Workflow"
     This example shows a simple linear workflow with error handling. The `on_failure` handler automatically invokes Claude to fix failing tests.
 
@@ -18,6 +21,9 @@ This section covers fundamental workflow patterns for getting started with Prodi
 ---
 
 ## Example 2: Foreach Iteration
+
+!!! note "Foreach vs MapReduce"
+    Use `foreach` for small, in-memory item lists (typically <20 items). For larger datasets or when you need full agent isolation with separate worktrees, use MapReduce mode (Example 3).
 
 ```yaml
 # Test multiple configurations in sequence
@@ -98,14 +104,21 @@ reduce:
 
 ```mermaid
 graph TD
-    Start[Start Workflow] --> Setup[Setup Phase<br/>Generate items.json]
-    Setup --> Map[Map Phase<br/>Parallel Processing]
+    Start[Start Workflow] --> Setup["Setup Phase
+    Generate items.json"]
+    Setup --> Map["Map Phase
+    Parallel Processing"]
 
-    Map --> A1[Agent 1<br/>Review file 1]
-    Map --> A2[Agent 2<br/>Review file 2]
-    Map --> A3[Agent 3<br/>Review file 3]
-    Map --> A4[Agent 4<br/>Review file 4]
-    Map --> A5[Agent 5<br/>Review file 5]
+    Map --> A1["Agent 1
+    Review file 1"]
+    Map --> A2["Agent 2
+    Review file 2"]
+    Map --> A3["Agent 3
+    Review file 3"]
+    Map --> A4["Agent 4
+    Review file 4"]
+    Map --> A5["Agent 5
+    Review file 5"]
 
     A1 --> Merge[Aggregate Results]
     A2 --> Merge
@@ -113,7 +126,8 @@ graph TD
     A4 --> Merge
     A5 --> Merge
 
-    Merge --> Reduce[Reduce Phase<br/>Summarize Reviews]
+    Merge --> Reduce["Reduce Phase
+    Summarize Reviews"]
     Reduce --> End[Complete]
 
     style Setup fill:#e1f5ff
