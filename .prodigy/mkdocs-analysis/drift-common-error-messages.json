@@ -1,0 +1,104 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "common-error-messages",
+  "page_title": "common error messages",
+  "page_file": "docs/troubleshooting/common-error-messages.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Well-structured error reference with good coverage of common errors. Missing some newer error types and MkDocs Material visual enhancements.",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "New Error Types",
+      "description": "Missing documentation for WorktreeMergeConflict error",
+      "feature_reference": "error_handling.mapreduce.WorktreeMergeConflict",
+      "fix_suggestion": "Add section documenting 'Worktree merge conflict for agent {agent_id} on branch {branch}' error with causes and resolution steps",
+      "source_reference": "src/cook/execution/errors.rs:57-62"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "New Error Types",
+      "description": "Missing documentation for CommitValidationFailed error",
+      "feature_reference": "error_handling.mapreduce.CommitValidationFailed",
+      "fix_suggestion": "Add section documenting commit validation failures when commit_required: true is set but no commit was made",
+      "source_reference": "src/cook/execution/mapreduce/agent/execution.rs:43-44"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "New Error Types",
+      "description": "Missing documentation for WorkItemLoadFailed error",
+      "feature_reference": "error_handling.mapreduce.WorkItemLoadFailed",
+      "fix_suggestion": "Add section for 'Failed to load work items from {path}' error with common causes (invalid JSON, file permissions)",
+      "source_reference": "src/cook/execution/errors.rs:95-101"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "New Error Types",
+      "description": "Missing documentation for InvalidJsonPath error",
+      "feature_reference": "error_handling.mapreduce.InvalidJsonPath",
+      "fix_suggestion": "Add section for 'JSON path expression invalid: {expression}' with JSONPath syntax guidance",
+      "source_reference": "src/cook/execution/errors.rs:111-116"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Resume already in progress",
+      "description": "References CLAUDE.md file which users cannot access",
+      "current_content": "For details on concurrent resume protection, see \"Concurrent Resume Protection (Spec 140)\" in the CLAUDE.md file.",
+      "should_be": "Reference should point to user-accessible documentation or explain the behavior inline",
+      "fix_suggestion": "Replace the CLAUDE.md reference with a link to the checkpoint-and-resume documentation page or explain the concurrent resume protection mechanism inline",
+      "source_reference": "src/cook/execution/resume_lock.rs:112-114"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall Document",
+      "description": "Document lacks MkDocs Material visual enhancements",
+      "fix_suggestion": "Add admonitions for tips/warnings, use tabs for grouping related commands, and consider adding code annotations for complex examples"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Codes Reference",
+      "description": "No mention of error codes system for programmatic error handling",
+      "feature_reference": "error_handling.codes",
+      "fix_suggestion": "Consider adding a brief note about error codes (1000-9999 ranges) for users who need to handle errors programmatically",
+      "source_reference": "src/error/codes.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive quick reference table with all documented errors",
+    "Clear structure with consistent format for each error",
+    "Good coverage of common causes and solutions",
+    "Includes source references for composition errors (good practice)",
+    "Anchor links in quick reference for easy navigation",
+    "Solutions are actionable with specific commands"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions to highlight important warnings or tips",
+    "Add tabbed sections for grouping CLI commands vs manual resolution steps",
+    "Include cross-references to related documentation pages (DLQ, checkpoints, worktrees)",
+    "Add a section on interpreting error codes for advanced users",
+    "Consider adding Mermaid diagrams for error recovery flowcharts",
+    "Add links to the mapreduce/checkpoint-and-resume.md page for checkpoint-related errors"
+  ],
+  "cross_references": [
+    "../mapreduce/checkpoint-and-resume.md",
+    "../mapreduce/dead-letter-queue-dlq.md",
+    "../advanced/storage/worktree-storage.md",
+    "../configuration/index.md",
+    "../composition/troubleshooting.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:14:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["error messages", "troubleshooting", "debugging", "error codes"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": true,
+    "broken_links_found": 0
+  }
+}
