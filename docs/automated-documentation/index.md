@@ -43,37 +43,110 @@ Choose your path based on your time and experience level
 
 The documentation workflow uses a **MapReduce pattern** to process your codebase in parallel:
 
+```mermaid
+flowchart TD
+    subgraph Setup["Setup Phase"]
+        A[Analyze Features] --> B[Detect Gaps]
+        B --> C[Analyze Structure]
+        C --> D[Split Oversized Chapters]
+        D --> E[Regenerate Work Items]
+    end
+
+    subgraph Map["Map Phase (Parallel)"]
+        F1[Agent 1: Chapter A]
+        F2[Agent 2: Chapter B]
+        F3[Agent 3: Chapter C]
+        F1 --> G1[Analyze → Fix → Validate]
+        F2 --> G2[Analyze → Fix → Validate]
+        F3 --> G3[Analyze → Fix → Validate]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        H[Build Book] --> I[Holistic Validation]
+        I --> J[Cleanup]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+    Reduce --> K[Merge to Branch]
+```
+
 ### Workflow Phases
 
-1. **Setup Phase** (Feature Analysis):
+1. **Setup Phase** (Feature Analysis & Preparation):
    - Analyzes your codebase to build a complete feature inventory
    - Detects documentation gaps by comparing existing docs to implementation
-   - Creates missing chapter/subsection files with placeholders
-   - Generates work items for the map phase
-   - Source: workflows/book-docs-drift.yml:24-34
+   - Analyzes chapter sizes to identify oversized documentation
+   - Automatically splits large chapters into subsections for optimal processing
+   - Regenerates work items for the map phase after structure changes
+   - Source: `workflows/book-docs-drift.yml:24-50`
 
 2. **Map Phase** (Parallel Processing):
    - Processes each chapter/subsection in parallel using isolated git worktrees
    - For each documentation item:
      - Analyzes drift between documentation and implementation
      - Fixes identified issues with real code examples
-     - Validates fixes meet quality standards
-   - Runs up to 3 items concurrently (configurable via MAX_PARALLEL)
+     - Validates fixes against a 100% quality threshold
+   - Runs up to 3 items concurrently (configurable via `MAX_PARALLEL`)
    - Failed items go to Dead Letter Queue (DLQ) for retry
-   - Source: workflows/book-docs-drift.yml:37-59
+   - Source: `workflows/book-docs-drift.yml:52-74`
 
-3. **Reduce Phase** (Validation):
+3. **Reduce Phase** (Validation & Finalization):
    - Rebuilds the entire book to ensure chapters compile together
-   - Checks for broken links between chapters
+   - Runs holistic validation to detect cross-cutting issues
    - Fixes any build errors discovered during compilation
    - Cleans up temporary analysis files
-   - Source: workflows/book-docs-drift.yml:62-82
+   - Source: `workflows/book-docs-drift.yml:77-92`
 
-4. **Merge Phase** (Integration):
-   - Merges updated documentation back to your original branch
-   - Preserves your working tree state
-   - Uses Claude to handle any merge conflicts
-   - Source: workflows/book-docs-drift.yml:93-100
+!!! note "Automatic Merging"
+    Merging happens automatically via the MapReduce framework's worktree system after successful completion of all phases. Each agent's changes merge into a parent worktree, which is then offered for merge back to your original branch.
+
+### Quality Gates
+
+The workflow enforces quality through multiple mechanisms:
+
+=== "Validation Thresholds"
+
+    Each fix is validated against a 100% quality threshold:
+
+    ```yaml
+    # Source: workflows/book-docs-drift.yml:64-72
+    validate:
+      claude: "/prodigy-validate-doc-fix ..."
+      threshold: 100  # Documentation must meet 100% quality standards
+      on_incomplete:
+        claude: "/prodigy-complete-doc-fix ..."
+        max_attempts: 3
+    ```
+
+    If validation fails, Claude automatically attempts gap-filling up to 3 times.
+
+=== "Commit Verification"
+
+    Key steps require commits to verify actual changes were made:
+
+    ```yaml
+    # Source: workflows/book-docs-drift.yml:45, 59, 63, 72, 83, 87
+    - claude: "/prodigy-fix-subsection-drift ..."
+      commit_required: true  # Prevents no-op runs
+    ```
+
+    This prevents agents from reporting success without making modifications.
+
+=== "Error Policy"
+
+    Failed items are handled gracefully:
+
+    ```yaml
+    # Source: workflows/book-docs-drift.yml:95-99
+    error_policy:
+      on_item_failure: dlq
+      continue_on_failure: true
+      max_failures: 2
+      error_collection: aggregate
+    ```
+
+    Execution continues even after failures, with errors aggregated for analysis.
 
 ### Worktree Isolation
 
