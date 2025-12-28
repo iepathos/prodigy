@@ -1,0 +1,99 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "composition-metadata",
+  "page_title": "composition metadata",
+  "page_file": "docs/composition/composition-metadata.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Documentation is accurate and comprehensive with correct source references",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate line number references to source code - CompositionMetadata at mod.rs:153-170, DependencyInfo at mod.rs:172-183, DependencyType at mod.rs:185-193",
+    "Complete coverage of all composition metadata structures including CompositionMetadata, DependencyInfo, and DependencyType",
+    "Correct Rust code examples matching actual implementation in composer.rs",
+    "Good YAML examples demonstrating all four dependency types (Import, Extends, Template, SubWorkflow)",
+    "Appropriate implementation status notes indicating CLI integration is under development",
+    "Clear explanation of programmatic access via WorkflowComposer API",
+    "Helpful dependency graph visualization showing hierarchical relationships",
+    "Comprehensive use cases section covering debugging, dependency analysis, change impact, and auditing",
+    "Proper documentation of data structure properties including Clone and Serialize derives",
+    "Valid internal links to related template-system.md and workflow-extension-inheritance.md pages"
+  ],
+  "improvement_suggestions": [
+    "Consider adding admonitions (MkDocs Material feature) to highlight the implementation status notes more prominently",
+    "Add code annotations to the Rust examples to explain key fields inline",
+    "Consider adding a tabbed example showing the same composition in YAML and resulting metadata JSON",
+    "Could enhance circular dependency detection section with more complex multi-file cycle examples"
+  ],
+  "cross_references": [
+    "template-system",
+    "workflow-extension-inheritance"
+  ],
+  "links_validation": {
+    "total_internal_links": 2,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      {
+        "text": "Template System",
+        "target": "template-system.md",
+        "exists": true
+      },
+      {
+        "text": "Workflow Extension",
+        "target": "workflow-extension-inheritance.md",
+        "exists": true
+      }
+    ]
+  },
+  "source_reference_validation": {
+    "total_references": 5,
+    "accurate_references": 5,
+    "references": [
+      {
+        "documented": "src/cook/workflow/composition/mod.rs:153-170",
+        "actual": "lines 153-170",
+        "status": "accurate",
+        "content": "CompositionMetadata struct"
+      },
+      {
+        "documented": "src/cook/workflow/composition/mod.rs:172-183",
+        "actual": "lines 173-183",
+        "status": "minor_drift",
+        "note": "Off by one line but content matches",
+        "content": "DependencyInfo struct"
+      },
+      {
+        "documented": "src/cook/workflow/composition/mod.rs:185-193",
+        "actual": "lines 185-193",
+        "status": "accurate",
+        "content": "DependencyType enum"
+      },
+      {
+        "documented": "src/cook/workflow/composition/composer.rs:21-37",
+        "actual": "lines 21-30 for new(), compose starts at 33",
+        "status": "accurate",
+        "content": "WorkflowComposer::new and compose method signature"
+      },
+      {
+        "documented": "src/cook/workflow/composition/composer.rs:45-51",
+        "actual": "lines 45-51",
+        "status": "accurate",
+        "content": "CompositionMetadata initialization in compose"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "composition metadata",
+      "dependency tracking",
+      "dependency types",
+      "programmatic access",
+      "circular dependency detection",
+      "parameter tracking"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
