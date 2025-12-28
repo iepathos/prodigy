@@ -19,6 +19,31 @@ Context chaining provides:
 - **Developer diagnostics**: Developers get detailed context for troubleshooting
 - **Audit trail**: Complete history of operations leading to failure
 
+```mermaid
+graph LR
+    subgraph ErrorChain["Error Context Chain"]
+        direction LR
+        Root["Source Error
+        'file not found'"] --> L1["Layer 1 Context
+        'Failed to read config.json'"]
+        L1 --> L2["Layer 2 Context
+        'Failed to load workflow'"]
+        L2 --> L3["Layer 3 Context
+        'Failed to deploy'"]
+    end
+
+    L3 --> User["User Sees:
+    'Failed to deploy'"]
+    L3 --> Dev["Developer Sees:
+    Full chain + source"]
+
+    style Root fill:#ffebee
+    style User fill:#e8f5e9
+    style Dev fill:#e1f5ff
+```
+
+**Figure**: Context layers build from specific (source) to general (top-level), enabling both user-friendly messages and detailed diagnostics.
+
 ## Key Concepts
 
 ### Effect Boundaries
@@ -29,6 +54,31 @@ An "effect boundary" is where your code transitions between different layers or 
 2. **External Calls**: Subprocess execution, library functions
 3. **Layer Transitions**: Moving between architectural layers (UI → Service → Storage)
 4. **Error Propagation**: Calling functions that return Results
+
+```mermaid
+flowchart TD
+    subgraph Pure["Pure Functions (No Context Needed)"]
+        P1["Data transformation"]
+        P2["Validation logic"]
+        P3["Calculations"]
+    end
+
+    subgraph Effect["Effect Boundaries (Add Context)"]
+        E1["File I/O"]
+        E2["Network calls"]
+        E3["Subprocess execution"]
+        E4["Database operations"]
+    end
+
+    P1 --> E1
+    P2 --> E2
+    P3 --> E3
+
+    style Pure fill:#e8f5e9
+    style Effect fill:#fff3e0
+```
+
+**Figure**: Add context at effect boundaries where operations can fail, not at pure functions.
 
 ### The `.context()` Method
 
@@ -434,6 +484,38 @@ load_config()
 ## Gradual Migration Strategy
 
 You don't need to migrate everything at once. Follow this priority:
+
+```mermaid
+graph LR
+    subgraph P1["Phase 1: High Impact"]
+        direction TB
+        H1["CLI handlers"]
+        H2["Storage I/O"]
+        H3["External APIs"]
+    end
+
+    subgraph P2["Phase 2: Core Logic"]
+        direction TB
+        C1["Workflow execution"]
+        C2["MapReduce"]
+        C3["Session mgmt"]
+    end
+
+    subgraph P3["Phase 3: Utilities"]
+        direction TB
+        U1["String parsing"]
+        U2["Config loading"]
+        U3["Internal helpers"]
+    end
+
+    P1 --> P2 --> P3
+
+    style P1 fill:#ffebee
+    style P2 fill:#fff3e0
+    style P3 fill:#e8f5e9
+```
+
+**Figure**: Migration phases from highest impact (user-facing) to lowest (internal utilities).
 
 ### Phase 1: High-Impact Areas (Start Here)
 1. User-facing commands (CLI handlers)
