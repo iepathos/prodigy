@@ -2,6 +2,21 @@
 
 Work items can be loaded from two types of input sources and extracted using JSONPath expressions.
 
+```mermaid
+flowchart LR
+    Input["map.input value"] --> Exists{"File exists?"}
+    Exists -->|Yes| ReadFile["Read JSON File"]
+    Exists -->|No| RunCmd["Execute as Command"]
+    ReadFile --> Parse["Parse JSON"]
+    RunCmd --> ParseOutput["Parse Command Output"]
+    Parse --> Extract["Apply JSONPath"]
+    ParseOutput --> Extract
+    Extract --> Items["Work Items"]
+
+    style Input fill:#e1f5ff
+    style Items fill:#e8f5e9
+```
+
 !!! info "Automatic Input Detection"
     Prodigy automatically detects the input type based on file existence:
 
@@ -51,6 +66,33 @@ map:
 <!-- Source: src/cook/execution/input_source.rs:94-127 -->
 
 When using command output as input, Prodigy parses the output using this logic:
+
+```mermaid
+flowchart TD
+    Output["Command Output"] --> IsArray{"Valid JSON
+    array?"}
+    IsArray -->|Yes| ReturnArray["Return as-is"]
+    IsArray -->|No| IsSingle{"Valid JSON
+    object?"}
+    IsSingle -->|Yes| WrapArray["Wrap in array"]
+    IsSingle -->|No| LineLoop["Process each line"]
+    LineLoop --> LineJSON{"Line is
+    valid JSON?"}
+    LineJSON -->|Yes| AddItem["Add as work item"]
+    LineJSON -->|No| WrapLine["Wrap as
+    {item: line}"]
+    AddItem --> NextLine{"More lines?"}
+    WrapLine --> NextLine
+    NextLine -->|Yes| LineLoop
+    NextLine -->|No| ReturnItems["Return items"]
+
+    ReturnArray --> Done["Work Items"]
+    WrapArray --> Done
+    ReturnItems --> Done
+
+    style Output fill:#e1f5ff
+    style Done fill:#e8f5e9
+```
 
 1. **Full JSON array** - If the entire output is a valid JSON array, it's returned as-is
 2. **Single JSON value** - If the output is a single JSON object or value, it's wrapped in an array
