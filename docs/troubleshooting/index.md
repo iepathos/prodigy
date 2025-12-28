@@ -2,6 +2,98 @@
 
 This chapter provides comprehensive guidance for diagnosing and resolving common issues with Prodigy workflows. Whether you're experiencing MapReduce failures, checkpoint issues, or variable interpolation problems, you'll find practical solutions here.
 
+## Troubleshooting Decision Flow
+
+Use this diagram to quickly identify your issue category:
+
+```mermaid
+flowchart LR
+    Start[Issue Observed] --> Type{What type?}
+
+    Type -->|Variable/Output| Vars["Variables
+    Not Working"]
+    Type -->|Execution| Exec["Commands
+    Failing"]
+    Type -->|State/Resume| State["Checkpoint
+    Issues"]
+    Type -->|Cleanup| Clean["Worktree
+    Problems"]
+
+    Vars --> V1["Literal ${var}
+    in output"]
+    Vars --> V2["Env vars
+    not resolved"]
+    Vars --> V3["Git context
+    empty"]
+
+    Exec --> E1["Timeout
+    errors"]
+    Exec --> E2["Claude
+    not found"]
+    Exec --> E3["Foreach
+    failures"]
+    Exec --> E4["Validate
+    failures"]
+
+    State --> S1["Resume starts
+    from beginning"]
+    State --> S2["DLQ retry
+    fails"]
+
+    Clean --> C1["Orphaned
+    worktrees"]
+    Clean --> C2["Permission
+    denied"]
+
+    V1 --> Fix1["Check syntax
+    and scope"]
+    V2 --> Fix1
+    V3 --> Fix2["Check commits
+    created"]
+    E1 --> Fix3["Increase timeout
+    or split work"]
+    E2 --> Fix4["Install/configure
+    Claude CLI"]
+    E3 --> Fix5["Enable
+    continue_on_error"]
+    E4 --> Fix6["Check schema
+    and threshold"]
+    S1 --> Fix7["Verify checkpoint
+    files exist"]
+    S2 --> Fix8["Fix underlying
+    issue first"]
+    C1 --> Fix9["prodigy worktree
+    clean-orphaned"]
+    C2 --> Fix9
+
+    style Start fill:#e1f5ff
+    style Type fill:#fff3e0
+    style Vars fill:#e8f5e9
+    style Exec fill:#ffebee
+    style State fill:#f3e5f5
+    style Clean fill:#fff8e1
+```
+
+## Quick Reference
+
+Find your issue by symptom:
+
+| Symptom | Section |
+|---------|---------|
+| Literal `${var}` appears in output | [Variables not interpolating](#variables-not-interpolating) |
+| No items to process, empty JSONPath result | [MapReduce items not found](#mapreduce-items-not-found) |
+| Commands timing out | [Timeout errors](#timeout-errors) |
+| Resume starts from beginning | [Checkpoint resume not working](#checkpoint-resume-not-working) |
+| Retry fails or items re-fail immediately | [DLQ items not retrying](#dlq-items-not-retrying-or-re-failing) |
+| Orphaned worktrees, permission denied | [Worktree cleanup failures](#worktree-cleanup-failures) |
+| Environment variables not resolved | [Environment variables not resolved](#environment-variables-not-resolved) |
+| Git context variables empty | [Git context variables empty](#git-context-variables-empty) |
+| Foreach iteration failures | [Foreach iteration failures](#foreach-iteration-failures) |
+| Template not found errors | [Workflow composition errors](#workflow-composition-errors) |
+| Schema validation failed | [Validate command failures](#validate-command-failures) |
+| File write permission denied | [Write file failures](#write-file-failures) |
+| Claude command not found | [Claude command fails](#claude-command-fails-with-command-not-found) |
+
 ## Common Issues
 
 ### Variables not interpolating
@@ -15,11 +107,14 @@ This chapter provides comprehensive guidance for diagnosing and resolving common
 - Variable not captured
 
 **Solutions:**
+
 - Check variable name spelling and case sensitivity
 - Verify variable is available in current scope (step vs workflow)
 - Ensure proper syntax: `${var}` not `$var` for complex expressions
 - Verify capture_output command succeeded
 - Check variable was set before use (e.g., in previous step)
+
+**Source**: src/cook/execution/variables.rs
 
 ### MapReduce items not found
 
@@ -32,13 +127,19 @@ This chapter provides comprehensive guidance for diagnosing and resolving common
 - Wrong file format
 
 **Solutions:**
+
 - Verify input file exists with correct path
 - Test JSONPath expression with jsonpath-cli or jq
 - Check json_path field syntax (default: `$[*]`)
 - Ensure setup phase generated the input file successfully
 - Validate JSON format with jq or json validator
 
+**Source**: src/cook/execution/mapreduce/input.rs
+
 ### Timeout errors
+
+!!! warning "High Impact"
+    Timeout errors can cause complete workflow failures and may leave resources in inconsistent states.
 
 **Symptoms:** Commands or phases timing out before completion
 
@@ -49,6 +150,7 @@ This chapter provides comprehensive guidance for diagnosing and resolving common
 - Deadlock
 
 **Solutions:**
+
 - Increase timeout value for long operations
 - Optimize command execution for better performance
 - Split work into smaller chunks (use max_items, offset)
@@ -56,22 +158,33 @@ This chapter provides comprehensive guidance for diagnosing and resolving common
 - Look for deadlocks in concurrent operations
 - Use agent_timeout_secs for MapReduce agents
 
+!!! tip "Timeout Configuration"
+    Use `agent_timeout_secs` in MapReduce workflows for per-agent timeouts, and `timeout` at the command level for individual operations.
+
 ### Checkpoint resume not working
+
+!!! info "Recovery Feature"
+    Checkpoints enable resuming long-running workflows after interruption without losing progress.
 
 **Symptoms:** Resume starts from beginning, fails to load state, or "checkpoint not found"
 
 **Causes:**
+
 - Checkpoint files missing
 - Wrong session/job ID
 - Workflow changed
 - Concurrent resume
 
 **Solutions:**
+
 - Verify checkpoint files exist in `~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/`
 - Check session/job ID is correct with `prodigy sessions list`
 - Ensure workflow file hasn't changed significantly
 - Check for concurrent resume lock in `~/.prodigy/resume_locks/`
 - Review checkpoint file contents for corruption
+
+!!! tip "Finding Session IDs"
+    Use `prodigy sessions list` to view all sessions and their job IDs. The session ID and job ID are bidirectionally mapped for easy lookup.
 
 See [MapReduce Checkpoint and Resume](../mapreduce/checkpoint-and-resume.md) for detailed information.
 
@@ -80,20 +193,28 @@ See [MapReduce Checkpoint and Resume](../mapreduce/checkpoint-and-resume.md) for
 **Symptoms:** Retry command fails, items immediately fail again, or no progress
 
 **Causes:**
+
 - Systematic error not transient
 - DLQ file corrupted
 - Underlying issue not fixed
 
 **Solutions:**
+
 - Check DLQ file format and contents with `prodigy dlq show <job_id>`
 - Verify error was transient not systematic (e.g., rate limit vs bug)
 - Fix underlying issue before retry (e.g., API credentials, file permissions)
 - Increase max-parallel for retry if parallelism helps
 - Check json_log_location in DLQ for detailed error info
 
+!!! warning "Systematic vs Transient Errors"
+    Before retrying, determine if the error is transient (rate limits, network issues) or systematic (bugs, missing files). Retrying systematic errors will fail again.
+
 See [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md) for complete DLQ management details.
 
 ### Worktree cleanup failures
+
+!!! info "Resource Management"
+    Worktrees are temporary git checkouts used for isolation. Orphaned worktrees consume disk space but don't affect workflow correctness.
 
 **Symptoms:** Orphaned worktrees after failures, "permission denied" on cleanup
 
@@ -111,7 +232,7 @@ See [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md) for complet
 - Verify file permissions on worktree directory
 - Manual cleanup if necessary: `rm -rf ~/.prodigy/worktrees/<path>`
 
-For more on cleanup failures, see "Cleanup Failure Handling (Spec 136)" in the CLAUDE.md file.
+**Source**: src/cli/commands/worktree/orphaned_cleanup.rs
 
 ### Environment variables not resolved
 
@@ -170,19 +291,24 @@ See [Advanced Git Context](../git-context-advanced.md) for available git variabl
 - Use shell command for debugging: `shell: "echo Processing ${item}"`
 
 Example foreach with error handling:
+
 ```yaml
+# Source: src/cook/execution/foreach.rs:44-515
 foreach:
   input:
     list: ["file1.py", "file2.py", "file3.py"]
-  parallel: 5
-  max_items: 10
-  continue_on_error: true
+  parallel: 5  # (1)!
+  max_items: 10  # (2)!
+  continue_on_error: true  # (3)!
   commands:
-    - shell: "echo Processing ${item} (${index}/${total})"
+    - shell: "echo Processing ${item} (${index}/${total})"  # (4)!
     - claude: "/refactor ${item}"
 ```
 
-**Source**: src/cook/execution/foreach.rs:44-515
+1. Limits concurrent execution to 5 workers (use `true` for unlimited)
+2. Process at most 10 items total
+3. Continue processing remaining items even if one fails
+4. Built-in variables: `${item}` (current value), `${index}` (0-based), `${total}` (count)
 
 ### Workflow composition errors
 
@@ -225,20 +351,24 @@ See [Common Error Messages](common-error-messages.md#template-not-found) for spe
 - Use verbose mode to see validation output: `prodigy run workflow.yml -v`
 
 Example validate configuration:
+
 ```yaml
 # Source: src/cook/workflow/validation.rs:10-49
 validate:
-  shell: "cargo test --no-fail-fast -- --format json"
-  expected_schema:
+  shell: "cargo test --no-fail-fast -- --format json"  # (1)!
+  expected_schema:  # (2)!
     type: "object"
     required: ["passed", "total"]
-  threshold: 90.0
-  on_incomplete:
+  threshold: 90.0  # (3)!
+  on_incomplete:  # (4)!
     commands:
       - claude: "/fix-failing-tests"
 ```
 
-**Source**: src/cook/workflow/validation.rs:10-49
+1. Command that produces JSON output for validation
+2. JSON Schema that the output must conform to
+3. Minimum percentage of tests that must pass (0-100)
+4. Commands to run if threshold not met
 
 ### Write file failures
 
@@ -261,25 +391,33 @@ validate:
 - Check disk space: `df -h`
 
 Example write_file configuration:
+
 ```yaml
-# Source: src/config/command.rs:278-298
+# Source: src/config/command.rs:278-313
 - write_file:
-    path: "output/results-${item.id}.json"
-    content: |
+    path: "output/results-${item.id}.json"  # (1)!
+    content: |  # (2)!
       {
         "item_id": "${item.id}",
         "status": "completed"
       }
-    format: json
-    create_dirs: true
-    mode: "0644"
+    format: json  # (3)!
+    create_dirs: true  # (4)!
+    mode: "0644"  # (5)!
 ```
 
-**Source**: src/config/command.rs:278-313, tests/write_file_integration_test.rs
+1. Supports variable interpolation in file path
+2. File content with embedded variable interpolation
+3. Validates content as JSON before writing (also supports `yaml`)
+4. Auto-create parent directories if they don't exist
+5. Unix file permissions in octal format
 
 ### Claude command fails with "command not found"
 
 **Symptoms:** Shell error about claude command not existing
+
+!!! note "Prerequisites"
+    Claude Code CLI must be installed and accessible in your PATH for Prodigy to execute `claude:` commands in workflows.
 
 **Causes:**
 - Claude Code not installed
@@ -294,96 +432,108 @@ Example write_file configuration:
 
 ## Debug Tips
 
-### Use dry-run mode to preview execution
+=== "CLI Commands"
 
-```bash
-prodigy run workflow.yml --dry-run
-```
+    ### Dry-run mode
 
-**Shows:** Preview of commands that would be executed without actually running them
+    Preview commands without execution:
 
-**Use when:** Verifying workflow steps before execution, testing variable interpolation, checking command syntax
+    ```bash
+    prodigy run workflow.yml --dry-run
+    ```
 
-**Source**: src/cli/args.rs:64
+    Example output:
 
-### Use verbose mode for execution details
+    ```text
+    [DRY-RUN] Workflow: my-workflow.yml
+    [DRY-RUN] Mode: sequential
+    [DRY-RUN] Step 1: shell: echo "Starting workflow"
+    [DRY-RUN] Step 2: claude: /review src/main.rs
+    [DRY-RUN] Step 3: shell: cargo test
+    [DRY-RUN] Variables resolved:
+    [DRY-RUN]   PROJECT_NAME = my-project
+    [DRY-RUN]   BUILD_TYPE = release
+    ```
 
-```bash
-prodigy run workflow.yml -v
-```
+    **Source**: src/cli/args.rs:59-61
 
-**Shows:** Claude streaming output, tool invocations, and execution timeline
+    ### Verbose mode
 
-**Use when:** Understanding what Claude is doing, debugging tool calls
+    Get execution details with streaming output:
 
-### Check Claude JSON logs for full interaction
+    ```bash
+    prodigy run workflow.yml -v     # Claude streaming output
+    prodigy run workflow.yml -vv    # + debug logs
+    prodigy run workflow.yml -vvv   # + trace-level logs
+    ```
 
-```bash
-prodigy logs --latest --summary
-```
+    ### Event inspection
 
-**Shows:** Full Claude interaction including messages, tools, token usage, errors
+    View execution timeline and statistics:
 
-**Use when:** Claude command failed, understanding why Claude made certain decisions
+    ```bash
+    prodigy events ls --job-id <job_id>      # List events
+    prodigy events follow --job-id <job_id>  # Real-time stream
+    prodigy events stats                      # Statistics
+    ```
 
-For more on Claude JSON logs, see the "Viewing Claude Execution Logs (Spec 126)" section in the project CLAUDE.md file.
+    **Source**: src/cli/commands/events.rs:22-98
 
-### Inspect event logs for execution timeline
+=== "Log Analysis"
 
-```bash
-# List events for a job
-prodigy events ls --job-id <job_id>
+    ### Claude JSON logs
 
-# Follow events in real-time
-prodigy events follow --job-id <job_id>
+    View complete Claude interactions:
 
-# Show event statistics
-prodigy events stats
-```
+    ```bash
+    prodigy logs --latest --summary  # Summary view
+    prodigy logs --latest --tail     # Real-time streaming
+    ```
 
-**Shows:** Detailed execution timeline, agent starts/completions, durations, real-time event stream
+    **Shows:** Messages, tool invocations, token usage, errors
 
-**Use when:** Understanding workflow execution flow, finding bottlenecks, monitoring active jobs
+    !!! tip "Debugging Failed Commands"
+        When a Claude command fails, the JSON log contains the full conversation history and error details.
 
-**Source**: src/cli/commands/events.rs:22-98
+    ### DLQ inspection
 
-### Review DLQ for failed item details
+    Review failed MapReduce items:
 
-```bash
-prodigy dlq show <job_id>
-```
+    ```bash
+    prodigy dlq show <job_id>
+    ```
 
-**Shows:** Failed items with full error details, retry history, json_log_location
+    **Shows:** Failed items, error details, retry history, json_log_location
 
-**Use when:** MapReduce items failing, understanding failure patterns
+=== "State Inspection"
 
-### Check checkpoint state for resume issues
+    ### Checkpoint files
 
-**Location:** `~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/`
+    **Location:** `~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/`
 
-**Shows:** Saved execution state, completed items, variables, phase progress
+    **Contents:**
 
-**Use when:** Resume not working, understanding saved state
+    - Saved execution state
+    - Completed items list
+    - Variable values
+    - Phase progress
 
-### Examine worktree git log for commits
+    ### Worktree git history
 
-```bash
-cd ~/.prodigy/worktrees/{repo}/{session}/ && git log
-```
+    View commits created during workflow:
 
-**Shows:** All commits created during workflow execution with full details
+    ```bash
+    cd ~/.prodigy/worktrees/{repo}/{session}/ && git log --oneline
+    ```
 
-**Use when:** Understanding what changed, verifying commits created
+    ### Orphaned worktrees
 
-### Tail Claude JSON log in real-time
+    List and clean orphaned worktrees:
 
-```bash
-prodigy logs --latest --tail
-```
-
-**Shows:** Live streaming of Claude JSON log as it's being written
-
-**Use when:** Watching long-running Claude command, debugging in real-time
+    ```bash
+    prodigy worktree ls                       # List all
+    prodigy worktree clean-orphaned <job_id>  # Clean specific job
+    ```
 
 ## Additional Topics
 
