@@ -42,6 +42,28 @@ The type-specific variables (`shell.output`, `claude.output`) are only updated w
 
 Computed variables are dynamically evaluated at runtime, providing access to external data sources and generated values. These variables are prefixed with specific identifiers that trigger their evaluation.
 
+```mermaid
+flowchart LR
+    Ref["${variable}"] --> Parse["Parse
+    Variable Type"]
+    Parse --> Cached{"Cached?"}
+    Cached -->|"env.*, file:, cmd:"| Check{"In
+    Cache?"}
+    Check -->|Yes| Return[Return Cached]
+    Check -->|No| Eval[Evaluate]
+    Eval --> Store[Store in Cache]
+    Store --> Return
+    Cached -->|"json:, date:, uuid"| Direct[Evaluate Directly]
+    Direct --> Return
+    Return --> Result["Resolved Value"]
+
+    style Ref fill:#e1f5ff
+    style Cached fill:#fff3e0
+    style Return fill:#e8f5e9
+```
+
+**Figure**: Computed variable resolution flow. Expensive operations (env, file, cmd) are cached; fast or volatile operations (json, date, uuid) evaluate directly.
+
 | Variable Type | Syntax | Description | Cached | Example |
 |---------------|--------|-------------|--------|---------|
 | **Environment** | `${env.VAR_NAME}` | Read environment variable | Yes | `${env.HOME}`, `${env.PATH}` |
