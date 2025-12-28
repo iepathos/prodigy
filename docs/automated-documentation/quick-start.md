@@ -265,6 +265,32 @@ EOF
 
 **Workflow Structure:**
 
+```mermaid
+flowchart LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        S1[Analyze Codebase] --> S2[Build Feature Inventory] --> S3[Detect Gaps]
+    end
+
+    subgraph Map["Map Phase"]
+        direction TB
+        M1["Agent 1<br/>Chapter A"]
+        M2["Agent 2<br/>Chapter B"]
+        M3["Agent N<br/>Chapter N"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1[Build Book] --> R2[Validate Links] --> R3[Cleanup]
+    end
+
+    Setup --> Map --> Reduce
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+```
+
 | Phase | Purpose |
 |-------|---------|
 | **Setup** | Analyzes your codebase and detects documentation gaps |
@@ -420,6 +446,9 @@ prodigy run workflows/book-docs-drift.yml
 
 # Schedule in CI/CD (see GitHub Actions Integration)
 ```
+
+!!! tip "Recommended Frequency"
+    Run documentation drift detection after significant feature additions or refactoring. For active projects, weekly runs or CI integration on the main branch works well.
 
 ### Expand Your Documentation
 
