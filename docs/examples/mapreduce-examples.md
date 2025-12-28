@@ -2,6 +2,38 @@
 
 This section covers MapReduce workflows with error handling and configuration file generation.
 
+## MapReduce Phase Flow
+
+```mermaid
+flowchart LR
+    subgraph Setup["Setup Phase"]
+        S1[Generate work items]
+    end
+
+    subgraph Map["Map Phase"]
+        M1[Agent 1]
+        M2[Agent 2]
+        M3[Agent N]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        R1[Aggregate results]
+    end
+
+    S1 --> M1
+    S1 --> M2
+    S1 --> M3
+    M1 --> R1
+    M2 --> R1
+    M3 --> R1
+```
+
+The MapReduce workflow executes in three phases:
+
+1. **Setup**: Generates work items (typically a JSON file)
+2. **Map**: Processes items in parallel using isolated agent worktrees
+3. **Reduce**: Aggregates results and performs final operations
+
 ## Example 7: Complex MapReduce with Error Handling
 
 !!! warning "Resource Management"
@@ -25,9 +57,12 @@ map:
   distinct: "item.id"                       # (7)!
 
   # Timeout configuration (optional - default is 600 seconds / 10 minutes)
+  # See docs/advanced/timeout-configuration.md for full options
   timeout_config:
     agent_timeout_secs: 600                 # (8)!
     cleanup_grace_period_secs: 30           # (9)!
+    timeout_policy: PerAgent                # Options: PerAgent, PerCommand, Hybrid
+    timeout_action: Dlq                     # Options: Dlq, Skip, Fail, GracefulTerminate
 
   agent_template:
     - claude: "/fix-debt-item '${item.description}'"
@@ -62,6 +97,9 @@ error_policy:
 13. Stop workflow if >30% of items fail
 14. Aggregate errors and report at end
 ```
+
+!!! tip "Advanced Timeout Configuration"
+    For per-command timeouts and more granular control, see [Timeout Configuration](../advanced/timeout-configuration.md). You can configure `command_timeouts` for specific commands and choose different `timeout_action` behaviors.
 
 ### on_failure Syntax
 
@@ -139,26 +177,29 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 
 ## Example 8: Generating Configuration Files
 
+!!! note "Content must be a string"
+    The `content` field always expects a string value. For JSON/YAML formats, the content is validated and formatted according to the specified format. Use YAML block scalars (`|` or `>`) to write multi-line content.
+
 ```yaml
+# Source: src/config/command.rs:WriteFileConfig
 # Generate a JSON configuration file
 - write_file:
     path: "config/deployment.json"
     format: json  # Options: text, json, yaml
     create_dirs: true  # Create parent directories if they don't exist
-    content:
-      environment: production
-      api_url: "${API_URL}"
-      features:
-        - auth
-        - analytics
-        - notifications
-      timeout: 30
+    content: |
+      {
+        "environment": "production",
+        "api_url": "${API_URL}",
+        "features": ["auth", "analytics", "notifications"],
+        "timeout": 30
+      }
 
 # Generate a YAML configuration file
 - write_file:
     path: "config/services.yml"
     format: yaml
-    content:
+    content: |
       services:
         web:
           image: "myapp:latest"
