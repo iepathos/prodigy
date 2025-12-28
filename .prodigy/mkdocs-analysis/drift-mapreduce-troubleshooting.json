@@ -1,0 +1,89 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "mapreduce-troubleshooting",
+  "page_title": "MapReduce Troubleshooting Guide",
+  "page_file": "docs/mapreduce/troubleshooting.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Page is well-documented with comprehensive coverage of commit validation troubleshooting. The content accurately reflects the codebase implementation, with correct error types, command syntax, and debugging steps. Minor improvements could enhance visual presentation.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Prevention Best Practices",
+      "description": "MkDocs Material admonitions could enhance the 'Prevention Best Practices' section visibility",
+      "fix_suggestion": "Wrap each best practice in an admonition block (e.g., !!! tip 'Use commit_required Sparingly') for better visual distinction and consistency with other MapReduce documentation pages"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Debugging Steps - Section 4",
+      "description": "Section 4 'Test Agent Command Manually' contains an invalid shell script example that uses YAML syntax in a bash testing context",
+      "current_content": "shell: |\n  echo \"content\" > file.txt\n  git add file.txt\n  git commit -m \"Test commit\"",
+      "should_be": "Plain bash commands: echo \"content\" > file.txt && git add file.txt && git commit -m \"Test commit\"",
+      "fix_suggestion": "Replace the 'shell:' YAML syntax with plain bash commands since this example shows testing in a shell environment, not in a workflow file"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all common commit validation failure scenarios",
+    "Accurate error message examples matching actual codebase output",
+    "Correct CommitValidationFailed error type documentation matching src/cook/execution/mapreduce/event.rs:18",
+    "Good progression from problem identification to solution",
+    "Correct DLQ JSON structure matching DlqItem implementation",
+    "Valid internal links to related documentation pages",
+    "Practical debugging steps with real CLI commands",
+    "Correctly documents prodigy dlq analyze command which exists in src/cli/commands/dlq.rs:26-32"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions to highlight warnings and tips",
+    "Consider adding a flowchart (Mermaid diagram) showing the commit validation decision tree",
+    "Add tabbed content for different commit_required scenarios (required vs optional)",
+    "Include code annotations for the YAML examples explaining each field",
+    "Fix the bash example in Section 4 'Test Agent Command Manually' to use valid shell syntax"
+  ],
+  "cross_references": [
+    "command-level-options",
+    "event-tracking",
+    "dead-letter-queue-dlq"
+  ],
+  "internal_links_validated": {
+    "total_links": 3,
+    "valid_links": 3,
+    "broken_links": 0,
+    "links_checked": [
+      {
+        "text": "Command-Level Options",
+        "target": "../workflow-basics/command-level-options.md",
+        "status": "valid"
+      },
+      {
+        "text": "MapReduce Event Tracking",
+        "target": "./event-tracking.md",
+        "status": "valid"
+      },
+      {
+        "text": "Dead Letter Queue",
+        "target": "./dead-letter-queue-dlq.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:35:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "commit validation",
+      "troubleshooting",
+      "debugging",
+      "DLQ",
+      "error handling"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_references_checked": [
+      "src/cook/execution/mapreduce/event.rs:18 - FailureReason::CommitValidationFailed",
+      "src/cook/execution/mapreduce/agent/execution.rs:44 - ExecutionError::CommitValidationFailed",
+      "src/cli/commands/dlq.rs:26-32 - DlqCommands::Analyze",
+      "src/cook/execution/dlq.rs:72 - ErrorType::CommitValidationFailed"
+    ]
+  }
+}
