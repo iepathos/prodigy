@@ -63,7 +63,8 @@ Understanding the order of operations is important for building effective work d
 
 ```mermaid
 flowchart LR
-    A[Input Data] --> B[JSONPath<br/>Extraction]
+    A[Input Data] --> B["JSONPath
+    Extraction"]
     B --> C[Filter]
     C --> D[Sort]
     D --> E[Deduplicate]
