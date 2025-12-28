@@ -13,7 +13,7 @@ flowchart TD
 
     Logs -->|Claude interaction| ClaudeLogs[prodigy logs --latest]
     Logs -->|Execution flow| Events[prodigy events ls]
-    Logs -->|Failed items| DLQ[prodigy dlq show]
+    Logs -->|Failed items| DLQ[prodigy dlq list]
 
     ClaudeLogs --> State{Check State}
     Events --> State
@@ -42,7 +42,7 @@ flowchart TD
     1. **Check verbosity**: Run with `-v` flag to see detailed output
     2. **Inspect logs**: Use `prodigy logs --latest --summary` for Claude interactions
     3. **Review events**: Use `prodigy events ls --job-id <job_id>` for execution timeline
-    4. **Check DLQ**: Use `prodigy dlq show <job_id>` for failed items (MapReduce only)
+    4. **Check DLQ**: Use `prodigy dlq list --job-id <job_id>` for failed items (MapReduce only)
     5. **Verify state**: Check `~/.prodigy/state/` for checkpoints and session state
 
 ### Common Error Patterns
@@ -53,7 +53,7 @@ flowchart TD
 | "Session not found" | Wrong ID or expired | Use `prodigy sessions list` to find correct ID |
 | "Command not found: claude" | Claude not in PATH | Install Claude Code or add to PATH |
 | "No items to process" | Wrong JSONPath or missing file | Verify input file exists, test JSONPath |
-| Cleanup fails | Locked files or permissions | Use `prodigy worktree clean-orphaned <job_id>` |
+| Cleanup fails | Locked files or permissions | Use `prodigy worktree clean-orphaned <job_id>`, check DLQ with `prodigy dlq list --job-id <job_id>` |
 | Resume starts over | No checkpoint or wrong ID | Check `~/.prodigy/state/` for checkpoint files |
 | High map phase failures | Resource contention | Reduce `max_parallel`, increase timeout |
 
@@ -62,8 +62,8 @@ flowchart TD
 ### MapReduce Issues
 
 **Agents failing silently:**
-- Check: `prodigy dlq show <job_id>`
-- Inspect: `json_log_location` field in DLQ entries
+- Check: `prodigy dlq list --job-id <job_id>`
+- Inspect: `prodigy dlq inspect <item_id>` for details including `json_log_location`
 - See: [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md)
 
 **Checkpoint resume not working:**
@@ -235,8 +235,11 @@ prodigy run workflow.yml -vvv         # (4)!
 
 === "DLQ Contents"
     ```bash
-    # Show failed items
-    prodigy dlq show <job_id>
+    # List failed items for a job
+    prodigy dlq list --job-id <job_id>
+
+    # Inspect specific item details
+    prodigy dlq inspect <item_id> --job-id <job_id>
 
     # View DLQ file directly
     cat ~/.prodigy/dlq/{repo}/{job_id}.json | jq '.'
