@@ -1,0 +1,97 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "index",
+  "page_file": "docs/automated-documentation/gap-detection/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page serves as a good section overview with accurate subpage links. Minor drift in source file line references that should be updated to reflect actual file sizes. Content is accurate but could benefit from MkDocs Material visual enhancements.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Source Reference",
+      "description": "Source reference claims command file has 1-1048 lines, but actual file only has 509 lines",
+      "current_content": "Implemented in `.claude/commands/prodigy-detect-documentation-gaps.md:1-1048`",
+      "should_be": "Implemented in `.claude/commands/prodigy-detect-documentation-gaps.md:1-509`",
+      "fix_suggestion": "Update the line reference to reflect actual file size (509 lines)",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Source Reference",
+      "description": "Test file reference claims 1-678 lines, but actual file has 677 lines (off by 1)",
+      "current_content": "tested in `tests/documentation_gap_detection_test.rs:1-678`",
+      "should_be": "tested in `tests/documentation_gap_detection_test.rs:1-677`",
+      "fix_suggestion": "Update line reference to 1-677",
+      "source_reference": "tests/documentation_gap_detection_test.rs"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Overview",
+      "description": "Page lacks visual enhancements that would improve user experience (admonitions, feature grids, etc.)",
+      "fix_suggestion": "Add MkDocs Material admonitions for key concepts and visual feature cards for the subpages"
+    }
+  ],
+  "positive_aspects": [
+    "Clear and concise introduction to gap detection functionality",
+    "Accurate description of what gap detection does",
+    "Well-organized subpage structure with descriptive links",
+    "All internal links to subpages are valid (overview.md, validation-phases.md, topic-normalization.md, gap-report.md all exist)",
+    "Proper use of relative paths for subpage links"
+  ],
+  "improvement_suggestions": [
+    "Add an admonition highlighting the critical nature of gap detection for documentation coverage",
+    "Include a visual diagram showing the gap detection workflow flow",
+    "Add a brief example of what a gap looks like before and after detection",
+    "Consider adding tabs to show different gap severity examples"
+  ],
+  "cross_references": [
+    "overview",
+    "validation-phases",
+    "topic-normalization",
+    "gap-report"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "validated_links": [
+      {
+        "text": "Overview",
+        "target": "overview.md",
+        "status": "valid",
+        "resolved_path": "docs/automated-documentation/gap-detection/overview.md"
+      },
+      {
+        "text": "Validation Phases",
+        "target": "validation-phases.md",
+        "status": "valid",
+        "resolved_path": "docs/automated-documentation/gap-detection/validation-phases.md"
+      },
+      {
+        "text": "Topic Normalization",
+        "target": "topic-normalization.md",
+        "status": "valid",
+        "resolved_path": "docs/automated-documentation/gap-detection/topic-normalization.md"
+      },
+      {
+        "text": "Gap Report",
+        "target": "gap-report.md",
+        "status": "valid",
+        "resolved_path": "docs/automated-documentation/gap-detection/gap-report.md"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Gap detection overview",
+      "Subpage navigation",
+      "Source file references"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
