@@ -13,6 +13,42 @@ A template is a reusable workflow definition that can be parameterized and insta
 - Field overrides
 - Metadata and versioning
 
+```mermaid
+graph LR
+    subgraph Sources["Template Sources"]
+        Registry["Registry
+        (by name)"]
+        File["File
+        (path)"]
+        URL["URL
+        (remote)"]
+    end
+
+    subgraph Resolution["Template Resolution"]
+        Load[Load Template]
+        Cache[(Cache)]
+        Params["Apply
+        Parameters"]
+        Override["Apply
+        Overrides"]
+    end
+
+    subgraph Output["Result"]
+        Workflow["Instantiated
+        Workflow"]
+    end
+
+    Registry --> Load
+    File --> Load
+    URL --> Load
+    Load --> Cache
+    Cache --> Params
+    Params --> Override
+    Override --> Workflow
+```
+
+**Figure**: Template resolution flow showing how templates are loaded from sources, cached, and instantiated with parameters and overrides.
+
 ### Template Configuration
 
 Templates are defined using the `WorkflowTemplate` struct:
@@ -20,22 +56,23 @@ Templates are defined using the `WorkflowTemplate` struct:
 ```yaml title="Template definition" hl_lines="9-12"
 # Source: src/cook/workflow/composition/mod.rs:67-83
 template:
-  # Template name (for identification)
-  name: "standard-ci"
+  name: "standard-ci"  # (1)!
 
-  # Template source (see Template Sources below)
-  source: "template-name"  # or { file: "path.yml" }
+  source: "template-name"  # (2)!
 
-  # Parameter values to pass to template
-  with:
+  with:  # (3)!
     param1: "value1"
     param2: "value2"
 
-  # Override specific template fields (fully implemented)
-  override:
+  override:  # (4)!
     timeout: 600
     max_parallel: 5
 ```
+
+1. **Template name** - Identifier for logging and debugging
+2. **Source** - Registry name (string), file path (`{ file: "path.yml" }`), or URL
+3. **Parameters** - Values substituted into `${param}` placeholders in the template
+4. **Overrides** - Replace specific template fields without modifying the source
 
 ### Template Sources
 
@@ -91,6 +128,9 @@ Prodigy uses an untagged enum for `TemplateSource`, which means the YAML format 
 ### Template Registry
 
 The template registry stores reusable workflow templates with configurable storage locations.
+
+!!! tip "Choosing a Registry Location"
+    Use **project-local** (`.prodigy/templates/`) for project-specific templates that should be version-controlled with your code. Use **global** (`~/.prodigy/templates/`) for personal or organization-wide templates shared across projects.
 
 !!! note "Default Storage Path"
     The default `TemplateRegistry::new()` uses `templates/` as the base directory. Custom paths like `.prodigy/templates/` or `~/.prodigy/templates/` are conventions that can be configured via `FileTemplateStorage::new(base_dir)`.
@@ -248,6 +288,33 @@ Prodigy caches loaded templates to improve performance:
 ### Template Override
 
 The `override` field allows you to override specific template fields without modifying the template file. Template overrides are fully implemented and applied during workflow composition.
+
+```mermaid
+flowchart LR
+    Template["Base Template"] --> Check{"Override
+    Key?"}
+    Check -->|commands| Cmd["Replace
+    commands array"]
+    Check -->|env| Env["Replace
+    env object"]
+    Check -->|merge| Merge["Replace
+    merge config"]
+    Check -->|path.to.field| Nested["Set nested
+    value"]
+    Check -->|unknown| Warn["Log warning
+    (ignored)"]
+
+    Cmd --> Final["Final
+    Workflow"]
+    Env --> Final
+    Merge --> Final
+    Nested --> Final
+
+    style Check fill:#fff3e0
+    style Final fill:#e8f5e9
+```
+
+**Figure**: Override application logic showing how different override keys are processed.
 
 ```yaml title="Basic override example"
 template:
