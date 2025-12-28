@@ -2,6 +2,60 @@
 
 This section documents specific error messages you may encounter while using Prodigy, along with their meanings and solutions.
 
+### Error Resolution Workflow
+
+Use this diagram to quickly identify the category of your error and find the appropriate solution:
+
+```mermaid
+flowchart LR
+    Error[Error Occurred] --> Category{Error Category?}
+
+    Category -->|"checkpoint/resume"| Resume["Resume Issues
+    • checkpoint not found
+    • Resume already in progress
+    • Job already completed"]
+
+    Category -->|"file/input"| Files["File Issues
+    • items.json not found
+    • permission denied
+    • disk quota exceeded"]
+
+    Category -->|"mapreduce/git"| MapReduce["MapReduce Issues
+    • merge conflict
+    • commit validation failed
+    • JSONPath returned no results"]
+
+    Category -->|"config/template"| Config["Configuration Issues
+    • template not found
+    • required parameter missing
+    • circular dependency"]
+
+    Resume --> ResumeSol["Check session list
+    Verify checkpoint directory
+    Remove stale locks"]
+
+    Files --> FilesSol["Verify file exists
+    Check permissions
+    Clean disk space"]
+
+    MapReduce --> MRSol["Review git status
+    Check DLQ for details
+    Validate JSONPath syntax"]
+
+    Config --> ConfigSol["Verify template name
+    Provide required params
+    Break dependency cycle"]
+
+    style Error fill:#ffebee
+    style Resume fill:#e1f5ff
+    style Files fill:#fff3e0
+    style MapReduce fill:#f3e5f5
+    style Config fill:#e8f5e9
+```
+
+!!! tip "Finding Your Error"
+    Use the [Quick Reference](#quick-reference) table below to jump directly to your specific error message, or follow the flowchart above to identify the error category first.
+
 ### Quick Reference
 
 | Error Message | Category | Common Cause |
@@ -74,6 +128,17 @@ This section documents specific error messages you may encounter while using Pro
 3. Ensure file path is correct (relative to workflow directory)
 4. Run setup phase manually to debug file creation
 
+!!! tip "Debugging Setup Phase"
+    Run the setup commands manually to see what file is created and where:
+
+    ```bash
+    # Check what setup creates
+    prodigy run workflow.yml --phases setup -v
+
+    # Then verify the file location
+    ls -la items.json
+    ```
+
 ---
 
 ### "command not found: claude"
@@ -95,6 +160,9 @@ This section documents specific error messages you may encounter while using Pro
 2. Verify installation: `which claude`
 3. Add Claude Code to PATH if needed
 4. Use full path in workflow: `/usr/local/bin/claude`
+
+!!! note "PATH in Non-Interactive Shells"
+    Prodigy runs commands in non-interactive shell sessions. If Claude is installed but not found, ensure your PATH is set in `.bashrc` or `.zshenv` (not just `.bash_profile` or `.zprofile`).
 
 ---
 
@@ -141,6 +209,17 @@ This section documents specific error messages you may encounter while using Pro
 3. Optimize command performance
 4. Split work into smaller chunks (use `max_items`)
 5. Check system resources: `top`, `df -h`
+
+!!! tip "Setting Appropriate Timeouts"
+    Configure timeouts at the command level for fine-grained control:
+
+    ```yaml
+    agent_template:
+      - shell: "cargo build"
+        timeout: 300  # 5 minutes for build
+      - claude: "/analyze-code"
+        timeout: 600  # 10 minutes for AI analysis
+    ```
 
 ---
 
