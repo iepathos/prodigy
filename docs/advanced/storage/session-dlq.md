@@ -104,18 +104,18 @@ Failed work items are stored as individual files per item:
 ```json
 // Source: src/cook/execution/dlq.rs:31-43
 {
-  "item_id": "item-1",
+  "item_id": "item-1", // (1)!
   "item_data": {"type": "process", "path": "/src/main.rs"},
   "first_attempt": "2025-01-11T12:00:00Z",
   "last_attempt": "2025-01-11T12:15:00Z",
-  "failure_count": 3,
+  "failure_count": 3, // (2)!
   "failure_history": [
     {
       "attempt_number": 1,
       "timestamp": "2025-01-11T12:00:00Z",
       "error_type": "Timeout",
       "error_message": "Command exceeded 300 second timeout",
-      "error_context": [
+      "error_context": [ // (3)!
         "Executing agent for item-1",
         "Running command: cargo test",
         "Waiting for completion"
@@ -124,20 +124,27 @@ Failed work items are stored as individual files per item:
       "agent_id": "agent-0",
       "step_failed": "test-step",
       "duration_ms": 300000,
-      "json_log_location": "~/.local/state/claude/logs/session-xyz.json"
+      "json_log_location": "~/.local/state/claude/logs/session-xyz.json" // (4)!
     }
   ],
-  "error_signature": "Timeout::Command exceeded timeout",
+  "error_signature": "Timeout::Command exceeded timeout", // (5)!
   "worktree_artifacts": {
     "worktree_path": "~/.prodigy/worktrees/project/agent-0",
     "branch_name": "agent-0-item-1",
     "uncommitted_changes": "Modified: src/main.rs",
     "error_logs": null
   },
-  "reprocess_eligible": true,
+  "reprocess_eligible": true, // (6)!
   "manual_review_required": false
 }
 ```
+
+1. Unique identifier for the work item from the input
+2. Total number of times this item has failed processing
+3. Context trail showing the call stack when failure occurred
+4. Path to Claude's detailed JSON log for debugging
+5. Signature for grouping similar failures in pattern analysis
+6. Whether this item can be retried via `prodigy dlq retry`
 
 ### Error Types
 
@@ -167,6 +174,27 @@ pub enum ErrorType {
 | `ValidationFailed` | Work item validation failed |
 | `ResourceExhausted` | System resources exhausted |
 | `Unknown` | Unclassified error |
+
+### DLQ Item Lifecycle
+
+```mermaid
+flowchart LR
+    Execute[Execute Agent] --> Success{Success?}
+    Success -->|Yes| Complete[Agent Complete]
+    Success -->|No| AddDLQ[Add to DLQ]
+
+    AddDLQ --> Eligible{Reprocess Eligible?}
+    Eligible -->|Yes| Retry[Retry via CLI]
+    Eligible -->|No| Review[Manual Review]
+
+    Retry --> Execute
+    Review --> Fix[Fix Issue]
+    Fix --> Retry
+
+    style Complete fill:#e8f5e9
+    style AddDLQ fill:#fff3e0
+    style Review fill:#ffebee
+```
 
 ### DLQ Features
 
