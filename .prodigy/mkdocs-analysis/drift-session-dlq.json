@@ -1,0 +1,113 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "session-dlq",
+  "page_title": "session dlq",
+  "page_file": "docs/advanced/storage/session-dlq.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has significant drift in DLQ storage path and item format. Session documentation is mostly accurate but missing details.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Dead Letter Queue Storage",
+      "description": "DLQ storage path is incorrect. Documentation shows single file 'dlq-items.json' but actual implementation stores each item as individual JSON file",
+      "current_content": "~/.prodigy/dlq/{repo_name}/{job_id}/dlq-items.json",
+      "should_be": "~/.prodigy/state/{base}/mapreduce/dlq/{job_id}/items/{item_id}.json (individual files per item)",
+      "fix_suggestion": "Update the storage path diagram to show individual item files in the items/ subdirectory. The actual path structure is: {base_path}/mapreduce/dlq/{job_id}/items/{item_id}.json",
+      "source_reference": "src/cook/execution/dlq.rs:540-544 (item_path method)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "high",
+      "section": "DLQ Item Format",
+      "description": "DLQ item format is significantly simplified. Missing important fields that exist in actual implementation",
+      "current_content": "Shows only item_id, item_data, failure_history, last_failure",
+      "should_be": "Actual DeadLetteredItem has: item_id, item_data, first_attempt, last_attempt, failure_count, failure_history, error_signature, worktree_artifacts, reprocess_eligible, manual_review_required",
+      "fix_suggestion": "Expand the DLQ Item Format example to include all fields from the DeadLetteredItem struct, especially error_signature, reprocess_eligible, and manual_review_required which are important for operations",
+      "source_reference": "src/cook/execution/dlq.rs:31-43 (DeadLetteredItem struct)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "DLQ Item Format",
+      "description": "FailureDetail structure is incomplete. Missing error_context field for context trail",
+      "current_content": "failure_history shows timestamp, error, json_log_location, retry_count",
+      "should_be": "FailureDetail includes: attempt_number, timestamp, error_type (enum), error_message, error_context (Vec<String>), stack_trace, agent_id, step_failed, duration_ms, json_log_location",
+      "fix_suggestion": "Update the failure_history example to show the complete FailureDetail structure including the error_context field for debugging context trail",
+      "source_reference": "src/cook/execution/dlq.rs:46-62 (FailureDetail struct)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "DLQ Item Format",
+      "description": "Missing documentation for ErrorType enum values",
+      "feature_reference": "error_handling.dead_letter_queue",
+      "fix_suggestion": "Add documentation for ErrorType enum: Timeout, CommandFailed (with exit_code), CommitValidationFailed, WorktreeError, MergeConflict, ValidationFailed, ResourceExhausted, Unknown",
+      "source_reference": "src/cook/execution/dlq.rs:65-78 (ErrorType enum)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Session Storage",
+      "description": "Session file format example is incomplete. Missing workflow_data and mapreduce_data sub-structures",
+      "feature_reference": "session_management",
+      "fix_suggestion": "Expand the Session File Format to show the type-specific fields: workflow_data (for Workflow sessions) includes workflow_id, workflow_name, current_step, total_steps, etc. mapreduce_data (for MapReduce sessions) includes job_id, total_items, processed_items, etc.",
+      "source_reference": "src/unified_session/state.rs:102-125 (WorkflowSession and MapReduceSession)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Session Storage",
+      "description": "Session status values incomplete. Documentation shows 'Running' but doesn't show 'Initializing' which is the actual initial state",
+      "current_content": "Shows 'Running' as status example",
+      "should_be": "SessionStatus has: Initializing, Running, Paused, Completed, Failed, Cancelled",
+      "fix_suggestion": "Update status field documentation to list all possible values",
+      "source_reference": "src/unified_session/state.rs:91-99 (SessionStatus enum)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "DLQ Features",
+      "description": "Missing documentation for DLQ statistics and analysis features",
+      "feature_reference": "error_handling.dead_letter_queue",
+      "fix_suggestion": "Add section documenting DLQ statistics (get_stats) and pattern analysis (analyze_patterns) capabilities. These help identify systematic failures across jobs.",
+      "source_reference": "src/cook/execution/dlq.rs:444-523 (get_stats and DLQStats)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "DLQ Features",
+      "description": "Missing documentation for DLQ capacity management (eviction)",
+      "feature_reference": "error_handling.dead_letter_queue",
+      "fix_suggestion": "Document that DLQ has max_items and retention_days settings. When capacity is reached, oldest items are automatically evicted.",
+      "source_reference": "src/cook/execution/dlq.rs:24-28 (max_items, retention_days fields)"
+    }
+  ],
+  "positive_aspects": [
+    "Correct session storage directory path (~/.prodigy/sessions/)",
+    "Session file naming convention is accurate ({session_id}.json)",
+    "DLQ features list includes key capabilities: cross-worktree tracking, failure history, log linkage, retry support",
+    "Clear section organization between Session Storage and DLQ Storage"
+  ],
+  "improvement_suggestions": [
+    "Add mermaid diagram showing relationship between session and DLQ storage",
+    "Include CLI commands for inspecting sessions and DLQ (prodigy sessions list, prodigy dlq show)",
+    "Add cross-reference links to related storage pages (structure.md, maintenance.md)",
+    "Include example of using DLQ retry command: prodigy dlq retry <job_id>",
+    "Document the index.json file that DLQ maintains for fast listing"
+  ],
+  "cross_references": [
+    "structure",
+    "maintenance",
+    "index"
+  ],
+  "internal_links_validated": true,
+  "broken_links": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["session storage", "dead letter queue", "failure tracking"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
