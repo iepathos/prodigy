@@ -1,0 +1,149 @@
+{
+  "item_type": "page",
+  "page_id": "default-values-reference",
+  "page_title": "default values reference",
+  "page_file": "docs/configuration/default-values-reference.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Reference page is comprehensive but has inaccurate source line references and one incorrect default value for memory storage",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Memory Storage Defaults",
+      "description": "Documentation states max_memory default is 1GB (1073741824 bytes), but the actual code default is 100MB (100 * 1024 * 1024 = 104857600 bytes)",
+      "current_content": "| `max_memory` | `1073741824` (1GB) | Maximum memory usage |",
+      "should_be": "| `max_memory` | `104857600` (100MB) | Maximum memory usage |",
+      "fix_suggestion": "Update max_memory default value to 104857600 (100MB) to match MemoryConfig::default() implementation",
+      "source_reference": "src/storage/config.rs:104-112 (MemoryConfig::default)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Global Configuration Defaults",
+      "description": "Source line reference 'src/config/mod.rs:51-59, 88-100' is inaccurate. The GlobalConfig Default impl is at lines 108-120",
+      "current_content": "Source: `src/config/mod.rs:51-59, 88-100`",
+      "should_be": "Source: `src/config/mod.rs:108-120`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/config/mod.rs:108-120"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Project Configuration Defaults",
+      "description": "Source line reference 'src/config/mod.rs:66-74' is inaccurate. The ProjectConfig struct is at lines 83-92",
+      "current_content": "Source: `src/config/mod.rs:66-74`",
+      "should_be": "Source: `src/config/mod.rs:83-92`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/config/mod.rs:83-92"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Storage Configuration Defaults",
+      "description": "Source line reference 'src/storage/config.rs:24-55, 228-241' is inaccurate. The StorageConfig struct is at lines 25-56, and the Default impl is at lines 229-241",
+      "current_content": "Source: `src/storage/config.rs:24-55, 228-241`",
+      "should_be": "Source: `src/storage/config.rs:25-56, 229-241`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/storage/config.rs:25-56, 229-241"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "File Storage Defaults",
+      "description": "Source line reference 'src/storage/config.rs:66-86, 196-198' is inaccurate. The FileConfig struct is at lines 67-87",
+      "current_content": "Source: `src/storage/config.rs:66-86, 196-198`",
+      "should_be": "Source: `src/storage/config.rs:67-87`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/storage/config.rs:67-87"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Memory Storage Defaults",
+      "description": "Source line reference 'src/storage/config.rs:89-111, 200-201' is inaccurate. The MemoryConfig struct is at lines 90-102, and Default impl is at lines 104-112",
+      "current_content": "Source: `src/storage/config.rs:89-111, 200-201`",
+      "should_be": "Source: `src/storage/config.rs:90-102, 104-112`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/storage/config.rs:90-102, 104-112"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Retry Policy Defaults",
+      "description": "Source line reference 'src/storage/config.rs:114-147, 204-212' is inaccurate. The RetryPolicy struct is at lines 115-136, Default impl at lines 138-147",
+      "current_content": "Source: `src/storage/config.rs:114-147, 204-212`",
+      "should_be": "Source: `src/storage/config.rs:115-147`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/storage/config.rs:115-147"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Cache Configuration Defaults",
+      "description": "Source line reference 'src/storage/config.rs:150-173' is inaccurate. The CacheConfig struct is at lines 151-164, Default impl at lines 166-173",
+      "current_content": "Source: `src/storage/config.rs:150-173`",
+      "should_be": "Source: `src/storage/config.rs:151-173`",
+      "fix_suggestion": "Update source line reference to reflect current code location",
+      "source_reference": "src/storage/config.rs:151-173"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "CLI Parameter Defaults",
+      "description": "Source line reference 'src/cook/command.rs:28-29' is inaccurate. The CookCommand struct defines max_iterations with default_value=\"1\" at line 28-29, and path at line 17-23",
+      "current_content": "Source: `src/cook/command.rs:28-29`",
+      "should_be": "Source: `src/cook/command.rs:11-81 (CookCommand struct)`",
+      "fix_suggestion": "Update source line reference to include the full struct range for clarity",
+      "source_reference": "src/cook/command.rs:11-81"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Command Metadata Defaults",
+      "description": "Source line reference 'src/config/command.rs:130-154, src/config/mod.rs:363-365' is inaccurate. CommandMetadata struct is at lines 132-154 in command.rs",
+      "current_content": "Source: `src/config/command.rs:130-154, src/config/mod.rs:363-365`",
+      "should_be": "Source: `src/config/command.rs:132-154`",
+      "fix_suggestion": "Update source line reference. Note: default values are applied via apply_command_defaults() in command_validator.rs, not in mod.rs",
+      "source_reference": "src/config/command.rs:132-154"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Page Visual Features",
+      "description": "Reference page lacks MkDocs Material visual enhancements like admonitions, code annotations, or callouts for important notes",
+      "fix_suggestion": "Add info admonition for the 'How defaults work' section and tip admonition for the practical example"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all configuration default values",
+    "Clear table format for easy reference",
+    "Includes precedence flow explanation with visual diagram",
+    "Practical example demonstrating storage override configuration",
+    "Links to related environment variables documentation",
+    "Correct default values for most settings (log_level, max_concurrent_specs, auto_commit, pool_size, timeouts, retry policy, cache config)"
+  ],
+  "improvement_suggestions": [
+    "Replace hardcoded line numbers with stable anchors or section references that won't become stale",
+    "Add an admonition to highlight the importance of the precedence flow",
+    "Consider adding a note about the difference between 'None' defaults and actual fallback behavior",
+    "Add code annotations to the YAML example for enhanced clarity"
+  ],
+  "cross_references": [
+    "environment-variables"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "configuration defaults",
+      "global config",
+      "project config",
+      "storage config",
+      "environment variables",
+      "CLI parameters",
+      "command metadata"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
