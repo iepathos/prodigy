@@ -1,0 +1,152 @@
+{
+  "item_type": "page",
+  "page_id": "advanced-index",
+  "page_title": "Advanced Features",
+  "page_file": "docs/advanced/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides good coverage of conditional execution and output capture but has incorrect source references and would benefit from a more comprehensive overview section as an index page",
+  "issues": [
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "On Success Handlers",
+      "description": "Source reference points to wrong line number for WorkflowStepCommand",
+      "current_content": "**Source**: Based on WorkflowStepCommand structure (src/config/command.rs:376)",
+      "should_be": "**Source**: Based on WorkflowStepCommand structure (src/config/command.rs:321)",
+      "fix_suggestion": "Update line number reference from 376 to 321"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Capture Formats",
+      "description": "Source reference points to wrong line numbers for CaptureFormat enum",
+      "current_content": "**Source**: CaptureFormat enum (src/cook/workflow/variables.rs:260-265)",
+      "should_be": "**Source**: CaptureFormat enum (src/cook/workflow/variables.rs:253-265)",
+      "fix_suggestion": "Update line number reference from 260-265 to 253-265"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Stream Capture Control",
+      "description": "Source reference points to wrong line numbers for CaptureStreams struct",
+      "current_content": "**Source**: CaptureStreams struct definition (src/cook/workflow/variables.rs:268-292)",
+      "should_be": "**Source**: CaptureStreams struct definition (src/cook/workflow/variables.rs:269-291)",
+      "fix_suggestion": "Update line number reference from 268-292 to 269-291"
+    },
+    {
+      "type": "incorrect_source_reference",
+      "severity": "low",
+      "section": "Stream Capture Control",
+      "description": "Second source reference also has wrong line numbers",
+      "current_content": "**Source**: WorkflowStepCommand.capture_streams field (src/config/command.rs:396), CaptureStreams struct (src/cook/workflow/variables.rs:268-292)",
+      "should_be": "**Source**: WorkflowStepCommand.capture_streams field (src/config/command.rs:392), CaptureStreams struct (src/cook/workflow/variables.rs:269-291)",
+      "fix_suggestion": "Update capture_streams field reference from 396 to 392"
+    },
+    {
+      "type": "incomplete_structure",
+      "severity": "medium",
+      "section": "Page Structure",
+      "description": "As an index page for the Advanced Features section, missing overview cards or navigation aids to help users discover available advanced topics",
+      "fix_suggestion": "Add navigation overview with cards or grid linking to all advanced topic pages: Sessions, Storage, Git Integration, Composition, Observability"
+    },
+    {
+      "type": "missing_cross_reference",
+      "severity": "low",
+      "section": "Additional Topics",
+      "description": "Missing links to other advanced pages like sessions.md, storage.md, git-integration.md, composition.md, observability.md",
+      "fix_suggestion": "Expand the 'Additional Topics' section to include all advanced subpages: Sessions, Storage Architecture, Git Integration, Workflow Composition, and Observability"
+    },
+    {
+      "type": "documentation_accuracy",
+      "severity": "medium",
+      "section": "Stream Capture Control - Structured Object Format",
+      "description": "Documentation shows capture_streams as structured object but code shows capture_streams is Option<String> in WorkflowStepCommand (line 392), not a structured object. The structured format may be for internal use only.",
+      "current_content": "capture_streams:\n    stdout: true\n    stderr: true\n    exit_code: true\n    success: true\n    duration: true",
+      "should_be": "Clarify that structured format is parsed during execution from string values, or document available string values (stdout, stderr, both)",
+      "source_reference": "src/config/command.rs:392 - pub capture_streams: Option<String>"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive documentation of conditional execution with when clauses",
+    "Clear explanation of expression syntax for when clauses with comparison and logical operators",
+    "Good examples showing nested on_failure and on_success handlers",
+    "Thorough coverage of capture formats (string, json, lines, number, boolean)",
+    "Well-documented stream capture control with simple and structured formats",
+    "Proper internal links to related subpages are all valid",
+    "Source references provided for implementation details (useful for developers)",
+    "Clear explanation of last.output and last.exit_code command-agnostic capture"
+  ],
+  "improvement_suggestions": [
+    "Add an overview section with feature cards linking to all advanced topics (sessions, storage, git, composition, observability)",
+    "Update all source reference line numbers to match current codebase",
+    "Add MkDocs Material admonitions for tips, warnings, and important notes",
+    "Consider adding a mermaid diagram showing conditional execution flow",
+    "Add code annotations to the YAML examples using MkDocs Material (1) syntax",
+    "Clarify the capture_streams structured format status - is it implemented in YAML or only internal?"
+  ],
+  "cross_references": [
+    "step-identification.md",
+    "timeout-configuration.md",
+    "implementation-validation.md",
+    "parallel-iteration-with-foreach.md",
+    "../workflow-basics/environment-configuration.md"
+  ],
+  "missing_cross_references": [
+    "sessions.md",
+    "storage.md",
+    "git-integration.md",
+    "composition.md",
+    "observability.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 5,
+    "broken_links": 0,
+    "validated_links": [
+      {
+        "text": "Step Identification",
+        "target": "step-identification.md",
+        "status": "valid"
+      },
+      {
+        "text": "Timeout Configuration",
+        "target": "timeout-configuration.md",
+        "status": "valid"
+      },
+      {
+        "text": "Implementation Validation",
+        "target": "implementation-validation.md",
+        "status": "valid"
+      },
+      {
+        "text": "Parallel Iteration with Foreach",
+        "target": "parallel-iteration-with-foreach.md",
+        "status": "valid"
+      },
+      {
+        "text": "Environment Variables",
+        "target": "../workflow-basics/environment-configuration.md",
+        "status": "valid"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Conditional execution",
+      "When clauses",
+      "Expression syntax",
+      "On success handlers",
+      "On failure handlers",
+      "Nested conditionals",
+      "Output capture",
+      "Variable management",
+      "Capture formats",
+      "Stream capture",
+      "Output file redirection",
+      "Execution context"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
