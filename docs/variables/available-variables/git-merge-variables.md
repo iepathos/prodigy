@@ -6,6 +6,46 @@ This section covers variables for git context tracking throughout workflow execu
 
 Variables tracking git changes throughout workflow execution:
 
+```mermaid
+flowchart LR
+    subgraph Step1["Step 1"]
+        S1F["step.files_modified"]
+        S1C["step.commits"]
+    end
+
+    subgraph Step2["Step 2"]
+        S2F["step.files_modified"]
+        S2C["step.commits"]
+    end
+
+    subgraph StepN["Step N"]
+        SNF["step.files_modified"]
+        SNC["step.commits"]
+    end
+
+    subgraph Workflow["Workflow Level"]
+        WC["workflow.commits
+        (all commits)"]
+        WCC["workflow.commit_count
+        (total count)"]
+    end
+
+    S1C --> WC
+    S2C --> WC
+    SNC --> WC
+    WC --> WCC
+
+    style Step1 fill:#e1f5ff
+    style Step2 fill:#e1f5ff
+    style StepN fill:#e1f5ff
+    style Workflow fill:#e8f5e9
+```
+
+**Figure**: Step-level variables reset per command; workflow-level variables accumulate across all steps.
+
+!!! tip "Choosing the Right Scope"
+    Use **step-level** variables (`step.*`) when you need to react to what just happened in the previous command. Use **workflow-level** variables (`workflow.*`) when you need a summary of all changes at the end of the workflow.
+
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `${step.files_added}` | Files added in current step | `echo ${step.files_added}` |
@@ -68,9 +108,12 @@ flowchart LR
     end
 
     subgraph MergePhase["Merge Phase"]
-        M1["merge.commits<br/>(JSON array)"]
-        M2["merge.modified_files<br/>(JSON array)"]
-        M3["merge.commit_count<br/>merge.file_count"]
+        M1["merge.commits
+        (JSON array)"]
+        M2["merge.modified_files
+        (JSON array)"]
+        M3["merge.commit_count
+        merge.file_count"]
     end
 
     subgraph Usage["Workflow Usage"]
