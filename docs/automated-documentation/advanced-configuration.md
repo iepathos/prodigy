@@ -21,11 +21,26 @@ Prodigy supports configuration at multiple levels with a clear precedence chain:
    - Defines variables, secrets, and profiles for the workflow
 
 **Configuration Precedence Chain**:
-```
-Step env > Workflow profile > Workflow env > Project config > Global config > System env
+
+```mermaid
+graph LR
+    StepEnv["Step env
+    (Highest Priority)"] --> WorkflowProfile["Workflow Profile"]
+    WorkflowProfile --> WorkflowEnv["Workflow env"]
+    WorkflowEnv --> ProjectConfig["Project config
+    .prodigy/config.yml"]
+    ProjectConfig --> GlobalConfig["Global config
+    ~/.prodigy/config.yml"]
+    GlobalConfig --> SystemEnv["System env
+    (Lowest Priority)"]
+
+    style StepEnv fill:#e8f5e9
+    style SystemEnv fill:#fff3e0
 ```
 
-Higher-priority configurations override lower-priority ones. For example, a step-level environment variable will override the same variable defined in the workflow env block.
+**Figure**: Configuration precedence from highest (Step env) to lowest (System env). Higher-priority configurations override lower-priority ones.
+
+For example, a step-level environment variable will override the same variable defined in the workflow env block.
 
 !!! info "Precedence in Practice"
     When debugging unexpected configuration values, trace through the precedence chain from highest to lowest. Use `-vv` verbosity to see resolved configuration values at runtime.
@@ -293,6 +308,39 @@ map:
 
 **Timeout Policies** (Source: src/cook/execution/mapreduce/timeout.rs:77-86):
 
+```mermaid
+flowchart LR
+    subgraph PerAgent["per_agent"]
+        direction LR
+        PA_Start[Start] --> PA_Cmd1[Cmd 1] --> PA_Cmd2[Cmd 2] --> PA_Cmd3[Cmd 3] --> PA_End[End]
+        PA_Timer["⏱️ Agent Timeout
+        (600s total)"]
+    end
+
+    subgraph PerCommand["per_command"]
+        direction LR
+        PC_Start[Start] --> PC_Cmd1["Cmd 1
+        ⏱️ 300s"] --> PC_Cmd2["Cmd 2
+        ⏱️ 60s"] --> PC_Cmd3["Cmd 3
+        ⏱️ 300s"] --> PC_End[End]
+    end
+
+    subgraph Hybrid["hybrid"]
+        direction LR
+        HY_Start[Start] --> HY_Cmd1["Cmd 1
+        ⏱️ 180s"] --> HY_Cmd2["Cmd 2
+        ⏱️ 60s"] --> HY_Cmd3["Cmd 3
+        ⏱️ default"] --> HY_End[End]
+        HY_Timer["⏱️ Agent Timeout (backup)"]
+    end
+
+    style PerAgent fill:#e1f5ff
+    style PerCommand fill:#fff3e0
+    style Hybrid fill:#f3e5f5
+```
+
+**Figure**: Timeout policy comparison - per_agent uses a single global timeout, per_command uses individual timeouts per command, and hybrid combines both approaches.
+
 - `per_agent`: Single timeout for entire agent execution
 - `per_command`: Individual timeout for each command
 - `hybrid`: Agent timeout with per-command overrides
@@ -414,6 +462,39 @@ error_policy:
 ```
 
 **Error Policy Options**:
+
+```mermaid
+flowchart TD
+    ItemFail["Work Item Fails"] --> OnFailure{"on_item_failure?"}
+
+    OnFailure -->|dlq| DLQ["Send to DLQ
+    (Recoverable)"]
+    OnFailure -->|skip| Skip["Skip Item
+    Log Warning"]
+    OnFailure -->|fail| Fail["Stop Workflow
+    Immediately"]
+
+    DLQ --> Continue{"continue_on_failure?"}
+    Skip --> Continue
+
+    Continue -->|true| CheckMax{"failures < max_failures?"}
+    Continue -->|false| WorkflowFail["Workflow Failed"]
+
+    CheckMax -->|yes| NextItem["Process Next Item"]
+    CheckMax -->|no| MaxReached["Max Failures Reached
+    Stop Workflow"]
+
+    NextItem --> Report["Aggregate Errors
+    in Final Report"]
+    MaxReached --> Report
+
+    style DLQ fill:#fff3e0
+    style Skip fill:#e1f5ff
+    style Fail fill:#ffebee
+    style NextItem fill:#e8f5e9
+```
+
+**Figure**: Error handling flow showing how `on_item_failure`, `continue_on_failure`, and `max_failures` interact.
 
 - `on_item_failure`: `dlq` (Dead Letter Queue), `fail` (stop immediately), `skip` (continue)
 - `continue_on_failure`: Whether to continue processing remaining items after a failure
