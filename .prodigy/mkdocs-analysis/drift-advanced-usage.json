@@ -1,0 +1,89 @@
+{
+  "item_type": "page",
+  "page_id": "advanced-usage",
+  "page_title": "advanced usage",
+  "page_file": "docs/automated-documentation/mkdocs-workflow/advanced-usage.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides good practical guidance but has some drift in configuration examples and references hypothetical features not in the actual workflow",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Custom Project Configuration",
+      "description": "The documented mkdocs-config.json structure differs from the actual implementation. The actual config uses different fields like 'project_type', 'analysis_dir', 'features', 'plugins', 'markdown_extensions', and 'analysis_targets' which are not documented",
+      "current_content": "{\n  \"project_name\": \"Prodigy\",\n  \"docs_dir\": \"book/src\",\n  \"mkdocs_config\": \"mkdocs.yml\",\n  \"theme\": \"material\",\n  \"validation\": {\n    \"require_source_attribution\": true,\n    \"require_examples\": true,\n    \"max_drift_severity\": \"medium\"\n  },\n  \"gap_detection\": {\n    \"auto_create_stubs\": true,\n    \"min_coverage_threshold\": 0.8\n  }\n}",
+      "should_be": "{\n  \"project_name\": \"Prodigy\",\n  \"project_type\": \"cli_tool\",\n  \"docs_dir\": \"docs\",\n  \"mkdocs_config\": \"mkdocs.yml\",\n  \"analysis_dir\": \".prodigy/mkdocs-analysis\",\n  \"theme\": \"material\",\n  \"features\": { ... },\n  \"plugins\": [...],\n  \"markdown_extensions\": [...],\n  \"validation\": { \"strict_mode\": true, \"check_links\": true, \"check_navigation\": true },\n  \"analysis_targets\": [...]\n}",
+      "fix_suggestion": "Update the config example to match the actual .prodigy/mkdocs-config.json structure including project_type, analysis_dir, features, plugins, markdown_extensions, and analysis_targets fields",
+      "source_reference": ".prodigy/mkdocs-config.json"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Validation Thresholds",
+      "description": "The 'validate' configuration block shown in documentation is not part of the workflow schema. Validation is done via the validate command within agent_template, not as a separate top-level key",
+      "current_content": "validate:\n  threshold: 100\n  on_incomplete:\n    claude: \"/prodigy-complete-mkdocs-fix...\"\n    max_attempts: 3\n    fail_workflow: false",
+      "should_be": "agent_template:\n  - claude: \"/prodigy-fix-mkdocs-drift...\"\n    commit_required: true\n    validate:\n      claude: \"/prodigy-validate-mkdocs-page...\"\n      result_file: \".prodigy/validation-result.json\"\n      threshold: 100\n      on_incomplete:\n        claude: \"/prodigy-complete-mkdocs-fix...\"\n        max_attempts: 3\n        fail_workflow: false",
+      "fix_suggestion": "Show the validate block as a per-step configuration within agent_template, not as a top-level workflow key",
+      "source_reference": "workflows/mkdocs-drift.yml:79-86"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Error Handling",
+      "description": "The error_policy example is accurate but missing documentation for additional supported options like 'failure_threshold' (rate-based stopping) and 'circuit_breaker' configuration",
+      "current_content": "error_policy:\n  on_item_failure: dlq\n  continue_on_failure: true\n  max_failures: 2\n  error_collection: aggregate",
+      "should_be": "Include additional options: failure_threshold (0.0-1.0), circuit_breaker config, retry_config with backoff strategies",
+      "fix_suggestion": "Add documentation for failure_threshold, circuit_breaker (failure_threshold, success_threshold, timeout, half_open_requests), and retry configuration (max_attempts, backoff strategies: fixed, linear, exponential, fibonacci)",
+      "source_reference": "src/cook/workflow/error_policy.rs:131-161"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Advanced Configuration",
+      "description": "The page doesn't document the analysis_targets configuration which is a key feature for configuring which source files and feature categories to analyze",
+      "fix_suggestion": "Add a section explaining the analysis_targets array structure with area, source_files, and feature_categories",
+      "source_reference": ".prodigy/mkdocs-config.json:39-191"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Page Structure",
+      "description": "The page lacks MkDocs Material visual features like admonitions (tip, warning, note boxes), tabbed content for showing alternative configurations, and code annotations for explaining complex YAML",
+      "fix_suggestion": "Add admonitions for tips/warnings, use tabbed content for GitHub Actions vs other CI systems, add code annotations for YAML examples"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive troubleshooting section covering common issues with clear solutions",
+    "Good best practices section with actionable guidance",
+    "Multiple complete workflow examples showing different use cases (full build, drift-only, shared source)",
+    "Clear CI/CD integration example for GitHub Actions",
+    "Error handling configuration is mostly accurate and well-documented"
+  ],
+  "improvement_suggestions": [
+    "Add tabbed content blocks to show alternative CI/CD configurations (GitLab CI, CircleCI)",
+    "Add admonition boxes for tips and warnings throughout the page",
+    "Include code annotations to explain key YAML configuration options",
+    "Add a diagram showing the workflow phases and how configuration affects each",
+    "Update config examples to use actual field names from the implementation"
+  ],
+  "cross_references": [
+    "workflow-phases.md",
+    "getting-started.md",
+    "index.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:45:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "advanced configuration",
+      "ci/cd integration",
+      "troubleshooting",
+      "best practices",
+      "workflow examples"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
