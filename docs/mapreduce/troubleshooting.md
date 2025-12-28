@@ -6,6 +6,25 @@
 
 Prodigy enforces commit validation for MapReduce agent commands marked with `commit_required: true`. This prevents silent data loss from agents that complete without creating the expected commits.
 
+```mermaid
+flowchart LR
+    Start[Execute Command] --> Success{Command<br/>Succeeded?}
+    Success -->|No| Fail[Agent Failed]
+    Success -->|Yes| Check{"commit_required<br/>= true?"}
+    Check -->|No| Pass[Agent Passed]
+    Check -->|Yes| Validate{New Commit<br/>Created?}
+    Validate -->|Yes| Pass
+    Validate -->|No| CommitFail[Commit Validation<br/>Failed]
+    CommitFail --> DLQ[Added to DLQ]
+
+    style Pass fill:#e8f5e9
+    style Fail fill:#ffebee
+    style CommitFail fill:#ffebee
+    style DLQ fill:#fff3e0
+```
+
+**Figure**: Commit validation flow showing how agents are validated when `commit_required: true`.
+
 ### Common Symptoms
 
 **Agent Failure Message:**
@@ -30,6 +49,9 @@ Command: shell: echo "test" > file.txt
 ```
 
 ### Root Causes
+
+!!! warning "Failed Agents Are Added to DLQ"
+    When commit validation fails, the agent is marked as failed and added to the Dead Letter Queue (DLQ). The worktree is preserved for debugging. Use `prodigy dlq list` to see failed items.
 
 #### 1. Missing `git add` or `git commit` Commands
 
@@ -164,6 +186,34 @@ agent_template:
 
 ### Debugging Steps
 
+```mermaid
+flowchart TD
+    Start[Commit Validation<br/>Failed] --> Worktree[Check Worktree<br/>State]
+    Worktree --> Status{Uncommitted<br/>Changes?}
+
+    Status -->|Yes| Missing["Missing git add/commit
+    See Root Cause #1"]
+    Status -->|No| Log[Check Claude<br/>JSON Log]
+
+    Log --> Error{Command<br/>Errors?}
+    Error -->|Yes| EarlyFail["Command Failed Early
+    See Root Cause #3"]
+    Error -->|No| Logic{Conditional<br/>Logic?}
+
+    Logic -->|Yes| Skip["Skipped Commit Path
+    See Root Cause #2"]
+    Logic -->|No| Empty["Empty Commit Issue
+    See Root Cause #4"]
+
+    style Start fill:#ffebee
+    style Missing fill:#e1f5ff
+    style EarlyFail fill:#e1f5ff
+    style Skip fill:#e1f5ff
+    style Empty fill:#e1f5ff
+```
+
+**Figure**: Decision tree for diagnosing commit validation failures.
+
 #### 1. Check Agent Worktree State
 
 ```bash
@@ -195,14 +245,14 @@ cat /path/to/claude/logs/session-xyz.json | jq '.messages[] | select(.content[]?
 #### 3. Check DLQ for Pattern Analysis
 
 ```bash
-# View DLQ items for the job
-prodigy dlq show <job-id>
+# List DLQ items for the job
+prodigy dlq list --job-id <job-id>
 
-# Look for commit validation failures
-prodigy dlq show <job-id> | jq '.items[] | select(.failure_history[].error_type == "CommitValidationFailed")'
+# Inspect a specific DLQ item for details
+prodigy dlq inspect <item-id> --job-id <job-id>
 
 # Analyze failure patterns
-prodigy dlq analyze <job-id>
+prodigy dlq analyze --job-id <job-id>
 ```
 
 #### 4. Test Agent Command Manually
@@ -213,56 +263,55 @@ mkdir test-agent
 cd test-agent
 git init
 
-# Set up test item data
-export item.id=1
-export item.type=process
+# Set up test item data (simulate workflow variables)
+ITEM_ID=1
+ITEM_TYPE=process
 
 # Run the agent command manually
-shell: |
-  echo "content" > file.txt
-  git add file.txt
-  git commit -m "Test commit"
+echo "content" > file.txt
+git add file.txt
+git commit -m "Test commit for item ${ITEM_ID}"
 
 # Check if commit was created
-git log
+git log --oneline
 ```
 
 ### Prevention Best Practices
 
-1. **Use `commit_required` Sparingly**
-   - Only mark commands as `commit_required` when you genuinely expect a commit
-   - For optional commits, use `on_failure` handlers instead
+!!! tip "Use `commit_required` Sparingly"
+    Only mark commands as `commit_required` when you genuinely expect a commit.
+    For optional commits, use `on_failure` handlers instead.
 
-2. **Test Workflows with Dry-Run Mode**
-   ```bash
-   prodigy run workflow.yml --dry-run
-   ```
+!!! tip "Test Workflows with Dry-Run Mode"
+    ```bash
+    prodigy run workflow.yml --dry-run
+    ```
 
-3. **Use Filters to Ensure Commit Eligibility**
-   ```yaml
-   map:
-     filter: "item.needs_commit == true"
-     agent_template:
-       - shell: |
-           process-and-commit.sh
-         commit_required: true
-   ```
+!!! tip "Use Filters to Ensure Commit Eligibility"
+    ```yaml
+    map:
+      filter: "item.needs_commit == true"
+      agent_template:
+        - shell: |
+            process-and-commit.sh
+          commit_required: true
+    ```
 
-4. **Add Explicit Validation**
-   ```yaml
-   agent_template:
-     - shell: |
-         process-item.sh
-         git add .
-         git commit -m "Process ${item.id}"
-     - shell: |
-         # Verify commit was created
-         if ! git log -1 --oneline | grep -q "Process"; then
-           echo "ERROR: Commit validation failed"
-           exit 1
-         fi
-       commit_required: true
-   ```
+!!! tip "Add Explicit Validation"
+    ```yaml
+    agent_template:
+      - shell: |
+          process-item.sh
+          git add .
+          git commit -m "Process ${item.id}"
+      - shell: |
+          # Verify commit was created
+          if ! git log -1 --oneline | grep -q "Process"; then
+            echo "ERROR: Commit validation failed"
+            exit 1
+          fi
+        commit_required: true
+    ```
 
 ### Related Documentation
 
