@@ -2,6 +2,34 @@
 
 Jitter adds randomness to retry delays to prevent the "thundering herd" problem where many clients retry at the same time. By introducing controlled randomness, jitter helps distribute retry attempts over time rather than having all clients retry simultaneously after a failure.
 
+```mermaid
+graph LR
+    subgraph without["Without Jitter"]
+        direction LR
+        F1[Failure] --> R1["All Clients
+        Retry at 10s"]
+        R1 --> Overload[Service Overload]
+    end
+
+    subgraph with["With Jitter"]
+        direction LR
+        F2[Failure] --> C1["Client A
+        Retry at 8.5s"]
+        F2 --> C2["Client B
+        Retry at 10.2s"]
+        F2 --> C3["Client C
+        Retry at 11.1s"]
+        C1 --> Spread[Load Spread]
+        C2 --> Spread
+        C3 --> Spread
+    end
+
+    style Overload fill:#ffebee
+    style Spread fill:#e8f5e9
+```
+
+**Figure**: Jitter distributes retry attempts over time, preventing synchronized retry storms.
+
 ### Configuration
 
 ```yaml
@@ -69,6 +97,20 @@ For a 20 second base delay:
 ### Interaction with Max Delay
 
 Jitter is applied **after** backoff calculation and max_delay capping. The execution order is:
+
+```mermaid
+graph LR
+    Base["Calculate Base Delay
+    (backoff strategy)"] --> Cap{"Exceeds
+    max_delay?"}
+    Cap -->|Yes| Apply["Apply max_delay Cap"] --> Jitter["Apply Jitter
+    ± jitter_range/2"]
+    Cap -->|No| Jitter
+    Jitter --> Final[Final Delay]
+
+    style Cap fill:#fff3e0
+    style Jitter fill:#e1f5ff
+```
 
 1. Calculate base delay using backoff strategy
 2. Apply `max_delay` cap if configured
