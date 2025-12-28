@@ -14,7 +14,27 @@ This comparison assumes `initial_delay = 1s` for all strategies. Actual delays d
 | **Fibonacci** | 1s | 1s | 2s | 3s | 5s | Gentler than exponential, good for rate limits or distributed systems |
 | **Custom** | user-defined | user-defined | user-defined | user-defined | user-defined | Specific delay patterns, custom business logic |
 
-**Note**: Exponential is the default backoff strategy (see `src/cook/retry_v2.rs:92-97`)
+!!! note "Default Strategy"
+    Exponential is the default backoff strategy (see `src/cook/retry_v2.rs:92-97`)
+
+### Delay Progression Visualization
+
+```mermaid
+---
+config:
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2196F3, #4CAF50, #FF9800, #9C27B0"
+---
+xychart-beta
+    title "Backoff Strategy Delay Progression (initial_delay=1s)"
+    x-axis "Attempt" [1, 2, 3, 4, 5]
+    y-axis "Delay (seconds)" 0 --> 20
+    line "Fixed (2s)" [2, 2, 2, 2, 2]
+    line "Linear (+2s)" [1, 3, 5, 7, 9]
+    line "Exponential (2.0)" [1, 2, 4, 8, 16]
+    line "Fibonacci" [1, 1, 2, 3, 5]
+```
 
 ### Strategy Formulas
 
@@ -72,6 +92,7 @@ Allows you to specify exact delays for each attempt. If retry exceeds the array 
 
 **All strategies are capped by `max_delay`** (src/cook/retry_v2.rs:304):
 ```rust
+// Source: src/cook/retry_v2.rs:304
 base_delay.min(self.config.max_delay)
 ```
 
@@ -99,56 +120,85 @@ See [Jitter for Distributed Systems](jitter-for-distributed-systems.md) for when
 
 ### YAML Configuration Examples
 
-**Fixed Delay**:
-```yaml
-retry_config:
-  backoff: fixed
-  initial_delay: "2s"  # Always wait 2s between retries
-```
+=== "Fixed Delay"
 
-**Linear Backoff**:
-```yaml
-retry_config:
-  backoff:
-    type: linear
-    increment: "2s"
-  initial_delay: "1s"  # 1s, 3s, 5s, 7s, 9s...
-```
+    ```yaml title="Fixed backoff configuration"
+    # Source: Always waits the same duration between retries
+    retry_config:
+      backoff: fixed
+      initial_delay: "2s"  # (1)!
+    ```
 
-**Exponential Backoff** (default):
-```yaml
-retry_config:
-  backoff:
-    type: exponential
-    base: 2.0  # Optional: default is 2.0
-  initial_delay: "1s"  # 1s, 2s, 4s, 8s, 16s...
-  max_delay: "30s"     # Cap at 30s
-```
+    1. Always wait 2s between retries, regardless of attempt number
 
-**Fibonacci Backoff**:
-```yaml
-retry_config:
-  backoff: fibonacci
-  initial_delay: "1s"  # 1s, 1s, 2s, 3s, 5s, 8s...
-```
+=== "Linear Backoff"
 
-**Custom Delays**:
-```yaml
-retry_config:
-  backoff:
-    type: custom
-    delays: ["1s", "2s", "5s", "10s", "30s"]
-  max_delay: "60s"  # Fallback if attempts exceed array length
-```
+    ```yaml title="Linear backoff configuration"
+    # Source: Delay increases by increment each attempt
+    retry_config:
+      backoff:
+        type: linear
+        increment: "2s"  # (1)!
+      initial_delay: "1s"  # (2)!
+    ```
 
-**With Jitter** (any strategy):
-```yaml
-retry_config:
-  backoff: exponential
-  initial_delay: "1s"
-  jitter: true         # Enable randomization
-  jitter_factor: 0.3   # 30% jitter (±15%)
-```
+    1. Add 2s to delay after each attempt
+    2. Produces sequence: 1s, 3s, 5s, 7s, 9s...
+
+=== "Exponential Backoff"
+
+    ```yaml title="Exponential backoff configuration (default)"
+    # Source: Delay multiplies by base each attempt
+    retry_config:
+      backoff:
+        type: exponential
+        base: 2.0  # (1)!
+      initial_delay: "1s"  # (2)!
+      max_delay: "30s"  # (3)!
+    ```
+
+    1. Optional: default is 2.0
+    2. Produces sequence: 1s, 2s, 4s, 8s, 16s...
+    3. Cap at 30s to prevent excessive delays
+
+=== "Fibonacci Backoff"
+
+    ```yaml title="Fibonacci backoff configuration"
+    # Source: Delay follows Fibonacci sequence
+    retry_config:
+      backoff: fibonacci
+      initial_delay: "1s"  # (1)!
+    ```
+
+    1. Produces sequence: 1s, 1s, 2s, 3s, 5s, 8s...
+
+=== "Custom Delays"
+
+    ```yaml title="Custom backoff configuration"
+    # Source: User-defined delay for each attempt
+    retry_config:
+      backoff:
+        type: custom
+        delays: ["1s", "2s", "5s", "10s", "30s"]  # (1)!
+      max_delay: "60s"  # (2)!
+    ```
+
+    1. Explicit delay for each attempt (1-5)
+    2. Fallback if attempts exceed array length
+
+=== "With Jitter"
+
+    ```yaml title="Any strategy with jitter enabled"
+    # Source: Randomizes delays to prevent thundering herd
+    retry_config:
+      backoff: exponential
+      initial_delay: "1s"
+      jitter: true  # (1)!
+      jitter_factor: 0.3  # (2)!
+    ```
+
+    1. Enable randomization of delays
+    2. 30% jitter means delays vary ±15% from calculated value
 
 ### Choosing the Right Strategy
 
@@ -162,7 +212,8 @@ retry_config:
 | **Custom business logic** | Custom | Full control over delay pattern (e.g., comply with API retry-after headers) |
 | **Distributed systems** | Fibonacci + Jitter | Balances quick retries with avoiding cascade failures |
 
-**Default recommendation**: Exponential with `base = 2.0` is the default for good reason - it works well for most transient failures while avoiding excessive load on failing systems.
+!!! tip "Default Recommendation"
+    Exponential with `base = 2.0` is the default for good reason - it works well for most transient failures while avoiding excessive load on failing systems.
 
 ### Performance Comparison
 
@@ -175,4 +226,5 @@ Time to reach `max_delay = 30s` with `initial_delay = 1s`:
 | Exponential (base 2.0) | 5 attempts | 31s (1+2+4+8+16) |
 | Fibonacci | 9 attempts | 12s (1+1+2+3+5) |
 
-**Key insight**: Exponential reaches max delay fastest, making it most aggressive. Fibonacci is gentler, making it better for gradual recovery scenarios.
+!!! info "Key Insight"
+    Exponential reaches max delay fastest, making it most aggressive. Fibonacci is gentler, making it better for gradual recovery scenarios.
