@@ -1,0 +1,108 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "tutorial",
+  "page_title": "tutorial",
+  "page_file": "docs/automated-documentation/tutorial.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Tutorial is comprehensive and well-structured but has drift from actual workflow implementation. Several workflow examples need updating to reflect current setup phase structure.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Step 4: Create the Workflow File",
+      "description": "Tutorial workflow example is missing 2 critical setup steps that exist in actual book-docs-drift.yml: /prodigy-analyze-chapter-structure and /prodigy-split-oversized-chapters",
+      "current_content": "setup phase shows only 3 commands: mkdir, analyze-features-for-book, detect-documentation-gaps",
+      "should_be": "setup phase should show 5 commands: mkdir, analyze-features-for-book, detect-documentation-gaps, analyze-chapter-structure, split-oversized-chapters, and a second detect-documentation-gaps call",
+      "fix_suggestion": "Update the workflow YAML example to include all 5 setup steps from the actual book-docs-drift.yml file",
+      "source_reference": "workflows/book-docs-drift.yml:24-49"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Step 4: Create the Workflow File - reduce phase",
+      "description": "Tutorial reduce phase is missing the holistic validation step that exists in actual workflow",
+      "current_content": "reduce phase shows: mdbook build, remove analysis files",
+      "should_be": "reduce phase should include: mdbook build, /prodigy-validate-book-holistically, then cleanup",
+      "fix_suggestion": "Add the holistic validation step to the reduce phase example: /prodigy-validate-book-holistically --project $PROJECT_NAME --book-dir $BOOK_DIR --output $ANALYSIS_DIR/validation.json --auto-fix true",
+      "source_reference": "workflows/book-docs-drift.yml:77-91"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Step 4: Create the Workflow File - merge section",
+      "description": "Tutorial shows a merge: section that does not exist in the actual book-docs-drift.yml workflow",
+      "current_content": "merge: section with prodigy-merge-master and prodigy-merge-worktree commands",
+      "should_be": "The actual workflow has no merge section - it relies on default merge behavior",
+      "fix_suggestion": "Either remove the merge section from the tutorial example or add a note that merge configuration is optional",
+      "source_reference": "workflows/book-docs-drift.yml (no merge section present)"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "low",
+      "section": "Step 2: Create Book Configuration",
+      "description": "Source file path in example doesn't match actual project structure",
+      "current_content": "src/workflow/executor.rs",
+      "should_be": "src/cook/workflow/executor.rs",
+      "fix_suggestion": "Update the example to use the correct path: src/cook/workflow/executor.rs",
+      "source_reference": ".prodigy/book-config.json:12"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Understanding the Workflow Phases - Setup Phase",
+      "description": "Setup phase explanation mentions only 3 commands but actual workflow has 5",
+      "current_content": "1. mkdir, 2. analyze-features-for-book, 3. detect-documentation-gaps",
+      "should_be": "Should explain all 5 steps including chapter structure analysis and automatic splitting of oversized chapters",
+      "fix_suggestion": "Add explanations for /prodigy-analyze-chapter-structure and /prodigy-split-oversized-chapters commands",
+      "source_reference": "workflows/book-docs-drift.yml:24-49"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent step-by-step structure with clear numbered steps",
+    "Good 'What You'll Accomplish' section setting clear expectations",
+    "Comprehensive troubleshooting section covering common issues",
+    "Clear time investment breakdown helps users plan",
+    "Good visual representation of execution phases with checkmarks",
+    "Cross-references to related documentation (understanding-the-workflow.md, github-actions-integration.md, troubleshooting.md) are all valid"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions (info, warning, tip) to highlight important information",
+    "Add a code annotation showing the flow between setup/map/reduce phases",
+    "Consider adding a diagram showing the worktree isolation during map phase",
+    "Add content tabs showing alternative configurations (minimal vs full-featured)"
+  ],
+  "cross_references_valid": true,
+  "cross_references": [
+    {
+      "link": "../installation.md",
+      "exists": true
+    },
+    {
+      "link": "understanding-the-workflow.md",
+      "exists": true
+    },
+    {
+      "link": "github-actions-integration.md",
+      "exists": true
+    },
+    {
+      "link": "troubleshooting.md",
+      "exists": true
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "tutorial",
+      "30-minute guide",
+      "book configuration",
+      "chapter definitions",
+      "workflow execution",
+      "mapreduce phases",
+      "customization"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
