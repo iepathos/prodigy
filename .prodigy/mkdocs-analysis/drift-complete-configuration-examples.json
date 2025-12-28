@@ -1,0 +1,101 @@
+{
+  "item_type": "page",
+  "page_id": "complete-configuration-examples",
+  "page_title": "complete configuration examples",
+  "page_file": "docs/configuration/complete-configuration-examples.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Comprehensive examples page with accurate, production-ready YAML configurations. Minor improvements possible for clarity and MkDocs Material visual features.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "All Sections",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve readability and user experience",
+      "fix_suggestion": "Add admonitions (notes, tips, warnings), code block annotations, and tabbed content to enhance visual presentation",
+      "source_reference": "MkDocs Material documentation features"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Section 3: Environment Variables and Secrets Example",
+      "description": "The example references a non-existent file 'workflows/environment-example.yml'. The source reference is a conceptual example, not an actual workflow file in the repository.",
+      "current_content": "**Source**: workflows/environment-example.yml (lines 1-70)",
+      "should_be": "**Source**: Example configuration (conceptual)",
+      "fix_suggestion": "Either create the referenced workflow file or update the source reference to indicate this is a conceptual example",
+      "source_reference": "docs/configuration/complete-configuration-examples.md:242"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Section 4: Backoff Strategy Types",
+      "description": "The backoff strategy YAML syntax uses serde-style format which differs from actual implementation. The documented syntax shows nested fixed/linear/exponential keys but doesn't match the BackoffStrategy enum deserialization format exactly.",
+      "current_content": "backoff:\n    fixed:\n      delay: 5s",
+      "should_be": "The BackoffStrategy uses #[serde(rename_all = \"snake_case\")] but the delay Duration format needs humantime_serde or explicit Duration handling",
+      "fix_suggestion": "Verify the YAML syntax matches actual deserialization behavior. Consider adding a note about duration format requirements.",
+      "source_reference": "src/cook/workflow/error_policy.rs:105-129"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "ForeachConfig",
+      "description": "Documentation shows 'do:' block syntax but the actual struct uses '#[serde(rename = \"do\")]' for the do_block field. The documentation is accurate but could clarify this mapping.",
+      "fix_suggestion": "Add a note explaining that 'do:' in YAML maps to the internal 'do_block' field",
+      "source_reference": "src/config/command.rs:189-211"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Section 8: Timeout Configuration",
+      "description": "The timeout_config example shows undocumented fields like idle_timeout_secs that may not be fully implemented",
+      "current_content": "timeout_config:\n    total_timeout_secs: 3600\n    idle_timeout_secs: 300\n    per_item_timeout_secs: 180",
+      "fix_suggestion": "Verify these timeout_config fields are actually implemented in TimeoutConfig and document their behavior",
+      "source_reference": "src/cook/execution/mapreduce/timeout.rs"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all major configuration features",
+    "Real-world examples extracted from actual workflows in the repository",
+    "Accurate source code references with file paths and struct names",
+    "Clear annotations explaining configuration choices and their purposes",
+    "Well-organized quick reference table for comparing standard vs MapReduce workflows",
+    "Proper coverage of error handling, validation, and gap filling patterns",
+    "Accurate MapReduce configuration including phases, error policies, and merge workflows",
+    "Correct documentation of ValidationConfig fields and OnIncompleteConfig options",
+    "All internal cross-reference links are valid and point to existing pages"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions (notes, tips, warnings) using MkDocs Material syntax to highlight important information",
+    "Use code block annotations to explain complex YAML configurations inline",
+    "Add tabbed content to show alternative syntax options (e.g., simplified vs nested agent_template)",
+    "Include visual icons for different configuration categories",
+    "Add a 'Common Pitfalls' section for each example type",
+    "Consider adding diagrams showing workflow execution flow",
+    "Add copy buttons to code blocks for easier use",
+    "Include validation examples showing expected output format"
+  ],
+  "cross_references": [
+    "workflow-basics/full-workflow-structure",
+    "configuration/environment-variables",
+    "workflow-basics/error-handling",
+    "mapreduce/index",
+    "advanced/implementation-validation"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Standard workflow configuration",
+      "MapReduce workflow configuration",
+      "Environment variables and secrets",
+      "Error handling and retry strategies",
+      "Validation with gap filling",
+      "Foreach parallel iteration",
+      "Write file command",
+      "Timeout configuration"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "links_validated": true,
+    "broken_links_count": 0
+  }
+}
