@@ -234,7 +234,32 @@ Items with null values in the distinct field are treated as having the value `"n
 
 Filtering, sorting, and deduplication are part of a larger data processing pipeline. The complete order is:
 
-1. JSONPath Extraction → 2. **Filtering** → 3. **Sorting** → 4. **Deduplication** → 5. Offset → 6. Limit
+```mermaid
+graph LR
+    A["JSONPath
+    Extraction"] --> B["Filtering
+    (this page)"]
+    B --> C["Sorting
+    (this page)"]
+    C --> D["Deduplication
+    (this page)"]
+    D --> E["Offset"]
+    E --> F["Limit"]
+
+    style B fill:#e1f5ff
+    style C fill:#e1f5ff
+    style D fill:#e1f5ff
+```
+
+**Figure**: Data processing pipeline showing where filtering, sorting, and deduplication fit in the overall flow.
+
+Each stage processes the output of the previous stage:
+
+- **JSONPath Extraction**: Selects items from input using JSONPath expressions
+- **Filtering**: Removes items that don't match the filter criteria
+- **Sorting**: Orders remaining items by specified fields
+- **Deduplication**: Removes duplicate items based on a key field
+- **Offset/Limit**: Controls pagination of final results
 
 See [Pagination](pagination.md#processing-pipeline-order) for the full pipeline details and examples showing how these operations combine.
 
