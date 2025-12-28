@@ -2,6 +2,31 @@
 
 This section covers workflows with conditional logic, validation, and environment-aware configuration.
 
+## Conditional Execution Flow
+
+The diagram below shows how Prodigy evaluates conditions and handles success/failure branching:
+
+```mermaid
+flowchart TD
+    A[Start Command] --> B{when clause?}
+    B -->|No clause| C[Execute Command]
+    B -->|Has clause| D{Evaluate when}
+    D -->|false| E[Skip Command]
+    D -->|true| C
+    C --> F{Command Result}
+    F -->|Success| G{on_success?}
+    F -->|Failure| H{on_failure?}
+    G -->|Defined| I[Execute on_success]
+    G -->|Not defined| J[Continue to Next]
+    H -->|Defined| K[Execute on_failure]
+    H -->|Not defined| L[Handle Error]
+    I --> J
+    K --> M{Retry?}
+    M -->|Yes| C
+    M -->|No| L
+    E --> J
+```
+
 ## Example 4: Conditional Deployment
 
 ```yaml
@@ -28,14 +53,26 @@ This section covers workflows with conditional logic, validation, and environmen
 - `boolean` - Parse as true/false based on exit code or output text
 
 **Advanced capture options:**
+
+!!! tip "Capture Streams Syntax"
+    The `capture_streams` field accepts these values:
+
+    - `"stdout"` - Capture only standard output
+    - `"stderr"` - Capture only standard error
+    - `"both"` - Capture both stdout and stderr (recommended)
+
+    All options automatically include `exit_code`, `success`, and `duration` metadata.
+
 ```yaml
-# Capture specific streams (stdout, stderr, exit_code, success, duration)
+# Source: src/cook/orchestrator/normalization.rs - CaptureStreams handling
+# Capture specific streams
 - shell: "cargo build 2>&1"
   capture_output: "build_output"
-  capture_streams: "stdout,stderr,exit_code"  # Capture multiple streams
+  capture_streams: "both"  # Captures stdout + stderr + metadata
 
 # Access captured values
 - shell: "echo 'Exit code was ${build_output.exit_code}'"
+- shell: "echo 'Duration: ${build_output.duration}ms'"
 ```
 
 ---
@@ -72,6 +109,9 @@ The validation system follows this flow:
 5. **Execute `on_incomplete`** - Pass gaps to Claude for targeted fixes
 
 **Result File Format:**
+
+!!! warning "Result File Path"
+    The `result_file` path is relative to the working directory. Ensure validation commands write to the exact path specified.
 
 The validation result file (`validation.json`) should contain:
 ```json
@@ -159,7 +199,7 @@ env_files:
     LOG_LEVEL: debug
 ```
 
-**Source**: Environment configuration from src/cook/environment/config.rs:12-36, secret masking from src/cook/environment/config.rs:84-96
+**Source**: See `src/cook/environment/config.rs`: `EnvironmentConfig` struct (global config), `SecretValue` enum (secret handling)
 
 **Note:** Profiles are activated using the `--profile <name>` CLI flag when running workflows. For example:
 ```bash
@@ -201,4 +241,4 @@ secrets:
 
 The modern `env`-based approach is recommended for consistency, but legacy workflows using the top-level `secrets:` field continue to work.
 
-**Source**: Environment configuration from src/cook/environment/config.rs:12-36, secret support from src/cook/environment/config.rs:84-96, example workflow from workflows/mapreduce-env-example.yml:7-25, profile structure from tests/environment_workflow_test.rs:68-88
+**Source**: See `src/cook/environment/config.rs`: `EnvironmentConfig`, `SecretValue`, `EnvProfile` types. Example workflow: `workflows/mapreduce-env-example.yml`
