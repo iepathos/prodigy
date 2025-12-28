@@ -1,0 +1,91 @@
+{
+  "item_type": "page",
+  "page_id": "per-command-environment-overrides",
+  "page_title": "per command environment overrides",
+  "page_file": "docs/environment/per-command-environment-overrides.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Good - Documentation is accurate and technically correct. Minor enhancements could improve usability with MkDocs Material visual features.",
+  "issues": [],
+  "positive_aspects": [
+    "Clear and accurate explanation that WorkflowStepCommand does NOT have an env field",
+    "Correct source reference to src/config/command.rs:320-401 (WorkflowStepCommand definition verified at lines 320-397)",
+    "Accurate documentation of StepEnvironment struct at src/cook/environment/config.rs:126-144",
+    "Good troubleshooting section with practical solutions for common issues",
+    "Shell-based techniques are comprehensive and well-organized",
+    "Valid internal link to environment-precedence.md exists",
+    "Proper explanation of precedence interaction with shell-level overrides"
+  ],
+  "improvement_suggestions": [
+    {
+      "type": "enhancement",
+      "description": "Add MkDocs Material admonitions for the IMPORTANT and Note sections at the top",
+      "current": "**IMPORTANT:** WorkflowStepCommand does NOT have an `env` field...",
+      "suggested": "Use !!! warning admonition for the IMPORTANT notice and !!! info for the Note"
+    },
+    {
+      "type": "enhancement",
+      "description": "Add code annotations to YAML examples explaining each technique",
+      "section": "Basic Overrides and Advanced Shell Patterns",
+      "benefit": "Makes examples more interactive and educational"
+    },
+    {
+      "type": "enhancement",
+      "description": "Add tabbed content for troubleshooting scenarios",
+      "section": "Troubleshooting",
+      "benefit": "Better organization and easier navigation"
+    },
+    {
+      "type": "enhancement",
+      "description": "Add visual comparison between shell-based approach and future StepEnvironment",
+      "section": "Future Plans: StepEnvironment Struct",
+      "benefit": "Helps users understand evolution of the feature"
+    },
+    {
+      "type": "consistency",
+      "description": "Update source reference format from src/config/command.rs:320-401 to use line number range that matches actual struct location (320-397)",
+      "current": "src/config/command.rs:320-401",
+      "correct": "src/config/command.rs:320-397"
+    }
+  ],
+  "cross_references": [
+    "environment-precedence"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "per-command environment overrides",
+      "shell environment syntax",
+      "WorkflowStepCommand limitations",
+      "StepEnvironment struct",
+      "troubleshooting"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_verification": {
+      "WorkflowStepCommand": {
+        "file": "src/config/command.rs",
+        "lines": "320-397",
+        "verified": true,
+        "notes": "Confirmed struct has no env field - documentation is correct"
+      },
+      "StepEnvironment": {
+        "file": "src/cook/environment/config.rs",
+        "lines": "126-144",
+        "verified": true,
+        "notes": "Struct exists as documented with env, working_dir, clear_env, and temporary fields"
+      }
+    },
+    "link_validation": {
+      "total_internal_links": 1,
+      "broken_links": 0,
+      "validated_links": [
+        {
+          "target": "environment-precedence.md",
+          "exists": true,
+          "resolved_path": "docs/environment/environment-precedence.md"
+        }
+      ]
+    }
+  }
+}
