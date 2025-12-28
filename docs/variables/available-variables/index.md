@@ -2,6 +2,70 @@
 
 Prodigy provides a comprehensive set of built-in variables that are automatically available based on your workflow context. All variables use the `${variable.name}` interpolation syntax.
 
+## Variable Availability by Phase
+
+Different variables become available at different phases of workflow execution:
+
+```mermaid
+flowchart LR
+    subgraph Always["Always Available"]
+        direction TB
+        Env["env.* variables"]
+        Context["session.id
+        project.root
+        project.name"]
+        Computed["file: cmd:
+        date: uuid"]
+    end
+
+    subgraph Setup["Setup Phase"]
+        direction TB
+        SetupOut["shell.output
+        claude.output
+        last.output"]
+    end
+
+    subgraph Map["Map Phase"]
+        direction TB
+        Item["item.*
+        item.id
+        item.index"]
+        MapOut["shell.output
+        claude.output"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction TB
+        MapResults["map.total
+        map.successful
+        map.failed
+        map.results"]
+        ReduceOut["reduce.output"]
+    end
+
+    subgraph Merge["Merge Phase"]
+        direction TB
+        MergeVars["merge.source_branch
+        merge.target_branch
+        merge.worktree"]
+    end
+
+    Always --> Setup --> Map --> Reduce --> Merge
+
+    style Always fill:#e8f5e9
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style Merge fill:#fce4ec
+```
+
+!!! tip "Most Commonly Used"
+    The variables you'll use most often are:
+
+    - **`${item.*}`** - Access work item fields in the map phase
+    - **`${last.output}`** - Capture output from the previous command
+    - **`${map.results}`** - Access all results in the reduce phase
+
 ## Variable Categories
 
 <div class="grid cards" markdown>
