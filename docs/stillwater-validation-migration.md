@@ -484,7 +484,26 @@ pub fn validate_json_schema(
 
 ## Error Severity Classification
 
-Stillwater validation introduces error severity classification:
+Stillwater validation introduces error severity classification that separates blocking errors from non-blocking warnings:
+
+```mermaid
+flowchart LR
+    VE[ValidationError] --> S{"severity()"}
+    S -->|Blocking| E["Error
+    Must fix"]
+    S -->|Non-blocking| W["Warning
+    Review recommended"]
+
+    E --> Fail[Validation Fails]
+    W --> Proceed[Can Proceed]
+
+    style E fill:#ffebee
+    style W fill:#fff3e0
+    style Fail fill:#ffcdd2
+    style Proceed fill:#c8e6c9
+```
+
+**Figure**: Error severity classification determines whether validation can proceed with warnings.
 
 ```rust
 // Source: src/core/validation/mod.rs:107-132
@@ -594,6 +613,9 @@ fn test_validate_paths_accumulates_all_errors() {
 
 ## Performance Considerations
 
+!!! note "Zero Performance Regression"
+    The stillwater validation migration was carefully designed to maintain the same performance characteristics as fail-fast validation. Error accumulation adds no measurable overhead in production use cases.
+
 The stillwater validation migration maintains zero performance regression:
 
 - **No allocation overhead**: Error accumulation uses `Vec` which is already allocated
@@ -607,6 +629,38 @@ cargo bench --bench execution_benchmarks -- validation_performance
 ```
 
 ## Migration Checklist
+
+The migration follows a systematic workflow to convert fail-fast validation to error accumulation:
+
+```mermaid
+flowchart LR
+    subgraph Analyze["1. Analyze"]
+        A1[Find early returns] --> A2[Identify I/O deps]
+    end
+
+    subgraph Refactor["2. Refactor"]
+        R1[Extract I/O params] --> R2[Accumulate errors]
+        R2 --> R3[Return Validation]
+    end
+
+    subgraph Integrate["3. Integrate"]
+        I1[Compose validators] --> I2[Classify severity]
+        I2 --> I3[Convert to Result]
+    end
+
+    subgraph Verify["4. Verify"]
+        V1[Test accumulation] --> V2[Check perf]
+    end
+
+    Analyze --> Refactor --> Integrate --> Verify
+
+    style Analyze fill:#e3f2fd
+    style Refactor fill:#fff3e0
+    style Integrate fill:#f3e5f5
+    style Verify fill:#e8f5e9
+```
+
+**Figure**: Migration workflow from fail-fast to error accumulation.
 
 When migrating validation code to stillwater:
 
