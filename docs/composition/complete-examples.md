@@ -126,6 +126,38 @@ This example uses templates, parameters, and inheritance for environment-specifi
 
 Uses sub-workflows and imports for testing multiple services in parallel.
 
+```mermaid
+graph LR
+    subgraph Import["Shared Setup"]
+        direction LR
+        I1[common-setup.yml] --> I2["git fetch<br/>npm install<br/>cargo build"]
+    end
+
+    subgraph Main["monorepo-test.yml"]
+        direction LR
+        M1[Run Imports] --> M2[Execute Sub-Workflows]
+    end
+
+    subgraph Parallel["Parallel Execution"]
+        direction TB
+        P1[api-tests]
+        P2[worker-tests]
+        P3[frontend-tests]
+    end
+
+    Import --> Main
+    M2 --> P1
+    M2 --> P2
+    M2 --> P3
+    P1 --> R[Aggregate Results]
+    P2 --> R
+    P3 --> R
+
+    style Import fill:#e3f2fd
+    style Parallel fill:#fff3e0
+    style R fill:#e8f5e9
+```
+
 **shared/common-setup.yml**:
 ```yaml title="shared/common-setup.yml"
 name: common-setup
@@ -275,6 +307,26 @@ graph LR
 
 Combines imports, extends, template, parameters, and sub-workflows.
 
+```mermaid
+graph LR
+    subgraph Template["microservice-ci.yml Template"]
+        direction TB
+        T1["Parameters<br/>service_name, language"] --> T2["Sub-Workflows<br/>lint, test"]
+        T2 --> T3["Commands<br/>coverage check"]
+    end
+
+    subgraph Consumer["service-api-ci.yml"]
+        direction TB
+        C1["Imports<br/>docker-utils.yml"] --> C2["Template Instance<br/>with: rust, api"]
+        C2 --> C3["Additional Commands<br/>docker build/push"]
+    end
+
+    Template -->|"instantiated by"| Consumer
+
+    style Template fill:#e3f2fd
+    style Consumer fill:#e8f5e9
+```
+
 !!! note "Variable Interpolation in Sub-Workflow Paths"
     Sub-workflow source paths with variable interpolation (e.g., `workflows/${language}/lint.yml`) are validated at composition time. Paths starting with `${` skip validation to allow runtime resolution.
 
@@ -360,6 +412,9 @@ Templates can be stored in two locations:
 |----------|------|-------|
 | Global | `~/.prodigy/templates/` | Available to all projects |
 | Local | `.prodigy/templates/` | Project-specific |
+
+!!! tip "Template Lookup Order"
+    When resolving a template by name, Prodigy searches in order: local project templates first (`.prodigy/templates/`), then global templates (`~/.prodigy/templates/`). This allows project-specific overrides of global standards.
 
 ```bash
 # Global templates (one-time setup)
