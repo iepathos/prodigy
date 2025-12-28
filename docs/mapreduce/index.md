@@ -149,6 +149,25 @@ That's it! Now let's explore the full capabilities.
 
 MapReduce workflows support comprehensive error handling:
 
+```mermaid
+flowchart LR
+    Execute[Execute Item] --> Success{Success?}
+    Success -->|Yes| Next[Next Item]
+    Success -->|No| CB{Circuit Breaker}
+    CB -->|Open| DLQ[Dead Letter Queue]
+    CB -->|Closed| Retry{Retry?}
+    Retry -->|Yes| Backoff[Exponential Backoff]
+    Backoff --> Execute
+    Retry -->|No| Policy{on_item_failure}
+    Policy -->|dlq| DLQ
+    Policy -->|skip| Next
+    Policy -->|stop| Stop[Stop Workflow]
+
+    style Success fill:#e8f5e9
+    style DLQ fill:#fff3e0
+    style Stop fill:#ffebee
+```
+
 ```yaml title="Error Policy Configuration"
 error_policy:
   on_item_failure: dlq  # dlq, retry, skip, stop, or custom handler
