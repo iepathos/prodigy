@@ -71,6 +71,38 @@ prodigy run deploy.yml --profile prod
 
 Combine env files with secret providers for secure credential management:
 
+```mermaid
+flowchart LR
+    subgraph Sources["Secret Sources"]
+        direction TB
+        EnvVar["Environment Variables"]
+        File["Secret Files"]
+        Vault["HashiCorp Vault"]
+        AWS["AWS Secrets Manager"]
+    end
+
+    subgraph Resolution["Secret Resolution"]
+        direction TB
+        Provider["Provider Lookup"]
+        Mask["Mask in Logs"]
+    end
+
+    EnvVar --> Provider
+    File --> Provider
+    Vault -.->|Planned| Provider
+    AWS -.->|Planned| Provider
+
+    Provider --> Mask
+    Mask --> Command["Command Execution"]
+
+    style EnvVar fill:#e8f5e9
+    style File fill:#e8f5e9
+    style Vault fill:#fff3e0
+    style AWS fill:#fff3e0
+```
+
+**Figure**: Secret resolution flow showing currently supported providers (green) and planned providers (orange).
+
 !!! tip "Secret Providers"
     **Currently Supported** (`src/cook/environment/secret_store.rs:40-41`):
 
@@ -466,6 +498,31 @@ prodigy run deploy.yml --profile eu-west
 ### Feature Flag Pattern
 
 Use environment variables to control feature availability:
+
+```mermaid
+flowchart TD
+    Start[Start Workflow] --> CheckNew{"ENABLE_NEW_PIPELINE?"}
+
+    CheckNew -->|true| NewPipe["Run New Pipeline"]
+    CheckNew -->|false| LegacyPipe["Run Legacy Pipeline"]
+
+    NewPipe --> CheckExp{"ENABLE_EXPERIMENTAL?"}
+    LegacyPipe --> CheckExp
+
+    CheckExp -->|true| ExpFeatures["Run Experimental Features"]
+    CheckExp -->|false| SkipExp["Skip Experimental"]
+
+    ExpFeatures --> Validate["Validate Version"]
+    SkipExp --> Validate
+
+    Validate --> End[Complete]
+
+    style NewPipe fill:#e8f5e9
+    style LegacyPipe fill:#fff3e0
+    style ExpFeatures fill:#e1f5ff
+```
+
+**Figure**: Feature flag decision flow showing how environment variables control execution paths.
 
 ```yaml
 name: feature-flag-workflow
