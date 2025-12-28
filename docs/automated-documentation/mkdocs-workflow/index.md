@@ -57,6 +57,9 @@ graph LR
 
 ## Documentation Sections
 
+!!! note "Prerequisites"
+    This workflow requires MkDocs Material to be installed and configured in your project. See the [Getting Started](getting-started.md) guide for setup instructions.
+
 ### [Getting Started](getting-started.md)
 
 Learn the basics of running the MkDocs workflow:
