@@ -102,6 +102,22 @@ flowchart TD
 **Validation Lifecycle Explanation:**
 
 The validation system follows this flow:
+
+```mermaid
+flowchart LR
+    A[Run Validation<br/>Commands] --> B[Parse<br/>Result File]
+    B --> C{Score ≥<br/>Threshold?}
+    C -->|Yes| D[✓ Validation<br/>Passed]
+    C -->|No| E[Extract Gaps<br/>from Result]
+    E --> F[Execute<br/>on_incomplete]
+    F --> G{Attempts<br/>Remaining?}
+    G -->|Yes| A
+    G -->|No| H[✗ Validation<br/>Failed]
+
+    style D fill:#c8e6c9
+    style H fill:#ffcdd2
+```
+
 1. **Execute validation commands** - Run tests, linting, and custom validation scripts
 2. **Parse result file** - Read `validation.json` to extract score and gaps
 3. **Check threshold** - Compare score against threshold (90 in this example)
@@ -147,6 +163,22 @@ validate:
 ---
 
 ## Example 6: Environment-Aware Workflow
+
+Environment variables are resolved through multiple layers, with later sources overriding earlier ones:
+
+```mermaid
+flowchart LR
+    A[System<br/>Environment] --> B[.env Files]
+    B --> C[Workflow<br/>env Block]
+    C --> D[Profile<br/>Overrides]
+    D --> E[Step-level<br/>env Field]
+    E --> F[Final<br/>Value]
+
+    style F fill:#e3f2fd
+```
+
+!!! tip "Resolution Order"
+    Variables defined in later sources override earlier ones. Step-level `env` fields have the highest priority, allowing per-command customization.
 
 ```yaml
 # Global environment variables (including secrets with masking)
@@ -209,6 +241,9 @@ prodigy run workflow.yml --profile production
 # Use staging profile
 prodigy run workflow.yml --profile staging
 ```
+
+!!! warning "Never Hardcode Secrets"
+    Always use `${ENV_VAR}` references for secret values. Never put actual credentials directly in workflow files, as these may be committed to version control.
 
 **Secrets Masking**: Variables with `secret: true` are automatically masked in:
 - Command output logs
