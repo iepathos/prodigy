@@ -88,9 +88,13 @@ Prodigy uses a hierarchical configuration system where settings can be overridde
 
 ```mermaid
 graph TD
-    Env[Environment Variables<br/>PRODIGY_*] --> Project[Project Config<br/>.prodigy/config.yml]
-    Project --> Global[Global Config<br/>~/.prodigy/config.yml]
-    Global --> Defaults[Default Values<br/>Hardcoded]
+    Env["Environment Variables
+    PRODIGY_*"] --> Project["Project Config
+    .prodigy/config.yml"]
+    Project --> Global["Global Config
+    ~/.prodigy/config.yml"]
+    Global --> Defaults["Default Values
+    Hardcoded"]
 
     Env -.->|Highest Priority| Resolution[Final Value]
     Project -.->|Override Global| Resolution
