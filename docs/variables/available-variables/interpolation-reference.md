@@ -133,6 +133,47 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 
 ### Scope by Phase
 
+```mermaid
+graph LR
+    subgraph Standard["Standard Variables"]
+        direction LR
+        S1["workflow.*"] --> S2["step.*"]
+        S2 --> S3["git.*"]
+    end
+
+    subgraph Setup["Setup Phase"]
+        direction LR
+        SetupVars["Standard + custom captured"]
+    end
+
+    subgraph Map["Map Phase"]
+        direction LR
+        MapVars["Standard + item.* + custom captured"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        ReduceVars["Standard + map.* + custom captured"]
+    end
+
+    subgraph Merge["Merge Phase"]
+        direction LR
+        MergeVars["Standard + merge.* + custom captured"]
+    end
+
+    Setup -->|"captures inherited"| Map
+    Setup -->|"captures inherited"| Reduce
+    Map -->|"results aggregated"| Reduce
+
+    style Standard fill:#e8f5e9
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+    style Merge fill:#fce4ec
+```
+
+**Figure**: Variable availability across workflow phases showing inheritance flow.
+
 | Phase | Variables Available |
 |-------|---------------------|
 | Setup | Standard, workflow context, step context, git context, custom captured |
@@ -200,6 +241,44 @@ Variable resolution walks up a parent context chain when variables are not found
 #         src/cook/execution/interpolation.rs:421-438 (resolve_path with parent resolution)
 ```
 
+```mermaid
+flowchart TD
+    Start["Resolve ${variable}"] --> Check1{"Found in
+    current context?"}
+    Check1 -->|Yes| Return["Return value"]
+    Check1 -->|No| HasParent{"Has parent
+    context?"}
+
+    HasParent -->|Yes| CheckParent["Check parent context"]
+    CheckParent --> Check2{"Found in
+    parent?"}
+    Check2 -->|Yes| Return
+    Check2 -->|No| HasGrandparent{"Has parent's
+    parent?"}
+    HasGrandparent -->|Yes| CheckParent
+
+    HasParent -->|No| HasDefault{"Has default
+    value?"}
+    HasGrandparent -->|No| HasDefault
+
+    HasDefault -->|Yes| UseDefault["Use default value"]
+    HasDefault -->|No| StrictCheck{"Strict mode?"}
+
+    StrictCheck -->|Yes| Fail["Fail with error
+    List available variables"]
+    StrictCheck -->|No| Unresolved["Leave ${variable}
+    unresolved"]
+
+    UseDefault --> Return
+    Unresolved --> Return
+
+    style Return fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Unresolved fill:#fff3e0
+```
+
+**Figure**: Variable resolution flow showing parent context chain traversal.
+
 **Resolution Order:**
 
 1. Check current context
@@ -259,6 +338,42 @@ Prodigy implements **dual caching** for optimal performance: template parsing ca
 # Source: src/cook/execution/interpolation.rs:68-77 (template cache in get_or_parse_template),
 #         src/cook/execution/variables.rs:421-455 (VariableContext with LRU cache)
 ```
+
+```mermaid
+graph LR
+    subgraph Input["Template Input"]
+        T1["${item.path} --priority ${item.priority:-5}"]
+    end
+
+    subgraph ParseCache["Template Parse Cache"]
+        direction LR
+        PC["Parse once, reuse for all items"]
+    end
+
+    subgraph OpCache["Operation Result Cache (LRU)"]
+        direction LR
+        OC1["env.* lookups"]
+        OC2["file:* reads"]
+        OC3["cmd:* execution"]
+    end
+
+    subgraph NeverCached["Never Cached"]
+        direction LR
+        NC1["date:* (time-sensitive)"]
+        NC2["uuid (must be unique)"]
+    end
+
+    Input --> ParseCache
+    ParseCache --> OpCache
+    OpCache --> Output["Resolved template"]
+    NeverCached -.->|"always fresh"| Output
+
+    style ParseCache fill:#e8f5e9
+    style OpCache fill:#e1f5ff
+    style NeverCached fill:#fff3e0
+```
+
+**Figure**: Dual caching architecture showing template parse cache and operation result cache.
 
 ### Template Parse Caching
 
