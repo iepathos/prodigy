@@ -6,6 +6,9 @@
 
 This chapter demonstrates practical Prodigy workflows with real-world examples. Examples progress from simple to advanced, covering standard workflows, MapReduce parallel processing, error handling, and advanced features.
 
+!!! tip "New to Prodigy?"
+    Start with **Example 1** in [Basic Workflows](basic-workflows.md) for a simple build/test pipeline, then progress through the examples in order. Each builds on concepts from the previous ones.
+
 ## Quick Reference
 
 Find the right example for your use case:
