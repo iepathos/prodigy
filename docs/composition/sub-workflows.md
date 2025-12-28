@@ -37,30 +37,39 @@ Each sub-workflow is defined as a key-value pair in a HashMap, where the key is 
 
 ```yaml
 sub_workflows:
-  validation:  # Key is the sub-workflow name
-    source: "path/to/workflow.yml"  # Required: workflow file path
+  validation:  # (1)!
+    source: "path/to/workflow.yml"  # (2)!
 
-    parameters:                       # Optional: parameter values
+    parameters:  # (3)!
       env: "staging"
       timeout: 600
 
-    inputs:                           # Optional: input from parent context
+    inputs:  # (4)!
       commit_sha: "${git.commit}"
       branch: "${git.branch}"
 
-    outputs:                          # Optional: extract values from sub-workflow
+    outputs:  # (5)!
       - "test_coverage"
       - "artifact_url"
 
-    parallel: false                   # Optional: run in parallel (default: false)
+    parallel: false  # (6)!
 
-    continue_on_error: false          # Optional: continue if sub-workflow fails
+    continue_on_error: false  # (7)!
 
-    timeout: 1800                     # Optional: sub-workflow timeout (seconds)
+    timeout: 1800  # (8)!
 
-    working_dir: "./sub-project"      # Optional: working directory for sub-workflow
-                                       # Note: Parsed but not yet applied (implementation in progress)
+    working_dir: "./sub-project"  # (9)!
 ```
+
+1. Key becomes the sub-workflow name, used to reference outputs like `${validation.test_coverage}`
+2. **Required**: Path to the workflow YAML file to execute
+3. Static parameter values passed to the sub-workflow
+4. Dynamic inputs mapped from parent context variables
+5. Variables to extract from sub-workflow back to parent
+6. Enable concurrent execution with other parallel sub-workflows (default: `false`)
+7. Continue parent execution even if this sub-workflow fails (default: `false`)
+8. Maximum execution time in seconds before timeout
+9. Working directory for sub-workflow execution (parsed but not yet applied)
 
 **Source**: `SubWorkflow` struct in src/cook/workflow/composition/sub_workflow.rs:14-46
 **Validation**: Sub-workflow validation in src/cook/workflow/composition/composer.rs:627-642
@@ -131,6 +140,30 @@ commands:
 
 Run multiple sub-workflows concurrently using `tokio::spawn` for concurrent task execution (src/cook/workflow/composition/sub_workflow.rs:179-226):
 
+```mermaid
+flowchart LR
+    Parent[Parent Workflow] --> Spawn["Spawn Tasks"]
+
+    Spawn --> T1["unit-tests
+    (tokio::spawn)"]
+    Spawn --> T2["integration-tests
+    (tokio::spawn)"]
+    Spawn --> T3["e2e-tests
+    (tokio::spawn)"]
+
+    T1 --> Join[Join All]
+    T2 --> Join
+    T3 --> Join
+
+    Join --> Merge["Merge Outputs"]
+    Merge --> Continue[Continue Parent]
+
+    style T1 fill:#e1f5ff
+    style T2 fill:#e1f5ff
+    style T3 fill:#e1f5ff
+    style Join fill:#f3e5f5
+```
+
 ```yaml
 sub_workflows:
   # These run in parallel
@@ -196,6 +229,9 @@ When a sub-workflow fails, error context is preserved through the `SubWorkflowRe
     The `SubWorkflowResult.error` field captures the full error message including context chain. When debugging failed sub-workflows, check this field for root cause analysis.
 
 ### :material-pipe: Modular Pipeline Example
+
+!!! tip "Pipeline Design Pattern"
+    Structure complex CI/CD pipelines as sequential stages with parallel sub-workflows within each stage. Run independent validation steps (linting, formatting, security scans) in parallel, then proceed to tests, and finally to build and deploy.
 
 **parent-pipeline.yml:**
 ```yaml
