@@ -40,12 +40,26 @@ This section covers fundamental workflow patterns for getting started with Prodi
     - "worker-service"
   parallel: 3  # Options: false (sequential), true (default parallelism), or number (specific count)
   continue_on_error: true
+  max_items: 10  # (1)!
   do:
     - shell: "cd services/${foreach.item} && cargo build"
     - shell: "cd services/${foreach.item} && cargo test"
       on_failure:
         claude: "/fix-service-tests ${foreach.item}"
+
+1. Limit processing to first N items - useful for testing or sampling large datasets
 ```
+
+!!! tip "Workflow-Level Error Policy"
+    For consistent error handling across all commands, use the `error_policy` field at the workflow level:
+    ```yaml
+    # Source: src/config/mapreduce.rs:55-77
+    error_policy:
+      on_item_failure: dlq  # dlq, retry, skip, or stop
+      continue_on_failure: true
+      max_failures: 10
+      failure_threshold: 0.25  # Stop if >25% fail
+    ```
 
 ---
 
@@ -121,3 +135,7 @@ graph TD
 - `$.items[*].files[*]` - Extract from nested arrays (flattens results)
 - `$.items[?(@.priority > 5)]` - Filter items by condition
 - `$[?(@.severity == 'critical')]` - Filter array by field value
+
+---
+
+For more complex patterns including environment variables, checkpointing, and conditional execution, see [Advanced Examples](advanced-examples.md).
