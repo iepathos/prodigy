@@ -2,6 +2,39 @@
 
 This page covers advanced configuration options, integration with existing projects, troubleshooting, best practices, and complete workflow examples.
 
+## Workflow Overview
+
+The MkDocs documentation workflow follows a structured approach to keep your documentation synchronized with your codebase:
+
+```mermaid
+graph LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        A1[Analyze Features] --> A2[Detect Gaps]
+    end
+
+    subgraph Map["Map Phase (Parallel)"]
+        direction LR
+        M1[Analyze Drift] --> M2[Fix Drift]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        direction LR
+        R1[Build MkDocs] --> R2[Validate Holistically]
+    end
+
+    Setup --> Map --> Reduce
+    Map --> Agent1["Agent 1: Page A"]
+    Map --> Agent2["Agent 2: Page B"]
+    Map --> AgentN["Agent N: Page N"]
+
+    style Setup fill:#e1f5ff
+    style Map fill:#fff3e0
+    style Reduce fill:#f3e5f5
+```
+
+**Figure**: MkDocs workflow showing setup analysis, parallel page processing, and final validation.
+
 ## Advanced Configuration
 
 ### Custom Project Configuration
@@ -11,12 +44,12 @@ Create a project-specific configuration file to customize how the MkDocs workflo
 ```json title=".prodigy/mkdocs-config.json"
 {
   "project_name": "Prodigy",
-  "project_type": "cli_tool",
+  "project_type": "cli_tool", // (1)!
   "docs_dir": "docs",
   "mkdocs_config": "mkdocs.yml",
-  "analysis_dir": ".prodigy/mkdocs-analysis",
+  "analysis_dir": ".prodigy/mkdocs-analysis", // (2)!
   "theme": "material",
-  "features": {
+  "features": { // (3)!
     "navigation.tabs": true,
     "navigation.sections": true,
     "navigation.expand": true,
@@ -31,12 +64,12 @@ Create a project-specific configuration file to customize how the MkDocs workflo
     "pymdownx.tabbed",
     "pymdownx.highlight"
   ],
-  "validation": {
+  "validation": { // (4)!
     "strict_mode": true,
     "check_links": true,
     "check_navigation": true
   },
-  "analysis_targets": [
+  "analysis_targets": [ // (5)!
     {
       "area": "mapreduce",
       "source_files": ["src/config/mapreduce.rs"],
@@ -45,6 +78,12 @@ Create a project-specific configuration file to customize how the MkDocs workflo
   ]
 }
 ```
+
+1. Project type affects how features are analyzed (`cli_tool`, `library`, `web_app`)
+2. Analysis outputs stored here for inspection and debugging
+3. Material theme features - enable navigation enhancements and code copy
+4. Validation strictness - enable all checks for comprehensive validation
+5. Source areas to analyze - maps source files to documentation categories
 
 !!! note "Configuration Fields"
     - **project_type**: Type of project (`cli_tool`, `library`, `web_app`)
@@ -117,7 +156,33 @@ agent_template:
 
 ### Error Handling
 
-Configure how the workflow responds to failures with comprehensive error policies:
+Configure how the workflow responds to failures with comprehensive error policies.
+
+```mermaid
+flowchart TD
+    Start[Command Execution] --> Success{Success?}
+    Success -->|Yes| Next[Next Command]
+    Success -->|No| Policy{"Error Policy?"}
+
+    Policy -->|dlq| DLQ[Send to Dead Letter Queue]
+    Policy -->|retry| Retry{Retry Attempts Left?}
+    Policy -->|fail| Fail[Fail Workflow]
+
+    DLQ --> Continue{continue_on_failure?}
+    Continue -->|Yes| Next
+    Continue -->|No| Fail
+
+    Retry -->|Yes| Backoff[Apply Backoff Strategy]
+    Backoff --> Start
+    Retry -->|No| DLQ
+
+    style Success fill:#e8f5e9
+    style DLQ fill:#fff3e0
+    style Fail fill:#ffebee
+    style Retry fill:#e1f5ff
+```
+
+**Figure**: Error handling flow showing retry logic, DLQ integration, and failure propagation.
 
 === "Basic Configuration"
 
@@ -178,6 +243,19 @@ Configure how the workflow responds to failures with comprehensive error policie
 
 ### Migrating from Manual Documentation
 
+```mermaid
+graph LR
+    Manual[Manual Docs] --> Setup[Run Initial Setup]
+    Setup --> Review[Review Generated Content]
+    Review --> Iterate[Run Periodically]
+    Iterate --> Iterate
+
+    style Manual fill:#ffebee
+    style Setup fill:#e1f5ff
+    style Review fill:#fff3e0
+    style Iterate fill:#e8f5e9
+```
+
 1. **Initial Setup:**
    ```bash
    # Create chapter definitions
@@ -237,6 +315,9 @@ Configure how the workflow responds to failures with comprehensive error policie
 
 ## Troubleshooting
 
+!!! tip "Debugging Strategy"
+    When troubleshooting MkDocs workflow issues, start with the validation report at `.prodigy/mkdocs-analysis/validation.json` to identify the root cause.
+
 ### Issue: Missing index.md
 
 **Symptom:** 404 error on homepage when running `mkdocs serve`
@@ -291,6 +372,9 @@ mkdocs build --strict 2>&1 | less
 
 **Symptom:** System slowdown during map phase
 
+!!! warning "Resource Management"
+    Running too many parallel agents can exhaust memory and CPU. Monitor system resources during workflow execution.
+
 **Solution:** Reduce parallelism:
 ```yaml
 env:
@@ -310,6 +394,9 @@ validate:
 ```
 
 ## Best Practices
+
+!!! example "Summary"
+    These best practices help maintain high-quality documentation with minimal manual effort.
 
 ### 1. Run Regularly
 
