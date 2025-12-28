@@ -2,28 +2,66 @@
 
 This page covers practical workflow patterns using git context variables for code review, documentation, testing, and MapReduce workflows.
 
+!!! tip "Shell Filtering for File Patterns"
+    Git context variables return space-separated file lists. Use shell filtering with `tr` and `grep` to select specific file types. See [Shell Filtering](shell-filtering.md) for detailed patterns. For variable reference, see [Overview](overview.md).
+
+```mermaid
+flowchart LR
+    subgraph Repository
+        A[Git Changes]
+    end
+    subgraph Resolution
+        B[GitChangeTracker]
+        C["step.* variables"]
+        D["workflow.* variables"]
+    end
+    subgraph Filtering
+        E["tr ' ' '\\n'"]
+        F["grep pattern"]
+        G[Filtered Files]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+```
+
 ## Code Review Workflows
 
 Review only source code changes using shell filtering:
 
-```yaml
-# Filter to only Rust source files before review
-- shell: |
-    rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/.*\.rs$' | tr '\n' ' ')
-    if [ -n "$rust_files" ]; then
-      echo "Rust files changed: $rust_files"
-    fi
+=== "Filter Rust Files"
 
-# Pass filtered files to Claude for review
-- shell: |
-    src_changes=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/')
-    if [ -n "$src_changes" ]; then
-      echo "$src_changes" > /tmp/review-files.txt
-      # Then use /tmp/review-files.txt in your review command
-    fi
+    ```yaml
+    # Filter to only Rust source files before review
+    - shell: |
+        rust_files=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/.*\.rs$' | tr '\n' ' ')
+        if [ -n "$rust_files" ]; then
+          echo "Rust files changed: $rust_files"
+        fi
+    ```
 
-- shell: "echo Reviewing ${step.commit_count} commits"
-```
+=== "Filter Source Directory"
+
+    ```yaml
+    # Pass filtered files to Claude for review
+    - shell: |
+        src_changes=$(echo "${step.files_changed}" | tr ' ' '\n' | grep '^src/')
+        if [ -n "$src_changes" ]; then
+          echo "$src_changes" > /tmp/review-files.txt
+          # Then use /tmp/review-files.txt in your review command
+        fi
+    ```
+
+=== "Show Commit Count"
+
+    ```yaml
+    - shell: "echo Reviewing ${step.commit_count} commits"
+    ```
 
 ## Documentation Updates
 
@@ -74,6 +112,9 @@ Focus on test-related changes:
 
 ## Conditional Execution
 
+!!! example "Pattern: Guard Clauses"
+    Use shell conditionals to guard expensive operations. Only run linters, tests, or analysis when relevant files actually changed.
+
 Use git context with shell conditions:
 
 ```yaml
@@ -101,28 +142,70 @@ Use git context with shell conditions:
     fi
 ```
 
+!!! note "Empty Result Handling"
+    Always check for empty results before processing. The `[ -n "$var" ]` test prevents errors when no files match your filter pattern.
+
 ## MapReduce Workflows
 
-Git context works across MapReduce phases:
+Git context works across MapReduce phases with different scoping:
+
+```mermaid
+flowchart TB
+    subgraph Setup["Setup Phase"]
+        S1[Commands execute]
+        S2["step.* = setup changes"]
+        S3["workflow.* = cumulative"]
+    end
+
+    subgraph Map["Map Phase (parallel agents)"]
+        M1["Agent 1
+        step.* = agent 1 changes"]
+        M2["Agent 2
+        step.* = agent 2 changes"]
+        M3["Agent N
+        step.* = agent N changes"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        R1[Commands execute]
+        R2["step.* = reduce changes"]
+        R3["workflow.* = ALL changes"]
+    end
+
+    Setup --> Map
+    Map --> Reduce
+    S1 --> S2
+    S2 --> S3
+    M1 & M2 & M3 --> R3
+```
 
 ```yaml
 name: review-changes
 mode: mapreduce
 
 setup:
-  # Workflow-level tracking starts here
   - shell: "git diff main --name-only > changed-files.txt"
-  - shell: "echo Setup modified: ${step.files_changed}"
+  - shell: "echo Setup modified: ${step.files_changed}"  # (1)!
 
 map:
   input: "changed-files.txt"
   agent_template:
-    # Each agent has its own step tracking
     - claude: "/review ${item}"
-    - shell: "echo Agent changed: ${step.files_changed}"
+    - shell: "echo Agent changed: ${step.files_changed}"  # (2)!
 
 reduce:
-  # Access workflow-level changes from all agents
-  - shell: "echo Total changes: ${workflow.files_changed}"
+  - shell: "echo Total changes: ${workflow.files_changed}"  # (3)!
   - shell: "echo Total commits: ${workflow.commit_count}"
 ```
+
+1. `step.*` tracks changes made during setup phase only
+2. Each agent has isolated `step.*` tracking - sees only its own changes
+3. `workflow.*` aggregates ALL changes from setup, all agents, and reduce
+
+For more on MapReduce workflows, see the [MapReduce documentation](../mapreduce/index.md).
+
+## Related Pages
+
+- [Shell Filtering](shell-filtering.md) - Detailed filtering patterns
+- [Best Practices](best-practices.md) - Performance and troubleshooting
+- [Overview](overview.md) - Variable reference

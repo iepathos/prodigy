@@ -1,0 +1,91 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "use-cases",
+  "page_title": "use cases",
+  "page_file": "docs/git-context/use-cases.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Page accurately documents git context use cases with correct variable syntax and shell filtering patterns. All examples align with the codebase implementation.",
+  "issues": [],
+  "positive_aspects": [
+    "All variable names are correct and match GitChangeTracker implementation (step.files_changed, step.files_added, workflow.files_changed, etc.)",
+    "Shell filtering patterns using tr and grep are practical and correctly documented",
+    "MapReduce workflow example correctly shows step vs workflow scope usage",
+    "Examples demonstrate proper ${variable} interpolation syntax",
+    "Conditional execution patterns are practical and accurate"
+  ],
+  "improvement_suggestions": [
+    "Consider adding an admonition box noting that these patterns use shell filtering since format modifiers like :json or :*.rs are not yet implemented",
+    "Could add a link to the shell-filtering.md page for detailed filtering patterns",
+    "MapReduce section could reference the broader MapReduce documentation for context",
+    "Could add a callout about checking for empty results before processing"
+  ],
+  "visual_enhancement_suggestions": [
+    {
+      "type": "mermaid_diagram",
+      "description": "A flowchart showing the git context data flow from repository changes through variable resolution to shell filtering would help visualize the process",
+      "location": "After the introduction paragraph"
+    },
+    {
+      "type": "admonition",
+      "description": "Add a tip admonition recommending shell filtering approach since format modifiers are not yet implemented",
+      "location": "At the top of the page, after the introduction"
+    },
+    {
+      "type": "content_tabs",
+      "description": "The Code Review Workflows section could use content tabs to separate different filtering scenarios (Rust files, source files, commit count)",
+      "location": "Code Review Workflows section"
+    },
+    {
+      "type": "mermaid_diagram",
+      "description": "A diagram showing how MapReduce workflow phases interact with git context (setup → map agents → reduce with cumulative tracking)",
+      "location": "MapReduce Workflows section"
+    }
+  ],
+  "cross_references": [
+    {
+      "page": "shell-filtering.md",
+      "reason": "Detailed filtering patterns referenced in examples"
+    },
+    {
+      "page": "overview.md",
+      "reason": "Variable reference and available variables"
+    },
+    {
+      "page": "best-practices.md",
+      "reason": "Performance and troubleshooting guidance"
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "code review workflows",
+      "documentation updates",
+      "test verification",
+      "conditional execution",
+      "mapreduce workflows",
+      "git context variables",
+      "shell filtering"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "code_verification": {
+      "files_examined": [
+        "src/cook/workflow/git_context.rs"
+      ],
+      "variables_verified": [
+        "step.files_changed",
+        "step.files_added",
+        "step.files_modified",
+        "step.files_deleted",
+        "step.commit_count",
+        "step.commits",
+        "workflow.files_changed",
+        "workflow.files_modified",
+        "workflow.files_added",
+        "workflow.commit_count"
+      ],
+      "implementation_status": "All documented variables exist in GitChangeTracker::resolve_step_variable()"
+    }
+  }
+}
