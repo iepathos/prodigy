@@ -29,5 +29,5 @@ prodigy dlq retry mapreduce-1234567890
 - [Checkpoint and Resume](../checkpoint-and-resume.md): DLQ state preserved in checkpoints
 - [Event Tracking](../event-tracking.md): DLQ operations emit trackable events
 - [Error Handling](../../workflow-basics/error-handling.md): Broader error handling strategies
-- [Worktree Architecture](../mapreduce-worktree-architecture.md): Agent isolation and artifact preservation
+- [Worktree Architecture](../../mapreduce-worktree-architecture.md): Agent isolation and artifact preservation
 - [Retry Metrics and Observability](../../retry-configuration/retry-metrics-and-observability.md): Monitoring retry behavior and failures
