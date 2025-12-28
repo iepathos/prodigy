@@ -103,28 +103,46 @@ error_policy:
 
 ### on_failure Syntax
 
-The `on_failure` field accepts a **single command** (either `shell:` or `claude:`), not an array of commands. The command structure is:
-```yaml
-on_failure:
-  claude: "/fix-command"
-  # or
-  shell: "echo 'Fixing...'"
-  max_attempts: 3       # Optional: retry the on_failure handler
-  commit_required: true # Optional: require commit after fixing
+The `on_failure` field accepts a **single command** (either `shell:` or `claude:`), not an array of commands.
+
+```mermaid
+flowchart LR
+    Cmd[Execute Command] --> Check{Success?}
+    Check -->|Yes| Next[Next Command]
+    Check -->|No| Handler{on_failure?}
+    Handler -->|No| DLQ[Send to DLQ]
+    Handler -->|Yes| Fix[Run Handler]
+    Fix --> Retry{Retry?}
+    Retry -->|Yes| Cmd
+    Retry -->|No| Nested{Nested Handler?}
+    Nested -->|Yes| Fix2[Run Nested]
+    Nested -->|No| DLQ
+    Fix2 --> DLQ
 ```
 
-For multiple failure recovery steps, nest handlers:
-```yaml
-# Source: Pattern from workflows/implement-with-tests.yml:36-39
-- shell: "cargo test"
-  on_failure:
-    claude: "/fix-tests"
-    commit_required: true
+=== "Simple Handler"
+    ```yaml
     on_failure:
-      # Nested handler for second-level failure
-      claude: "/fix-tests --deep-analysis"
-      commit_required: true
-```
+      claude: "/fix-command"
+      # or
+      shell: "echo 'Fixing...'"
+      max_attempts: 3       # Optional: retry the on_failure handler
+      commit_required: true # Optional: require commit after fixing
+    ```
+
+=== "Nested Handlers"
+    For multiple failure recovery steps, nest handlers:
+    ```yaml
+    # Source: Pattern from workflows/implement-with-tests.yml:36-39
+    - shell: "cargo test"
+      on_failure:
+        claude: "/fix-tests"
+        commit_required: true
+        on_failure:
+          # Nested handler for second-level failure
+          claude: "/fix-tests --deep-analysis"
+          commit_required: true
+    ```
 
 ### Error Policy Notes
 
@@ -164,13 +182,16 @@ prodigy resume mapreduce-1234567890
 ### Debugging Failed Agents
 
 When agents fail, DLQ entries include a `json_log_location` field pointing to the Claude JSON log file for debugging:
-```bash
-# View failed items and their log locations
-prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
 
-# Inspect the Claude interaction for a failed agent
-cat <json_log_location> | jq
-```
+!!! example "Inspecting Failed Agent Logs"
+    ```bash
+    # View failed items and their log locations
+    prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+
+    # Inspect the Claude interaction for a failed agent
+    cat <json_log_location> | jq
+    ```
+
 This allows you to see exactly what tools Claude invoked and why the agent failed.
 
 ---
@@ -180,45 +201,49 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 !!! note "Content must be a string"
     The `content` field always expects a string value. For JSON/YAML formats, the content is validated and formatted according to the specified format. Use YAML block scalars (`|` or `>`) to write multi-line content.
 
-```yaml
-# Source: src/config/command.rs:WriteFileConfig
-# Generate a JSON configuration file
-- write_file:
-    path: "config/deployment.json"
-    format: json  # Options: text, json, yaml
-    create_dirs: true  # Create parent directories if they don't exist
-    content: |
-      {
-        "environment": "production",
-        "api_url": "${API_URL}",
-        "features": ["auth", "analytics", "notifications"],
-        "timeout": 30
-      }
+=== "JSON"
+    ```yaml
+    # Source: src/config/command.rs:WriteFileConfig
+    - write_file:
+        path: "config/deployment.json"
+        format: json
+        create_dirs: true  # Create parent directories if needed
+        content: |
+          {
+            "environment": "production",
+            "api_url": "${API_URL}",
+            "features": ["auth", "analytics", "notifications"],
+            "timeout": 30
+          }
+    ```
 
-# Generate a YAML configuration file
-- write_file:
-    path: "config/services.yml"
-    format: yaml
-    content: |
-      services:
-        web:
-          image: "myapp:latest"
-          ports:
-            - "8080:8080"
-        database:
-          image: "postgres:15"
-          environment:
-            POSTGRES_DB: "${DB_NAME}"
+=== "YAML"
+    ```yaml
+    - write_file:
+        path: "config/services.yml"
+        format: yaml
+        content: |
+          services:
+            web:
+              image: "myapp:latest"
+              ports:
+                - "8080:8080"
+            database:
+              image: "postgres:15"
+              environment:
+                POSTGRES_DB: "${DB_NAME}"
+    ```
 
-# Generate a plain text report
-- write_file:
-    path: "reports/summary.txt"
-    format: text
-    mode: "0644"  # File permissions (optional)
-    content: |
-      Deployment Summary
-      ==================
-      Environment: ${NODE_ENV}
-      API URL: ${API_URL}
-      Timestamp: $(date)
-```
+=== "Plain Text"
+    ```yaml
+    - write_file:
+        path: "reports/summary.txt"
+        format: text
+        mode: "0644"  # File permissions (optional)
+        content: |
+          Deployment Summary
+          ==================
+          Environment: ${NODE_ENV}
+          API URL: ${API_URL}
+          Timestamp: $(date)
+    ```
