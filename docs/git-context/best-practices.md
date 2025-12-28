@@ -58,6 +58,32 @@ This page covers best practices, performance considerations, troubleshooting, an
 
 ## Performance Considerations
 
+```mermaid
+graph LR
+    subgraph Step["Step Execution"]
+        direction LR
+        Commit[Git Commit] --> Track["GitChangeTracker
+        Captures Changes"]
+        Track --> Cache["Cached Values
+        (space-separated)"]
+    end
+
+    subgraph Resolution["Variable Resolution"]
+        direction LR
+        Cache --> Interp["Interpolation
+        ${step.files_changed}"]
+        Interp --> Shell["Shell Filtering
+        grep, tr, jq"]
+        Shell --> Result[Formatted Output]
+    end
+
+    style Commit fill:#e8f5e9
+    style Cache fill:#e1f5ff
+    style Result fill:#fff3e0
+```
+
+**Figure**: Git context performance architecture - changes are captured once per commit, cached as pre-formatted strings, then filtered at runtime via shell commands.
+
 !!! info "Caching"
     Git operations are performed once per step and cached in the `GitChangeTracker` (see `src/cook/workflow/git_context.rs`). Repeated access to the same variables doesn't trigger additional git operations.
 
@@ -74,6 +100,45 @@ This page covers best practices, performance considerations, troubleshooting, an
     Variable resolution is fast since values are pre-computed strings. No git operations occur during interpolation.
 
 ## Troubleshooting
+
+```mermaid
+flowchart TD
+    Start["Variable Issue"] --> Empty{"Variable
+    empty?"}
+    Empty -->|Yes| InGit{"In git
+    repo?"}
+    Empty -->|No| Literal{"Shows as
+    literal text?"}
+
+    InGit -->|No| Fix1["Initialize git repo"]
+    InGit -->|Yes| Commits{"Step made
+    commits?"}
+
+    Commits -->|No| Fix2["Make commits first"]
+    Commits -->|Yes| Fix3["Check git tracking active"]
+
+    Literal -->|Yes| Typo{"Variable
+    misspelled?"}
+    Literal -->|No| Filter{"Filter matches
+    nothing?"}
+
+    Typo -->|Yes| Fix4["Fix variable name"]
+    Typo -->|No| Fix5["Check YAML quoting"]
+
+    Filter -->|Yes| Fix6["Debug with echo first"]
+    Filter -->|No| Fix7["Extract to helper script"]
+
+    style Start fill:#fff3e0
+    style Fix1 fill:#e8f5e9
+    style Fix2 fill:#e8f5e9
+    style Fix3 fill:#e8f5e9
+    style Fix4 fill:#e8f5e9
+    style Fix5 fill:#e8f5e9
+    style Fix6 fill:#e8f5e9
+    style Fix7 fill:#e8f5e9
+```
+
+**Figure**: Troubleshooting decision tree for git context variable issues.
 
 ### Filter Not Matching Any Files
 
