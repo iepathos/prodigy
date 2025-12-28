@@ -5,6 +5,45 @@ This subsection provides comprehensive, production-ready workflow examples demon
 !!! tip "Using These Examples"
     Copy and adapt these examples for your workflows. Each example includes source references pointing to actual implementation code for verification.
 
+### Configuration Architecture Overview
+
+The following diagram shows how configuration elements relate in Prodigy workflows:
+
+```mermaid
+graph LR
+    subgraph Workflow["Workflow Definition"]
+        direction LR
+        Env["env:
+        Variables"] --> Commands["commands:
+        Steps"]
+        Commands --> Handlers["on_failure:
+        Error Handlers"]
+    end
+
+    subgraph MapReduce["MapReduce Mode"]
+        direction LR
+        Setup["setup:
+        Prepare Items"] --> Map["map:
+        Parallel Agents"]
+        Map --> Reduce["reduce:
+        Aggregate"]
+        Reduce --> Merge["merge:
+        Finalize"]
+    end
+
+    subgraph CrossCutting["Cross-Cutting"]
+        direction LR
+        Timeout["timeout:
+        Limits"] --> Validate["validate:
+        Quality Gates"]
+        Validate --> Policy["error_policy:
+        Failure Handling"]
+    end
+
+    Workflow --> CrossCutting
+    MapReduce --> CrossCutting
+```
+
 ### Quick Reference
 
 Complete workflow configurations include:
@@ -180,12 +219,12 @@ reduce:
   - shell: "rm -rf ${ANALYSIS_DIR}"
   - shell: "git add -A && git commit -m 'chore: remove temporary book analysis files for ${PROJECT_NAME}' || true"
 
-# Error handling policy
+# Error handling policy  # (1)!
 error_policy:
-  on_item_failure: dlq          # Send failures to Dead Letter Queue
-  continue_on_failure: true     # Don't stop on individual item failures
-  max_failures: 2               # Stop if more than 2 items fail
-  error_collection: aggregate   # Collect errors for batch reporting
+  on_item_failure: dlq          # (2)!
+  continue_on_failure: true     # (3)!
+  max_failures: 2               # (4)!
+  error_collection: aggregate   # (5)!
 
 # Custom merge workflow
 merge:
@@ -194,6 +233,12 @@ merge:
     - claude: "/prodigy-merge-master --project ${PROJECT_NAME}"
     - claude: "/prodigy-merge-worktree ${merge.source_branch} ${merge.target_branch}"
 ```
+
+1. Defines how to handle failures across all map agents
+2. Send failed items to DLQ for later retry with `prodigy dlq retry`
+3. Continue processing remaining items even when some fail
+4. Stop workflow if more than 2 items fail (prevents runaway failures)
+5. Collect all errors for a single batch report at the end
 
 !!! note "Key Features Demonstrated"
     - **Environment parameterization**: All paths and settings in `env:` block for easy customization
@@ -280,7 +325,7 @@ env:
     when_false: "staging"
 
 # Secret environment variables (masked in logs)
-secrets:
+secrets:  # (1)!
   # Reference to environment variable
   API_KEY: "${env:SECRET_API_KEY}"
 
@@ -332,6 +377,11 @@ commands:
       CLEANUP_MODE: "full"
 ```
 
+1. Secrets are automatically masked in all logs, error messages, and event streams - never exposed in output
+
+!!! warning "Secret Security"
+    Always use `secrets:` for sensitive values like API keys, tokens, and passwords. These values are masked in logs and checkpoints. Never put secrets directly in `env:` blocks.
+
 #### Environment Configuration Details
 
 === "EnvValue Types"
@@ -372,6 +422,32 @@ commands:
 ### 4. Error Handling and Retry Strategies Example
 
 This example demonstrates comprehensive error handling patterns including retry strategies, backoff configurations, and circuit breakers.
+
+```mermaid
+flowchart LR
+    Cmd["Execute
+    Command"] --> Result{Success?}
+    Result -->|Yes| Next["Next
+    Command"]
+    Result -->|No| Handler["Run
+    on_failure"]
+    Handler --> Fixed["Attempt
+    Fix"]
+    Fixed --> Verify{Retry
+    Success?}
+    Verify -->|Yes| Next
+    Verify -->|No| Attempts{"max_attempts
+    Exceeded?"}
+    Attempts -->|No| Handler
+    Attempts -->|Yes| Policy{"fail_workflow?"}
+    Policy -->|true| Stop["Stop
+    Workflow"]
+    Policy -->|false| Next
+
+    style Next fill:#e8f5e9
+    style Stop fill:#ffebee
+    style Handler fill:#fff3e0
+```
 
 ```yaml title="workflows/implement-with-tests.yml"
 # Source: workflows/implement-with-tests.yml and workflows/debtmap.yml
@@ -499,6 +575,27 @@ Source: `src/cook/workflow/error_policy.rs:CircuitBreakerConfig`
 ### 5. Validation with Gap Filling Examples
 
 This example demonstrates validation with automatic gap filling using the `validate:` command with `on_incomplete` handlers.
+
+```mermaid
+flowchart LR
+    Execute["Execute
+    Command"] --> Validate{"Run
+    Validation"}
+    Validate -->|"Score ≥ Threshold"| Success["Continue
+    Workflow"]
+    Validate -->|"Score < Threshold"| Gap["Run
+    on_incomplete"]
+    Gap --> Retry{"Attempts
+    Remaining?"}
+    Retry -->|Yes| Validate
+    Retry -->|No| Check{"fail_workflow?"}
+    Check -->|true| Fail["Stop Workflow"]
+    Check -->|false| Success
+
+    style Success fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Gap fill:#fff3e0
+```
 
 === "Specification Implementation"
 
@@ -728,6 +825,26 @@ This example demonstrates timeout configuration at multiple levels.
 
 !!! warning "Timeout Hierarchy"
     The most specific timeout wins. Command-level timeouts override agent-level timeouts, which override phase-level timeouts.
+
+```mermaid
+graph TD
+    Global["Global Timeout
+    (Entire Workflow)"] --> Phase["Phase Timeout
+    (Setup, Reduce, Merge)"]
+    Phase --> Agent["Agent Timeout
+    (Per MapReduce Agent)"]
+    Agent --> Command["Command Timeout
+    (Per Command)"]
+
+    Command -->|"Most Specific Wins"| Final["Effective
+    Timeout"]
+
+    style Global fill:#e1f5ff
+    style Phase fill:#e8f5e9
+    style Agent fill:#fff3e0
+    style Command fill:#f3e5f5
+    style Final fill:#e8e8e8
+```
 
 ```yaml title="Timeout Configuration Example"
 # Global timeout for workflow
