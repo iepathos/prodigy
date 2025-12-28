@@ -2,21 +2,43 @@
 
 Environment variables are resolved with a clear precedence order, ensuring predictable behavior when the same variable is defined in multiple locations.
 
-**Source**: Implementation in `src/cook/environment/manager.rs:95-137`
+!!! info "Source Reference"
+    Implementation in `src/cook/environment/manager.rs:95-137`
 
 ## Precedence Order
 
 Environment variables are applied in the following order (later sources override earlier ones):
 
-1. **Parent environment** - Inherited from the parent process
-2. **Environment files** - Loaded from `env_files` (later files override earlier)
-3. **Global `env`** - Defined at workflow level in YAML
-4. **Active profile** - Applied if a profile is set (internal infrastructure)
-5. **Step-specific `env`** - Per-step environment variables
-6. **Secrets** - Loaded from secrets configuration (applied after step env)
-7. **Shell-level overrides** - Using `ENV=value command` syntax
+| Priority | Source | Description |
+|----------|--------|-------------|
+| 1 (lowest) | Parent environment | Inherited from the parent process |
+| 2 | Environment files | Loaded from `env_files` (later files override earlier) |
+| 3 | Global `env` | Defined at workflow level in YAML |
+| 4 | Active profile | Applied if a profile is set (internal infrastructure) |
+| 5 | Step-specific `env` | Per-step environment variables |
+| 6 | Secrets | Loaded from secrets configuration |
+| 7 (highest) | Shell-level overrides | Using `ENV=value command` syntax |
 
-**Source**: Precedence implementation in `src/cook/environment/manager.rs:95-137`
+```mermaid
+flowchart TD
+    A[Parent Environment] --> B[Environment Files]
+    B --> C[Global env Block]
+    C --> D[Active Profile]
+    D --> E[Step-specific env]
+    E --> F[Secrets]
+    F --> G[Shell Overrides]
+
+    style A fill:#e3f2fd
+    style G fill:#c8e6c9
+
+    subgraph "Prodigy-managed"
+        B
+        C
+        D
+        E
+        F
+    end
+```
 
 ## Implementation Details
 
@@ -25,6 +47,7 @@ Environment variables are applied in the following order (later sources override
 By default, workflows inherit all environment variables from the parent process. You can disable this with `inherit: false` in the environment configuration.
 
 ```yaml
+# Source: src/cook/environment/manager.rs:98-102
 # Disable parent environment inheritance
 inherit: false
 
@@ -33,51 +56,55 @@ env:
   NODE_ENV: production
 ```
 
-**Source**: Parent environment loading at `src/cook/environment/manager.rs:98-102`
+!!! tip "When to disable inheritance"
+    Disabling inheritance creates a clean environment, useful for reproducible builds or when parent variables might conflict with workflow configuration.
 
 ### Environment Files Precedence
 
 When multiple environment files are specified, later files override earlier ones. This allows layering of configuration (base + environment-specific).
 
 ```yaml
+# Source: src/cook/environment/manager.rs:107-109
 env_files:
-  - .env              # Base configuration
-  - .env.production   # Overrides base values
+  - .env              # (1)!
+  - .env.production   # (2)!
 ```
 
-**Source**: Environment file loading at `src/cook/environment/manager.rs:107-109`
+1. Base configuration loaded first
+2. Production values override base values
 
 ### Global Environment
 
 The global `env` block at the workflow level overrides both parent environment and environment files.
 
 ```yaml
+# Source: src/cook/environment/manager.rs:112-115
 env:
   NODE_ENV: production  # Overrides .env files and parent environment
   API_URL: https://api.example.com
 ```
 
-**Source**: Global environment application at `src/cook/environment/manager.rs:112-115`
-
 ### Profile Infrastructure
 
-Prodigy includes internal profile infrastructure that can activate different environment configurations. However, this feature is not currently exposed via CLI flags.
+!!! info "Internal Feature"
+    Prodigy includes internal profile infrastructure that can activate different environment configurations. However, this feature is not currently exposed via CLI flags.
 
 ```yaml
 # Profile infrastructure exists but no --profile CLI flag available
+# Source: src/cook/environment/manager.rs:118-120
 profiles:
   development:
     NODE_ENV: development
     API_URL: http://localhost:3000
 ```
 
-**Source**: Profile application at `src/cook/environment/manager.rs:118-120`; No CLI flag in `src/cli/args.rs`
-
 ### Step-Specific Environment
 
-**Note**: The YAML command syntax (`WorkflowStepCommand`) does not expose step-level environment configuration. However, the internal runtime (`StepEnvironment`) supports it for future extensibility.
+!!! note "Runtime Capability"
+    The YAML command syntax (`WorkflowStepCommand`) does not expose step-level environment configuration. However, the internal runtime (`StepEnvironment`) supports it for future extensibility.
 
 **Source**:
+
 - `StepEnvironment` struct at `src/cook/environment/config.rs:128-144`
 - Step environment application at `src/cook/environment/manager.rs:123-127`
 
@@ -86,13 +113,15 @@ profiles:
 Secrets are loaded AFTER step-specific environment variables, ensuring they cannot be accidentally overridden by step configuration.
 
 ```yaml
+# Source: src/cook/environment/manager.rs:130-137
 secrets:
   API_KEY: "${env:SECRET_API_KEY}"
 
 # This takes precedence over global env, env_files, and step env
 ```
 
-**Source**: Secrets application at `src/cook/environment/manager.rs:130-137`
+!!! warning "Security Note"
+    Secrets always take precedence over other environment sources to prevent accidental exposure through configuration overrides.
 
 ### Shell-Level Overrides
 
@@ -106,66 +135,87 @@ This override is handled by the shell itself and takes precedence over all Prodi
 
 ## Complete Example
 
-Here's a comprehensive example demonstrating all precedence levels:
+??? example "Comprehensive Precedence Demonstration"
+    Here's a complete example demonstrating all precedence levels:
 
-```yaml
-# Parent environment: NODE_ENV=local (inherited by default)
+    ```yaml
+    # Source: workflows/environment-example.yml
+    # Parent environment: NODE_ENV=local (inherited by default)
 
-env_files:
-  - .env  # Contains: NODE_ENV=development, API_URL=http://localhost:3000
+    env_files:
+      - .env  # (1)!
 
-env:
-  NODE_ENV: production      # Overrides .env file and parent
-  API_URL: https://api.prod.example.com  # Overrides .env file
+    env:
+      NODE_ENV: production      # (2)!
+      API_URL: https://api.prod.example.com
 
-secrets:
-  API_KEY: "${env:SECRET_API_KEY}"  # Loaded after global env
+    secrets:
+      API_KEY: "${env:SECRET_API_KEY}"  # (3)!
 
-commands:
-  - shell: "echo $NODE_ENV"          # Prints: production (from global env)
-  - shell: "echo $API_URL"           # Prints: https://api.prod.example.com
-  - shell: "echo $API_KEY"           # Prints: *** (masked, from secrets)
+    commands:
+      - shell: "echo $NODE_ENV"          # Prints: production (from global env)
+      - shell: "echo $API_URL"           # Prints: https://api.prod.example.com
+      - shell: "echo $API_KEY"           # Prints: *** (masked, from secrets)
 
-  # Override using shell syntax (highest precedence)
-  - shell: "NODE_ENV=staging echo $NODE_ENV"  # Prints: staging
-```
+      # Override using shell syntax (highest precedence)
+      - shell: "NODE_ENV=staging echo $NODE_ENV"  # (4)!
+    ```
 
-**Source**: Real-world example from `workflows/environment-example.yml`
+    1. Contains: `NODE_ENV=development`, `API_URL=http://localhost:3000`
+    2. Overrides values from `.env` file and parent environment
+    3. Loaded after global env - cannot be overridden by step env
+    4. Shell override prints: `staging` (highest precedence)
 
 ## Precedence Resolution Flow
 
-When resolving an environment variable, Prodigy follows this flow:
+```mermaid
+flowchart LR
+    subgraph Resolution["Variable Resolution"]
+        direction TB
+        P[Parent env<br/>inherit: true] --> EF[env_files<br/>in order]
+        EF --> GE[Global env<br/>block]
+        GE --> PR[Profile<br/>internal]
+        PR --> SE[Step env<br/>runtime]
+        SE --> SC[Secrets<br/>protected]
+        SC --> SH[Shell<br/>override]
+    end
 
-```
-1. Start with parent environment (if inherit: true, default)
-2. Apply each env_file in order (later files override)
-3. Apply global env block (overrides files and parent)
-4. Apply active profile if set (internal feature)
-5. Apply step-specific env (runtime capability)
-6. Apply secrets (highest Prodigy-level precedence)
-7. Shell overrides apply at execution time (highest overall)
+    SH --> R[Final Value]
+
+    style R fill:#c8e6c9,stroke:#2e7d32
 ```
 
 **Result**: The last value set wins, creating a predictable override chain.
 
 ## Debugging Precedence Issues
 
-When troubleshooting which environment source is active:
+!!! tip "Debugging Commands"
+    Use these commands to troubleshoot environment precedence:
 
-```yaml
-# Print all environment variables to debug precedence
-- shell: "env | sort"
-  capture_output: true
+    === "List All Variables"
+        ```yaml
+        - shell: "env | sort"
+          capture_output: true
+        ```
 
-# Print specific variable to verify its value
-- shell: "echo NODE_ENV=$NODE_ENV"
-```
+    === "Check Specific Variable"
+        ```yaml
+        - shell: "echo NODE_ENV=$NODE_ENV"
+        ```
 
-Common debugging scenarios:
-- **Variable not set**: Check if parent environment is being inherited
-- **Wrong value**: Check which precedence level last set the variable
-- **Secrets not working**: Verify secrets are loaded after step environment
-- **Override not applying**: Ensure shell syntax is correct
+    === "Verify Secrets"
+        ```yaml
+        - shell: "echo API_KEY is set: ${API_KEY:+yes}"
+        ```
+
+**Common debugging scenarios:**
+
+| Symptom | Likely Cause | Solution |
+|---------|--------------|----------|
+| Variable not set | Parent inheritance disabled | Check `inherit: true` (default) |
+| Wrong value | Higher precedence source | Check which level last set the variable |
+| Secrets not working | Secrets config error | Verify secrets are in correct format |
+| Override not applying | Shell syntax issue | Ensure proper quoting and syntax |
 
 ## Related Topics
 
