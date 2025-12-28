@@ -2,6 +2,37 @@
 
 Process multiple items in parallel using the `foreach` command.
 
+```mermaid
+flowchart LR
+    Input["Input Source"] --> Parse{"List or
+    Command?"}
+    Parse -->|List| Items["Static Items"]
+    Parse -->|Command| Shell["Execute Shell"]
+    Shell --> Split["Split by Lines"]
+    Split --> Items
+
+    Items --> Mode{"Parallel?"}
+    Mode -->|"false"| Seq["Sequential
+    Execution"]
+    Mode -->|"true/N"| Par["Parallel
+    Workers"]
+
+    Seq --> Process["Process Items"]
+    Par --> Process
+    Process --> Error{"Item
+    Failed?"}
+
+    Error -->|No| Next["Next Item"]
+    Error -->|Yes| Continue{"continue_on_error?"}
+    Continue -->|true| Next
+    Continue -->|false| Stop["Stop Processing"]
+    Next --> Done["Complete"]
+
+    style Input fill:#e1f5ff
+    style Par fill:#e8f5e9
+    style Stop fill:#ffebee
+```
+
 **Source**: Configuration defined in src/config/command.rs:191-211
 
 ### Basic Foreach
@@ -190,18 +221,21 @@ Each command in the `do` block has access to the same variables (`${item}`, `${i
 
 ### When to Use Foreach vs MapReduce
 
-**Use Foreach when:**
-- Simple iteration over items (< 100 items)
-- All items processed in the same worktree
-- No need for checkpoint/resume
-- Lightweight operations
+!!! tip "Choosing the Right Approach"
+    **Use Foreach when:**
 
-**Use MapReduce when:**
-- Processing many items (100+)
-- Need checkpoint and resume capability
-- Need isolated worktrees per item
-- Complex failure handling and retry logic
-- Dead letter queue for failed items
+    - Simple iteration over items (< 100 items)
+    - All items processed in the same worktree
+    - No need for checkpoint/resume
+    - Lightweight operations
+
+    **Use MapReduce when:**
+
+    - Processing many items (100+)
+    - Need checkpoint and resume capability
+    - Need isolated worktrees per item
+    - Complex failure handling and retry logic
+    - Dead letter queue for failed items
 
 See [MapReduce](../mapreduce/index.md) for large-scale parallel processing.
 
