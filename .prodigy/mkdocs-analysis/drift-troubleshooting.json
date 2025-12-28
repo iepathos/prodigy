@@ -2,111 +2,107 @@
   "item_type": "page",
   "page_id": "troubleshooting",
   "page_title": "troubleshooting",
-  "page_file": "docs/automated-documentation/troubleshooting.md",
+  "page_file": "docs/reference/troubleshooting.md",
   "drift_detected": true,
-  "severity": "high",
-  "quality_assessment": "Page documents the WRONG workflow system - covers mdbook/book workflow instead of MkDocs workflow. Additionally, CLI commands are outdated.",
+  "severity": "low",
+  "quality_assessment": "Page is well-structured with minor CLI command discrepancies; excellent use of MkDocs Material features and cross-references are valid",
   "issues": [
     {
-      "type": "incorrect_content",
-      "severity": "high",
-      "section": "Entire Document",
-      "description": "Page documents the mdbook/book-docs-drift.yml workflow instead of the mkdocs-drift.yml workflow. This section is for MkDocs Material documentation (docs/) not mdbook documentation (book/src/). All file paths, commands, and examples reference the wrong workflow system.",
-      "current_content": "Based on workflows/book-docs-drift.yml, .prodigy/book-analysis/, book/src/SUMMARY.md",
-      "should_be": "Should document workflows/mkdocs-drift.yml, .prodigy/mkdocs-analysis/, mkdocs.yml",
-      "fix_suggestion": "Rewrite the entire document to reference the MkDocs workflow system instead of the mdbook system. Update all paths from book/src/ to docs/, from .prodigy/book-analysis/ to .prodigy/mkdocs-analysis/, and from book-docs-drift.yml to mkdocs-drift.yml.",
-      "source_reference": "workflows/mkdocs-drift.yml, workflows/book-docs-drift.yml"
-    },
-    {
       "type": "outdated_information",
-      "severity": "high",
-      "section": "DLQ Commands",
-      "description": "Documentation uses 'prodigy dlq show <job_id>' which does not exist. The actual CLI commands are 'prodigy dlq list' for listing items and 'prodigy dlq inspect <item_id>' for inspecting individual items.",
+      "severity": "low",
+      "section": "Quick Diagnostics Checklist",
+      "description": "Documentation uses 'prodigy dlq show <job_id>' but CLI implementation uses 'prodigy dlq list --job-id <job_id>' for listing and 'prodigy dlq inspect <item_id>' for inspection",
       "current_content": "prodigy dlq show <job_id>",
-      "should_be": "prodigy dlq list --job-id <job_id> for listing, prodigy dlq inspect <item_id> --job-id <job_id> for details",
-      "fix_suggestion": "Replace all instances of 'prodigy dlq show' with the correct CLI commands: 'prodigy dlq list' for listing and 'prodigy dlq inspect' for inspection.",
-      "source_reference": "src/cli/args.rs:534-615 (DlqCommands enum)"
+      "should_be": "prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update all DLQ command references to use correct CLI syntax: 'prodigy dlq list --job-id <job_id>' for listing items",
+      "source_reference": "src/cli/args.rs:534-548"
     },
     {
       "type": "outdated_information",
-      "severity": "medium",
-      "section": "Events Commands",
-      "description": "Documentation references 'prodigy events <job_id>' but the actual command is 'prodigy events ls --job-id <job_id>'.",
-      "current_content": "prodigy events <job_id>",
-      "should_be": "prodigy events ls --job-id <job_id>",
-      "fix_suggestion": "Update all event command examples to use the correct subcommand syntax.",
-      "source_reference": "src/cli/args.rs:413-432 (EventCommands enum)"
-    },
-    {
-      "type": "incorrect_examples",
-      "severity": "medium",
-      "section": "Testing Individual Commands",
-      "description": "The examples show testing /prodigy-analyze-subsection-drift and /prodigy-fix-subsection-drift commands with book/src/ paths, but MkDocs documentation uses /prodigy-analyze-mkdocs-drift and /prodigy-fix-mkdocs-drift commands with docs/ paths.",
-      "current_content": "/prodigy-analyze-subsection-drift --project Prodigy --json '{\"file\":\"book/src/...\"}'",
-      "should_be": "/prodigy-analyze-mkdocs-drift --project Prodigy --json '{\"file\":\"docs/...\"}'",
-      "fix_suggestion": "Update command examples to use MkDocs-specific commands and file paths.",
-      "source_reference": "workflows/mkdocs-drift.yml:73-77"
-    },
-    {
-      "type": "incorrect_examples",
-      "severity": "medium",
-      "section": "File Locations Reference",
-      "description": "The file locations table references .prodigy/book-analysis/, .prodigy/book-config.json, and book/ paths which are for mdbook, not MkDocs.",
-      "current_content": ".prodigy/book-analysis/, .prodigy/book-config.json, book/",
-      "should_be": ".prodigy/mkdocs-analysis/, .prodigy/mkdocs-config.json, docs/",
-      "fix_suggestion": "Update all file path references to use MkDocs-specific paths.",
-      "source_reference": "workflows/mkdocs-drift.yml:9-23"
-    },
-    {
-      "type": "missing_content",
-      "severity": "medium",
-      "section": "Reduce Phase Issues",
-      "description": "Section references 'mdbook build' but MkDocs uses 'mkdocs build --strict' for building documentation.",
-      "current_content": "mdbook build fails with broken links, SUMMARY.md sync issues",
-      "should_be": "mkdocs build --strict fails with validation errors, mkdocs.yml nav structure issues",
-      "fix_suggestion": "Replace mdbook-specific troubleshooting with mkdocs-specific issues (mkdocs build errors, nav configuration, theme issues).",
-      "source_reference": "workflows/mkdocs-drift.yml:97-100"
-    },
-    {
-      "type": "incomplete_explanation",
       "severity": "low",
-      "section": "Debugging Techniques",
-      "description": "The debugging section is thorough for the book workflow but needs MkDocs-specific debugging techniques like checking mkdocs.yml validation, material theme configuration, and nav structure.",
-      "fix_suggestion": "Add MkDocs Material-specific debugging: mkdocs serve for local preview, mkdocs.yml validation, material theme settings, and navigation structure debugging."
+      "section": "Common Error Patterns Table",
+      "description": "Table mentions 'prodigy dlq show' which doesn't match current CLI implementation",
+      "current_content": "Check: prodigy dlq show <job_id>",
+      "should_be": "Check: prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update cleanup row quick fix to use correct DLQ command",
+      "source_reference": "src/cli/args.rs:534"
     },
     {
-      "type": "missing_content",
+      "type": "outdated_information",
       "severity": "low",
-      "section": "MkDocs-Specific Issues",
-      "description": "Missing troubleshooting for MkDocs-specific issues like: Material theme configuration problems, navigation structure validation, admonition/tab rendering issues, and mermaid diagram failures.",
-      "fix_suggestion": "Add sections for MkDocs Material-specific issues: theme configuration, nav validation, material extensions (admonitions, tabs, code annotations), and mermaid integration."
+      "section": "MapReduce Issues - Agents failing silently",
+      "description": "Uses 'prodigy dlq show' syntax instead of correct 'prodigy dlq list'",
+      "current_content": "Check: prodigy dlq show <job_id>",
+      "should_be": "Check: prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update command reference",
+      "source_reference": "src/cli/args.rs:534-548"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "State Inspection - DLQ Contents Tab",
+      "description": "Tab example uses 'prodigy dlq show' which doesn't match CLI",
+      "current_content": "prodigy dlq show <job_id>",
+      "should_be": "prodigy dlq list --job-id <job_id>",
+      "fix_suggestion": "Update command in tabbed section",
+      "source_reference": "src/cli/args.rs:534"
     }
   ],
   "positive_aspects": [
-    "Well-organized structure with phase-based troubleshooting",
-    "Good use of symptoms/causes/solution format for each issue",
-    "Comprehensive coverage of DLQ and event debugging concepts",
-    "Helpful FAQ section addressing common questions",
-    "Clear file locations reference table format",
-    "Source references provided for each section"
+    "Excellent use of Mermaid flowchart for diagnostic workflow visualization",
+    "Well-organized admonitions providing actionable tips and warnings",
+    "Comprehensive error pattern table with quick fixes",
+    "Excellent use of Material tabs for state inspection organization",
+    "Code annotations explaining verbosity levels clearly",
+    "All internal documentation links are valid",
+    "Good categorization of issues (MapReduce, Session, Variable, Performance, Worktree)",
+    "Cross-references to detailed documentation pages are accurate",
+    "Good source references pointing to relevant code locations",
+    "Clear debugging workflow progression"
   ],
   "improvement_suggestions": [
-    "Completely rewrite to document MkDocs workflow instead of mdbook workflow",
-    "Update all CLI command examples to match actual implementation",
-    "Add MkDocs Material-specific troubleshooting (theme, navigation, extensions)",
-    "Add admonitions and code annotations per MkDocs Material best practices",
-    "Consider adding a comparison section if both workflow types need documentation"
+    "Update all DLQ command references from 'prodigy dlq show' to 'prodigy dlq list --job-id'",
+    "Consider adding example output for some debugging commands",
+    "Add a quick CLI reference section showing correct syntax for common commands"
   ],
   "cross_references": [
-    "mkdocs-workflow/index",
-    "mkdocs-workflow/getting-started",
-    "mapreduce/checkpoint-and-resume",
-    "mapreduce/dead-letter-queue-dlq"
+    "troubleshooting/index.md",
+    "troubleshooting/common-error-messages.md",
+    "troubleshooting/faq.md",
+    "mapreduce/dead-letter-queue-dlq.md",
+    "mapreduce/checkpoint-and-resume.md",
+    "environment/index.md",
+    "advanced/observability.md"
   ],
+  "link_validation": {
+    "total_internal_links": 10,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      "../troubleshooting/index.md",
+      "../mapreduce/dead-letter-queue-dlq.md",
+      "../mapreduce/checkpoint-and-resume.md",
+      "../environment/index.md",
+      "../troubleshooting/common-error-messages.md",
+      "../troubleshooting/faq.md",
+      "../advanced/observability.md"
+    ]
+  },
   "metadata": {
-    "analyzed_at": "2025-12-27T03:30:00Z",
+    "analyzed_at": "2025-12-27T22:55:00Z",
     "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
-    "topics_covered": ["troubleshooting", "debugging", "DLQ", "events", "resume", "file locations"],
+    "topics_covered": [
+      "diagnostics",
+      "error patterns",
+      "MapReduce troubleshooting",
+      "session management",
+      "variable interpolation",
+      "performance tuning",
+      "worktree management",
+      "verbosity levels",
+      "log inspection",
+      "state inspection"
+    ],
     "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
   }
 }
