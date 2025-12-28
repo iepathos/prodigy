@@ -11,6 +11,39 @@ Environment variables in MapReduce workflows are available in all execution phas
 - **Reduce phase**: Aggregate results, format output
 - **Merge phase**: Control merge behavior, validation
 
+```mermaid
+graph LR
+    subgraph Sources["Environment Sources"]
+        direction TB
+        EnvFiles[".env files"]
+        Profiles["Profiles"]
+        EnvBlock["env: block"]
+        Secrets["secrets: block"]
+    end
+
+    Sources --> Resolution["Variable Resolution"]
+
+    Resolution --> Setup["Setup Phase"]
+    Resolution --> Map["Map Phase"]
+    Resolution --> Reduce["Reduce Phase"]
+    Resolution --> Merge["Merge Phase"]
+
+    subgraph Usage["Variable Usage in Phases"]
+        direction TB
+        Setup --> |"$VAR, &#36;{VAR}"| SetupCmds["Commands"]
+        Map --> |"max_parallel, agent_timeout"| MapConfig["Configuration"]
+        Map --> |"$VAR in templates"| MapCmds["Agent Commands"]
+        Reduce --> |"$VAR, &#36;{map.*}"| ReduceCmds["Aggregation"]
+        Merge --> |"$VAR, &#36;{merge.*}"| MergeCmds["Validation"]
+    end
+
+    style Sources fill:#e1f5ff
+    style Resolution fill:#fff3e0
+    style Usage fill:#f3e5f5
+```
+
+**Figure**: Environment variable flow through MapReduce phases. Variables from multiple sources are resolved and available in all phases.
+
 !!! info "Parse-Time vs Execution-Time Resolution"
     MapReduce configuration values like `max_parallel` and `agent_timeout_secs` are resolved at **parse time** (when the workflow loads), while command interpolation happens at **execution time** (when commands run). This distinction affects when errors appear and how dynamic values work.
 
@@ -301,6 +334,9 @@ prodigy run workflow.yml --profile production
 For complete profile documentation, see [Environment Profiles](environment-profiles.md).
 
 ### Complete Example: Parameterized MapReduce Workflow
+
+!!! example "Layered Configuration Pattern"
+    This example demonstrates the recommended pattern for production workflows: environment files for base configuration, profiles for environment-specific values, and secrets for sensitive data.
 
 ```yaml
 name: parameterized-processing
