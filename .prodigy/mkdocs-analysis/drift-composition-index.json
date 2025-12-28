@@ -1,0 +1,141 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "Workflow Composition",
+  "page_file": "docs/composition/index.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is comprehensive, accurate, and well-structured with honest implementation status. Minor line number references slightly outdated due to code changes.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Template CLI Commands",
+      "description": "Line count reference for template.rs says '388 lines' but file now has 387 lines",
+      "current_content": "src/cli/template.rs, 388 lines",
+      "should_be": "src/cli/template.rs, 387 lines",
+      "fix_suggestion": "Update line count to 387 lines",
+      "source_reference": "src/cli/template.rs (387 lines)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Phase 1: Core Composition Engine",
+      "description": "Line count reference for composer.rs says '986 lines' but file now has 979 lines",
+      "current_content": "src/cook/workflow/composition/composer.rs, 986 lines",
+      "should_be": "src/cook/workflow/composition/composer.rs, 979 lines",
+      "fix_suggestion": "Update line count to 979 lines",
+      "source_reference": "src/cook/workflow/composition/composer.rs (979 lines)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Phase 1: Core Composition Engine",
+      "description": "Line count reference for registry.rs says '779 lines' but file now has 778 lines",
+      "current_content": "src/cook/workflow/composition/registry.rs, 779 lines",
+      "should_be": "src/cook/workflow/composition/registry.rs, 778 lines",
+      "fix_suggestion": "Update line count to 778 lines",
+      "source_reference": "src/cook/workflow/composition/registry.rs (778 lines)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Phase 1: Core Composition Engine",
+      "description": "Line count reference for mod.rs says '334 lines' but file now has 333 lines",
+      "current_content": "src/cook/workflow/composition/mod.rs, 334 lines",
+      "should_be": "src/cook/workflow/composition/mod.rs, 333 lines",
+      "fix_suggestion": "Update line count to 333 lines",
+      "source_reference": "src/cook/workflow/composition/mod.rs (333 lines)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Phase 3: Workflow Execution Integration",
+      "description": "Sub-workflow placeholder reference says lines 233-239 but actual placeholder is at lines 228-240 (execute_composed function)",
+      "current_content": "src/cook/workflow/composition/sub_workflow.rs:233-239",
+      "should_be": "src/cook/workflow/composition/sub_workflow.rs:228-240",
+      "fix_suggestion": "Update line reference to 228-240 for execute_composed function",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:228-240"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "CLI Integration",
+      "description": "Router.rs reference says lines 199-234 but template routing is at lines 190-212",
+      "current_content": "src/cli/router.rs:199-234",
+      "should_be": "src/cli/router.rs:190-212",
+      "fix_suggestion": "Update line reference to 190-212",
+      "source_reference": "src/cli/router.rs:190-212"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Page does not use MkDocs Material visual features like admonitions, code annotations, or content tabs for better readability",
+      "fix_suggestion": "Convert blockquote warnings to proper admonitions (e.g., !!! warning), add tabbed interface for CLI examples, add code annotations for complex YAML snippets",
+      "source_reference": "MkDocs Material documentation"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive and honest implementation status section with clear icons (✅, ⏳, ❌)",
+    "Excellent structure with clear progression from overview to specific features",
+    "Good use of source code references linking documentation to actual implementation",
+    "Detailed implementation roadmap with phased approach",
+    "Clear 'What to Avoid' section preventing user frustration",
+    "Well-documented CLI commands with practical examples",
+    "Contributing section encouraging community involvement",
+    "Cross-references to related pages (template-system.md, workflow-extension-inheritance.md, etc.)"
+  ],
+  "improvement_suggestions": [
+    "Convert blockquote warnings/notes to proper MkDocs Material admonitions for better visual hierarchy",
+    "Add code annotations to complex YAML examples to explain each field",
+    "Consider adding a tabbed interface for CLI command examples (register vs list vs show)",
+    "Add a quick-start example at the top for users who want to try templates immediately",
+    "Update line count references to match current source file sizes",
+    "Consider adding a comparison table showing which features work in each execution mode"
+  ],
+  "cross_references": [
+    "template-system.md",
+    "workflow-extension-inheritance.md",
+    "parameter-definitions.md",
+    "default-values.md",
+    "sub-workflows.md",
+    "composition-metadata.md",
+    "complete-examples.md",
+    "troubleshooting.md"
+  ],
+  "internal_links_validated": {
+    "total_internal_links": 8,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      "template-system.md - EXISTS",
+      "workflow-extension-inheritance.md - EXISTS",
+      "parameter-definitions.md - EXISTS",
+      "default-values.md - EXISTS",
+      "sub-workflows.md - EXISTS",
+      "composition-metadata.md - EXISTS",
+      "complete-examples.md - EXISTS",
+      "troubleshooting.md - EXISTS"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "Workflow composition",
+      "Template system",
+      "Workflow imports",
+      "Template CLI",
+      "Implementation roadmap"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_references_validated": {
+      "WorkflowImport_struct": "src/cook/workflow/composition/mod.rs:52-65 - VERIFIED (lines 52-65 contain WorkflowImport)",
+      "is_composable_workflow": "src/cook/workflow/composer_integration.rs:44-50 - VERIFIED",
+      "process_imports": "src/cook/workflow/composition/composer.rs:98-133 - NEEDS VERIFICATION",
+      "template_cli": "src/cli/template.rs - VERIFIED (387 lines)",
+      "router_integration": "src/cli/router.rs:190-212 - VERIFIED"
+    }
+  }
+}

@@ -2,26 +2,29 @@
 
 Prodigy provides powerful composition features that enable building complex workflows from reusable components. This chapter covers importing workflows, using templates, defining parameters, and composing workflows through inheritance.
 
-> **⚠️ Implementation Status**
->
-> Workflow composition is currently in **phased implementation**. The core composition engine and template system are fully implemented and tested, but integration with workflow execution varies by feature:
->
-> **✅ What Works Today:**
-> - Template management via `prodigy template` CLI commands (register, list, show, delete, etc.)
-> - Programmatic workflow composition using `WorkflowComposer` API
-> - Parameter validation with type checking
-> - Template registry storage and retrieval (`~/.prodigy/templates/`)
->
-> **⏳ Limited Integration:**
-> - Using imports, extends, and templates in `prodigy run` workflows (detection works, execution integration is limited)
-> - Composable workflow detection and parsing (functional but not extensively tested end-to-end)
->
-> **❌ Not Yet Implemented:**
-> - Sub-workflow execution (types defined, executor is placeholder)
-> - MapReduce workflow composition
-> - `prodigy compose` command
->
-> See the [Implementation Roadmap](#implementation-roadmap) section below for details.
+!!! warning "Implementation Status"
+
+    Workflow composition is currently in **phased implementation**. The core composition engine and template system are fully implemented and tested, but integration with workflow execution varies by feature:
+
+    **✅ What Works Today:**
+
+    - Template management via `prodigy template` CLI commands (register, list, show, delete, etc.)
+    - Programmatic workflow composition using `WorkflowComposer` API
+    - Parameter validation with type checking
+    - Template registry storage and retrieval (`~/.prodigy/templates/`)
+
+    **⏳ Limited Integration:**
+
+    - Using imports, extends, and templates in `prodigy run` workflows (detection works, execution integration is limited)
+    - Composable workflow detection and parsing (functional but not extensively tested end-to-end)
+
+    **❌ Not Yet Implemented:**
+
+    - Sub-workflow execution (types defined, executor is placeholder)
+    - MapReduce workflow composition
+    - `prodigy compose` command
+
+    See the [Implementation Roadmap](#implementation-roadmap) section below for details.
 
 ## Overview
 
@@ -35,29 +38,73 @@ Workflow composition allows you to:
 
 These features promote code reuse, maintainability, and consistency across your automation workflows.
 
+```mermaid
+graph LR
+    subgraph Sources["Composition Sources"]
+        direction TB
+        Files["External Files"]
+        Templates["Template Registry"]
+        Base["Base Workflows"]
+    end
+
+    subgraph Features["Composition Features"]
+        direction TB
+        Import["imports:
+        Reference external files"]
+        Extend["extends:
+        Inherit from base"]
+        Template["template:
+        Use registered pattern"]
+        Params["parameters:
+        Type-validated inputs"]
+    end
+
+    subgraph Output["Result"]
+        Final["Composed
+        Workflow"]
+    end
+
+    Files --> Import
+    Templates --> Template
+    Base --> Extend
+
+    Import --> Final
+    Extend --> Final
+    Template --> Final
+    Params --> Final
+
+    style Sources fill:#e1f5ff
+    style Features fill:#fff3e0
+    style Output fill:#e8f5e9
+```
+
+**Figure**: How composition features combine sources into a final workflow.
+
 ### When to Use Composition
 
-Composition features are most valuable when:
+!!! info "Composition vs. Direct YAML"
 
-1. **Multiple projects share common workflow patterns** - Standardize CI/CD, deployment, or testing workflows across teams
-2. **Workflows need environment-specific parameterization** - Same workflow logic with different configurations for dev/staging/prod
-3. **Building a library of reusable components** - Create organizational workflow templates for consistent practices
+    Composition features are most valuable when:
 
-For simple, project-specific workflows, direct YAML without composition is often clearer and easier to maintain.
+    1. **Multiple projects share common workflow patterns** - Standardize CI/CD, deployment, or testing workflows across teams
+    2. **Workflows need environment-specific parameterization** - Same workflow logic with different configurations for dev/staging/prod
+    3. **Building a library of reusable components** - Create organizational workflow templates for consistent practices
+
+    For simple, project-specific workflows, direct YAML without composition is often clearer and easier to maintain.
 
 ## Workflow Imports
 
 Import external workflow files to reuse configurations and share common patterns across multiple workflows. Imports allow you to reference workflows from other files and incorporate them into your current workflow with optional aliasing and selective field imports.
 
-> **📝 Note on Usage**
->
-> The examples below show composition syntax in workflow YAML files. While the core composition logic is fully implemented, integration with `prodigy run` is limited. For production use today, the recommended approach is using the [Template System](#template-system-cli) via `prodigy template` commands.
->
-> The syntax shown is validated and supported by the composition engine but may have limited end-to-end testing in workflow execution. See [Implementation Roadmap](#implementation-roadmap) for current status.
+!!! note "Usage Note"
+
+    The examples below show composition syntax in workflow YAML files. While the core composition logic is fully implemented, integration with `prodigy run` is limited. For production use today, the recommended approach is using the [Template System](#template-system-cli) via `prodigy template` commands.
+
+    The syntax shown is validated and supported by the composition engine but may have limited end-to-end testing in workflow execution. See [Implementation Roadmap](#implementation-roadmap) for current status.
 
 ### Basic Import Syntax
 
-```yaml
+```yaml title="my-workflow.yml"
 name: my-workflow
 mode: standard
 
@@ -95,48 +142,88 @@ When a workflow is imported:
 4. Imported workflows are merged into the current workflow's configuration
 5. Circular dependencies are detected and prevented
 
+```mermaid
+flowchart LR
+    Load["Load External
+    File"] --> Parse["Parse
+    YAML"]
+    Parse --> Alias{"Alias
+    specified?"}
+    Alias -->|Yes| NS["Apply
+    Namespace"]
+    Alias -->|No| Select
+    NS --> Select{"Selective
+    import?"}
+    Select -->|Yes| Filter["Filter to
+    Named Items"]
+    Select -->|No| Merge
+    Filter --> Merge["Merge into
+    Workflow"]
+    Merge --> Check{"Circular
+    Dependency?"}
+    Check -->|Yes| Error["Reject
+    Import"]
+    Check -->|No| Done["Import
+    Complete"]
+
+    style Load fill:#e1f5ff
+    style Done fill:#e8f5e9
+    style Error fill:#ffebee
+```
+
+**Figure**: Import processing flow with namespace aliasing and circular dependency detection.
+
 **Implementation**: Import processing in src/cook/workflow/composition/composer.rs:98-133 (`process_imports` function)
 **Circular dependency detection**: src/cook/workflow/composition/composer.rs:56 and validation in `validate_composition` (lines 259-273)
 
 ### Use Cases
 
-**Shared Setup Steps:**
-```yaml
-# common-setup.yml
-setup:
-  - shell: "npm install"
-  - shell: "cargo build"
+=== "Shared Setup Steps"
 
-# main-workflow.yml
-imports:
-  - path: "common-setup.yml"
+    Share common setup steps across multiple workflows:
 
-name: integration-tests
-mode: standard
-# Inherits setup steps from common-setup.yml
-```
+    ```yaml title="common-setup.yml"
+    setup:
+      - shell: "npm install"
+      - shell: "cargo build"
+    ```
 
-**Namespace Isolation:**
-```yaml
-imports:
-  - path: "prod-workflows.yml"
-    alias: "production"
-  - path: "staging-workflows.yml"
-    alias: "staging"
+    ```yaml title="main-workflow.yml"
+    imports:
+      - path: "common-setup.yml"
 
-# Reference as ${production.deploy} vs ${staging.deploy}
-```
+    name: integration-tests
+    mode: standard
+    # Inherits setup steps from common-setup.yml
+    ```
 
-**Selective Imports:**
-```yaml
-# Only import specific utilities, not entire file
-imports:
-  - path: "workflows/all-utilities.yml"
-    selective:
-      - "lint"
-      - "format"
-      - "test"
-```
+=== "Namespace Isolation"
+
+    Use aliases to prevent naming conflicts between imported workflows:
+
+    ```yaml title="multi-environment.yml"
+    imports:
+      - path: "prod-workflows.yml"
+        alias: "production"
+      - path: "staging-workflows.yml"
+        alias: "staging"
+
+    # Reference as ${production.deploy} vs ${staging.deploy}
+    ```
+
+=== "Selective Imports"
+
+    Import only specific workflows from a file:
+
+    ```yaml title="selective-import.yml"
+    # Only import specific utilities, not entire file
+    imports:
+      - path: "workflows/all-utilities.yml"
+        selective:
+          - "lint"
+          - "format"
+          - "test"
+    ```
 
 For more advanced composition patterns, see the [Template System](template-system.md) and [Workflow Extension](workflow-extension-inheritance.md) sections.
 
@@ -144,55 +231,59 @@ For more advanced composition patterns, see the [Template System](template-syste
 
 While full workflow composition integration is in progress, the template management system is **fully functional** and ready for production use. Templates provide a practical way to reuse workflow patterns today.
 
+!!! tip "Recommended for Production"
+
+    The template CLI is the most stable and tested composition feature. Start here for reusable workflows.
+
 ### Managing Templates
 
 The `prodigy template` commands provide complete template lifecycle management:
 
-**Register a template:**
-```bash
-prodigy template register workflow.yml --name my-template \
-  --description "CI pipeline for Rust projects" \
-  --version 1.0.0 \
-  --tags rust,ci,testing \
-  --author "team@example.com"
-```
+=== "Register"
 
-**List available templates:**
-```bash
-# List all templates
-prodigy template list
+    ```bash
+    prodigy template register workflow.yml --name my-template \
+      --description "CI pipeline for Rust projects" \
+      --version 1.0.0 \
+      --tags rust,ci,testing \
+      --author "team@example.com"
+    ```
 
-# Long format with details
-prodigy template list --long
+=== "List & Search"
 
-# Filter by tag
-prodigy template list --tag rust
-```
+    ```bash
+    # List all templates
+    prodigy template list
 
-**Show template details:**
-```bash
-prodigy template show my-template
-```
+    # Long format with details
+    prodigy template list --long
 
-**Search templates:**
-```bash
-prodigy template search "rust ci"
-```
+    # Filter by tag
+    prodigy template list --tag rust
 
-**Delete a template:**
-```bash
-prodigy template delete my-template
-```
+    # Search by name or description
+    prodigy template search "rust ci"
+    ```
 
-**Validate template syntax:**
-```bash
-prodigy template validate workflow.yml
-```
+=== "Show & Validate"
 
-**Initialize from template:**
-```bash
-prodigy template init my-template --output new-workflow.yml
-```
+    ```bash
+    # Show template details
+    prodigy template show my-template
+
+    # Validate template syntax
+    prodigy template validate workflow.yml
+    ```
+
+=== "Initialize & Delete"
+
+    ```bash
+    # Initialize from template
+    prodigy template init my-template --output new-workflow.yml
+
+    # Delete a template
+    prodigy template delete my-template
+    ```
 
 ### Template Storage
 
@@ -211,20 +302,38 @@ Templates are stored in `~/.prodigy/templates/` with the following structure:
 
 **Implementation**: See [Template System](template-system.md) section for detailed template syntax and usage patterns.
 
-**Source**: Template CLI implementation in `src/cli/template.rs` (388 lines), wired in `src/cli/router.rs:199-234`
+**Source**: Template CLI implementation in `src/cli/template.rs` (387 lines), wired in `src/cli/router.rs:190-212`
 
 ## Implementation Roadmap
 
 This section clarifies what's implemented, what's in progress, and what's planned for workflow composition features.
+
+```mermaid
+graph LR
+    P1["Phase 1
+    Core Engine"] --> P2["Phase 2
+    CLI & Templates"]
+    P2 --> P3["Phase 3
+    Execution Integration"]
+    P3 --> P4["Phase 4
+    Advanced Features"]
+
+    style P1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style P2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style P3 fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    style P4 fill:#ffebee,stroke:#f44336,stroke-width:2px
+```
+
+**Legend**: :white_check_mark: Complete (green) | :hourglass_flowing_sand: Partial (orange) | :x: Planned (red)
 
 ### Phase 1: Core Composition Engine (✅ Complete)
 
 The foundational composition system is fully implemented and tested:
 
 **Core Types and Logic:**
-- `WorkflowComposer` - Main composition orchestration (`src/cook/workflow/composition/composer.rs`, 986 lines)
-- `TemplateRegistry` - Template storage and retrieval (`src/cook/workflow/composition/registry.rs`, 779 lines)
-- `ComposableWorkflow` - Type system with validation (`src/cook/workflow/composition/mod.rs`, 334 lines)
+- `WorkflowComposer` - Main composition orchestration (`src/cook/workflow/composition/composer.rs`, 979 lines)
+- `TemplateRegistry` - Template storage and retrieval (`src/cook/workflow/composition/registry.rs`, 778 lines)
+- `ComposableWorkflow` - Type system with validation (`src/cook/workflow/composition/mod.rs`, 333 lines)
 - Parameter validation with type checking
 - Circular dependency detection
 - Template parameter interpolation
@@ -246,7 +355,7 @@ The foundational composition system is fully implemented and tested:
 
 Template management commands are fully functional and production-ready:
 
-**Template CLI Commands** (`src/cli/template.rs`, 388 lines):
+**Template CLI Commands** (`src/cli/template.rs`, 387 lines):
 - ✅ `prodigy template register` - Register templates with metadata
 - ✅ `prodigy template list` - List templates with filtering
 - ✅ `prodigy template show` - Display template details
@@ -261,7 +370,7 @@ Template management commands are fully functional and production-ready:
 - Template caching for performance
 
 **CLI Integration:**
-- Commands wired in `src/cli/router.rs:199-234`
+- Commands wired in `src/cli/router.rs:190-212`
 - Argument parsing in `src/cli/args.rs:333-907`
 - Proper error handling and user feedback
 
@@ -278,28 +387,30 @@ Integration with workflow execution has limited implementation:
 **What's Limited:**
 - End-to-end testing of composition in `prodigy run` workflows
 - MapReduce workflow composition (not implemented)
-- Sub-workflow execution (executor is placeholder, `src/cook/workflow/composition/sub_workflow.rs:233-239`)
+- Sub-workflow execution (executor is placeholder, `src/cook/workflow/composition/sub_workflow.rs:228-240`)
 
-**Detection Logic:**
-```rust
-// From src/cook/workflow/composer_integration.rs
-pub fn is_composable_workflow(yaml: &str) -> bool {
-    // Detects: imports, template, extends, parameters
-    yaml.contains("imports:")
-        || yaml.contains("template:")
-        || yaml.contains("extends:")
-        || yaml.contains("parameters:")
-}
-```
+??? example "Detection Logic"
 
-**Integration Point:**
-```rust
-// From src/cook/mod.rs:438-442
-if composer_integration::is_composable_workflow(&content) {
-    let composable = composer_integration::parse_composable_workflow(&content)?;
-    return Ok(composable.into());  // Converts to WorkflowConfig
-}
-```
+    ```rust
+    // Source: src/cook/workflow/composer_integration.rs:44-50
+    pub fn is_composable_workflow(yaml: &str) -> bool {
+        // Detects: imports, template, extends, parameters
+        yaml.contains("imports:")
+            || yaml.contains("template:")
+            || yaml.contains("extends:")
+            || yaml.contains("parameters:")
+    }
+    ```
+
+??? example "Integration Point"
+
+    ```rust
+    // Source: src/cook/mod.rs:438-442
+    if composer_integration::is_composable_workflow(&content) {
+        let composable = composer_integration::parse_composable_workflow(&content)?;
+        return Ok(composable.into());  // Converts to WorkflowConfig
+    }
+    ```
 
 ### Phase 4: Advanced Features (❌ Not Implemented)
 
@@ -328,19 +439,19 @@ Features planned but not yet started:
 3. **Contribute tests** for end-to-end composition scenarios
 4. **Review Specs 131-133** for implementation progress tracking
 
-**What to Avoid:**
+!!! danger "What to Avoid"
 
-1. ❌ Don't rely on sub-workflow execution (not implemented)
-2. ❌ Don't use composition in MapReduce workflows (not supported)
-3. ❌ Don't expect URL-based template loading (returns error)
-4. ❌ Don't assume template override fields are applied (TODO)
+    1. Don't rely on sub-workflow execution (not implemented)
+    2. Don't use composition in MapReduce workflows (not supported)
+    3. Don't expect URL-based template loading (returns error)
+    4. Don't assume template override fields are applied (TODO)
 
 ### Contributing
 
 The composition system has excellent code quality and test coverage, making it approachable for contributions:
 
 **Good First Issues:**
-- Implement sub-workflow executor (placeholder exists at `src/cook/workflow/composition/sub_workflow.rs:233-239`)
+- Implement sub-workflow executor (placeholder exists at `src/cook/workflow/composition/sub_workflow.rs:228-240`)
 - Add end-to-end integration tests for composition in workflows
 - Implement template override application (`apply_overrides` function)
 - Add support for URL-based template loading
