@@ -1,0 +1,98 @@
+{
+  "item_type": "page",
+  "page_id": "testability",
+  "page_title": "testability",
+  "page_file": "docs/stillwater-patterns/testability.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page accurately describes the architectural pattern but contains outdated implementation details. The core concepts (pure functions, Effect pattern, mock environments) are correctly documented but specific code examples need updating to match current implementation.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Current Problem",
+      "description": "File location and line range are outdated. Documentation claims 'src/cook/orchestrator/core.rs:145-2884' but actual implementation is much smaller (~200 LOC in core.rs with separate modules)",
+      "current_content": "**Location**: `src/cook/orchestrator/core.rs:145-2884`",
+      "should_be": "The orchestrator has been refactored into smaller modules: core.rs (~200 LOC), pure.rs, effects.rs, environment.rs, etc.",
+      "fix_suggestion": "Update the location reference to reflect the modular architecture",
+      "source_reference": "src/cook/orchestrator/core.rs"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Current Problem",
+      "description": "Documentation shows 12 fields in DefaultCookOrchestrator but actual implementation has different structure",
+      "current_content": "// ... 12 fields total",
+      "should_be": "DefaultCookOrchestrator has been refactored with dependencies like session_manager, command_executor, claude_executor, etc. and uses builder pattern",
+      "fix_suggestion": "Update field count or remove specific count since it changes with refactoring",
+      "source_reference": "src/cook/orchestrator/core.rs:DefaultCookOrchestrator"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Stillwater Solution",
+      "description": "Example shows OrchestratorEnv with only 3 fields (session_manager, command_executor, git_operations) but actual implementation has 6 fields including claude_executor, user_interaction, subprocess_manager",
+      "current_content": "pub struct OrchestratorEnv {\n    pub session_manager: Arc<dyn SessionManager>,\n    pub command_executor: Arc<dyn CommandExecutor>,\n    pub git_operations: Arc<dyn GitOperations>,\n}",
+      "should_be": "Include all 6 fields: session_manager, command_executor, claude_executor, user_interaction, git_operations, subprocess_manager",
+      "fix_suggestion": "Update OrchestratorEnv example to match actual implementation in src/cook/orchestrator/environment.rs",
+      "source_reference": "src/cook/orchestrator/environment.rs:21-34"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Stillwater Solution",
+      "description": "Documentation doesn't show the actual Effect type alias used in codebase",
+      "feature_reference": "Effect-based orchestration",
+      "fix_suggestion": "Add the actual type alias: pub type OrchEffect<T> = BoxedEffect<T, anyhow::Error, OrchestratorEnv>",
+      "source_reference": "src/cook/orchestrator/effects.rs:38"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Pure business logic",
+      "description": "Pure module documentation shows simplified examples. Actual pure.rs includes Validation patterns from Spec 176 and detailed WorkflowError types not shown",
+      "fix_suggestion": "Consider adding note about Validation error accumulation pattern (Spec 176) used in validate_workflow",
+      "source_reference": "src/cook/orchestrator/pure.rs:162-211"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "low",
+      "section": "Testing effects with mock environment",
+      "description": "Example shows MockSessionManager and MockGitOperations as standalone mocks, but actual implementation has mocks in environment.rs and test_config.rs with different structure",
+      "current_content": "let mock_env = OrchestratorEnv {\n    session_manager: Arc::new(MockSessionManager::new()),\n    git_operations: Arc::new(MockGitOperations::new()),\n    command_executor: Arc::new(MockCommandExecutor::new()),\n};",
+      "should_be": "Mocks are in environment.rs::mocks module. Full test environment is TODO (uses Effect::pure() pattern)",
+      "fix_suggestion": "Update mock example or note that full mock environment uses Effect::pure() for testing pure logic",
+      "source_reference": "src/cook/orchestrator/environment.rs:70-150"
+    }
+  ],
+  "positive_aspects": [
+    "Core architectural pattern (pure core, imperative shell) correctly documented",
+    "Effect<T, E, Env> pattern explanation is accurate conceptually",
+    "Testing benefits are well articulated (fast tests, no I/O, deterministic)",
+    "Pure function testing examples demonstrate key concepts",
+    "Problem statement accurately describes testability challenges",
+    "Separation of concerns pattern is correctly explained"
+  ],
+  "improvement_suggestions": [
+    "Update code examples to use actual imports and type aliases from codebase",
+    "Add reference to effects.rs module for complete Effect implementation",
+    "Include link to Spec 176 for Validation pattern used in pure.rs",
+    "Add diagram showing module relationships (core.rs → pure.rs, effects.rs, environment.rs)",
+    "Consider adding MkDocs Material admonitions for key patterns"
+  ],
+  "cross_references": [
+    "stillwater-pattern-mapping",
+    "validation-patterns"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["testability", "pure functions", "Effect pattern", "mock environments", "dependency injection"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  "link_validation": {
+    "internal_links_found": 0,
+    "broken_links": 0,
+    "validation_notes": "Page contains no internal markdown links to other documentation pages"
+  }
+}
