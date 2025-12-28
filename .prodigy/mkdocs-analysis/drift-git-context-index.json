@@ -1,0 +1,76 @@
+{
+  "item_type": "page",
+  "page_id": "index",
+  "page_title": "Advanced Git Context",
+  "page_file": "docs/git-context/index.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is accurate and provides clear navigation but lacks MkDocs Material visual enhancements",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Warning Block",
+      "description": "Warning uses basic markdown blockquote instead of MkDocs Material admonition",
+      "current_content": "> **Warning: Current Implementation Status**",
+      "should_be": "!!! warning \"Current Implementation Status\"",
+      "fix_suggestion": "Convert blockquote warning to MkDocs Material admonition syntax for better visibility and styling",
+      "source_reference": "docs/git-context/index.md:5-9"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Contents List",
+      "description": "Contents section uses plain markdown list without icons or visual hierarchy",
+      "current_content": "- [Overview](overview.md) - How git tracking works...",
+      "should_be": "Use icons for visual navigation like :material-book-open-variant: for overview",
+      "fix_suggestion": "Add Material Design icons to content links for better visual navigation",
+      "source_reference": "docs/git-context/index.md:13-16"
+    }
+  ],
+  "positive_aspects": [
+    "Clear and accurate warning about implementation status",
+    "Properly documents that pattern filtering and format modifiers are NOT implemented",
+    "Explicitly directs users to shell-based workarounds",
+    "All internal links are valid and point to existing pages",
+    "Concise chapter introduction explaining what the section covers",
+    "Warning distinguishes between what works (space-separated strings) and what doesn't (modifiers)"
+  ],
+  "improvement_suggestions": [
+    "Convert blockquote warning to MkDocs Material admonition",
+    "Add Material Design icons to content links",
+    "Consider adding a brief code example showing basic git context variable usage",
+    "Add a tip admonition recommending the shell-filtering page for practical usage"
+  ],
+  "cross_references": [
+    "overview",
+    "shell-filtering",
+    "use-cases",
+    "best-practices"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      {"link_text": "Overview", "target": "overview.md", "exists": true},
+      {"link_text": "Shell-Based Filtering and Formatting", "target": "shell-filtering.md", "exists": true},
+      {"link_text": "Use Cases", "target": "use-cases.md", "exists": true},
+      {"link_text": "Best Practices", "target": "best-practices.md", "exists": true}
+    ]
+  },
+  "implementation_status": {
+    "accurately_documented": true,
+    "notes": "Page correctly documents that git context variables are space-separated strings only, and that pattern filtering (:*.rs) and format modifiers (:json, :lines) are NOT yet implemented despite the infrastructure existing in GitChangeTracker.resolve_variable()"
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:28:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["git context", "git tracking", "workflow variables", "implementation status"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "related_source_files": [
+      "src/cook/workflow/git_context.rs",
+      "src/cook/workflow/executor/context.rs"
+    ]
+  }
+}
