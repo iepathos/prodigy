@@ -1,0 +1,85 @@
+{
+  "item_type": "page",
+  "page_id": "composition-examples",
+  "page_title": "composition examples",
+  "page_file": "docs/examples/composition-examples.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Page is accurate and well-documented. The composition example correctly notes it's a preview feature with CLI integration pending. The merge workflow example accurately reflects the source code implementation.",
+  "issues": [
+    {
+      "type": "enhancement_suggestion",
+      "severity": "low",
+      "section": "Visual Features",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve user experience",
+      "fix_suggestion": "Add admonitions for notes/tips, consider adding a mermaid diagram showing merge workflow execution flow, and use code annotations for YAML examples",
+      "source_reference": "MkDocs Material visual features"
+    },
+    {
+      "type": "enhancement_suggestion",
+      "severity": "low",
+      "section": "Cross-References",
+      "description": "Page could benefit from more explicit cross-references to related documentation",
+      "fix_suggestion": "Add links to docs/advanced/composition.md for detailed composition documentation, and to docs/mapreduce/index.md for MapReduce context",
+      "source_reference": "docs/advanced/composition.md, docs/composition/index.md"
+    }
+  ],
+  "positive_aspects": [
+    "Accurately documents that workflow composition is a preview feature (Spec 131-133)",
+    "Correctly identifies CLI integration as pending with clear status section",
+    "Provides working YAML anchor workaround for current use",
+    "Custom merge workflow example is comprehensive and matches source code",
+    "Merge workflow features are accurately documented with all four variables",
+    "Includes source references linking to actual implementation files",
+    "Documents both full and simplified merge configuration formats",
+    "Provides recovery instructions for failed merge scenarios"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions (tip, note, warning) for important callouts",
+    "Consider adding a mermaid diagram showing the merge workflow execution sequence",
+    "Add code annotations (1!, 2!) to explain YAML configuration fields",
+    "Include cross-references to related composition documentation pages",
+    "Add explicit link to docs/composition/index.md for users wanting full composition details"
+  ],
+  "cross_references": [
+    "docs/advanced/composition.md",
+    "docs/composition/index.md",
+    "docs/mapreduce/index.md",
+    "docs/advanced/git-integration.md"
+  ],
+  "verified_accuracy": {
+    "merge_workflow_config": {
+      "source": "src/config/mapreduce.rs:84-94",
+      "verified": true,
+      "notes": "MergeWorkflow struct with commands and optional timeout matches documentation"
+    },
+    "merge_variables": {
+      "source": "features.json:variable_system.mapreduce_variables",
+      "verified": true,
+      "notes": "All four merge variables (worktree, source_branch, target_branch, session_id) documented correctly"
+    },
+    "composition_status": {
+      "source": "features.json:workflow_composition, src/cook/workflow/composer_integration.rs",
+      "verified": true,
+      "notes": "Correctly states core composition logic exists but CLI integration is pending (Spec 131-133)"
+    },
+    "simplified_merge_format": {
+      "source": "src/config/mapreduce.rs:96-124",
+      "verified": true,
+      "notes": "MergeWorkflow::deserialize supports both direct list and full config formats"
+    }
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:12:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "workflow composition",
+      "custom merge workflows",
+      "git worktree merging",
+      "preview features"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
