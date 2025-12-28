@@ -6,28 +6,34 @@ Prodigy provides secure secret management through the `secrets` field in `Enviro
 
 Secrets are defined in the workflow-level `secrets:` block using the `SecretValue` type, which supports two variants:
 
-**Source**: `src/cook/environment/config.rs:84-96`
+**Source**: `src/cook/environment/config.rs:86-96`
 
-```yaml
-# Simple secret reference (SecretValue::Simple)
-secrets:
-  API_KEY: "${env:SECRET_API_KEY}"
+=== "Simple Reference"
 
-# Provider-based secrets (SecretValue::Provider)
-secrets:
-  DATABASE_URL:
-    provider: env
-    key: "DB_CONNECTION_STRING"
+    ```yaml
+    # Simple secret reference (SecretValue::Simple)
+    secrets:
+      API_KEY: "${env:SECRET_API_KEY}"
+    ```
 
-  SSH_KEY:
-    provider: file
-    key: "~/.ssh/deploy_key"
-    version: "v1"  # Optional version field
-```
+=== "Provider-Based"
+
+    ```yaml
+    # Provider-based secrets (SecretValue::Provider)
+    secrets:
+      DATABASE_URL:
+        provider: env
+        key: "DB_CONNECTION_STRING"
+
+      SSH_KEY:
+        provider: file
+        key: "~/.ssh/deploy_key"
+        version: "v1"  # Optional version field
+    ```
 
 ### SecretValue Types
 
-The `SecretValue` enum has two variants defined in `src/cook/environment/config.rs:84-96`:
+The `SecretValue` enum has two variants defined in `src/cook/environment/config.rs:86-96`:
 
 #### 1. Simple String Reference
 
@@ -42,7 +48,7 @@ secrets:
   DATABASE_PASS: "${env:DB_PASSWORD}"
 ```
 
-**Resolution**: Simple values are resolved by looking up the referenced environment variable name (`src/cook/environment/manager.rs:316-319`).
+**Resolution**: Simple values are resolved by looking up the referenced environment variable name (`src/cook/environment/manager.rs:318-320`).
 
 #### 2. Provider-Based Secrets
 
@@ -70,39 +76,39 @@ secrets:
 
 ### Supported Secret Providers
 
-Prodigy defines five secret providers in the `SecretProvider` enum (`src/cook/environment/config.rs:98-112`):
+Prodigy defines five secret providers in the `SecretProvider` enum (`src/cook/environment/config.rs:101-112`):
 
 | Provider | Status | Description | Source Reference |
 |----------|--------|-------------|------------------|
-| `env` | ✅ Implemented | Reads from environment variables | `manager.rs:322-323` |
-| `file` | ✅ Implemented | Reads from filesystem | `manager.rs:324-329` |
+| `env` | ✅ Implemented | Reads from environment variables | `manager.rs:324-325` |
+| `file` | ✅ Implemented | Reads from filesystem | `manager.rs:326-331` |
 | `vault` | 🔮 Planned | HashiCorp Vault integration | `config.rs:107` |
 | `aws` | 🔮 Planned | AWS Secrets Manager | `config.rs:109` |
 | `custom` | ⚙️ Extensible | Custom provider via SecretStore | `config.rs:111` |
 
-**Important**: Only `env` and `file` providers are fully implemented in `EnvironmentManager.resolve_secret()` (`src/cook/environment/manager.rs:313-337`). Vault and AWS providers are defined in the enum but delegate to `SecretStore` for implementation, which currently returns "not found" errors.
+!!! warning "Unimplemented Providers"
+    Only `env` and `file` providers are fully implemented in `EnvironmentManager.resolve_secret()` (`src/cook/environment/manager.rs:316-339`). Vault and AWS providers are defined in the enum but delegate to `SecretStore` for implementation, which currently returns "not found" errors.
 
 ### Secret Resolution Flow
 
-Secrets are resolved during environment setup with the following flow (`src/cook/environment/manager.rs:128-136`):
+Secrets are resolved during environment setup with the following flow (`src/cook/environment/manager.rs:130-136`):
 
-```
-1. EnvironmentConfig.secrets loaded from YAML
-   ↓
-2. For each secret, EnvironmentManager.resolve_secret() is called
-   ↓
-3. Resolution strategy based on SecretValue variant:
-   - Simple: Look up in std::env
-   - Provider(Env): Look up in std::env
-   - Provider(File): Read from filesystem
-   - Provider(Other): Delegate to SecretStore
-   ↓
-4. Resolved value added to environment HashMap
-   ↓
-5. Secret key tracked in EnvironmentContext.secrets Vec for masking
+```mermaid
+flowchart TD
+    A[EnvironmentConfig.secrets loaded from YAML] --> B[For each secret, resolve_secret is called]
+    B --> C{SecretValue variant?}
+    C -->|Simple| D[Look up in std::env]
+    C -->|Provider Env| E[Look up in std::env]
+    C -->|Provider File| F[Read from filesystem]
+    C -->|Provider Other| G[Delegate to SecretStore]
+    D --> H[Add resolved value to environment HashMap]
+    E --> H
+    F --> H
+    G --> H
+    H --> I[Track secret key in EnvironmentContext.secrets for masking]
 ```
 
-**Source**: `src/cook/environment/manager.rs:128-136`
+**Source**: `src/cook/environment/manager.rs:130-136`
 
 ### Secret Masking
 
@@ -123,13 +129,14 @@ commands:
 $ curl -H 'Authorization: Bearer ***' https://api.github.com
 ```
 
-**How it works**: The `EnvironmentContext` struct tracks secret keys in a `Vec<String>` field (`src/cook/environment/manager.rs:23-30`). When commands are executed, output is scanned and secret values are replaced with `***`.
+**How it works**: The `EnvironmentContext` struct tracks secret keys in a `Vec<String>` field (`src/cook/environment/manager.rs:24-31`). When commands are executed, output is scanned and secret values are replaced with `***`.
 
 ### SecretStore Architecture
 
-For extensibility, Prodigy provides a `SecretStore` system that supports custom secret providers (`src/cook/environment/secret_store.rs:26-107`):
+For extensibility, Prodigy provides a `SecretStore` system that supports custom secret providers (`src/cook/environment/secret_store.rs:27-107`):
 
 **Built-in Providers**:
+
 - `EnvSecretProvider` - Environment variable lookup (`secret_store.rs:120-131`)
 - `FileSecretProvider` - File-based secrets (`secret_store.rs:134-148`)
 
@@ -138,15 +145,13 @@ For extensibility, Prodigy provides a `SecretStore` system that supports custom 
 You can add custom secret providers by implementing the `SecretProvider` trait:
 
 ```rust
-// Example custom provider (for reference)
+// Source: src/cook/environment/secret_store.rs:110-117
 #[async_trait::async_trait]
 pub trait SecretProvider: Send + Sync {
     async fn get_secret(&self, key: &str) -> Result<String>;
     async fn has_secret(&self, key: &str) -> bool;
 }
 ```
-
-**Source**: `src/cook/environment/secret_store.rs:110-117`
 
 Custom providers can be registered with `SecretStore.add_provider()` (`secret_store.rs:79-81`).
 
@@ -179,6 +184,9 @@ reduce:
 ```
 
 #### Example 3: File-Based Secrets
+
+!!! tip "Docker Secrets Pattern"
+    The file provider works seamlessly with Docker secrets mounted at `/run/secrets/`. This is a common pattern for containerized deployments.
 
 ```yaml
 secrets:
@@ -225,6 +233,9 @@ commands:
 **Source**: Structure from `src/cook/environment/config.rs:11-36`
 
 ### Security Best Practices
+
+!!! note "Key Security Principles"
+    Following these practices helps prevent accidental secret exposure in logs, error messages, and version control.
 
 1. **Never commit secrets to version control**
    - Use environment variables or secret files
@@ -309,9 +320,9 @@ secrets:
 
 ### Implementation References
 
-- **Configuration Types**: `src/cook/environment/config.rs:84-112`
-- **Secret Resolution**: `src/cook/environment/manager.rs:313-337`
-- **Secret Store**: `src/cook/environment/secret_store.rs:26-107`
-- **Environment Setup**: `src/cook/environment/manager.rs:128-136`
+- **Configuration Types**: `src/cook/environment/config.rs:86-112`
+- **Secret Resolution**: `src/cook/environment/manager.rs:316-339`
+- **Secret Store**: `src/cook/environment/secret_store.rs:27-107`
+- **Environment Setup**: `src/cook/environment/manager.rs:130-136`
 - **Test Examples**: `tests/environment_workflow_test.rs:19-59`
 - **Workflow Examples**: `workflows/environment-example.yml`, `workflows/mapreduce-env-example.yml`
