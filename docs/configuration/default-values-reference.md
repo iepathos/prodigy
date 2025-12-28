@@ -47,31 +47,40 @@ Complete reference of all default configuration values in Prodigy. These default
 | `enable_locking` | `true` | Enable distributed locking |
 | `enable_cache` | `false` | Enable caching layer |
 
-### File Storage Defaults
+### Storage Backend Defaults
 
-<!-- Source: src/storage/config.rs:67-87 (FileConfig struct) -->
+=== "File Storage (Recommended)"
 
-| Setting | Default Value | Description |
-|---------|---------------|-------------|
-| `base_dir` | `~/.prodigy` | Base storage directory |
-| `use_global` | `true` | Use global storage (recommended) |
-| `enable_file_locks` | `true` | Enable file-based locking |
-| `max_file_size` | `104857600` (100MB) | Max file size before rotation |
-| `enable_compression` | `false` | Compress archived files |
+    <!-- Source: src/storage/config.rs:67-87 (FileConfig struct) -->
 
-### Memory Storage Defaults
+    The default backend for production use. Persists data to disk with file-based locking.
 
-<!-- Source: src/storage/config.rs:90-112 (MemoryConfig struct and Default impl) -->
+    | Setting | Default Value | Description |
+    |---------|---------------|-------------|
+    | `base_dir` | `~/.prodigy` | Base storage directory |
+    | `use_global` | `true` | Use global storage (recommended) |
+    | `enable_file_locks` | `true` | Enable file-based locking |
+    | `max_file_size` | `104857600` (100MB) | Max file size before rotation |
+    | `enable_compression` | `false` | Compress archived files |
 
-| Setting | Default Value | Description |
-|---------|---------------|-------------|
-| `max_memory` | `104857600` (100MB) | Maximum memory usage |
-| `persist_to_disk` | `false` | Persist memory storage to disk |
-| `persistence_path` | None | Path for disk persistence |
+=== "Memory Storage"
+
+    <!-- Source: src/storage/config.rs:90-112 (MemoryConfig struct and Default impl) -->
+
+    In-memory backend for testing or ephemeral workflows. Data is lost on restart unless persistence is enabled.
+
+    | Setting | Default Value | Description |
+    |---------|---------------|-------------|
+    | `max_memory` | `104857600` (100MB) | Maximum memory usage |
+    | `persist_to_disk` | `false` | Persist memory storage to disk |
+    | `persistence_path` | None | Path for disk persistence |
 
 ### Retry Policy Defaults
 
 <!-- Source: src/storage/config.rs:115-147 (RetryPolicy struct and Default impl) -->
+
+!!! warning "Production Consideration"
+    The default retry settings use exponential backoff with jitter, which is suitable for most production environments. For high-throughput scenarios, consider adjusting `max_delay` to prevent cascading delays.
 
 | Setting | Default Value | Description |
 |---------|---------------|-------------|
@@ -137,6 +146,27 @@ Applied to individual commands when not specified:
     Configuration values are resolved in order from lowest to highest priority. Later sources override earlier ones.
 
 **How defaults work:**
+
+```mermaid
+graph LR
+    D["Built-in Defaults
+    Lowest Priority"] --> G["Global Config
+    ~/.prodigy/config.yml"]
+    G --> P["Project Config
+    .prodigy/config.yml"]
+    P --> E["Environment Variables
+    PRODIGY_*"]
+    E --> C["CLI Flags
+    Highest Priority"]
+
+    style D fill:#f5f5f5,stroke:#9e9e9e
+    style G fill:#e3f2fd,stroke:#1976d2
+    style P fill:#e8f5e9,stroke:#388e3c
+    style E fill:#fff3e0,stroke:#f57c00
+    style C fill:#fce4ec,stroke:#c2185b
+```
+
+**Figure**: Configuration precedence from lowest (left) to highest (right) priority.
 
 1. Prodigy starts with built-in defaults
 2. Global config (`~/.prodigy/config.yml`) overrides defaults
