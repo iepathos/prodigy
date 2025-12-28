@@ -12,6 +12,7 @@ graph TD
     Root --> Sessions["sessions/"]
     Root --> Worktrees["worktrees/"]
     Root --> Orphaned["orphaned_worktrees/"]
+    Root --> Locks["resume_locks/"]
 
     Events --> ERepo["{repo_name}/"]
     ERepo --> EJob["{job_id}/"]
@@ -35,6 +36,8 @@ graph TD
 
     Orphaned --> ORepo["{repo_name}/"]
     ORepo --> OJob["{job_id}.json"]
+
+    Locks --> LockFiles["{job_id}.lock"]
 
     style Root fill:#e1f5ff
     style Events fill:#fff3e0
@@ -64,8 +67,10 @@ graph TD
 │       │       ├── map-checkpoint-{timestamp}.json
 │       │       └── reduce-checkpoint-v1-{timestamp}.json
 │       └── mappings/
-│           ├── session-to-job.json
-│           └── job-to-session.json
+│           ├── {session_id}.json  # Session-to-job mapping
+│           └── {job_id}.json      # Job-to-session mapping
+├── resume_locks/               # Concurrent resume protection
+│   └── {job_id}.lock
 ├── sessions/                   # Session tracking
 │   └── {session_id}.json
 ├── worktrees/                  # Git worktrees
@@ -75,6 +80,17 @@ graph TD
     └── {repo_name}/
         └── {job_id}.json
 ```
+
+!!! warning "Storage Growth"
+    Checkpoint files, event logs, and DLQ items accumulate over time. For long-running projects with many jobs, periodically clean up old data:
+
+    ```bash
+    # List completed sessions
+    prodigy sessions list --status completed
+
+    # Clean old worktrees
+    prodigy worktree clean
+    ```
 
 ## Event Storage
 
@@ -129,11 +145,23 @@ Job state and checkpoints are stored globally:
 
 ```
 ~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/
-├── job-state.json              # Overall job state
 ├── setup-checkpoint.json       # Setup phase results
 ├── map-checkpoint-*.json       # Map phase progress
 └── reduce-checkpoint-v1-*.json # Reduce phase progress
 ```
+
+!!! info "Comprehensive Checkpoint Structure"
+    The actual `MapReduceCheckpoint` type contains multiple state components for full recovery:
+
+    - **metadata**: Job ID, version, phase, progress counts, integrity hash
+    - **execution_state**: Current phase, timing, workflow variables
+    - **work_item_state**: Pending, in-progress, completed, and failed items
+    - **agent_state**: Active agents, assignments, results
+    - **variable_state**: Variable and context data
+    - **resource_state**: Resource allocation tracking
+    - **error_state**: Error and DLQ information
+
+    See `src/cook/execution/mapreduce/checkpoint/types.rs` for full type definitions.
 
 ### Checkpoint Types
 
@@ -153,36 +181,52 @@ Job state and checkpoints are stored globally:
 // Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "map",
-  "completed_items": ["item-1", "item-2"],      // (1)!
-  "in_progress_items": ["item-3"],              // (2)!
-  "pending_items": ["item-4", "item-5"],        // (3)!
-  "agent_results": {...},                       // (4)!
+  "completed_items": [...],      // (1)!
+  "in_progress_items": {...},    // (2)!
+  "pending_items": [...],        // (3)!
+  "failed_items": [...],         // (4)!
+  "agent_results": {...},        // (5)!
   "timestamp": "2025-01-11T12:05:00Z"
 }
 ```
 
-1. Work items successfully processed by agents
-2. Items currently being processed (moved back to pending on resume)
-3. Items waiting to be processed
-4. Full results from completed agents (commits, outputs, timings)
+1. `CompletedWorkItem` objects with full `WorkItem`, `AgentResult`, and completion timestamp
+2. Map of `WorkItemProgress` objects tracking agent ID, start time, and last update
+3. `WorkItem` objects with ID and data payload waiting to be processed
+4. `FailedWorkItem` objects including error details and retry count
+5. Full results from completed agents (commits, outputs, timings)
+
+!!! note "Work Item Structure"
+    The simplified example above shows the field structure. Actual work items are stored as full objects:
+
+    - `WorkItem`: Contains `id` (String) and `data` (JSON Value)
+    - `CompletedWorkItem`: Contains `WorkItem`, `AgentResult`, and `completed_at` timestamp
+    - `FailedWorkItem`: Contains `WorkItem`, `error`, `failed_at`, and `retry_count`
+    - `WorkItemProgress`: Contains `WorkItem`, `agent_id`, `started_at`, and `last_update`
 
 **Reduce Phase**:
 ```json
 // Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "reduce",
-  "completed_steps": [0, 1],     // (1)!
-  "current_step": 2,              // (2)!
-  "step_results": {...},          // (3)!
-  "map_results": {...},           // (4)!
+  "completed_steps": [0, 1],
+  "current_step": 2,
+  "step_results": {...},
+  "map_results": {...},
   "timestamp": "2025-01-11T12:10:00Z"
 }
 ```
 
-1. Indices of reduce commands that have completed
-2. Index of the currently executing reduce command
-3. Output captured from completed reduce steps
-4. Aggregated results from all map agents (available to reduce commands)
+!!! tip "Inspecting Checkpoints"
+    You can inspect checkpoint files to understand job state:
+
+    ```bash
+    # Find latest checkpoint for a job
+    ls -la ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/
+
+    # View map phase progress
+    cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/map-checkpoint-*.json | jq '.completed_items | length'
+    ```
 
 !!! note "Checkpoint File Naming"
     Checkpoint files include auto-generated timestamp suffixes:
