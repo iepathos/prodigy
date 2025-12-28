@@ -2,6 +2,11 @@
 
 Complete examples demonstrating work distribution patterns, map phase integration, and troubleshooting tips.
 
+!!! abstract "Related Pages"
+    - [Input Sources](input-sources.md) - Loading work items from JSON files
+    - [Filtering & Sorting](filtering-sorting.md) - Selecting and ordering items
+    - [Pagination](pagination.md) - Controlling item batches with offset and max_items
+
 ## Complete Examples
 
 ### High-Priority Debt Items
@@ -132,6 +137,35 @@ map:
 
 These fields work together to control how work items are selected and distributed to parallel agents.
 
+## Data Pipeline Flow
+
+The work distribution pipeline processes items through sequential stages:
+
+```mermaid
+flowchart LR
+    A[JSON Input] --> B[JSONPath Extract]
+    B --> C[Filter]
+    C --> D[Sort]
+    D --> E[Distinct]
+    E --> F[Offset]
+    F --> G[Max Items]
+    G --> H[Parallel Agents]
+
+    style A fill:#e1f5fe
+    style H fill:#c8e6c9
+```
+
+Each stage transforms the item set:
+
+| Stage | Operation | Example |
+|-------|-----------|---------|
+| **Extract** | Select items from JSON | `$.items[*]` → 100 items |
+| **Filter** | Keep matching items | `score >= 5` → 45 items |
+| **Sort** | Order items | `priority DESC` → sorted |
+| **Distinct** | Deduplicate by field | `file` → 30 unique |
+| **Offset** | Skip N items | `offset: 10` → 20 items |
+| **Max Items** | Limit count | `max_items: 5` → 5 items |
+
 ## Troubleshooting
 
 ### Common Issues
@@ -158,24 +192,23 @@ These fields work together to control how work items are selected and distribute
 
 ### Debugging Tips
 
-**Preview filtered items:**
-```yaml
-setup:
-  - shell: |
-      jq '.items[] | select(.score >= 5)' data.json > filtered-preview.json
-```
+!!! example "Preview filtered items"
+    ```bash
+    jq '.items[] | select(.score >= 5)' data.json > filtered-preview.json
+    ```
 
-**Count items at each stage:**
-```yaml
-setup:
-  - shell: |
-      echo "Total items: $(jq '.items | length' data.json)"
-      echo "After filter: $(jq '[.items[] | select(.score >= 5)] | length' data.json)"
-```
+!!! example "Count items at each stage"
+    ```bash
+    echo "Total items: $(jq '.items | length' data.json)"
+    echo "After filter: $(jq '[.items[] | select(.score >= 5)] | length' data.json)"
+    ```
 
-**Validate JSONPath:**
-```yaml
-setup:
-  - shell: |
-      jq '$.items[*]' data.json | jq 'length'
-```
+!!! tip "Validate JSONPath"
+    Note: jq uses its own query language, not JSONPath syntax. Use `.items[]` for array iteration:
+    ```bash
+    # Count items in array
+    jq '.items | length' data.json
+
+    # Preview first 3 items
+    jq '.items[:3]' data.json
+    ```
