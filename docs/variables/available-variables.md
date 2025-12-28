@@ -6,6 +6,8 @@ Prodigy provides a comprehensive set of built-in variables that are automaticall
 
 These variables capture output from the most recently executed command:
 
+**Source:** src/cook/workflow/executor/types.rs:60-61, src/cook/workflow/variables.rs:35-36
+
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `${last.output}` | Output from the last command of any type (shell, claude, handler) | `echo ${last.output}` |
@@ -13,7 +15,8 @@ These variables capture output from the most recently executed command:
 | `${shell.output}` | Output from the last shell command specifically | `echo ${shell.output}` |
 | `${claude.output}` | Output from the last Claude command specifically | `echo ${claude.output}` |
 
-**Note:** Use `${last.output}` when you need output from any command type. Use `${shell.output}` or `${claude.output}` when you specifically want output from that command type.
+!!! tip "Choosing the Right Output Variable"
+    Use `${last.output}` when you need output from any command type. Use `${shell.output}` or `${claude.output}` when you specifically want output from that command type.
 
 **Example:**
 ```yaml
@@ -30,6 +33,44 @@ These variables capture output from the most recently executed command:
 Computed variables are dynamically evaluated at runtime, providing access to external data sources and generated values. These variables are prefixed with specific identifiers that trigger their evaluation.
 
 **Source:** src/cook/execution/variables.rs:100-305
+
+```mermaid
+flowchart LR
+    subgraph Input["Variable Reference"]
+        A["${prefix:value}"]
+    end
+
+    subgraph Resolution["Prefix Resolution"]
+        B{"Prefix Type?"}
+        B -->|env.*| C["Environment Lookup"]
+        B -->|file:| D["File Read"]
+        B -->|cmd:| E["Command Execute"]
+        B -->|json:| F["JSON Parse"]
+        B -->|date:| G["Format Date"]
+        B -->|uuid| H["Generate UUID"]
+    end
+
+    subgraph Caching["Caching Decision"]
+        C --> I{"In Cache?"}
+        D --> I
+        E --> I
+        I -->|Yes| J["Return Cached"]
+        I -->|No| K["Execute & Cache"]
+        F --> L["Always Execute"]
+        G --> L
+        H --> L
+    end
+
+    subgraph Output["Result"]
+        J --> M["Interpolated Value"]
+        K --> M
+        L --> M
+    end
+
+    A --> B
+```
+
+**Figure**: Computed variable resolution flow showing caching behavior for expensive operations.
 
 | Variable Type | Syntax | Description | Cached | Example |
 |---------------|--------|-------------|--------|---------|
@@ -82,7 +123,8 @@ Read file contents directly into variables. Useful for configuration, templates,
 
 **Caching:** File reads are cached (file content is expensive to read repeatedly).
 
-**Note:** File paths are relative to workflow execution directory.
+!!! note "Path Resolution"
+    File paths are relative to the workflow execution directory, not the location of the workflow YAML file. In MapReduce agents, this is the agent's worktree directory.
 
 #### Command Output (`cmd:`)
 
@@ -107,7 +149,8 @@ Execute shell commands and capture their output as variable values. Powerful for
 
 **Caching:** Command execution results are cached (commands are expensive to execute repeatedly).
 
-**Security Warning:** Be cautious with `cmd:` variables in untrusted workflows - they execute arbitrary shell commands.
+!!! warning "Security Warning"
+    Be cautious with `cmd:` variables in untrusted workflows - they execute arbitrary shell commands.
 
 #### JSON Path Extraction (`json:`)
 
@@ -116,6 +159,13 @@ Extract values from JSON data using JSONPath syntax. Useful for processing compl
 **Source:** src/cook/execution/variables.rs:350-379
 
 **Syntax:** `${json:path:from:source_variable}`
+
+!!! example "Common JSONPath Patterns"
+    - `$.field` - Top-level field
+    - `$.nested.field` - Nested field access
+    - `$[0]` or `$.items[0]` - Array index access
+    - `$[*].name` - All names from array
+    - `$.items[?(@.status=='active')]` - Filtered selection
 
 **Examples:**
 ```yaml
@@ -301,7 +351,8 @@ map:
     - claude: "/analyze '${item.file}' --priority ${item.priority} --owner ${item.owner}"
 ```
 
-**Best Practice:** Use descriptive field names in your JSON work items - they become your variable names.
+!!! tip "Best Practice"
+    Use descriptive field names in your JSON work items - they become your variable names.
 
 ### MapReduce Variables (Reduce Phase Only)
 
@@ -314,6 +365,7 @@ Variables for accessing aggregated results from map phase. Map results support *
 | `${map.total}` | Total items in map phase | `echo "Processed ${map.total} items"` |
 | `${map.successful}` | Successfully processed items | `echo "${map.successful} succeeded"` |
 | `${map.failed}` | Failed items count | `echo "${map.failed} failed"` |
+| `${map.success_rate}` | Success rate as percentage (0-100) | `echo "${map.success_rate}% success rate"` |
 | `${map.results}` | All map results as JSON array | `echo '${map.results}' \| jq` |
 | `${map.results_json}` | Alias for `map.results` (same value) | `echo '${map.results_json}' \| jq` |
 | `${map.results[index]}` | Individual result by index (0-based) | `${map.results[0]}`, `${map.results[5]}` |
@@ -385,7 +437,8 @@ reduce:
   - claude: "/summarize ${map.results} --total ${map.total} --failed ${map.failed}"
 ```
 
-**Note:** `${map.results}` and `${map.results_json}` are equivalent - use whichever is clearer in your context.
+!!! note
+    `${map.results}` and `${map.results_json}` are equivalent - use whichever is clearer in your context.
 
 ### Git Context Variables
 
@@ -558,11 +611,17 @@ The `${merge.modified_files}` variable contains an array of file modification ob
 
 Variables for workflow validation and completion tracking:
 
+**Source:** src/cook/workflow/executor.rs:1655-1665, src/cook/workflow/validation.rs:456
+
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `${validation.completion}` | Completion percentage (0-100) | `echo "${validation.completion}%"` |
-| `${validation.gaps}` | Array of missing requirements | `echo '${validation.gaps}'` |
+| `${validation.gaps}` | Array of missing requirements (alias: `validation.missing`) | `"/prodigy-fix-tests ${validation.gaps}"` |
+| `${validation.missing}` | Array of missing requirements (alias: `validation.gaps`) | `echo '${validation.missing}'` |
 | `${validation.status}` | Status: complete/incomplete/failed | `if [ "${validation.status}" = "complete" ]` |
+
+!!! note "Variable Aliases"
+    `${validation.gaps}` and `${validation.missing}` are interchangeable aliases referring to the same underlying data.
 
 **Available in:** Validation phases
 
@@ -584,7 +643,8 @@ Prodigy supports two interpolation syntaxes:
 - Environment variables in shell context
 - Quick substitutions without special characters
 
-**Best Practice:** Always use `${VAR}` syntax for consistency and reliability.
+!!! tip "Best Practice"
+    Always use `${VAR}` syntax for consistency and reliability.
 
 ### Legacy Variable Aliases
 
@@ -614,7 +674,8 @@ map:
     - shell: "cat ${item.path}"
 ```
 
-**Migration Recommendation:** Update legacy aliases to current variable names when maintaining older workflows. The current names are more explicit and work better with arbitrary JSON field access.
+!!! info "Migration Recommendation"
+    Update legacy aliases to current variable names when maintaining older workflows. The current names are more explicit and work better with arbitrary JSON field access.
 
 #### Default Values
 
@@ -661,8 +722,8 @@ Prodigy supports two modes for handling undefined variables:
 
 **Source:** src/cook/execution/interpolation.rs:16-17, 104-137
 
-**Configuration:**
-Strict mode is configured per InterpolationEngine instance and controlled at the workflow execution level.
+!!! info "Configuration Note"
+    Strict mode is configured programmatically per `InterpolationEngine` instance and controlled at the workflow execution level. It is not directly configurable in workflow YAML files. The engine defaults to non-strict mode for maximum flexibility.
 
 **Best Practice:** Use strict mode during development to catch variable name typos and scope issues early. Use default values (`${var:-default}`) for truly optional configuration.
 
@@ -683,6 +744,41 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 
 #### Scope by Phase
 
+```mermaid
+flowchart LR
+    subgraph Common["All Phases"]
+        direction TB
+        S["Standard Variables"]
+        W["Workflow Context"]
+        ST["Step Context"]
+        G["Git Context"]
+        C["Custom Captured"]
+    end
+
+    subgraph Setup["Setup Phase"]
+        SU["+ Setup captures"]
+    end
+
+    subgraph Map["Map Phase"]
+        M["+ Item Variables<br/>(item.*, item_index)"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        R["+ MapReduce Variables<br/>(map.*, worker.id)"]
+    end
+
+    subgraph Merge["Merge Phase"]
+        MG["+ Merge Variables<br/>(merge.*)"]
+    end
+
+    Common --> Setup
+    Common --> Map
+    Common --> Reduce
+    Common --> Merge
+```
+
+**Figure**: Variable availability by workflow phase. All phases share common variables, with phase-specific additions.
+
 | Phase | Variables Available |
 |-------|---------------------|
 | Setup | Standard, workflow context, step context, git context, custom captured |
@@ -694,6 +790,31 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 
 #### Variable Precedence (highest to lowest)
 
+```mermaid
+flowchart TB
+    subgraph "Highest Priority"
+        A["1. Custom captured variables<br/>(capture_output)"]
+    end
+    subgraph "Phase-Specific"
+        B["2. Phase-specific built-in<br/>(item.*, map.*, merge.*)"]
+    end
+    subgraph "Context Variables"
+        C["3. Step context<br/>(step.*)"]
+        D["4. Workflow context<br/>(workflow.*)"]
+    end
+    subgraph "Output Variables"
+        E["5. Standard output<br/>(last.output, shell.output)"]
+    end
+    subgraph "Environment"
+        F["6. Environment variables<br/>(static env block)"]
+    end
+    subgraph "Lowest Priority"
+        G["7. Computed variables<br/>(env.*, file:*, cmd:*, json:*, date:*, uuid)"]
+    end
+
+    A --> B --> C --> D --> E --> F --> G
+```
+
 1. **Custom captured variables** (`capture_output`)
 2. **Phase-specific built-in variables** (`item.*`, `map.*`, `merge.*`)
 3. **Step context variables** (`step.*`)
@@ -702,9 +823,11 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 6. **Environment variables** (static workflow-level `env` block)
 7. **Computed variables** (`env.*`, `file:*`, `cmd:*`, `json:*`, `date:*`, `uuid`)
 
-**Note:** Computed variables have lowest precedence because they're evaluated on-demand. If a custom variable has the same name as a computed variable, the custom variable wins.
+!!! note "Precedence Behavior"
+    Computed variables have lowest precedence because they're evaluated on-demand. If a custom variable has the same name as a computed variable, the custom variable wins.
 
-**Shadowing Warning:** Custom captures can shadow built-in variable names. Avoid using names like `item`, `map`, `workflow`, etc. as custom variable names.
+!!! warning "Shadowing Warning"
+    Custom captures can shadow built-in variable names. Avoid using names like `item`, `map`, `workflow`, etc. as custom variable names.
 
 **Example:**
 ```yaml
@@ -722,6 +845,9 @@ Strict mode is configured per InterpolationEngine instance and controlled at the
 Variable resolution walks up a parent context chain when variables are not found in the current context. This enables variable inheritance across workflow phases and nested contexts.
 
 **Source:** src/cook/execution/interpolation.rs:200-226, InterpolationContext struct at :376-381
+
+!!! tip "Practical Implication"
+    Variables captured in setup phase are automatically available to all map agents and the reduce phase - no explicit passing required. This is ideal for shared configuration like workspace paths or base commit hashes.
 
 **Resolution Order:**
 1. Check current context
