@@ -1,0 +1,116 @@
+{
+  "item_type": "page",
+  "page_id": "implementation-validation",
+  "page_title": "implementation validation",
+  "page_file": "docs/advanced/implementation-validation.md",
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Excellent documentation with accurate source references and comprehensive examples",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate source file references with correct line numbers",
+    "Clear documentation of all validation configuration fields",
+    "Comprehensive examples covering basic, multi-step, and complex validation patterns",
+    "Real-world examples from actual workflow files (implement.yml, debtmap.yml)",
+    "Complete ValidationResult schema documentation",
+    "Good explanation of on_incomplete configuration with defaults",
+    "Convenience array syntax documented for both validate and on_incomplete",
+    "Configuration reference table is comprehensive and accurate",
+    "Source references verified against actual code locations"
+  ],
+  "improvement_suggestions": [
+    "Consider adding MkDocs Material admonitions for tips and warnings",
+    "Add code annotations to highlight important parts of YAML examples",
+    "Consider adding a troubleshooting section for common validation failures",
+    "Could add cross-references to related pages (error handling, workflows)",
+    "Consider using tabs to show alternative syntax options side-by-side"
+  ],
+  "cross_references": [],
+  "source_reference_verification": {
+    "verified_references": [
+      {
+        "documented": "src/cook/workflow/validation.rs:280-282",
+        "actual": "Line 280-282 (default_threshold function)",
+        "status": "accurate"
+      },
+      {
+        "documented": "src/cook/workflow/validation.rs:284-289",
+        "actual": "Lines 284-290 (default_max_attempts and default_fail_workflow)",
+        "status": "accurate"
+      },
+      {
+        "documented": "src/cook/workflow/validation.rs:123-152",
+        "actual": "Lines 124-152 (OnIncompleteConfig struct)",
+        "status": "accurate"
+      },
+      {
+        "documented": "src/cook/workflow/validation.rs:11-49",
+        "actual": "Lines 12-49 (ValidationConfig struct)",
+        "status": "accurate"
+      },
+      {
+        "documented": "src/cook/workflow/validation.rs:216-239",
+        "actual": "Lines 217-239 (ValidationResult struct)",
+        "status": "accurate"
+      },
+      {
+        "documented": "src/cook/workflow/validation.rs:37-39",
+        "actual": "Lines 38-39 (timeout field)",
+        "status": "accurate"
+      },
+      {
+        "documented": "src/cook/workflow/executor/validation.rs:700-715",
+        "actual": "Lines 698-715 (result_file reading logic)",
+        "status": "accurate"
+      },
+      {
+        "documented": "workflows/implement.yml:6-16",
+        "actual": "Lines 6-16 contain validate block",
+        "status": "accurate"
+      },
+      {
+        "documented": "workflows/debtmap.yml:26-42",
+        "actual": "Lines 26-42 contain validate block with on_incomplete",
+        "status": "accurate"
+      }
+    ],
+    "all_references_valid": true
+  },
+  "code_accuracy_verification": {
+    "threshold_default": {
+      "documented": "100",
+      "actual": "100.0",
+      "status": "accurate"
+    },
+    "max_attempts_default": {
+      "documented": "2",
+      "actual": "2",
+      "status": "accurate"
+    },
+    "fail_workflow_default": {
+      "documented": "true",
+      "actual": "true",
+      "status": "accurate"
+    },
+    "commit_required_default": {
+      "documented": "false",
+      "actual": "false (uses #[serde(default)])",
+      "status": "accurate"
+    }
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:11:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "validation configuration",
+      "threshold settings",
+      "on_incomplete handling",
+      "result file reading",
+      "multi-step validation",
+      "convenience array syntax",
+      "timeout configuration",
+      "ValidationResult schema"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
