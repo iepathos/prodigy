@@ -1,0 +1,97 @@
+{
+  "item_type": "page",
+  "page_id": "troubleshooting",
+  "page_title": "troubleshooting",
+  "page_file": "docs/composition/troubleshooting.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page is comprehensive and well-structured. Minor issues with outdated source code line references. Missing MkDocs Material visual features for better readability.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Circular Dependency Errors",
+      "description": "Source reference line number is outdated",
+      "current_content": "src/cook/workflow/composition/composer.rs:727",
+      "should_be": "src/cook/workflow/composition/composer.rs:712",
+      "fix_suggestion": "Update line reference from 727 to 712 where 'Circular dependency detected' error is generated",
+      "source_reference": "src/cook/workflow/composition/composer.rs:712"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Parameter Substitution Issues",
+      "description": "Source reference line numbers are outdated",
+      "current_content": "src/cook/workflow/composition/composer.rs:760-877",
+      "should_be": "src/cook/workflow/composition/composer.rs:745-871",
+      "fix_suggestion": "Update line reference to reflect current function location starting at line 745",
+      "source_reference": "src/cook/workflow/composition/composer.rs:745"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall Document",
+      "description": "Document lacks MkDocs Material visual features for improved readability",
+      "fix_suggestion": "Add admonitions (warning, tip, note) for error types, use tabbed content for different solution approaches, add code block titles/annotations",
+      "enhancements": [
+        "Add !!! danger or !!! warning admonitions for error messages",
+        "Add !!! tip admonitions for solutions and debugging tips",
+        "Add !!! note admonitions for important clarifications",
+        "Add code block titles (e.g., ```yaml title='Correct syntax')",
+        "Consider tabbed content for multiple solution approaches"
+      ]
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of common composition issues",
+    "Clear error-cause-solution structure for each issue",
+    "Includes source code references for debugging",
+    "Good debugging strategies section with verbosity levels",
+    "Well-organized 'Getting Help' section",
+    "All internal links are valid (template-system.md, parameter-definitions.md, sub-workflows.md, default-values.md)",
+    "Accurate template search path priority order (lines 94-110)",
+    "Correct sub-workflow executor implementation reference (lines 67-176)",
+    "Comprehensive coverage of parameter substitution across all command types"
+  ],
+  "improvement_suggestions": [
+    "Add admonitions to highlight error severity and solution types",
+    "Add tabbed content for alternative solutions (e.g., file vs registry templates)",
+    "Add code annotation comments for complex YAML examples",
+    "Consider adding a quick reference table at the top linking to each error type"
+  ],
+  "cross_references": [
+    "template-system",
+    "parameter-definitions",
+    "sub-workflows",
+    "default-values"
+  ],
+  "validated_links": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "links_checked": [
+      "template-system.md",
+      "parameter-definitions.md",
+      "sub-workflows.md",
+      "default-values.md"
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T20:57:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "circular dependencies",
+      "template registry",
+      "parameter validation",
+      "import paths",
+      "type mismatches",
+      "workflow extension",
+      "parameter substitution",
+      "sub-workflows",
+      "default values",
+      "URL templates",
+      "debugging"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
