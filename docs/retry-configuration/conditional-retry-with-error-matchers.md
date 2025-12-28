@@ -2,13 +2,18 @@
 
 By default, Prodigy retries all errors when `retry_on` is empty. Use the `retry_on` field to retry only specific error types, allowing fine-grained control over which failures should trigger retries.
 
-**Source**: `src/cook/retry_v2.rs:100-151` (ErrorMatcher enum definition)
+**Source**: `src/cook/retry_v2.rs:100-114` (ErrorMatcher enum definition)
 
-**Case Sensitivity Behavior**:
-- **Built-in matchers** (Network, Timeout, ServerError, RateLimit): **Case-insensitive** - error messages are normalized to lowercase before matching
-- **Pattern matcher**: **Case-sensitive by default** - matches against original error message case (src/cook/retry_v2.rs:142-148)
-  - Use regex flag `(?i)` for case-insensitive pattern matching
-  - Example: `pattern: '(?i)database locked'` matches "Database Locked", "DATABASE LOCKED", etc.
+!!! warning "Case Sensitivity Differences"
+    **Built-in matchers** and **Pattern matcher** handle case differently:
+
+    - **Built-in matchers** (Network, Timeout, ServerError, RateLimit): **Case-insensitive** - error messages are normalized to lowercase before matching
+    - **Pattern matcher**: **Case-sensitive by default** - matches against original error message case
+
+    Use regex flag `(?i)` for case-insensitive pattern matching:
+    ```yaml
+    pattern: '(?i)database locked'  # Matches "Database Locked", "DATABASE LOCKED", etc.
+    ```
 
 ### Available Error Matchers
 
@@ -31,7 +36,7 @@ retry_config:
 - "refused"
 - "unreachable"
 
-**Source**: `src/cook/retry_v2.rs:128-132`
+**Source**: `src/cook/retry_v2.rs:121-126`
 
 **Use Case**: Retrying HTTP requests, database connections, or API calls that fail due to network issues.
 
@@ -50,7 +55,7 @@ retry_config:
 - "timeout"
 - "timed out"
 
-**Source**: `src/cook/retry_v2.rs:133-137`
+**Source**: `src/cook/retry_v2.rs:127-129`
 
 **Use Case**: Retrying slow external services or operations with strict time limits.
 
@@ -72,7 +77,7 @@ retry_config:
 - "504"
 - "server error"
 
-**Source**: `src/cook/retry_v2.rs:138-142`
+**Source**: `src/cook/retry_v2.rs:130-136`
 
 **Use Case**: Retrying API requests during transient server failures or deployments.
 
@@ -93,7 +98,7 @@ retry_config:
 - "429"
 - "too many requests"
 
-**Source**: `src/cook/retry_v2.rs:143-147`
+**Source**: `src/cook/retry_v2.rs:137-141`
 
 **Use Case**: Retrying API calls with exponential backoff when hitting rate limits.
 
@@ -110,19 +115,60 @@ retry_config:
     - pattern: "(?i)temporary failure"  # Case-insensitive
 ```
 
-**Pattern Syntax**:
-- Regex patterns matched against original error message (case-sensitive by default)
-- Use `(?i)` flag at start of pattern for case-insensitive matching
-- Invalid regex patterns return false (no match)
+!!! tip "Pattern Syntax"
+    - Regex patterns matched against original error message (case-sensitive by default)
+    - Use `(?i)` flag at start of pattern for case-insensitive matching
+    - Invalid regex patterns return false (no match)
 
 **Source**: `src/cook/retry_v2.rs:142-148` (Pattern variant implementation)
 
 **Use Case**: Matching application-specific error messages or database-specific errors.
 
-**Case Sensitivity Examples**:
-- `pattern: "SQLITE_BUSY"` - Only matches "SQLITE_BUSY" (not "sqlite_busy")
-- `pattern: "(?i)SQLITE_BUSY"` - Matches "SQLITE_BUSY", "sqlite_busy", "Sqlite_Busy", etc.
-- `pattern: "(?i)database.*locked"` - Case-insensitive regex with wildcards
+!!! example "Case Sensitivity Examples"
+    | Pattern | Matches | Does Not Match |
+    |---------|---------|----------------|
+    | `"SQLITE_BUSY"` | `SQLITE_BUSY` | `sqlite_busy`, `Sqlite_Busy` |
+    | `"(?i)SQLITE_BUSY"` | `SQLITE_BUSY`, `sqlite_busy`, `Sqlite_Busy` | — |
+    | `"(?i)database.*locked"` | `Database is Locked`, `DATABASE LOCKED` | — |
+
+### Error Matching Flow
+
+When an error occurs, Prodigy evaluates it against configured matchers:
+
+```mermaid
+flowchart LR
+    Error[Error Occurs] --> Check{"retry_on
+    empty?"}
+    Check -->|Yes| Retry[Retry Error]
+    Check -->|No| Eval["Evaluate Each
+    Matcher"]
+
+    Eval --> M1{"Network
+    Match?"}
+    M1 -->|Yes| Retry
+    M1 -->|No| M2{"Timeout
+    Match?"}
+    M2 -->|Yes| Retry
+    M2 -->|No| M3{"Server Error
+    Match?"}
+    M3 -->|Yes| Retry
+    M3 -->|No| M4{"Rate Limit
+    Match?"}
+    M4 -->|Yes| Retry
+    M4 -->|No| M5{"Pattern
+    Match?"}
+    M5 -->|Yes| Retry
+    M5 -->|No| More{"More
+    Matchers?"}
+    More -->|Yes| M1
+    More -->|No| Fail[Fail Immediately]
+
+    style Retry fill:#e8f5e9
+    style Fail fill:#ffebee
+    style Check fill:#e1f5ff
+```
+
+**Figure**: Error matching flow showing OR logic - first matcher that matches triggers retry.
 
 ### Combining Multiple Matchers
 
@@ -140,11 +186,18 @@ retry_config:
 ```
 
 This configuration retries if the error matches **any** of:
+
 - Network errors
 - Timeout errors
 - Server errors (5xx)
 
-**Behavior**: Matchers are evaluated with OR logic - if any matcher matches, the error is retryable.
+!!! info "OR Logic"
+    Matchers are evaluated with OR logic - if **any** matcher matches, the error is retryable.
+
+!!! tip "Choosing the Right Strategy"
+    - **Start broad**: Use built-in matchers (`network`, `timeout`) for common transient errors
+    - **Add specifics**: Use `pattern` for application-specific errors (database locks, auth failures)
+    - **Fail fast**: Only retry errors that are truly transient - retrying permanent failures wastes time
 
 ### Empty retry_on (Retry All Errors)
 
@@ -158,7 +211,8 @@ retry_config:
 
 **Source**: `src/cook/retry_v2.rs:42-43` (retry_on field with default `Vec::new()`)
 
-This is equivalent to having no error filtering - every failure triggers the retry logic.
+!!! note
+    This is equivalent to having no error filtering - every failure triggers the retry logic.
 
 ### Selective Retry Example
 
@@ -178,10 +232,13 @@ commands:
 ```
 
 **Behavior**:
-- If curl fails with "connection refused" → Retry
-- If curl fails with "timeout" → Retry
-- If curl fails with "404 Not Found" → **Fail immediately** (no retry)
-- If curl fails with "401 Unauthorized" → **Fail immediately** (no retry)
+
+| Error | Result | Reason |
+|-------|--------|--------|
+| "connection refused" | :material-refresh: Retry | Matches `network` |
+| "timeout" | :material-refresh: Retry | Matches `timeout` |
+| "404 Not Found" | :material-close: Fail immediately | No matcher |
+| "401 Unauthorized" | :material-close: Fail immediately | No matcher |
 
 ### Regex Pattern Syntax and Case Sensitivity
 
@@ -210,16 +267,15 @@ retry_on:
   - pattern: "ERROR: Authentication"   # Must match exact case
 ```
 
-**Invalid Regex Handling**:
+!!! warning "Invalid Regex Handling"
+    If a pattern contains invalid regex syntax, it returns `false` (no match) and the error will **not** be retried:
 
-If a pattern contains invalid regex syntax, it returns `false` (no match):
+    ```yaml
+    retry_on:
+      - pattern: "[invalid(regex"  # Invalid syntax → returns false → no retry
+    ```
 
-```yaml
-retry_on:
-  - pattern: "[invalid(regex"  # Invalid syntax → returns false → no retry
-```
-
-**Source**: src/cook/retry_v2.rs:142-148
+    **Source**: `src/cook/retry_v2.rs:142-148`
 
 ### Advanced Pattern Matching
 
@@ -248,8 +304,8 @@ retry_config:
 
 The matching logic is implemented in `ErrorMatcher::matches()`:
 
-```rust
-// Simplified implementation (src/cook/retry_v2.rs:116-150)
+```rust title="src/cook/retry_v2.rs:116-150" linenums="116"
+// Simplified implementation
 impl ErrorMatcher {
     pub fn matches(&self, error_msg: &str) -> bool {
         let error_lower = error_msg.to_lowercase();
@@ -292,9 +348,9 @@ impl ErrorMatcher {
 
 ### Testing Error Matchers
 
-The retry_v2 module includes tests for built-in matchers (src/cook/retry_v2.rs:463-502):
+The retry_v2 module includes tests for built-in matchers:
 
-```rust
+```rust title="src/cook/retry_v2.rs (test module)"
 #[test]
 fn test_error_matcher_network() {
     let matcher = ErrorMatcher::Network;
@@ -322,4 +378,5 @@ fn test_error_matcher_rate_limit() {
 }
 ```
 
-**Note**: Pattern matcher tests are not yet implemented in the test suite. The above tests cover Network, Timeout, and RateLimit matchers only.
+!!! note "Test Coverage"
+    Pattern matcher tests are not yet implemented in the test suite. The above tests cover Network, Timeout, and RateLimit matchers only.
