@@ -12,31 +12,51 @@ Observability features:
 - **Performance metrics**: Token usage and timing information
 
 ```mermaid
-graph TD
-    Workflow[Workflow Execution] --> Events[Event System]
-    Workflow --> Claude[Claude Commands]
-    Workflow --> Verbosity[Verbosity Control]
+graph LR
+    subgraph Sources["Data Sources"]
+        direction TB
+        Workflow[Workflow Execution]
+    end
 
-    Events --> JSONL[JSONL Event Files<br/>~/.prodigy/events/]
-    Events --> Types[Event Types<br/>AgentStarted, Completed, Failed]
+    subgraph Tracking["Tracking Systems"]
+        direction TB
+        Events[Event System]
+        Claude[Claude Commands]
+        Verbosity[Verbosity Control]
+    end
 
-    Claude --> JSONLog[JSON Logs<br/>~/.local/state/claude/logs/]
-    Claude --> Tools[Tool Invocations]
-    Claude --> Tokens[Token Usage]
+    subgraph Outputs["Output Channels"]
+        direction TB
+        JSONL["JSONL Events
+        ~/.prodigy/events/"]
+        JSONLog["JSON Logs
+        ~/.local/state/claude/"]
+        Console["Console Output
+        -v, -vv, -vvv"]
+    end
 
-    Verbosity --> Clean[Default: Clean Output]
-    Verbosity --> Verbose["-v: Show Streaming"]
-    Verbosity --> Debug["-vv: Debug Logs"]
-    Verbosity --> Trace["-vvv: Trace Details"]
+    subgraph Usage["Analysis"]
+        direction TB
+        Analysis[Log Analysis]
+        Debug[Debugging]
+    end
 
-    JSONL --> Analysis[Log Analysis]
+    Workflow --> Events
+    Workflow --> Claude
+    Workflow --> Verbosity
+
+    Events --> JSONL
+    Claude --> JSONLog
+    Verbosity --> Console
+
+    JSONL --> Analysis
     JSONLog --> Analysis
-    Analysis --> Debugging[Debugging & Monitoring]
+    Console --> Debug
 
-    style Events fill:#e1f5ff
-    style Claude fill:#fff3e0
-    style Verbosity fill:#f3e5f5
-    style Analysis fill:#e8f5e9
+    style Sources fill:#f5f5f5
+    style Tracking fill:#e1f5ff
+    style Outputs fill:#fff3e0
+    style Usage fill:#e8f5e9
 ```
 
 **Figure**: Prodigy's observability architecture showing event tracking, Claude logs, and verbosity control.
@@ -50,6 +70,14 @@ graph TD
     ```bash
     prodigy logs --latest --tail
     ```
+
+!!! note "Log Storage"
+    Prodigy stores observability data in two locations:
+
+    - **Prodigy events**: `~/.prodigy/events/{repo}/{job_id}/`
+    - **Claude logs**: `~/.local/state/claude/logs/`
+
+    Both locations grow over time. See [Log Management](log-management.md) for cleanup strategies.
 
 ## When to Use Each Feature
 
