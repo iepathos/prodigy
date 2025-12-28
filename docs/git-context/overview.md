@@ -18,6 +18,36 @@ Prodigy automatically tracks git changes throughout workflow execution and expos
 
 ## How Git Tracking Works
 
+```mermaid
+flowchart LR
+    Start["Workflow Start"] --> Init["Initialize
+    GitChangeTracker"]
+    Init --> Step1["Step 1
+    begin_step()"]
+    Step1 --> Exec1["Execute
+    Commands"]
+    Exec1 --> Complete1["complete_step()
+    Capture Changes"]
+    Complete1 --> Vars1["step.* variables
+    available"]
+    Vars1 --> Step2["Step 2
+    begin_step()"]
+    Step2 --> Exec2["Execute
+    Commands"]
+    Exec2 --> Complete2["complete_step()
+    Capture Changes"]
+    Complete2 --> Vars2["step.* + workflow.*
+    cumulative"]
+    Vars2 --> End["Workflow
+    Complete"]
+
+    style Init fill:#e1f5ff
+    style Vars1 fill:#e8f5e9
+    style Vars2 fill:#e8f5e9
+```
+
+**Figure**: Git tracking lifecycle showing how changes are captured at each step and accumulated at the workflow level.
+
 ### Automatic Tracking
 
 Git context is automatically tracked when you run workflows in a git repository:
@@ -52,6 +82,34 @@ Git tracking is active in:
     Git tracking is **not** active in non-git repositories or workflows without git integration. Variables will be empty strings in these cases.
 
 ## Git Context Variables
+
+```mermaid
+graph TD
+    subgraph Workflow["Workflow Scope"]
+        WF["workflow.* variables
+        Cumulative across all steps"]
+    end
+
+    subgraph Steps["Step Scope"]
+        S1["Step 1
+        step.* = changes in step 1"]
+        S2["Step 2
+        step.* = changes in step 2"]
+        S3["Step 3
+        step.* = changes in step 3"]
+    end
+
+    S1 -->|accumulates to| WF
+    S2 -->|accumulates to| WF
+    S3 -->|accumulates to| WF
+
+    style WF fill:#f3e5f5
+    style S1 fill:#e1f5ff
+    style S2 fill:#e1f5ff
+    style S3 fill:#e1f5ff
+```
+
+**Figure**: Step-level variables track changes within each step; workflow-level variables accumulate all changes.
 
 !!! note "Space-Separated Format"
     All git context variables are provided as **space-separated strings**. This format works directly with most shell commands. For other formats (JSON, newlines, CSV) or filtering by file type, see [Shell-Based Filtering](shell-filtering.md).
