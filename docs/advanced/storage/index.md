@@ -11,6 +11,44 @@ Global storage features:
 - **Persistent state**: Job checkpoints survive worktree cleanup
 - **Efficient deduplication**: Minimize storage overhead
 
+```mermaid
+graph LR
+    subgraph Storage["~/.prodigy/"]
+        direction LR
+        Events["events/
+        Event Logs"]
+        DLQ["dlq/
+        Failed Items"]
+        State["state/
+        Checkpoints"]
+        Sessions["sessions/
+        Session Tracking"]
+        Worktrees["worktrees/
+        Git Worktrees"]
+    end
+
+    Workflow[Workflow Execution] --> Events
+    Workflow --> State
+    Workflow --> Sessions
+    Workflow --> Worktrees
+
+    Failed[Failed Items] --> DLQ
+    Resume[Resume Operations] --> State
+    Resume --> Sessions
+
+    style Storage fill:#f5f5f5
+    style Events fill:#e1f5fe
+    style DLQ fill:#ffebee
+    style State fill:#e8f5e9
+    style Sessions fill:#fff3e0
+    style Worktrees fill:#f3e5f5
+```
+
+**Figure**: Storage architecture showing how workflow execution interacts with different storage components.
+
+!!! note "Repository-Based Organization"
+    Most storage directories (events, dlq, state, worktrees) organize data by repository name. This allows multiple projects to share the same Prodigy installation without conflicts.
+
 ## Documentation
 
 This section covers the complete storage architecture:
@@ -28,6 +66,11 @@ This section covers the complete storage architecture:
 ├── dlq/                        # Dead Letter Queue
 ├── state/                      # State and checkpoints
 ├── sessions/                   # Session tracking
+├── logs/                       # Per-repository logs
 ├── worktrees/                  # Git worktrees
+├── resume_locks/               # Concurrent resume protection
 └── orphaned_worktrees/         # Cleanup failure tracking
 ```
+
+!!! tip "Custom Storage Location"
+    Override the default storage location by setting `PRODIGY_HOME` environment variable.
