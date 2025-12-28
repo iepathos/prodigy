@@ -2,7 +2,7 @@
 
 Backoff strategies control the delay between retry attempts when a MapReduce agent fails. Prodigy supports multiple backoff algorithms to handle different failure patterns and workload characteristics.
 
-**Source**: `BackoffStrategy` enum in `src/cook/retry_v2.rs:73-90`
+**Source**: `BackoffStrategy` enum in `src/cook/retry_v2.rs:70-90`
 
 ### Overview
 
@@ -12,11 +12,50 @@ The `retry_config.backoff` field configures which backoff algorithm to use. All 
 - **max_delay**: Maximum cap on any calculated delay (default: `30s`)
 - **jitter**: Add randomness to prevent thundering herd (default: `false`)
 
-**Default Strategy**: If no backoff is specified, Prodigy uses **Exponential backoff with base 2.0**.
+```mermaid
+flowchart LR
+    Strategy[Select Strategy] --> Calc["Calculate Base Delay
+    (Fixed, Linear, Exponential, etc.)"]
+    Calc --> Cap{"Exceeds
+    max_delay?"}
+    Cap -->|Yes| UseMax[Use max_delay]
+    Cap -->|No| UseCalc[Use calculated delay]
+    UseMax --> Jitter{"Jitter
+    enabled?"}
+    UseCalc --> Jitter
+    Jitter -->|Yes| AddRandom["Add random offset
+    ±(delay × jitter_factor)"]
+    Jitter -->|No| Final[Final Delay]
+    AddRandom --> Final
 
-Source: `src/cook/retry_v2.rs:92-97`
+    style Strategy fill:#e1f5ff
+    style Calc fill:#fff3e0
+    style Final fill:#e8f5e9
+```
+
+**Figure**: Delay calculation flow showing how the backoff strategy, max_delay cap, and jitter combine.
+
+!!! note "Default Strategy"
+    If no backoff is specified, Prodigy uses **Exponential backoff with base 2.0**.
+
+Source: `src/cook/retry_v2.rs:92-98`
 
 ### Available Strategies
+
+The following diagram compares how delays grow across retry attempts for each strategy (assuming `initial_delay: 1s`):
+
+```mermaid
+xychart-beta
+    title "Delay Growth by Strategy (initial_delay: 1s)"
+    x-axis "Retry Attempt" [1, 2, 3, 4, 5, 6]
+    y-axis "Delay (seconds)" 0 --> 14
+    line "Fixed" [1, 1, 1, 1, 1, 1]
+    line "Linear (+1s)" [1, 2, 3, 4, 5, 6]
+    line "Exponential (2x)" [1, 2, 4, 8, 8, 8]
+    line "Fibonacci" [1, 1, 2, 3, 5, 8]
+```
+
+**Figure**: Delay progression showing how each strategy scales. Exponential caps at max_delay (8s in this example).
 
 #### Fixed Backoff
 
@@ -49,7 +88,7 @@ retry_config:
 
 **Source**: `src/cook/retry_v2.rs:75` (retry_v2), `src/cook/workflow/error_policy.rs:110` (error_policy)
 
-**Test**: `src/cook/retry_v2.rs:583-594`
+**Test**: `src/cook/retry_v2.rs:582-594`
 
 #### Linear Backoff
 
@@ -85,7 +124,7 @@ retry_config:
 
 **Source**: `src/cook/retry_v2.rs:77-80` (retry_v2), `src/cook/workflow/error_policy.rs:112-115` (error_policy)
 
-**Test**: `src/cook/retry_v2.rs:597-610`
+**Test**: `src/cook/retry_v2.rs:596-610`
 
 #### Exponential Backoff (Default)
 
@@ -125,7 +164,7 @@ retry_config:
 
 **Source**: `src/cook/retry_v2.rs:82-85` (retry_v2), `src/cook/workflow/error_policy.rs:117` (error_policy)
 
-**Test**: `src/cook/retry_v2.rs:613-626`
+**Test**: `src/cook/retry_v2.rs:612-626`
 
 #### Fibonacci Backoff
 
@@ -163,7 +202,7 @@ retry_config:
 
 **Source**: `src/cook/retry_v2.rs:87`, `src/cook/retry_v2.rs:424-440` (fibonacci function)
 
-**Test**: `src/cook/retry_v2.rs:629-642`
+**Test**: `src/cook/retry_v2.rs:628-642`
 
 #### Custom Backoff (retry_v2 only)
 
@@ -210,35 +249,40 @@ Backoff strategies are configured in the `retry_config` block, which can be part
 1. **WorkflowErrorPolicy** at workflow level (applies to all items)
 2. **TimeoutConfig** in map phase (more specific control)
 
-**Complete MapReduce Example**:
+!!! example "Complete MapReduce Example"
 
-```yaml
-name: resilient-mapreduce-job
-mode: mapreduce
+    ```yaml
+    name: resilient-mapreduce-job
+    mode: mapreduce
 
-map:
-  input: "items.json"
-  json_path: "$.items[*]"
+    map:
+      input: "items.json"
+      json_path: "$.items[*]"
 
-  # Workflow-level error policy
-  error_policy:
-    retry_config:
-      max_attempts: 5
-      backoff:
-        fibonacci:
-          initial: 1s
-      jitter: true
-      jitter_factor: 0.3
-    continue_on_failure: true
+      # Workflow-level error policy
+      error_policy:
+        retry_config:
+          max_attempts: 5             # (1)!
+          backoff:
+            fibonacci:                # (2)!
+              initial: 1s
+          jitter: true                # (3)!
+          jitter_factor: 0.3
+        continue_on_failure: true     # (4)!
 
-  agent_template:
-    - claude: "/process-item '${item.id}'"
-    - shell: "validate ${item.output}"
-      on_failure:
-        claude: "/fix-validation-error"
+      agent_template:
+        - claude: "/process-item '${item.id}'"
+        - shell: "validate ${item.output}"
+          on_failure:
+            claude: "/fix-validation-error"
 
-  max_parallel: 10
-```
+      max_parallel: 10
+    ```
+
+    1. Retry failed agents up to 5 times before giving up
+    2. Fibonacci backoff reduces retry storms in parallel workloads
+    3. Jitter prevents all agents from retrying at the same instant
+    4. Continue processing other items even if some fail
 
 **Source**: `src/cook/workflow/error_policy.rs:160` (retry_config field in WorkflowErrorPolicy)
 
@@ -247,6 +291,7 @@ map:
 The `RetryConfig` structure controls all retry behavior:
 
 ```yaml
+# Source: src/cook/retry_v2.rs:14-52
 retry_config:
   attempts: 3              # Maximum retry attempts (default: 3)
   backoff: exponential     # Strategy (default: exponential with base 2.0)
@@ -254,6 +299,11 @@ retry_config:
   max_delay: 30s           # Delay cap (default: 30s)
   jitter: true             # Add randomness (default: false)
   jitter_factor: 0.3       # Jitter amount 0.0-1.0 (default: 0.3)
+  retry_on:                # Error types to retry (default: all errors)
+    - network
+    - timeout
+  retry_budget: 5m         # Maximum total time for retries (optional)
+  on_failure: stop         # Action on final failure: stop, continue, or fallback
 ```
 
 **How fields interact**:
@@ -262,27 +312,108 @@ retry_config:
 3. If `jitter: true`, random offset is added: `delay ± (delay * jitter_factor)`
 4. Final delay is applied before next retry attempt
 
-**Source**: `src/cook/retry_v2.rs:16-52`
+**Source**: `src/cook/retry_v2.rs:14-52`
 
-**Defaults**: `src/cook/retry_v2.rs:443-461`
+**Defaults**: `src/cook/retry_v2.rs:442-461`
+
+#### Selective Retry with Error Matchers
+
+The `retry_on` field allows retrying only specific error types. If not specified, all errors trigger retries.
+
+**Available matchers** (Source: `src/cook/retry_v2.rs:100-151`):
+
+| Matcher | Matches | Example Errors |
+|---------|---------|----------------|
+| `network` | Network connectivity issues | "Connection refused", "Network unreachable" |
+| `timeout` | Timeout errors | "Operation timeout", "Request timed out" |
+| `server_error` | HTTP 5xx errors | "500", "502", "503", "504", "server error" |
+| `rate_limit` | Rate limiting | "Rate limit exceeded", "429", "Too many requests" |
+| `pattern: <regex>` | Custom regex pattern | Any error matching the regex |
+
+**Example - Retry only network and timeout errors**:
+```yaml
+retry_config:
+  attempts: 5
+  retry_on:
+    - network
+    - timeout
+  backoff:
+    exponential:
+      base: 2.0
+```
+
+**Example - Retry with custom pattern**:
+```yaml
+retry_config:
+  attempts: 3
+  retry_on:
+    - pattern: "temporary.*failure"
+    - rate_limit
+```
+
+!!! tip
+    When `retry_on` is empty (default), all errors trigger retries. Specifying matchers limits retries to matching errors only.
+
+#### Retry Budget
+
+The `retry_budget` field sets a maximum total time for all retry attempts combined. If the budget is exhausted, no further retries are attempted.
+
+```yaml
+retry_config:
+  attempts: 10
+  retry_budget: 2m          # Stop retrying after 2 minutes total
+  backoff:
+    fibonacci:
+      initial: 1s
+```
+
+**Behavior**:
+- Before each retry, checks if `total_delay + next_delay > retry_budget`
+- If exceeded, immediately fails with "Retry budget exhausted"
+- Useful for preventing runaway retries in time-sensitive workflows
+
+**Source**: `src/cook/retry_v2.rs:45-47`, `src/cook/retry_v2.rs:237-244`
+
+#### Failure Actions
+
+The `on_failure` field controls what happens after all retries are exhausted.
+
+**Available actions** (Source: `src/cook/retry_v2.rs:153-165`):
+
+| Action | Behavior |
+|--------|----------|
+| `stop` (default) | Stop workflow execution |
+| `continue` | Continue with next step |
+| `fallback` | Execute a fallback command |
+
+**Example with fallback**:
+```yaml
+retry_config:
+  attempts: 3
+  on_failure:
+    fallback:
+      command: "/handle-failure '${item.id}'"
+```
 
 ### Implementation Variants
 
 Prodigy has **two BackoffStrategy implementations**:
 
-#### retry_v2.rs (Recommended)
-- **Location**: `src/cook/retry_v2.rs:73-90`
-- **Features**: Includes `Custom` backoff strategy
-- **Exponential parameter**: `base` (default 2.0)
-- **Simple syntax**: Most strategies use `backoff: strategy_name` form
-- **More comprehensive**: Full RetryConfig with jitter, retry_budget, error matchers
+=== "retry_v2.rs (Recommended)"
 
-#### error_policy.rs (Legacy)
-- **Location**: `src/cook/workflow/error_policy.rs:108-120`
-- **Features**: No `Custom` strategy
-- **Exponential parameter**: `multiplier` instead of `base`
-- **Explicit syntax**: All strategies require nested configuration with `initial` delay
-- **Simpler**: Minimal RetryConfig with max_attempts and backoff only
+    - **Location**: `src/cook/retry_v2.rs:70-90`
+    - **Features**: Includes `Custom` backoff strategy
+    - **Exponential parameter**: `base` (default 2.0)
+    - **Simple syntax**: Most strategies use `backoff: strategy_name` form
+    - **Additional features**: `retry_on` error matchers, `retry_budget` timeout, `on_failure` actions, circuit breaker support
+
+=== "error_policy.rs (Legacy)"
+
+    - **Location**: `src/cook/workflow/error_policy.rs:108-120`
+    - **Features**: No `Custom` strategy
+    - **Exponential parameter**: `multiplier` instead of `base`
+    - **Explicit syntax**: All strategies require nested configuration with `initial` delay
+    - **Simpler**: Minimal RetryConfig with max_attempts and backoff only
 
 **Which to use**: Both are valid, but retry_v2 provides more features and better defaults. In MapReduce workflows, the error_policy implementation is used at the workflow level.
 
@@ -307,13 +438,14 @@ Prodigy has **two BackoffStrategy implementations**:
 - Set `max_delay` to prevent excessively long waits
 - For MapReduce: Consider agent timeout interaction (delays count toward timeout)
 
-**Timeout Interaction**:
-Backoff delays count toward the agent's overall timeout. If you configure:
-- Agent timeout: 300s (5 minutes)
-- Max retries: 5
-- Fibonacci backoff with initial_delay: 10s
+!!! warning "Timeout Interaction"
+    Backoff delays count toward the agent's overall timeout. If you configure:
 
-Total delay could be: 10s + 10s + 20s + 30s + 50s = 120s of retries, leaving 180s for actual work.
+    - Agent timeout: 300s (5 minutes)
+    - Max retries: 5
+    - Fibonacci backoff with initial_delay: 10s
+
+    Total delay could be: 10s + 10s + 20s + 30s + 50s = 120s of retries, leaving 180s for actual work.
 
 ### Troubleshooting
 
