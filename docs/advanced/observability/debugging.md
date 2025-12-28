@@ -130,6 +130,9 @@ Monitor performance:
 
 ### Correlation IDs
 
+!!! note "When to Use Correlation IDs"
+    Correlation IDs are essential when debugging issues that span multiple agents or phases. Use them to trace a request through the entire MapReduce pipeline, from setup through agent execution to reduce.
+
 Events include optional correlation IDs for tracing related operations across multiple agents:
 
 ```json
@@ -215,7 +218,35 @@ cat events.jsonl | \
 
 The event system tracks many events useful for debugging specific scenarios:
 
+```mermaid
+graph LR
+    subgraph MapReduce["MapReduce Execution"]
+        direction LR
+        JobStart[JobStarted] --> AgentStart[AgentStarted]
+        AgentStart --> Tools[Claude Tool Events]
+        Tools --> Checkpoint[Checkpoint Events]
+    end
+
+    subgraph Outcomes["Agent Outcomes"]
+        direction LR
+        AgentComplete[AgentCompleted] --> Merge[Worktree Merged]
+        AgentFail[AgentFailed] --> DLQ[DLQ Item Added]
+    end
+
+    MapReduce --> Outcomes
+
+    style JobStart fill:#e1f5ff
+    style AgentComplete fill:#e8f5e9
+    style AgentFail fill:#ffebee
+    style DLQ fill:#fff3e0
+```
+
+**Figure**: Event flow during MapReduce execution showing the progression from job start through agent outcomes.
+
 ### Claude-Specific Events
+
+!!! example "Debugging Tool Failures"
+    When an agent fails during a tool invocation, use `claude_tool_invoked` events to identify the exact tool and parameters that caused the failure. Cross-reference with the JSON log for full context.
 
 Debug Claude interactions by tracking tool invocations and token usage:
 
@@ -259,6 +290,9 @@ cat events.jsonl | jq -c 'select(.event_type | startswith("checkpoint"))'
 ```
 
 ### DLQ Events
+
+!!! warning "Repeated DLQ Entries"
+    If you see the same `item_id` with increasing `failure_count`, the retry mechanism is struggling. Check the `error_signature` pattern to identify systematic issues before retrying again.
 
 Track items entering the Dead Letter Queue:
 
