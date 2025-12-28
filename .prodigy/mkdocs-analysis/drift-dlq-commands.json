@@ -1,0 +1,92 @@
+{
+  "item_type": "auto-discovered",
+  "section_id": "dlq",
+  "section_title": "Dead Letter Queue",
+  "page_id": "commands",
+  "page_title": "DLQ Commands",
+  "page_file": "docs/mapreduce/dlq/commands.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Documentation is mostly accurate and comprehensive. The page correctly identifies CLI commands as stub implementations with planned functionality. Minor improvements needed for source reference accuracy and MkDocs Material enhancements.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Retry Command",
+      "description": "Source reference line numbers are outdated - documentation says src/cli/args.rs:640-659 but actual Retry command definition is at lines 595-615",
+      "current_content": "# Source: src/cli/args.rs:640-659",
+      "should_be": "# Source: src/cli/args.rs:595-615",
+      "fix_suggestion": "Update source reference line numbers to match current codebase",
+      "source_reference": "src/cli/args.rs:595-615 (DlqCommands::Retry)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Retry Command Parameters",
+      "description": "Documentation shows old line number references (src/cli/args.rs:653, 649, 645, 657) that no longer match actual code locations",
+      "fix_suggestion": "Remove hardcoded line numbers or update to current positions (lines 600-614)",
+      "source_reference": "src/cli/args.rs:600-614"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Implementation Note",
+      "description": "Implementation note references src/cook/execution/dlq.rs:202-233 for reprocess method, but actual reprocess method is at lines 209-240",
+      "current_content": "src/cook/execution/dlq.rs:202-233",
+      "should_be": "src/cook/execution/dlq.rs:209-240",
+      "fix_suggestion": "Update line reference to current position",
+      "source_reference": "src/cook/execution/dlq.rs:209-240 (DeadLetterQueue::reprocess)"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "All Sections",
+      "description": "Page lacks MkDocs Material enhancements for better visual presentation",
+      "fix_suggestion": "Add admonitions for tips and warnings, code annotations for complex examples, and tabbed content for different formats where applicable"
+    }
+  ],
+  "positive_aspects": [
+    "Clear warning admonition at the top correctly identifies stub implementation status",
+    "Comprehensive coverage of all DLQ CLI commands (list, inspect, analyze, retry, export, stats, clear, purge)",
+    "Good examples showing command usage patterns with bash code blocks",
+    "Accurate parameter descriptions for retry command with default values",
+    "Proper explanation of retry behavior including streaming, parallel execution, and state updates",
+    "Cross-reference to debugging.md for DLQ integration details",
+    "Well-organized with clear command sections and subsections"
+  ],
+  "improvement_suggestions": [
+    "Add tabbed content blocks to show different output formats (JSON vs CSV for export)",
+    "Add code annotations to explain complex command flags",
+    "Consider adding info admonitions for tips on common workflows",
+    "Add cross-references to related pages (overview.md, internals.md) for deeper context",
+    "Update or remove hardcoded source line references that drift over time",
+    "Add example outputs for each command to show expected results"
+  ],
+  "cross_references": [
+    {
+      "target": "debugging.md",
+      "valid": true,
+      "context": "Referenced for DLQ integration details"
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "CLI commands",
+      "DLQ management",
+      "retry operations",
+      "item inspection",
+      "failure analysis",
+      "export functionality"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "cli_implementation_status": "stub",
+    "source_files_checked": [
+      "src/cli/args.rs (DlqCommands enum at lines 534-631)",
+      "src/cli/commands/dlq.rs (stub implementation)",
+      "src/cook/execution/dlq.rs (DeadLetterQueue)",
+      "src/cook/execution/dlq_reprocessor.rs (ReprocessOptions)"
+    ]
+  }
+}
