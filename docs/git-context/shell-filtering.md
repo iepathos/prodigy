@@ -4,9 +4,58 @@ Since git context variables are provided as space-separated strings, all filteri
 
 For variable definitions, see the [Git Context Overview](index.md).
 
+## Transformation Pipeline
+
+The following diagram shows the common transformation paths for git context variables:
+
+```mermaid
+flowchart LR
+    Input["Space-Separated
+    Input"] --> Split["tr ' ' '\\n'
+    Split to Lines"]
+
+    Split --> Filter["grep Pattern
+    Filter Files"]
+    Split --> Direct["Direct Use
+    No Filtering"]
+
+    Filter --> JSON["jq -R | jq -s
+    JSON Array"]
+    Filter --> CSV["tr '\\n' ','
+    CSV Format"]
+    Filter --> Newline["Keep Newlines
+    Line Format"]
+    Filter --> Space["tr '\\n' ' '
+    Space Format"]
+
+    Direct --> JSON
+    Direct --> CSV
+    Direct --> Newline
+
+    style Input fill:#e1f5ff
+    style Split fill:#fff3e0
+    style Filter fill:#f3e5f5
+    style JSON fill:#e8f5e9
+    style CSV fill:#e8f5e9
+    style Newline fill:#e8f5e9
+    style Space fill:#e8f5e9
+```
+
+**Figure**: Transformation pipeline showing how to convert git context variables to different output formats.
+
 ## Default Format (Space-Separated)
 
 Git context variables are always formatted as space-separated strings:
+
+!!! warning "Handle Empty Variables"
+    Always check if variables are non-empty before passing to commands. An empty
+    variable can cause unexpected behavior or errors:
+
+    ```bash
+    if [ -n "${step.files_changed}" ]; then
+      cargo fmt ${step.files_changed}
+    fi
+    ```
 
 ```yaml
 - shell: "echo ${step.files_changed}"
