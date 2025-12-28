@@ -1,0 +1,93 @@
+{
+  "item_type": "page",
+  "page_id": "advanced-configuration",
+  "page_title": "advanced configuration",
+  "page_file": "docs/automated-documentation/advanced-configuration.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has significant configuration format discrepancies - references .toml format but codebase uses .yml",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Configuration Files and Locations",
+      "description": "Documentation states config files use .toml format, but the actual codebase uses .yml format",
+      "current_content": "Global Configuration: ~/.prodigy/config.toml\nProject Configuration: .prodigy/config.toml",
+      "should_be": "Global Configuration: ~/.prodigy/config.yml\nProject Configuration: .prodigy/config.yml",
+      "fix_suggestion": "Update all references from .toml to .yml format. The code at src/config/prodigy_config.rs:363-374 clearly shows config.yml paths.",
+      "source_reference": "src/config/prodigy_config.rs:global_config_path(), project_config_path()"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Validation Configuration",
+      "description": "Validation configuration example shows simplified structure but actual workflows use more complex nested format",
+      "current_content": "validate:\n  claude: \"/prodigy-validate-doc-fix...\"\n  result_file: \".prodigy/validation-result.json\"\n  threshold: 100",
+      "should_be": "The actual workflow format nests validate under command steps with full command array structure",
+      "fix_suggestion": "Update to show the actual nested format used in workflows like book-docs-drift.yml where validate is nested under agent_template commands with threshold as a field within that structure",
+      "source_reference": "workflows/book-docs-drift.yml:64-72"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Environment Variables",
+      "description": "Missing documentation of advanced environment features like DynamicEnv, ConditionalEnv, and SecretProvider types",
+      "current_content": "Shows only basic static and secret variable syntax",
+      "should_be": "Document DynamicEnv (command-based values), ConditionalEnv (expression-based values), and SecretProvider enum (env, file, vault, aws, custom)",
+      "fix_suggestion": "Add sections covering dynamic environment values with 'command' and 'cache' fields, conditional values with 'condition', 'when_true', 'when_false' fields, and the various secret provider types",
+      "source_reference": "src/cook/environment/config.rs:DynamicEnv, ConditionalEnv, SecretProvider"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "MapReduce Performance Tuning",
+      "description": "Timeout configuration options mentioned but not fully documented",
+      "current_content": "Mentions agent_timeout_secs, setup_timeout, reduce_timeout but says 'not explicitly shown'",
+      "should_be": "Document the actual timeout_config structure from mapreduce.rs including MapPhaseYaml.timeout_config field",
+      "fix_suggestion": "Add concrete examples of timeout configuration using the TimeoutConfig structure available in src/cook/execution/mapreduce/timeout.rs",
+      "source_reference": "src/config/mapreduce.rs:272-273"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Book Configuration",
+      "description": "Book configuration JSON shown but custom_analysis options not fully explained",
+      "current_content": "Shows include_examples, include_best_practices, include_troubleshooting but doesn't explain how they affect generation",
+      "should_be": "Explain what each custom_analysis flag controls in the documentation generation process",
+      "fix_suggestion": "Add explanation of how each custom_analysis option affects the generated documentation content",
+      "source_reference": ".prodigy/book-config.json"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of configuration file locations and precedence chain",
+    "Good real-world examples from actual workflow files (book-docs-drift.yml)",
+    "Clear explanation of secret masking behavior",
+    "Helpful performance trade-offs for max_parallel setting",
+    "Excellent troubleshooting section with practical solutions",
+    "Well-structured configuration checklist with categorized items",
+    "Proper source references with file paths and line numbers"
+  ],
+  "improvement_suggestions": [
+    "Update file extension references from .toml to .yml throughout",
+    "Add examples of DynamicEnv for computed values (e.g., git branch detection)",
+    "Add examples of ConditionalEnv for environment-dependent values",
+    "Document all SecretProvider types with examples for each",
+    "Add timeout_config examples showing the TimeoutConfig structure",
+    "Consider adding cross-references to MapReduce and Environment Variables pages",
+    "Add MkDocs Material admonitions for important configuration warnings"
+  ],
+  "cross_references": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "configuration_system",
+      "environment_management",
+      "mapreduce_workflows",
+      "error_handling",
+      "storage_architecture",
+      "validation"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
