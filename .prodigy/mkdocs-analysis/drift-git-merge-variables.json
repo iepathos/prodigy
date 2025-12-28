@@ -1,0 +1,86 @@
+{
+  "item_type": "page",
+  "page_id": "git-merge-variables",
+  "page_title": "git merge variables",
+  "page_file": "docs/variables/available-variables/git-merge-variables.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is well-structured and mostly accurate. The documented JSON structures have minor discrepancies with actual implementation structs. Some fields in the actual code are not shown in the examples.",
+  "issues": [
+    {
+      "type": "incomplete_documentation",
+      "severity": "medium",
+      "section": "Commit Object Structure",
+      "description": "The documented JSON example for CommitInfo is missing several fields that exist in the actual implementation",
+      "current_content": "Example shows: id, short_id, author (name, email), message, timestamp, files_changed",
+      "should_be": "Actual struct includes: id, short_id, author (AuthorInfo with name, email, timestamp), committer (AuthorInfo), message, timestamp, parent_ids, tree_id, stats (optional CommitStats), files_changed",
+      "fix_suggestion": "Update the Commit Object Structure section to include all fields from the actual CommitInfo struct, or clarify that the example shows commonly-used fields",
+      "source_reference": "src/cook/execution/mapreduce/resources/git_operations.rs:282-292"
+    },
+    {
+      "type": "incomplete_documentation",
+      "severity": "medium",
+      "section": "File Object Structure",
+      "description": "The documented JSON example for FileModificationInfo is missing fields that exist in the actual implementation",
+      "current_content": "Example shows: path, modification_type, size_before, size_after, last_modified, commit_id",
+      "should_be": "Actual struct includes: path, modification_type (which is an enum with Added, Modified, Deleted, Renamed{from}, Copied{from}), size_before, size_after, last_modified, commit_id, diff_stats (optional), content_diff (optional)",
+      "fix_suggestion": "Update the File Object Structure section to include diff_stats and content_diff fields, and clarify that modification_type can include Renamed and Copied variants with source paths",
+      "source_reference": "src/cook/execution/mapreduce/resources/git_operations.rs:313-322"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Format Modifiers",
+      "description": "The format modifiers table mentions 'git context variables that return file or commit lists' but doesn't clearly state whether the merge-specific git variables (merge.commits, merge.modified_files, etc.) support these same format modifiers",
+      "fix_suggestion": "Add explicit clarification that merge git context variables also support format modifiers, or clarify that they use different formats (JSON by default for merge.commits and merge.modified_files)",
+      "source_reference": "src/worktree/merge_orchestrator.rs:371-403"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Source Reference",
+      "description": "Source reference line numbers may be outdated as code evolves",
+      "current_content": "Source: src/worktree/merge_orchestrator.rs:340-423",
+      "should_be": "Current implementation starts at line 331 (init_merge_variables function)",
+      "fix_suggestion": "Update source reference line numbers to match current implementation, or consider removing specific line numbers as they become stale quickly",
+      "source_reference": "src/worktree/merge_orchestrator.rs:331-438"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of both git context variables and merge-specific variables",
+    "Clear organization with separate sections for git context and merge variables",
+    "Excellent format modifier documentation with practical examples",
+    "Good YAML examples showing real-world usage patterns",
+    "Proper documentation of variable availability (all phases vs merge phase only)",
+    "Helpful mention of configurable limits (100 commits, 500 files)",
+    "JSON structure examples help users understand complex variable content"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs admonitions (info, warning, tip) to highlight important notes about variable availability",
+    "Add cross-references to related pages (e.g., Git Integration, MapReduce Worktree Architecture)",
+    "Consider adding a Mermaid diagram showing the flow of git context tracking through workflow phases",
+    "Add an example showing how to handle empty results gracefully when no commits or files exist",
+    "Document the fallback behavior when git information cannot be retrieved (empty arrays, zero counts)"
+  ],
+  "cross_references": [
+    "advanced/git-integration",
+    "mapreduce/overview",
+    "variables/index",
+    "mapreduce-worktree-architecture"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "git context variables",
+      "merge variables",
+      "format modifiers",
+      "variable interpolation",
+      "git change tracking"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "internal_links_count": 0,
+    "broken_links_count": 0
+  }
+}
