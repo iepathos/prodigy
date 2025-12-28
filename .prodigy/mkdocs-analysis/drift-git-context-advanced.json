@@ -1,0 +1,101 @@
+{
+  "item_type": "page",
+  "page_id": "git-context-advanced",
+  "page_title": "git context advanced",
+  "page_file": "docs/git-context-advanced.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Documentation is accurate and comprehensive. The page correctly documents the current implementation where git context variables are space-separated strings, and pattern/format modifiers are not yet implemented in variable interpolation.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Future Features",
+      "description": "The 'Future Features' section mentions planned pattern filtering and format modifiers, but doesn't clarify if these are on the roadmap or just theoretical capabilities",
+      "current_content": "Pattern Filtering (Planned)... Format Modifiers (Planned)...",
+      "fix_suggestion": "Consider either adding a timeline/status indicator for these planned features, or clarifying they are documented capabilities that are not yet exposed to the workflow system",
+      "source_reference": "src/cook/workflow/git_context.rs:488-505 (resolve_variable method exists but not called during interpolation)"
+    },
+    {
+      "type": "unclear_content",
+      "severity": "low",
+      "section": "Overview",
+      "description": "The page duplicates content that exists in docs/git-context/overview.md, which could cause maintenance issues",
+      "current_content": "Git context is automatically tracked when you run workflows...",
+      "fix_suggestion": "Consider restructuring to either: 1) Make this page a summary that links to the detailed section pages, or 2) Consolidate all git context docs into this single page and remove the section",
+      "source_reference": "docs/git-context/overview.md, docs/git-context/shell-filtering.md"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate implementation status warning at the top clearly sets user expectations",
+    "Comprehensive variable reference table with all 16 git context variables",
+    "Practical shell filtering examples cover common use cases (grep, tr, jq)",
+    "Good troubleshooting section with common issues and solutions",
+    "Correct source code references (git_context.rs, context.rs)",
+    "MapReduce workflow integration examples",
+    "Best practices section with actionable guidance"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for the warning at the top instead of blockquote syntax",
+    "Add tabs for different shell filtering approaches (bash, zsh, fish)",
+    "Add copy buttons to code blocks for better UX",
+    "Consider adding a navigation sidebar to link to related git-context/ section pages",
+    "Add a diagram showing how git tracking flows through workflow execution"
+  ],
+  "cross_references": [
+    "git-context/overview",
+    "git-context/shell-filtering",
+    "git-context/use-cases",
+    "git-context/best-practices",
+    "mapreduce"
+  ],
+  "visual_enhancement_opportunities": {
+    "admonitions": [
+      {
+        "location": "Top warning about implementation status",
+        "suggested_type": "warning",
+        "content": "Current implementation only provides space-separated strings"
+      },
+      {
+        "location": "Pattern Syntax Not Working troubleshooting",
+        "suggested_type": "danger",
+        "content": "Pattern modifiers are not implemented"
+      }
+    ],
+    "tabs": [
+      {
+        "location": "Shell-Based Filtering and Formatting",
+        "suggested_content": "Different shell examples (Bash, Zsh, Posix)"
+      }
+    ],
+    "diagrams": [
+      {
+        "location": "How Git Tracking Works",
+        "suggested_type": "flowchart",
+        "description": "Show data flow: GitChangeTracker → StepChanges → InterpolationContext → Variable Resolution"
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "git tracking",
+      "workflow variables",
+      "shell filtering",
+      "MapReduce integration",
+      "troubleshooting"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "related_features": [
+      "git_integration.worktree_management",
+      "git_integration.commit_tracking",
+      "variable_system.standard_variables",
+      "mapreduce_workflows.phases.map"
+    ],
+    "implementation_files_checked": [
+      "src/cook/workflow/git_context.rs",
+      "src/cook/workflow/executor/context.rs"
+    ]
+  }
+}
