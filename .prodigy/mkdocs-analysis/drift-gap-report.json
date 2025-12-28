@@ -1,0 +1,62 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "gap-report",
+  "page_title": "gap report",
+  "page_file": "docs/automated-documentation/gap-detection/gap-report.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Page accurately documents gap report structure and execution progress. Minor inaccuracy in test file line count reference.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Testing",
+      "description": "Test file line count reference is off by one",
+      "current_content": "tests/documentation_gap_detection_test.rs:1-678",
+      "should_be": "tests/documentation_gap_detection_test.rs:1-677",
+      "fix_suggestion": "Update line range to reflect actual file size (677 lines)",
+      "source_reference": "tests/documentation_gap_detection_test.rs"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Gap Report Structure",
+      "description": "Missing visual diagram showing gap report data flow",
+      "fix_suggestion": "Add a mermaid diagram showing how features.json and chapters.json are compared to generate gap-report.json",
+      "source_reference": ".claude/commands/prodigy-detect-documentation-gaps.md"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Usage",
+      "description": "No code annotation or tabbed examples showing different scenarios",
+      "fix_suggestion": "Add MkDocs Material tabs showing gap report examples for different scenarios (no gaps found, gaps found, structure mismatch)",
+      "source_reference": "features.json:meta_content.common_patterns"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive JSON schema documentation for gap report",
+    "Clear execution progress output examples",
+    "Good error handling documentation",
+    "Accurate test coverage section with specific line references",
+    "Well-structured final summary example"
+  ],
+  "improvement_suggestions": [
+    "Add mermaid diagram showing gap detection data flow",
+    "Add MkDocs Material admonitions for tips and warnings",
+    "Include tabbed examples for different gap scenarios",
+    "Add code annotations to JSON examples explaining each field",
+    "Link to related pages in the gap-detection section"
+  ],
+  "cross_references": [
+    "gap-detection/overview",
+    "gap-detection/topic-normalization",
+    "gap-detection/validation-phases"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:40:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["gap report structure", "execution progress", "error handling", "testing"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
