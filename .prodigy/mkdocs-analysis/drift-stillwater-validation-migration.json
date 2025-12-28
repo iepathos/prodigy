@@ -1,0 +1,111 @@
+{
+  "item_type": "page",
+  "page_id": "stillwater-validation-migration",
+  "page_title": "stillwater validation migration",
+  "page_file": "docs/stillwater-validation-migration.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good migration guide with accurate before/after examples, but lacks MkDocs Material visual features and cross-references to related Stillwater patterns documentation",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Overview",
+      "description": "Migration guide does not mention or link to the existing Stillwater patterns documentation (docs/stillwater-patterns/) which provides complementary content including error-accumulation.md, semigroup-composition.md, and error-context.md",
+      "fix_suggestion": "Add a 'Related Documentation' section at the top or bottom that links to the Stillwater patterns section for deeper reading on each pattern",
+      "source_reference": "docs/stillwater-patterns/index.md"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "All sections",
+      "description": "Page lacks MkDocs Material visual features that enhance readability: admonitions (tip, warning, info boxes), tabbed code examples, mermaid diagrams for flow visualization",
+      "fix_suggestion": "Add admonitions for key benefits, tabbed examples for before/after comparisons, and a mermaid diagram showing validation flow",
+      "source_reference": "docs/stillwater-patterns/error-accumulation.md:7-38 (has example mermaid diagram)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Pattern 1: Single Field Validation",
+      "description": "The 'After' example uses FileExistsCheck as function parameter but doesn't show the type alias definition that exists in the actual codebase",
+      "current_content": "exists_check: FileExistsCheck,",
+      "should_be": "Include type alias: `pub type FileExistsCheck = fn(&Path) -> bool;`",
+      "fix_suggestion": "Add the type alias definition to the code example for completeness",
+      "source_reference": "src/core/validation/mod.rs:11"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Migration Patterns",
+      "description": "Does not document the JSON schema validation pattern that exists in the codebase (validate_json_schema function with required_fields and null field checks)",
+      "fix_suggestion": "Add a Pattern 5: JSON Schema Validation section showing the validate_json_schema function pattern",
+      "source_reference": "src/core/validation/mod.rs:393-425"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Error Severity Classification",
+      "description": "The ErrorSeverity enum in the docs shows only Error and Warning, but the actual implementation includes additional context for specific warning types like JsonFieldNull",
+      "current_content": "Shows basic Error/Warning enum",
+      "should_be": "Include the JsonFieldNull warning type documented in the actual implementation",
+      "fix_suggestion": "Update the severity method match arm to include JsonFieldNull as shown in the actual implementation",
+      "source_reference": "src/core/validation/mod.rs:117-132"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Testing Benefits",
+      "description": "Testing section does not show the comprehensive test patterns from the actual codebase that demonstrate error accumulation verification",
+      "fix_suggestion": "Add examples from src/core/validation/mod.rs tests showing test_validate_paths_accumulates_all_errors pattern",
+      "source_reference": "src/core/validation/mod.rs:563-579"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate before/after code examples showing migration from imperative to functional style",
+    "Clear explanation of error accumulation benefits",
+    "Good coverage of multiple migration patterns (path, environment, command, resource limits)",
+    "Proper Rust code examples with stillwater::Validation usage",
+    "Includes ValidationResult backward compatibility wrapper explanation",
+    "Performance considerations section addresses potential concerns",
+    "Migration checklist provides actionable steps",
+    "Key takeaways summarize the benefits effectively"
+  ],
+  "improvement_suggestions": [
+    "Add mermaid diagram showing validation flow (fail-fast vs accumulation) similar to docs/stillwater-patterns/error-accumulation.md",
+    "Use MkDocs Material admonitions for tips, warnings, and important notes",
+    "Add tabbed code examples (=== 'Before' / === 'After') for cleaner comparison",
+    "Link to related Stillwater patterns documentation for deeper reading",
+    "Add source code references with file paths and line numbers for traceability",
+    "Include a 'When to Use This Pattern' section for decision guidance",
+    "Consider moving this page to docs/stillwater-patterns/ section for better organization"
+  ],
+  "cross_references": [
+    "docs/stillwater-patterns/index.md",
+    "docs/stillwater-patterns/error-accumulation.md",
+    "docs/stillwater-patterns/semigroup-composition.md",
+    "docs/stillwater-patterns/error-context.md",
+    "docs/stillwater-pattern-mapping.md"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "validation",
+      "error accumulation",
+      "stillwater library",
+      "migration patterns",
+      "functional programming",
+      "pure functions",
+      "testing"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_compared": [
+      "src/core/validation/mod.rs",
+      "src/cook/orchestrator/pure.rs",
+      "docs/stillwater-patterns/error-accumulation.md"
+    ],
+    "total_internal_links_found": 0,
+    "broken_links_count": 0,
+    "link_validation_note": "Page contains no internal documentation links - this is unusual for a documentation page and should have cross-references to related patterns"
+  }
+}
