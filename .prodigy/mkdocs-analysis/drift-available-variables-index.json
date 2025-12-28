@@ -1,0 +1,110 @@
+{
+  "item_type": "page",
+  "page_id": "available-variables-index",
+  "page_title": "Available Variables Index",
+  "page_file": "docs/variables/available-variables/index.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides good overview but Quick Reference tables have some missing documented variables that exist in codebase",
+  "issues": [
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Quick Reference - Standard Variables",
+      "description": "Missing ${last.output} variable documentation - documented in quick reference table but not fully explained. The codebase shows shell.last_output and shell.exit_code are also available but not in the quick reference.",
+      "feature_reference": "variable_system.standard_variables",
+      "fix_suggestion": "Add shell.last_output and shell.exit_code to the Standard Variables quick reference table",
+      "source_reference": "src/cook/common_strings.rs:29-31 (SHELL_OUTPUT, SHELL_LAST_OUTPUT, SHELL_EXIT_CODE)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Quick Reference - MapReduce Variables",
+      "description": "Missing ${map.failed} variable in the MapReduce quick reference table. The codebase defines MAP_FAILED as a core variable.",
+      "feature_reference": "variable_system.mapreduce_variables",
+      "fix_suggestion": "Add row: | `${map.failed}` | Reduce | Number of failed items |",
+      "source_reference": "src/cook/common_strings.rs:38 (MAP_FAILED)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Quick Reference - Standard Variables",
+      "description": "Missing session and project context variables that are available: ${session.id}, ${project.root}, ${project.name}, ${worktree.name}, ${worktree.path}",
+      "feature_reference": "variable_system.standard_variables",
+      "fix_suggestion": "Consider adding these context variables to the Quick Reference or noting they exist in the Standard Variables page",
+      "source_reference": "src/cook/common_strings.rs:42-47"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Variable Categories Grid",
+      "description": "The Git and Merge Variables card description mentions 'file change monitoring' but the quick reference only shows step.files_modified. The codebase has richer commit tracking including step.commits",
+      "feature_reference": "git_integration.commit_tracking",
+      "fix_suggestion": "Update card description or ensure git-merge-variables.md covers step.commits comprehensively",
+      "source_reference": "src/cook/workflow/executor.rs:555, src/cook/workflow/executor/context.rs:123"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent use of MkDocs Material grid cards for visual organization",
+    "Clear categorization of variable types into Standard, MapReduce, Git, and Interpolation Reference",
+    "Quick Reference tables provide at-a-glance lookup for common variables",
+    "All linked pages (standard-variables.md, mapreduce-variables.md, git-merge-variables.md, interpolation-reference.md) exist and are valid",
+    "Good use of Material icons for visual distinction between categories"
+  ],
+  "improvement_suggestions": [
+    "Add a note about computed variable types (env.*, file:*, cmd:*, date:*, uuid) being documented in Standard Variables page",
+    "Consider adding a small 'Context Variables' section for session.id, project.root, etc.",
+    "Add a link to the Semigroup-based aggregation documentation for advanced users"
+  ],
+  "cross_references": [
+    "standard-variables.md",
+    "mapreduce-variables.md",
+    "git-merge-variables.md",
+    "interpolation-reference.md"
+  ],
+  "link_validation": {
+    "total_internal_links": 4,
+    "broken_links": 0,
+    "all_links_valid": true,
+    "validated_links": [
+      {
+        "text": "Standard Variables",
+        "target": "standard-variables.md",
+        "exists": true
+      },
+      {
+        "text": "MapReduce Variables",
+        "target": "mapreduce-variables.md",
+        "exists": true
+      },
+      {
+        "text": "Git and Merge Variables",
+        "target": "git-merge-variables.md",
+        "exists": true
+      },
+      {
+        "text": "Interpolation Reference",
+        "target": "interpolation-reference.md",
+        "exists": true
+      }
+    ]
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "variable interpolation",
+      "standard variables",
+      "mapreduce variables",
+      "git variables",
+      "merge variables"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "visual_features_used": [
+      "MkDocs Material grid cards",
+      "Material icons (:material-format-text:, :material-map:, :material-source-branch:, :material-code-braces:)",
+      "Octicons arrow icons (:octicons-arrow-right-24:)",
+      "Markdown tables for quick reference"
+    ]
+  }
+}
