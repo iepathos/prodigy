@@ -81,6 +81,17 @@ graph TD
         └── {job_id}.json
 ```
 
+!!! warning "Storage Growth"
+    Checkpoint files, event logs, and DLQ items accumulate over time. For long-running projects with many jobs, periodically clean up old data:
+
+    ```bash
+    # List completed sessions
+    prodigy sessions list --status completed
+
+    # Clean old worktrees
+    prodigy worktree clean
+    ```
+
 ## Event Storage
 
 Event logs are stored as JSONL files for efficient streaming:
@@ -198,18 +209,24 @@ Job state and checkpoints are stored globally:
 // Source: src/cook/execution/mapreduce/checkpoint/types.rs
 {
   "phase": "reduce",
-  "completed_steps": [0, 1],     // (1)!
-  "current_step": 2,              // (2)!
-  "step_results": {...},          // (3)!
-  "map_results": {...},           // (4)!
+  "completed_steps": [0, 1],
+  "current_step": 2,
+  "step_results": {...},
+  "map_results": {...},
   "timestamp": "2025-01-11T12:10:00Z"
 }
 ```
 
-1. Indices of reduce commands that have completed
-2. Index of the currently executing reduce command
-3. Output captured from completed reduce steps
-4. Aggregated results from all map agents (available to reduce commands)
+!!! tip "Inspecting Checkpoints"
+    You can inspect checkpoint files to understand job state:
+
+    ```bash
+    # Find latest checkpoint for a job
+    ls -la ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/
+
+    # View map phase progress
+    cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/map-checkpoint-*.json | jq '.completed_items | length'
+    ```
 
 !!! note "Checkpoint File Naming"
     Checkpoint files include auto-generated timestamp suffixes:
