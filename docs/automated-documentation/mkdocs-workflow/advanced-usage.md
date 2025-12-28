@@ -6,51 +6,173 @@ This page covers advanced configuration options, integration with existing proje
 
 ### Custom Project Configuration
 
-Create a project-specific configuration file:
+Create a project-specific configuration file to customize how the MkDocs workflow analyzes and updates your documentation:
 
-```json
-// .prodigy/mkdocs-config.json
+```json title=".prodigy/mkdocs-config.json"
 {
   "project_name": "Prodigy",
-  "docs_dir": "book/src",
+  "project_type": "cli_tool",
+  "docs_dir": "docs",
   "mkdocs_config": "mkdocs.yml",
+  "analysis_dir": ".prodigy/mkdocs-analysis",
   "theme": "material",
-  "validation": {
-    "require_source_attribution": true,
-    "require_examples": true,
-    "max_drift_severity": "medium"
+  "features": {
+    "navigation.tabs": true,
+    "navigation.sections": true,
+    "navigation.expand": true,
+    "content.code.copy": true,
+    "content.tabs.link": true
   },
-  "gap_detection": {
-    "auto_create_stubs": true,
-    "min_coverage_threshold": 0.8
-  }
+  "plugins": ["search", "tags"],
+  "markdown_extensions": [
+    "admonition",
+    "pymdownx.details",
+    "pymdownx.superfences",
+    "pymdownx.tabbed",
+    "pymdownx.highlight"
+  ],
+  "validation": {
+    "strict_mode": true,
+    "check_links": true,
+    "check_navigation": true
+  },
+  "analysis_targets": [
+    {
+      "area": "mapreduce",
+      "source_files": ["src/config/mapreduce.rs"],
+      "feature_categories": ["phases", "capabilities", "configuration"]
+    }
+  ]
+}
+```
+
+!!! note "Configuration Fields"
+    - **project_type**: Type of project (`cli_tool`, `library`, `web_app`)
+    - **analysis_dir**: Where analysis outputs are stored
+    - **features**: MkDocs Material theme features to enable
+    - **plugins**: MkDocs plugins to use
+    - **markdown_extensions**: Markdown extensions for enhanced formatting
+    - **analysis_targets**: Source areas to analyze for feature documentation
+
+### Analysis Targets
+
+The `analysis_targets` array configures which source files and feature categories to analyze:
+
+```json title=".prodigy/mkdocs-config.json (excerpt)"
+{
+  "analysis_targets": [
+    {
+      "area": "error_handling",
+      "source_files": [
+        "src/cook/workflow/error_policy.rs",
+        "src/config/command.rs"
+      ],
+      "feature_categories": [
+        "workflow_level",
+        "command_level",
+        "retry",
+        "circuit_breaker",
+        "dlq"
+      ]
+    },
+    {
+      "area": "retry_configuration",
+      "source_files": [
+        "src/config/command.rs",
+        "src/cook/workflow/retry.rs"
+      ],
+      "feature_categories": [
+        "retry_defaults",
+        "backoff_strategies",
+        "retry_budget",
+        "conditional_retry"
+      ]
+    }
+  ]
 }
 ```
 
 ### Validation Thresholds
 
-Configure validation strictness in the workflow:
+Configure validation strictness per command step in the agent template:
 
-```yaml
-validate:
-  threshold: 100  # 100% = strict, 80% = lenient
-  on_incomplete:
-    claude: "/prodigy-complete-mkdocs-fix --project $PROJECT_NAME --json '${item}' --gaps ${validation.gaps}"
-    max_attempts: 3
-    fail_workflow: false  # Continue even if can't reach 100%
+```yaml title="workflows/mkdocs-drift.yml (excerpt)"
+# Source: workflows/mkdocs-drift.yml:71-88
+agent_template:
+  - claude: "/prodigy-fix-mkdocs-drift --project $PROJECT_NAME --json '${item}'"
+    commit_required: true
+    validate:
+      claude: "/prodigy-validate-mkdocs-page --project $PROJECT_NAME --json '${item}'"
+      result_file: ".prodigy/validation-result.json"
+      threshold: 100  # 100% = strict, 80% = lenient
+      on_incomplete:
+        claude: "/prodigy-complete-mkdocs-fix --project $PROJECT_NAME --json '${item}' --gaps ${validation.gaps}"
+        max_attempts: 3
+        fail_workflow: false  # Continue even if can't reach 100%
+        commit_required: true
 ```
+
+!!! tip "Validation Behavior"
+    The `validate` block is a per-step configuration within `agent_template`, not a top-level workflow key. Each step can have its own validation rules.
 
 ### Error Handling
 
-Configure how the workflow responds to failures:
+Configure how the workflow responds to failures with comprehensive error policies:
 
-```yaml
-error_policy:
-  on_item_failure: dlq       # Send failures to dead letter queue
-  continue_on_failure: true  # Process remaining items
-  max_failures: 2            # Stop after 2 failures
-  error_collection: aggregate # Report all errors at end
-```
+=== "Basic Configuration"
+
+    ```yaml
+    # Source: workflows/mkdocs-drift.yml:127-131
+    error_policy:
+      on_item_failure: dlq       # Send failures to dead letter queue
+      continue_on_failure: true  # Process remaining items
+      max_failures: 2            # Stop after 2 failures
+      error_collection: aggregate # Report all errors at end
+    ```
+
+=== "With Failure Threshold"
+
+    ```yaml
+    # Source: src/cook/workflow/error_policy.rs:131-161
+    error_policy:
+      on_item_failure: dlq
+      continue_on_failure: true
+      failure_threshold: 0.3    # Stop if >30% of items fail
+      error_collection: aggregate
+    ```
+
+=== "With Circuit Breaker"
+
+    ```yaml
+    # Source: src/cook/workflow/error_policy.rs:47-61
+    error_policy:
+      on_item_failure: dlq
+      continue_on_failure: true
+      circuit_breaker:
+        failure_threshold: 5    # Open after 5 consecutive failures
+        success_threshold: 3    # Close after 3 consecutive successes
+        timeout: "30s"          # Wait before attempting to close
+        half_open_requests: 3   # Requests allowed in half-open state
+    ```
+
+=== "With Retry Configuration"
+
+    ```yaml
+    # Source: src/cook/workflow/error_policy.rs:91-128
+    error_policy:
+      on_item_failure: retry
+      retry_config:
+        max_attempts: 3
+        backoff: exponential    # fixed, linear, exponential, or fibonacci
+    ```
+
+!!! info "Backoff Strategies"
+    Available backoff strategies for retries:
+
+    - **fixed**: Constant delay between retries
+    - **linear**: Delay increases by a fixed increment
+    - **exponential**: Delay doubles with each retry (default)
+    - **fibonacci**: Delay follows Fibonacci sequence
 
 ## Using with Existing MkDocs Projects
 
@@ -70,34 +192,48 @@ error_policy:
 
 ### Integrating with CI/CD
 
-**GitHub Actions Example:**
+=== "GitHub Actions"
 
-```yaml
-name: Update Documentation
+    ```yaml title=".github/workflows/docs.yml"
+    name: Update Documentation
 
-on:
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
-  workflow_dispatch:
+    on:
+      schedule:
+        - cron: '0 0 * * 0'  # Weekly on Sunday
+      workflow_dispatch:
 
-jobs:
-  update-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    jobs:
+      update-docs:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
 
-      - name: Install Prodigy
-        run: cargo install prodigy
+          - name: Install Prodigy
+            run: cargo install prodigy
 
-      - name: Run MkDocs Drift Detection
-        run: prodigy run workflows/mkdocs-drift.yml --auto-merge
+          - name: Run MkDocs Drift Detection
+            run: prodigy run workflows/mkdocs-drift.yml --auto-merge
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          title: "docs: automated MkDocs drift fixes"
-          branch: docs/mkdocs-drift
-```
+          - name: Create Pull Request
+            uses: peter-evans/create-pull-request@v5
+            with:
+              title: "docs: automated MkDocs drift fixes"
+              branch: docs/mkdocs-drift
+    ```
+
+=== "GitLab CI"
+
+    ```yaml title=".gitlab-ci.yml"
+    update-docs:
+      image: rust:latest
+      stage: docs
+      rules:
+        - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      script:
+        - cargo install prodigy
+        - prodigy run workflows/mkdocs-drift.yml --auto-merge
+        - git push origin HEAD:docs/mkdocs-drift
+    ```
 
 ## Troubleshooting
 
@@ -165,7 +301,7 @@ env:
 
 **Symptom:** Pages keep failing validation at 100% threshold
 
-**Solution:** Lower threshold or allow incomplete:
+**Solution:** Lower threshold or allow incomplete in the validate block:
 ```yaml
 validate:
   threshold: 80  # Lower to 80%
@@ -178,6 +314,7 @@ validate:
 ### 1. Run Regularly
 
 Schedule periodic runs to catch drift early:
+
 - **Weekly:** For active projects
 - **Monthly:** For stable projects
 - **After major changes:** When adding new features
@@ -211,7 +348,8 @@ Enable auto-fix for clear-cut issues:
 - claude: "/prodigy-validate-mkdocs-holistically --auto-fix true"
 ```
 
-But review auto-fixes before merging!
+!!! warning
+    Always review auto-fixes before merging! Automated changes may not always match your documentation style or intent.
 
 ### 5. Version Your Validation Reports
 
@@ -225,7 +363,7 @@ git commit -m "docs: validation report for mkdocs drift run"
 
 ### Example 1: Full Documentation from Scratch
 
-```yaml
+```yaml title="workflows/mkdocs-full-build.yml"
 name: prodigy-mkdocs-full-build
 mode: mapreduce
 
@@ -255,7 +393,7 @@ reduce:
 
 ### Example 2: Drift Detection Only (No Gaps)
 
-```yaml
+```yaml title="workflows/mkdocs-drift-only.yml"
 name: prodigy-mkdocs-drift-only
 mode: mapreduce
 
@@ -287,7 +425,7 @@ reduce:
 
 ### Example 3: Shared Source with mdbook
 
-```yaml
+```yaml title="workflows/mkdocs-shared-source.yml"
 name: prodigy-mkdocs-shared-source
 mode: mapreduce
 
