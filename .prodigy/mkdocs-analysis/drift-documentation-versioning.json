@@ -1,0 +1,74 @@
+{
+  "item_type": "page",
+  "page_id": "documentation-versioning",
+  "page_title": "documentation versioning",
+  "page_file": "docs/automated-documentation/documentation-versioning.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page documents planned features accurately with proper status disclaimers. References to draft specs (154, 155, 156) are appropriate for planned features but the specs don't exist in the codebase.",
+  "issues": [
+    {
+      "type": "missing_source_references",
+      "severity": "medium",
+      "section": "All Sections",
+      "description": "Page references specs 154, 155, and 156 which do not exist in the specs/ directory. These appear to be planned specifications that haven't been created yet.",
+      "current_content": "Multiple references to 'specs/154-mdbook-version-selector-ui.md', 'specs/155-versioned-documentation-deployment.md', 'specs/156-version-aware-book-workflow.md'",
+      "should_be": "Either create draft spec files or clarify that specs are conceptual designs not yet formalized",
+      "fix_suggestion": "Create placeholder spec files in specs/ directory or update source references to note these are design concepts"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Entire Page",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve readability",
+      "current_content": "Plain blockquote for status notice, no admonitions or visual indicators",
+      "should_be": "Use MkDocs Material admonitions for planned feature status, info boxes for key concepts",
+      "fix_suggestion": "Add admonitions: '!!! info \"Planned Feature\"' for status, '!!! tip' for best practices, tabs for alternative approaches"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Setup Instructions (Planned)",
+      "description": "Setup instructions reference template files that don't exist",
+      "current_content": "cp version-selector.js book/theme/ and cp templates/workflows/deploy-docs-versioned.yml",
+      "should_be": "Clarify that these files will be provided when feature is implemented or provide location",
+      "fix_suggestion": "Add note that template files will be available upon implementation, or remove specific file references"
+    }
+  ],
+  "positive_aspects": [
+    "Clear 'Status: Planned Feature' disclaimer at the top sets appropriate expectations",
+    "Well-structured documentation with logical progression from overview to implementation",
+    "Comprehensive coverage of all three planned components (UI, deployment, workflow)",
+    "Detailed YAML examples for workflow configuration",
+    "Good explanation of versions.json schema with field descriptions",
+    "Includes local testing workflow for developers",
+    "Addresses browser compatibility and graceful degradation",
+    "Version retention strategy shows long-term thinking",
+    "Source references (even if to non-existent specs) show documentation methodology"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for planned feature status using '!!! info' or '!!! warning'",
+    "Consider adding a timeline or roadmap section for implementation progress",
+    "Add cross-references to related pages like 'mkdocs-workflow.md' and 'github-actions-integration.md'",
+    "Include comparison with current (non-versioned) documentation approach",
+    "Add mermaid diagram for the deployment workflow architecture",
+    "Consider adding FAQ section for common questions about versioning"
+  ],
+  "cross_references": [
+    "mkdocs-workflow",
+    "github-actions-integration",
+    "advanced-configuration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T22:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["documentation versioning", "mdbook version selector", "github pages deployment", "version-aware workflows"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "notes": [
+      "This page documents planned features that are not yet implemented",
+      "Specifications 154, 155, 156 are referenced but do not exist in the codebase",
+      "No broken internal links found - page has no markdown links to other docs",
+      "Feature is described as 'in draft status' which matches reality"
+    ]
+  }
+}
