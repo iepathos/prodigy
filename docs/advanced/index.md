@@ -60,6 +60,33 @@ This chapter covers advanced workflow features for building sophisticated automa
 
 Control when commands execute based on expressions or previous command results.
 
+```mermaid
+flowchart LR
+    Start[Execute Command] --> Success{Success?}
+    Success -->|Yes| HasOnSuccess{on_success?}
+    Success -->|No| HasOnFailure{on_failure?}
+
+    HasOnSuccess -->|Yes| RunSuccess[Execute on_success]
+    HasOnSuccess -->|No| Next[Next Command]
+    RunSuccess --> Next
+
+    HasOnFailure -->|Yes| RunHandler[Execute Handler]
+    HasOnFailure -->|No| Fail[Fail Workflow]
+
+    RunHandler --> Retry{Retry?}
+    Retry -->|Yes| Start
+    Retry -->|No| CheckFail{fail_workflow?}
+    CheckFail -->|Yes| Fail
+    CheckFail -->|No| Next
+
+    style Success fill:#e8f5e9
+    style HasOnSuccess fill:#e1f5ff
+    style HasOnFailure fill:#fff3e0
+    style Fail fill:#ffebee
+```
+
+**Figure**: Conditional execution flow showing how on_success and on_failure handlers are evaluated.
+
 ### Expression-Based Conditions
 
 Use the `when` field to conditionally execute commands based on variable values:
@@ -193,6 +220,42 @@ Chain multiple levels of conditional execution:
 ## Output Capture and Variable Management
 
 Capture command output in different formats for use in subsequent steps.
+
+```mermaid
+flowchart LR
+    Cmd[Command Executes] --> Streams{capture_streams}
+    Streams -->|stdout| Stdout[stdout]
+    Streams -->|stderr| Stderr[stderr]
+    Streams -->|both| Both[stdout + stderr]
+
+    Stdout --> Format{capture_format}
+    Stderr --> Format
+    Both --> Format
+
+    Format -->|string| String[Trimmed Text]
+    Format -->|json| JSON[Parsed Object]
+    Format -->|lines| Lines[Array of Lines]
+    Format -->|number| Number[Numeric Value]
+    Format -->|boolean| Bool[true/false]
+
+    String --> Var["${capture_output}"]
+    JSON --> Var
+    Lines --> Var
+    Number --> Var
+    Bool --> Var
+
+    Cmd --> Meta["Metadata
+    exit_code, success, duration"]
+    Meta --> VarMeta["${var.exit_code}
+    ${var.success}
+    ${var.duration}"]
+
+    style Format fill:#e1f5ff
+    style Var fill:#e8f5e9
+    style VarMeta fill:#e8f5e9
+```
+
+**Figure**: Output capture pipeline showing stream selection, format parsing, and variable binding.
 
 ### Capture Variable
 
