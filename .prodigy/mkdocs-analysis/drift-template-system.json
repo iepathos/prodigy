@@ -1,0 +1,83 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "template-system",
+  "page_title": "template system",
+  "page_file": "docs/composition/template-system.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page has accurate core content but contains outdated implementation status for template overrides which is now implemented, and registry location documentation needs clarification",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Template Override / Implementation Status",
+      "description": "Documentation incorrectly states template override is 'not applied during workflow composition', but apply_overrides() is fully implemented in composer.rs:529-576. The function handles 'commands', 'env', 'merge' keys and supports dot notation for nested overrides.",
+      "current_content": "Implementation Status: The override_field is defined in the WorkflowTemplate struct (src/cook/workflow/composition/mod.rs:80-83) and is properly deserialized, but the application logic in apply_overrides() is not yet implemented.",
+      "should_be": "Template overrides are fully implemented and applied during composition. Supported override keys include 'commands', 'env', 'merge', and dot notation paths for nested values (e.g., 'commands[0].timeout').",
+      "fix_suggestion": "Update the Template Override section and Implementation Status to reflect that override application is now fully implemented. Remove the 'planned for future' status.",
+      "source_reference": "src/cook/workflow/composition/composer.rs:529-576"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Implementation Status",
+      "description": "Implementation status incorrectly shows template override as 'not applied in compose()' with a pending status marker",
+      "current_content": "⏳ Template override application (field exists but not applied in compose())",
+      "should_be": "✅ Template override application (supports commands, env, merge, and nested paths)",
+      "fix_suggestion": "Update the implementation status checkbox from ⏳ to ✅ and update the description to reflect current implementation",
+      "source_reference": "src/cook/workflow/composition/composer.rs:529-576"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Template Registry",
+      "description": "Registry locations described as '.prodigy/templates/' and '~/.prodigy/templates/' but code defaults to just 'templates' directory via FileTemplateStorage. The actual lookup behavior differs from documentation.",
+      "current_content": "Registry Locations: .prodigy/templates/ (local) and ~/.prodigy/templates/ (global)",
+      "should_be": "Default registry uses 'templates' directory. Custom storage paths can be configured via FileTemplateStorage::new(base_dir). The .prodigy/templates/ and ~/.prodigy/templates/ patterns are conventional but not enforced by default.",
+      "fix_suggestion": "Clarify that the default registry storage path is configurable and the .prodigy/ paths are conventions, not defaults. Show how to configure custom storage paths.",
+      "source_reference": "src/cook/workflow/composition/registry.rs:26-29"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Template Override",
+      "description": "Missing documentation for the specific override keys that are supported (commands, env, merge) and the dot notation syntax for nested overrides",
+      "fix_suggestion": "Add subsection documenting supported override keys: 'commands' (replaces command array), 'env' (replaces environment variables), 'merge' (replaces merge configuration), and 'path.to.field' syntax for nested value overrides",
+      "source_reference": "src/cook/workflow/composition/composer.rs:538-571"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source code references with line numbers throughout the document",
+    "Clear explanation of TemplateSource untagged enum and how it affects YAML format",
+    "Good coverage of template metadata fields and their storage format",
+    "Helpful examples showing different template source types (registry, file, URL)",
+    "Correctly identifies URL-based templates as unimplemented",
+    "Accurate documentation of template caching behavior",
+    "Good coverage of programmatic registration API with code examples"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for implementation status notes and warnings",
+    "Add tabbed code examples showing different template source configurations",
+    "Add a diagram showing template registry lookup order and caching flow",
+    "Add code annotations to YAML examples explaining each field",
+    "Add cross-reference to troubleshooting page for common template issues"
+  ],
+  "cross_references": [
+    "parameter-definitions.md",
+    "workflow-extension-inheritance.md",
+    "default-values.md"
+  ],
+  "internal_links_validated": true,
+  "broken_links": [],
+  "metadata": {
+    "analyzed_at": "2025-12-27T17:13:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["templates", "registry", "parameters", "overrides", "composition"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_analyzed": [
+      "src/cook/workflow/composition/mod.rs",
+      "src/cook/workflow/composition/registry.rs",
+      "src/cook/workflow/composition/composer.rs"
+    ]
+  }
+}
