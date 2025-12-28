@@ -119,29 +119,67 @@ commands:
 
 Commands support multiple error handling strategies:
 
+```mermaid
+flowchart LR
+    Exec[Execute Command] --> Check{Success?}
+    Check -->|Yes| OnSuccess{"on_success
+    defined?"}
+    Check -->|No| OnFail{"on_failure
+    defined?"}
+
+    OnSuccess -->|Yes| RunSuccess[Run Success Handler]
+    OnSuccess -->|No| Next[Next Command]
+    RunSuccess --> Next
+
+    OnFail -->|No| FailCheck{"continue_on_error?"}
+    OnFail -->|Yes| Handler[Run Failure Handler]
+
+    Handler --> Retry{"Retry?
+    (attempts < max)"}
+    Retry -->|Yes| Exec
+    Retry -->|No| FailWorkflow{"fail_workflow?"}
+
+    FailCheck -->|Yes| Next
+    FailCheck -->|No| Fail[Workflow Fails]
+    FailWorkflow -->|Yes| Fail
+    FailWorkflow -->|No| Next
+
+    style Check fill:#fff3e0
+    style Fail fill:#ffebee
+    style Next fill:#e8f5e9
+```
+
+!!! warning "Retry Behavior"
+    When `max_attempts > 1`, commands will automatically retry on failure. Ensure your commands are idempotent (safe to run multiple times) before enabling retries.
+
 ```yaml
 commands:
   - name: prodigy-risky-operation
     metadata:
-      continue_on_error: true
-      retries: 3
-      timeout: 600
+      continue_on_error: true  # (1)!
+      retries: 3               # (2)!
+      timeout: 600             # (3)!
 
   # Conditional execution on failure
-  # Source: src/config/command.rs:367-368
   - shell: "cargo test"
     on_failure:
       claude: "/prodigy-debug-test-failure"
-      max_attempts: 3
-      fail_workflow: true
-      commit_required: true
+      max_attempts: 3          # (4)!
+      fail_workflow: true      # (5)!
+      commit_required: true    # (6)!
 
   # Conditional execution on success
-  # Source: src/config/command.rs:371-372
   - shell: "cargo build --release"
     on_success:
       shell: "cargo install --path ."
 ```
+
+1. Continue workflow even if this command fails
+2. Number of automatic retry attempts
+3. Command timeout in seconds (10 minutes)
+4. Maximum attempts including retries in handler
+5. Stop workflow if all attempts fail
+6. Require a git commit for success (MapReduce)
 
 #### Conditional Execution
 
@@ -262,6 +300,22 @@ See the [MapReduce Workflows](../mapreduce/index.md) chapter for complete docume
 
 When multiple workflow sources exist, Prodigy uses this precedence:
 
-1. Explicit path via `prodigy run workflow.yml` (highest)
-2. `.prodigy/workflow.yml` in project directory
-3. Default workflow configuration (lowest)
+```mermaid
+graph LR
+    CLI["CLI Argument
+    prodigy run path.yml"] --> Project[".prodigy/workflow.yml
+    Project Directory"]
+    Project --> Default["Default Config
+    Built-in Defaults"]
+
+    CLI -.->|"Highest Priority"| Use[Used Workflow]
+    Project -.->|"If no CLI arg"| Use
+    Default -.->|"Fallback"| Use
+
+    style CLI fill:#e8f5e9
+    style Use fill:#e1f5ff
+```
+
+1. **Explicit path** via `prodigy run workflow.yml` (highest priority)
+2. **Project default** at `.prodigy/workflow.yml` in project directory
+3. **Default configuration** (lowest priority, built-in fallback)
