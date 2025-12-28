@@ -38,9 +38,13 @@ flowchart LR
 
 **Figure**: Work distribution pipeline showing data flow from input source through transformation stages to parallel agents. Implementation: [`DataPipeline.process()`](https://github.com/prodigy/src/cook/execution/data_pipeline/mod.rs#L129-L193).
 
+!!! warning "Pipeline Order Matters"
+    Stages execute in a fixed order: filter → sort → deduplicate → offset → limit. This means filtering happens before sorting, and deduplication sees the sorted results. Plan your configuration accordingly.
+
 ## Quick Example
 
-A minimal map phase configuration demonstrating work distribution:
+!!! example "Minimal Configuration"
+    A minimal map phase configuration demonstrating work distribution:
 
 ```yaml title="Minimal work distribution configuration"
 # Source: workflows/mapreduce-example.yml
@@ -58,6 +62,9 @@ map:
 ```
 
 ## Subpages
+
+!!! note "Detailed Documentation"
+    Each pipeline stage has dedicated documentation. Start with **Input Sources** to understand data loading, then explore filtering, sorting, and pagination as needed.
 
 This section is organized into the following pages:
 
