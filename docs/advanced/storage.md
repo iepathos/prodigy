@@ -16,9 +16,9 @@ Global storage features:
 ```mermaid
 graph TD
     Root["~/.prodigy/"] --> Events["events/"]
-    Root --> DLQ["dlq/"]
     Root --> State["state/"]
     Root --> Sessions["sessions/"]
+    Root --> Logs["logs/"]
     Root --> Worktrees["worktrees/"]
     Root --> Orphaned["orphaned_worktrees/"]
 
@@ -26,16 +26,18 @@ graph TD
     ERepo --> EJob["{job_id}/"]
     EJob --> EFiles["events-{timestamp}.jsonl"]
 
-    DLQ --> DRepo["{repo_name}/"]
-    DRepo --> DJob["{job_id}/"]
-    DJob --> DFiles["dlq-items.json"]
-
     State --> SRepo["{repo_name}/"]
-    SRepo --> MapReduce["mapreduce/jobs/{job_id}/"]
+    SRepo --> MapReduce["mapreduce/"]
+    MapReduce --> Jobs["jobs/{job_id}/"]
+    MapReduce --> DLQ["dlq/{job_id}/"]
     SRepo --> Mappings["mappings/"]
-    MapReduce --> Setup["setup-checkpoint.json"]
-    MapReduce --> Map["map-checkpoint-*.json"]
-    MapReduce --> Reduce["reduce-checkpoint-v1-*.json"]
+    Jobs --> Setup["setup-checkpoint.json"]
+    Jobs --> Map["map-checkpoint-*.json"]
+    Jobs --> Reduce["reduce-checkpoint-v1-*.json"]
+    DLQ --> DLQIndex["index.json"]
+    DLQ --> DLQItems["items/{item_id}.json"]
+
+    Logs --> LRepo["{repo_name}/"]
 
     Sessions --> SessionFiles["{session_id}.json"]
 
@@ -51,6 +53,7 @@ graph TD
     style State fill:#e8f5e9
     style Sessions fill:#f3e5f5
     style Worktrees fill:#e0f2f1
+    style Logs fill:#fce4ec
 ```
 
 **Figure**: Global storage hierarchy showing repository-organized structure.
@@ -61,20 +64,22 @@ graph TD
 │   └── {repo_name}/
 │       └── {job_id}/
 │           └── events-{timestamp}.jsonl
-├── dlq/                        # Dead Letter Queue
-│   └── {repo_name}/
-│       └── {job_id}/
-│           └── dlq-items.json
-├── state/                      # State and checkpoints
+├── state/                      # State, checkpoints, and DLQ
 │   └── {repo_name}/
 │       ├── mapreduce/
-│       │   └── jobs/{job_id}/
-│       │       ├── setup-checkpoint.json
-│       │       ├── map-checkpoint-{timestamp}.json
-│       │       └── reduce-checkpoint-v1-{timestamp}.json
+│       │   ├── jobs/{job_id}/
+│       │   │   ├── setup-checkpoint.json
+│       │   │   ├── map-checkpoint-{timestamp}.json
+│       │   │   └── reduce-checkpoint-v1-{timestamp}.json
+│       │   └── dlq/{job_id}/
+│       │       ├── index.json
+│       │       └── items/
+│       │           └── {item_id}.json
 │       └── mappings/
-│           ├── session-to-job.json
-│           └── job-to-session.json
+│           ├── {session_id}.json   # Contains bidirectional mapping
+│           └── {job_id}.json       # Duplicate for reverse lookup
+├── logs/                       # Workflow logs
+│   └── {repo_name}/
 ├── sessions/                   # Session tracking
 │   └── {session_id}.json
 ├── worktrees/                  # Git worktrees
@@ -227,36 +232,72 @@ Sessions are stored in a flat directory:
 
 ## Dead Letter Queue Storage
 
-Failed work items are stored per job:
+Failed work items are stored per job within the state directory:
 
 ```
-~/.prodigy/dlq/{repo_name}/{job_id}/dlq-items.json
+~/.prodigy/state/{repo_name}/mapreduce/dlq/{job_id}/
+├── index.json                  # Index of all item IDs
+└── items/
+    ├── {item_id_1}.json        # Individual item files
+    └── {item_id_2}.json
 ```
+
+!!! note "Per-Item Storage"
+    Each failed item is stored as a separate file under `items/`. This enables efficient updates without reading/rewriting all items and supports concurrent access from parallel worktrees.
 
 ### DLQ Item Format
 
 ```json
+// Source: src/cook/execution/dlq.rs:32-43 (DeadLetteredItem struct)
 {
   "item_id": "item-1",
   "item_data": {...},
+  "first_attempt": "2025-01-11T12:00:00Z",
+  "last_attempt": "2025-01-11T12:05:00Z",
+  "failure_count": 2,
   "failure_history": [
     {
+      "attempt_number": 1,
       "timestamp": "2025-01-11T12:00:00Z",
-      "error": "Timeout after 300 seconds",
-      "json_log_location": "/path/to/logs/session-xyz.json",
-      "retry_count": 0
+      "error_type": "Timeout",
+      "error_message": "Timeout after 300 seconds",
+      "error_context": ["Processing work item", "Executing agent"],
+      "stack_trace": null,
+      "agent_id": "agent-1",
+      "step_failed": "shell: npm test"
     }
   ],
-  "last_failure": "2025-01-11T12:00:00Z"
+  "error_signature": "timeout_agent-1_shell",
+  "worktree_artifacts": {
+    "worktree_path": "/path/to/worktree",
+    "branch_name": "agent-1-branch",
+    "last_commit": "abc123"
+  },
+  "reprocess_eligible": true,
+  "manual_review_required": false
+}
+```
+
+### DLQ Index Format
+
+The `index.json` file tracks all item IDs for quick enumeration:
+
+```json
+// Source: src/cook/execution/dlq.rs:615-630 (update_index)
+{
+  "item_ids": ["item-1", "item-2", "item-3"]
 }
 ```
 
 ### DLQ Features
 
 - **Cross-worktree tracking**: Shared across parallel worktrees
-- **Failure history**: Track all retry attempts
+- **Failure history**: Track all retry attempts with full context
 - **Log linkage**: JSON log location for debugging
 - **Retry support**: Command to reprocess failed items
+- **Error signatures**: Group similar failures for pattern analysis
+- **Worktree artifacts**: Preserve debugging context from failed agents
+- **Eligibility flags**: Distinguish retriable failures from permanent errors
 
 ## Worktree Storage
 
@@ -272,10 +313,42 @@ Git worktrees are created per session:
 
 ### Worktree Lifecycle
 
-1. **Creation**: Worktree created when workflow starts
-2. **Execution**: All commands run in worktree context
-3. **Persistence**: Worktree remains until merge or cleanup
-4. **Cleanup**: Removed after successful merge
+```mermaid
+stateDiagram-v2
+    [*] --> Created: Workflow Start
+    Created --> Executing: Commands Run
+    Executing --> Executing: More Commands
+    Executing --> Persisted: Commands Complete
+    Persisted --> Merged: User Approves Merge
+    Persisted --> Cleanup: User Declines/Cancels
+    Merged --> [*]: Worktree Removed
+    Cleanup --> [*]: Worktree Removed
+    Executing --> Orphaned: Cleanup Fails
+
+    note right of Created
+        Branch created from parent
+        Isolated from main repo
+    end note
+
+    note right of Persisted
+        Changes preserved
+        Awaiting user decision
+    end note
+
+    note right of Orphaned
+        Registered in
+        orphaned_worktrees/
+    end note
+```
+
+**Figure**: Worktree lifecycle showing state transitions from creation to cleanup.
+
+**Lifecycle Stages**:
+
+1. **Created**: Worktree created when workflow starts
+2. **Executing**: All commands run in worktree context
+3. **Persisted**: Worktree remains until merge or cleanup
+4. **Merged/Cleanup**: Removed after successful merge or user cancellation
 
 ## Orphaned Worktree Tracking
 
@@ -308,25 +381,25 @@ Bidirectional mapping enables resume with session or job IDs:
 
 ```
 ~/.prodigy/state/{repo_name}/mappings/
-├── session-to-job.json
-└── job-to-session.json
+├── {session_id}.json       # Lookup by session ID
+└── {job_id}.json           # Lookup by job ID
 ```
+
+!!! note "Duplicate Files for Fast Lookup"
+    Each mapping is stored twice: once keyed by session ID and once by job ID. Both files contain the same bidirectional mapping data, enabling O(1) lookup regardless of which ID you have.
 
 ### Mapping Format
 
-**session-to-job.json**:
 ```json
+// Source: src/storage/session_job_mapping.rs:40-51 (store)
 {
-  "session-mapreduce-xyz": "mapreduce-123"
+  "session_id": "session-mapreduce-xyz",
+  "job_id": "mapreduce-123",
+  "created_at": "2025-01-11T12:00:00Z"
 }
 ```
 
-**job-to-session.json**:
-```json
-{
-  "mapreduce-123": "session-mapreduce-xyz"
-}
-```
+This file is stored as both `session-mapreduce-xyz.json` and `mapreduce-123.json` in the mappings directory.
 
 ## Performance Characteristics
 
@@ -506,16 +579,19 @@ cat ~/.prodigy/events/prodigy/mapreduce-123/events-*.jsonl | jq
 # Check checkpoint
 cat ~/.prodigy/state/prodigy/mapreduce/jobs/mapreduce-123/map-checkpoint-*.json | jq
 
-# Inspect DLQ
-cat ~/.prodigy/dlq/prodigy/mapreduce-123/dlq-items.json | jq
+# List DLQ items
+cat ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-123/index.json | jq
+
+# Inspect specific DLQ item
+cat ~/.prodigy/state/prodigy/mapreduce/dlq/mapreduce-123/items/item-1.json | jq
 ```
 
 ### Find Session by Job ID
 
 ```bash
-# Look up session ID
+# Look up session ID (mapping file is named after job ID)
 job_id="mapreduce-123"
-session_id=$(jq -r ".\"$job_id\"" ~/.prodigy/state/prodigy/mappings/job-to-session.json)
+session_id=$(jq -r '.session_id' ~/.prodigy/state/prodigy/mappings/$job_id.json)
 
 # View session
 cat ~/.prodigy/sessions/$session_id.json | jq
