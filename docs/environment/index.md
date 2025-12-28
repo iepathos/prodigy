@@ -6,6 +6,38 @@ Prodigy provides flexible environment configuration for workflows, allowing you 
 
 Prodigy uses a two-layer architecture for environment management:
 
+```mermaid
+graph LR
+    subgraph User["User-Facing (WorkflowConfig)"]
+        direction LR
+        ENV["env: static strings"]
+        SECRETS["secrets: sensitive values"]
+        PROFILES["profiles: environment variants"]
+        ENVFILES["env_files: .env loading"]
+    end
+
+    subgraph Runtime["Internal Runtime (EnvironmentConfig)"]
+        direction LR
+        STATIC["Static Values"]
+        DYNAMIC["Dynamic Values"]
+        CONDITIONAL["Conditional Logic"]
+        STEP["Step Environment"]
+    end
+
+    ENV --> STATIC
+    SECRETS --> STATIC
+    PROFILES --> STATIC
+    ENVFILES --> STATIC
+    STATIC --> DYNAMIC
+    DYNAMIC --> CONDITIONAL
+    CONDITIONAL --> STEP
+
+    style User fill:#e1f5ff
+    style Runtime fill:#fff3e0
+```
+
+**Figure**: Environment configuration layers showing user-facing YAML fields flowing into the internal runtime.
+
 1. **WorkflowConfig**: User-facing YAML configuration with `env`, `secrets`, `profiles`, and `env_files` fields
 2. **EnvironmentConfig**: Internal runtime configuration that extends workflow config with additional features
 
@@ -99,6 +131,9 @@ commands:
 - You want explicit, unambiguous references (recommended)
 
 ### When `${VAR}` is Required
+
+!!! warning "Common Pitfall"
+    Using `$VAR` when adjacent to other text causes shell misinterpretation. For example, `$NAME_VERSION` looks for a variable literally named `NAME_VERSION`, not `NAME` followed by `_VERSION`. Always use `${VAR}` in these cases.
 
 **1. Adjacent to text:**
 ```yaml
@@ -211,40 +246,46 @@ commands:
 
 ### Quick Syntax Comparison
 
-**Simple case (both acceptable):**
+=== "Simple Case"
+    Both syntaxes work when the variable stands alone:
 
-```yaml
-commands:
-  - shell: "echo Port: $PORT"
-  - shell: "echo Port: ${PORT}"
-```
+    ```yaml
+    commands:
+      - shell: "echo Port: $PORT"
+      - shell: "echo Port: ${PORT}"
+    ```
 
-**Complex case (requires `${VAR}`):**
+=== "Complex Case"
+    Bracketed syntax is **required** when adjacent to text or in paths:
 
-```yaml
-env:
-  PROJECT: api
-  VERSION: "1.0"
-  ENVIRONMENT: prod
+    ```yaml
+    env:
+      PROJECT: api
+      VERSION: "1.0"
+      ENVIRONMENT: prod
 
-commands:
-  # Required - variables adjacent to text and in paths
-  - shell: "deploy-${PROJECT}-v${VERSION}.sh --env ${ENVIRONMENT}"
-  - shell: "cp /src/config.${ENVIRONMENT}.json /etc/${PROJECT}/config.json"
-```
+    commands:
+      # Required - variables adjacent to text and in paths
+      - shell: "deploy-${PROJECT}-v${VERSION}.sh --env ${ENVIRONMENT}"
+      - shell: "cp /src/config.${ENVIRONMENT}.json /etc/${PROJECT}/config.json"
+    ```
 
-**Recommended approach (always use `${VAR}`):**
+=== "Recommended"
+    Always use `${VAR}` for consistency and clarity:
 
-```yaml
-env:
-  DATABASE: myapp
-  USER: admin
-  HOST: localhost
+    ```yaml
+    env:
+      DATABASE: myapp
+      USER: admin
+      HOST: localhost
 
-commands:
-  - shell: "psql -h ${HOST} -U ${USER} -d ${DATABASE}"
-  - shell: "backup-${DATABASE}-$(date +%Y%m%d).sql"
-```
+    commands:
+      - shell: "psql -h ${HOST} -U ${USER} -d ${DATABASE}"
+      - shell: "backup-${DATABASE}-$(date +%Y%m%d).sql"
+    ```
+
+!!! tip "Best Practice"
+    Always use `${VAR}` syntax for consistency. It works in all cases and makes your workflows more readable and maintainable.
 
 ---
 
