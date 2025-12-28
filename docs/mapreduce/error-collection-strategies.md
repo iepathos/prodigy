@@ -36,35 +36,62 @@ Both syntaxes are fully supported. Use the top-level syntax for simplicity, or t
 
 ### Available Strategies
 
-**Aggregate (default)**:
+#### Aggregate (default)
+
 ```yaml
 error_collection: aggregate
 ```
+
 - Collects all errors in memory and reports at workflow end
 - Errors are stored as they occur but not logged
 - Full error list displayed when workflow completes
-- Use for: Final summary reports, batch processing where individual failures don't need immediate attention
-- Trade-off: Low noise, but you won't see errors until completion
 
-**Immediate**:
+!!! tip "When to use"
+    Use for final summary reports or batch processing where individual failures don't need immediate attention.
+
+!!! info "Trade-off"
+    Low noise during execution, but you won't see errors until workflow completion.
+
+#### Immediate
+
 ```yaml
 error_collection: immediate
 ```
+
 - Logs each error as soon as it happens via `warn!` level logging
 - No error collection in memory
 - Errors visible in real-time during execution
-- Use for: Debugging, development, real-time monitoring
-- Trade-off: More verbose output, but immediate visibility
 
-**Batched**:
+!!! tip "When to use"
+    Use for debugging, development, or real-time monitoring scenarios.
+
+!!! info "Trade-off"
+    More verbose output, but provides immediate visibility into failures.
+
+#### Batched
+
 ```yaml
 error_collection: batched:10
 ```
+
 - Collects errors in memory until batch size is reached
 - When N errors collected, logs the entire batch via `warn!` level logging and automatically clears the buffer
-- Use for: Progress updates without spam, monitoring long-running jobs
-- Trade-off: Balance between noise and visibility (e.g., `batched:10` reports every 10 failures)
-- **Implementation**: Buffer is cleared using `drain(..)` after each batch is logged (src/cook/workflow/error_policy.rs:593)
+
+!!! tip "When to use"
+    Use for progress updates without spam, or monitoring long-running jobs.
+
+!!! info "Trade-off"
+    Balances noise and visibility (e.g., `batched:10` reports every 10 failures).
+
+!!! note "Implementation detail"
+    Buffer is cleared using `drain(..)` after each batch is logged.
+
+    ```rust
+    // Source: src/cook/workflow/error_policy.rs:594
+    for err in errors.drain(..) {
+        warn!("  - {}", err);
+    }
+    ```
 
 ### Complete Example
 
@@ -94,7 +121,7 @@ map:
     - claude: "/process '${item}'"
 ```
 
-**Note**: If `error_collection` is not specified, the default behavior is `aggregate`.
+!!! note "Default behavior"
+    If `error_collection` is not specified, the default behavior is `aggregate`.
 
 See also: [Error Handling](../workflow-basics/error-handling.md), [Dead Letter Queue](dead-letter-queue-dlq.md)
-
