@@ -1,0 +1,130 @@
+{
+  "item_type": "page",
+  "page_id": "event-tracking",
+  "page_title": "event tracking",
+  "page_file": "docs/advanced/observability/event-tracking.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation has significant discrepancies with actual codebase event structures and is missing several event types",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Event Types - JSON Structure",
+      "description": "All event JSON examples show 'type' field but actual serialization uses 'event_type' with snake_case values",
+      "current_content": "\"type\": \"AgentStarted\"",
+      "should_be": "\"event_type\": \"agent_started\"",
+      "fix_suggestion": "Update all JSON examples to use 'event_type' field with snake_case values matching the serde rename_all attribute",
+      "source_reference": "src/cook/execution/events/event_types.rs:10"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Event Types",
+      "description": "Documentation shows 'WorkItemProcessed' event but this event type does not exist in the codebase",
+      "fix_suggestion": "Remove WorkItemProcessed from documentation or clarify if this is a legacy/planned event type",
+      "source_reference": "src/cook/execution/mapreduce/event.rs"
+    },
+    {
+      "type": "missing_content",
+      "severity": "high",
+      "section": "Event Types",
+      "description": "Documentation shows 'CheckpointSaved' event type but actual event is 'CheckpointCreated' with different structure (includes version, agents_completed)",
+      "current_content": "\"type\": \"CheckpointSaved\", \"checkpoint_path\": \"...\"",
+      "should_be": "\"event_type\": \"checkpoint_created\", \"version\": 1, \"agents_completed\": 5",
+      "fix_suggestion": "Update to use CheckpointCreated with correct fields from event_types.rs",
+      "source_reference": "src/cook/execution/events/event_types.rs:75-79"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Event Types - AgentStarted",
+      "description": "AgentStarted event is missing 'worktree' and 'attempt' fields documented in actual implementation",
+      "current_content": "Only shows job_id, agent_id, item_id, timestamp",
+      "should_be": "Should include worktree: String and attempt: u32",
+      "fix_suggestion": "Add worktree and attempt fields to AgentStarted example",
+      "source_reference": "src/cook/execution/events/event_types.rs:41-47"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Event Types - AgentFailed",
+      "description": "AgentFailed event is missing 'retry_eligible' field and 'failure_reason' enum from actual implementation",
+      "fix_suggestion": "Add retry_eligible: bool and document FailureReason enum (Timeout, CommandFailed, CommitValidationFailed, MergeConflict, WorktreeError, Unknown)",
+      "source_reference": "src/cook/execution/mapreduce/event.rs:11-25"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Event Types",
+      "description": "Many significant event types are not documented: MapPhaseStarted, MapPhaseCompleted, ReducePhaseStarted, ReducePhaseCompleted, JobStarted, JobCompleted, JobFailed, JobPaused, JobResumed, AgentProgress, AgentRetrying",
+      "fix_suggestion": "Add sections documenting phase-level events (MapPhaseStarted, MapPhaseCompleted, etc.) and job lifecycle events which are useful for monitoring",
+      "source_reference": "src/cook/execution/mapreduce/event.rs:122-161"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Event Types",
+      "description": "Worktree lifecycle events not documented: WorktreeCreated, WorktreeMerged, WorktreeCleaned",
+      "fix_suggestion": "Add worktree events section showing creation, merge, and cleanup lifecycle",
+      "source_reference": "src/cook/execution/events/event_types.rs:89-105"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Event Types",
+      "description": "DLQ events not documented: DLQItemAdded, DLQItemRemoved, DLQItemsReprocessed, DLQItemsEvicted, DLQAnalysisGenerated",
+      "fix_suggestion": "Add DLQ events section documenting failure tracking events",
+      "source_reference": "src/cook/execution/events/event_types.rs:121-143"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Event Types",
+      "description": "Additional Claude observability events not documented: ClaudeToolInvoked, ClaudeTokenUsage, ClaudeSessionStarted",
+      "fix_suggestion": "Add section documenting Claude-specific observability events for detailed debugging",
+      "source_reference": "src/cook/execution/events/event_types.rs:145-169"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Event Types",
+      "description": "Performance monitoring events not documented: QueueDepthChanged, MemoryPressure",
+      "fix_suggestion": "Add performance events section for operational monitoring",
+      "source_reference": "src/cook/execution/events/event_types.rs:108-118"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Event Types - AgentCompleted",
+      "description": "AgentCompleted is missing 'cleanup_status' and 'item_id' fields from actual implementation",
+      "fix_suggestion": "Add cleanup_status: Option<CleanupStatus> and item_id to AgentCompleted example",
+      "source_reference": "src/cook/execution/mapreduce/event.rs:139-147"
+    }
+  ],
+  "positive_aspects": [
+    "Good use of MkDocs Material code annotations (1)! format for explaining JSON fields",
+    "Clear event organization section with directory structure",
+    "Helpful tip admonition explaining cross-worktree event aggregation",
+    "Source reference comment in ClaudeMessage section points to correct file location",
+    "Clean JSONL format explanation"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference links to related pages (claude-observability.md, dlq.md)",
+    "Include event filtering/querying examples using jq",
+    "Document the two MapReduceEvent enums and their purposes (events/event_types.rs vs mapreduce/event.rs)",
+    "Add troubleshooting section for common event analysis patterns",
+    "Include example of tailing events in real-time"
+  ],
+  "cross_references": [
+    "claude-observability",
+    "debugging",
+    "log-management"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["events", "JSONL", "observability", "mapreduce tracking"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
