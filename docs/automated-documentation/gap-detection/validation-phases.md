@@ -2,6 +2,30 @@
 
 Gap detection includes validation phases to ensure generated artifacts are correct and complete before the map phase processes them.
 
+```mermaid
+flowchart LR
+    subgraph Setup["Setup Phase"]
+        direction LR
+        Chapters["chapters.json"] --> Flatten["Flatten Items"]
+        Flatten --> Items["flattened-items.json"]
+    end
+
+    subgraph Map["Map Phase"]
+        direction LR
+        Items --> A1["Agent 1\nChapter A"]
+        Items --> A2["Agent 2\nSubsection B"]
+        Items --> AN["Agent N\nSubsection N"]
+    end
+
+    A1 --> Analyze["Drift Analysis\n& Fixes"]
+    A2 --> Analyze
+    AN --> Analyze
+
+    style Chapters fill:#e1f5ff
+    style Items fill:#e8f5e9
+    style Analyze fill:#f3e5f5
+```
+
 ## Flattened Items Generation (Phase 8)
 
 **CRITICAL**: This file MUST be generated regardless of whether gaps are found. The map phase depends on it.
@@ -13,6 +37,9 @@ Gap detection includes validation phases to ensure generated artifacts are corre
 Creates a flat array of all chapters and subsections for parallel processing in the map phase. This enables each map agent to work on a single chapter or subsection independently.
 
 ### Processing Logic
+
+!!! tip "Flattening Strategy"
+    Multi-subsection chapters are expanded into individual items, while single-file chapters remain as single items. This enables parallel processing at the finest granularity.
 
 ```
 For each chapter in chapters.json:
@@ -105,6 +132,9 @@ map:
 
 Gap detection is designed to be idempotent and handles errors gracefully.
 
+!!! note "Safe to Re-run"
+    Gap detection can be run multiple times without side effects. It recognizes existing chapters and only creates new ones for truly missing features.
+
 ### Idempotence Check (Phase 10)
 
 **Source**: `.claude/commands/prodigy-detect-documentation-gaps.md:406-427`
@@ -137,6 +167,28 @@ If gap detection runs and finds no gaps:
 ### Error Handling
 
 **Source**: `.claude/commands/prodigy-detect-documentation-gaps.md:429-459`
+
+```mermaid
+flowchart TD
+    Start[Start Gap Detection] --> CheckFeatures{features.json\nexists?}
+    CheckFeatures -->|No| ErrorFeatures["Error: Feature analysis\nmust run first"]
+    CheckFeatures -->|Yes| CheckChapters{chapters.json\nexists?}
+
+    CheckChapters -->|No| CreateEmpty[Create empty structure]
+    CheckChapters -->|Yes| ValidateJSON{Valid JSON?}
+    CreateEmpty --> ValidateJSON
+
+    ValidateJSON -->|No| ErrorJSON["Error: Malformed file"]
+    ValidateJSON -->|Yes| CheckSummary{SUMMARY.md\nexists?}
+
+    CheckSummary -->|No| ErrorSummary["Error: Book structure missing"]
+    CheckSummary -->|Yes| Proceed[Proceed with detection]
+
+    style ErrorFeatures fill:#ffebee
+    style ErrorJSON fill:#ffebee
+    style ErrorSummary fill:#ffebee
+    style Proceed fill:#e8f5e9
+```
 
 **Handle Missing Files Gracefully:**
 
@@ -178,6 +230,9 @@ Include in gap report if any steps fail:
 **Source**: `.claude/commands/prodigy-detect-documentation-gaps.md:461-485`
 
 ### Accuracy
+
+!!! tip "Fuzzy Matching Threshold"
+    The default 0.7 threshold balances precision and recall. Lower values catch more variations but may create duplicates; higher values are stricter but may miss related topics.
 
 - Minimize false positives (no duplicate chapters)
 - Minimize false negatives (catch all undocumented features)
