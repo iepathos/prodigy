@@ -20,7 +20,7 @@ map:
 Skip the first N items:
 
 ```yaml
-# Source: src/config/mapreduce.rs:84-91
+# Source: src/config/mapreduce.rs:251-257
 map:
   json_path: "$.items[*]"
   offset: 10      # Skip first 10 items
@@ -61,12 +61,30 @@ map:
 
 Understanding the order of operations is important for building effective work distribution strategies:
 
+```mermaid
+flowchart LR
+    A[Input Data] --> B[JSONPath<br/>Extraction]
+    B --> C[Filter]
+    C --> D[Sort]
+    D --> E[Deduplicate]
+    E --> F[Offset]
+    F --> G[Limit]
+    G --> H[Work Items]
+
+    style A fill:#e1f5fe
+    style H fill:#c8e6c9
+```
+
 1. **JSONPath Extraction** - Extract items from input source
 2. **Filtering** - Apply filter expression to select items
 3. **Sorting** - Order items by sort fields
 4. **Deduplication** - Remove duplicates based on distinct field
 5. **Offset** - Skip first N items
 6. **Limit (max_items)** - Take only first N remaining items
+
+!!! info "Related Topics"
+    - [Filtering and Sorting](filtering-sorting.md) - Configure filter expressions and sort order
+    - [Input Sources](input-sources.md) - Define where work items come from
 
 !!! note "Optimization Tip"
     Place expensive filtering early in the pipeline to reduce the number of items for subsequent operations. Sort only after filtering to minimize sort cost.
