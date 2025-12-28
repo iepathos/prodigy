@@ -1,0 +1,69 @@
+{
+  "item_type": "section-page",
+  "section_id": "git-context",
+  "section_title": "Git Context",
+  "page_id": "shell-filtering",
+  "page_title": "Shell-Based Filtering and Formatting",
+  "page_file": "docs/git-context/shell-filtering.md",
+  "feature_mappings": [],
+  "drift_detected": false,
+  "severity": "good",
+  "quality_assessment": "Documentation accurately reflects the space-separated string format of git context variables and provides practical shell patterns for filtering and formatting",
+  "issues": [],
+  "positive_aspects": [
+    "Correctly documents that git context variables are space-separated strings",
+    "Provides practical, working shell command examples for filtering",
+    "Covers multiple output formats (JSON, CSV, newline-separated)",
+    "Shows realistic workflow patterns with conditional execution",
+    "Well-organized sections progressing from basic to advanced usage",
+    "Examples are complete and include expected output comments"
+  ],
+  "improvement_suggestions": [
+    "Add cross-reference links to the overview page for variable definitions",
+    "Consider using MkDocs Material admonitions for tips (e.g., xargs parallel processing)",
+    "Add a cross-reference to best-practices.md for performance considerations",
+    "Consider adding code annotations for complex shell pipelines"
+  ],
+  "cross_references": [
+    "git-context/overview",
+    "git-context/use-cases",
+    "git-context/best-practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:30:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "shell filtering",
+      "file extension filtering",
+      "JSON conversion",
+      "format conversion",
+      "grep patterns",
+      "jq usage",
+      "tr command",
+      "xargs processing"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  },
+  "visual_enhancement_opportunities": [
+    {
+      "location": "Filtering by File Extension section",
+      "enhancement": "Add tip admonition about grep -E for multiple extensions",
+      "type": "admonition"
+    },
+    {
+      "location": "Converting to JSON Format section",
+      "enhancement": "Add info admonition about jq -R | jq -s pipeline explanation",
+      "type": "admonition"
+    },
+    {
+      "location": "Converting to Newline-Separated Format section",
+      "enhancement": "Add note about xargs -I {} for parallel processing benefits",
+      "type": "admonition"
+    },
+    {
+      "location": "Combining Filtering and Formatting section",
+      "enhancement": "Consider adding code annotations (+++, +++) for complex pipelines",
+      "type": "code-annotation"
+    }
+  ]
+}
