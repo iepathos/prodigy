@@ -1,0 +1,69 @@
+{
+  "item_type": "page",
+  "page_id": "overview",
+  "page_title": "overview",
+  "page_file": "docs/git-context/overview.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Good documentation that accurately describes git context variables and their usage. Minor enhancements needed for visual presentation and MkDocs Material features.",
+  "issues": [
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall Document",
+      "description": "Page lacks MkDocs Material visual enhancements like admonitions, code annotations, or tabs that would improve readability",
+      "fix_suggestion": "Add admonitions for tips (e.g., 'No configuration needed'), info boxes for technical details, and potentially tabs to group step vs workflow variables"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "How Git Tracking Works",
+      "description": "The 'Technical Details' section references specific source file lines (context.rs:96-172) which may become stale as code evolves",
+      "fix_suggestion": "Either remove line numbers or use a more general reference. Consider adding an admonition with expandable details for the Rust code example"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Variable Reference",
+      "description": "The variable reference table doesn't mention that variables are provided as space-separated strings only. Format modifiers (:json, :lines, :csv) and glob patterns (:*.rs) exist in GitChangeTracker.resolve_variable() but are not available through the standard interpolation system. This matches the warning in index.md but isn't mentioned on this page.",
+      "fix_suggestion": "Add a note or admonition mentioning that variables are provided as space-separated strings and reference shell-filtering.md for formatting options"
+    },
+    {
+      "type": "missing_cross_reference",
+      "severity": "low",
+      "section": "Overview",
+      "description": "Page doesn't link to related pages like shell-filtering.md, use-cases.md, or best-practices.md for deeper exploration",
+      "fix_suggestion": "Add a 'Next Steps' or 'See Also' section at the end linking to related documentation"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate description of git context variables and their scopes (step vs workflow)",
+    "Complete variable reference table with all 16 git context variables",
+    "Good code examples showing both step and workflow variable usage",
+    "Clear explanation of when git tracking is and isn't active",
+    "Source file references help developers understand the implementation",
+    "Proper YAML syntax in all code examples",
+    "No broken internal links found"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for tips and notes (e.g., 'No configuration needed' as a tip)",
+    "Add cross-references to related git-context pages (shell-filtering, use-cases, best-practices)",
+    "Consider using tabs to group step-level vs workflow-level variable examples",
+    "Add a brief mention that shell post-processing is needed for filtering/formatting (with link to shell-filtering.md)",
+    "Consider adding code annotations to the Rust example for better explanation"
+  ],
+  "cross_references": [
+    "shell-filtering",
+    "use-cases",
+    "best-practices"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T11:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["git tracking", "git context variables", "step variables", "workflow variables"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "broken_links_checked": true,
+    "internal_links_found": 0,
+    "broken_links_found": 0
+  }
+}

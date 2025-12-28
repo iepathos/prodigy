@@ -6,7 +6,11 @@ This page covers the fundamentals of git tracking in Prodigy workflows and the a
 
 Prodigy automatically tracks git changes throughout workflow execution and exposes them through variables. No configuration is needed—git context variables are available out-of-the-box in any git repository. You can access file changes, commits, and modification statistics at both the step and workflow level.
 
+!!! tip "Zero Configuration"
+    Git context tracking is automatic. If you're running a workflow in a git repository, all git context variables are available immediately without any YAML configuration.
+
 **What you get:**
+
 - Automatic tracking of all git changes during workflow execution
 - Variables for step-level changes (current command) and workflow-level changes (cumulative)
 - Simple space-separated format ready for shell commands
@@ -14,80 +18,155 @@ Prodigy automatically tracks git changes throughout workflow execution and expos
 
 ## How Git Tracking Works
 
+```mermaid
+flowchart LR
+    Start["Workflow Start"] --> Init["Initialize
+    GitChangeTracker"]
+    Init --> Step1["Step 1
+    begin_step()"]
+    Step1 --> Exec1["Execute
+    Commands"]
+    Exec1 --> Complete1["complete_step()
+    Capture Changes"]
+    Complete1 --> Vars1["step.* variables
+    available"]
+    Vars1 --> Step2["Step 2
+    begin_step()"]
+    Step2 --> Exec2["Execute
+    Commands"]
+    Exec2 --> Complete2["complete_step()
+    Capture Changes"]
+    Complete2 --> Vars2["step.* + workflow.*
+    cumulative"]
+    Vars2 --> End["Workflow
+    Complete"]
+
+    style Init fill:#e1f5ff
+    style Vars1 fill:#e8f5e9
+    style Vars2 fill:#e8f5e9
+```
+
+**Figure**: Git tracking lifecycle showing how changes are captured at each step and accumulated at the workflow level.
+
 ### Automatic Tracking
 
 Git context is automatically tracked when you run workflows in a git repository:
 
-- **GitChangeTracker** is initialized at workflow start (src/cook/workflow/git_context.rs)
+- **GitChangeTracker** is initialized at workflow start
 - Each step's changes are tracked between `begin_step` and `complete_step` calls
 - Variables are pre-formatted as space-separated strings and added to the interpolation context
 - No YAML configuration needed—tracking happens transparently
 
-**Technical Details** (src/cook/workflow/executor/context.rs:96-172):
+??? info "Technical Details"
+    When preparing the interpolation context for each command, git variables are added like this:
 
-When preparing the interpolation context for each command, git variables are added like this:
+    ```rust
+    // Source: src/cook/workflow/executor/context.rs:96-172
+    // Variables are pre-formatted as space-separated strings
+    context.set("step.files_added", Value::String(changes.files_added.join(" ")));
+    context.set("step.files_modified", Value::String(changes.files_modified.join(" ")));
+    // ... etc for all git context variables
+    ```
 
-```rust
-// Variables are pre-formatted as space-separated strings
-context.set("step.files_added", Value::String(changes.files_added.join(" ")));
-context.set("step.files_modified", Value::String(changes.files_modified.join(" ")));
-// ... etc for all git context variables
-```
-
-This means custom formatting must be done using shell commands after variable interpolation.
+    This means custom formatting must be done using shell commands after variable interpolation. See [Shell-Based Filtering](shell-filtering.md) for formatting techniques.
 
 ### When Tracking is Active
 
 Git tracking is active in:
+
 - Regular workflows running in git repositories
 - MapReduce setup, map, and reduce phases
 - Child worktrees created for map agents
 
-Git tracking is **not** active in:
-- Non-git repositories
-- Workflows without git integration
+!!! warning "Non-Git Repositories"
+    Git tracking is **not** active in non-git repositories or workflows without git integration. Variables will be empty strings in these cases.
 
 ## Git Context Variables
+
+```mermaid
+graph TD
+    subgraph Workflow["Workflow Scope"]
+        WF["workflow.* variables
+        Cumulative across all steps"]
+    end
+
+    subgraph Steps["Step Scope"]
+        S1["Step 1
+        step.* = changes in step 1"]
+        S2["Step 2
+        step.* = changes in step 2"]
+        S3["Step 3
+        step.* = changes in step 3"]
+    end
+
+    S1 -->|accumulates to| WF
+    S2 -->|accumulates to| WF
+    S3 -->|accumulates to| WF
+
+    style WF fill:#f3e5f5
+    style S1 fill:#e1f5ff
+    style S2 fill:#e1f5ff
+    style S3 fill:#e1f5ff
+```
+
+**Figure**: Step-level variables track changes within each step; workflow-level variables accumulate all changes.
+
+!!! note "Space-Separated Format"
+    All git context variables are provided as **space-separated strings**. This format works directly with most shell commands. For other formats (JSON, newlines, CSV) or filtering by file type, see [Shell-Based Filtering](shell-filtering.md).
 
 ### Step-Level Variables
 
 Track changes made during the current step:
 
-```yaml
-# Access files changed in this step
-- shell: "echo Changed: ${step.files_changed}"
-- shell: "echo Added: ${step.files_added}"
-- shell: "echo Modified: ${step.files_modified}"
-- shell: "echo Deleted: ${step.files_deleted}"
+=== "File Changes"
+    ```yaml
+    # Access files changed in this step
+    - shell: "echo Changed: ${step.files_changed}"
+    - shell: "echo Added: ${step.files_added}"
+    - shell: "echo Modified: ${step.files_modified}"
+    - shell: "echo Deleted: ${step.files_deleted}"
+    ```
 
-# Access commit information
-- shell: "echo Commits: ${step.commits}"
-- shell: "echo Commit count: ${step.commit_count}"
+=== "Commit Info"
+    ```yaml
+    # Access commit information
+    - shell: "echo Commits: ${step.commits}"
+    - shell: "echo Commit count: ${step.commit_count}"
+    ```
 
-# Access modification statistics
-- shell: "echo Insertions: ${step.insertions}"
-- shell: "echo Deletions: ${step.deletions}"
-```
+=== "Statistics"
+    ```yaml
+    # Access modification statistics
+    - shell: "echo Insertions: ${step.insertions}"
+    - shell: "echo Deletions: ${step.deletions}"
+    ```
 
 ### Workflow-Level Variables
 
 Track cumulative changes across all steps:
 
-```yaml
-# Access all files changed in workflow
-- shell: "echo Changed: ${workflow.files_changed}"
-- shell: "echo Added: ${workflow.files_added}"
-- shell: "echo Modified: ${workflow.files_modified}"
-- shell: "echo Deleted: ${workflow.files_deleted}"
+=== "File Changes"
+    ```yaml
+    # Access all files changed in workflow
+    - shell: "echo Changed: ${workflow.files_changed}"
+    - shell: "echo Added: ${workflow.files_added}"
+    - shell: "echo Modified: ${workflow.files_modified}"
+    - shell: "echo Deleted: ${workflow.files_deleted}"
+    ```
 
-# Access all commits
-- shell: "echo Commits: ${workflow.commits}"
-- shell: "echo Commit count: ${workflow.commit_count}"
+=== "Commit Info"
+    ```yaml
+    # Access all commits
+    - shell: "echo Commits: ${workflow.commits}"
+    - shell: "echo Commit count: ${workflow.commit_count}"
+    ```
 
-# Access total modifications
-- shell: "echo Insertions: ${workflow.insertions}"
-- shell: "echo Deletions: ${workflow.deletions}"
-```
+=== "Statistics"
+    ```yaml
+    # Access total modifications
+    - shell: "echo Insertions: ${workflow.insertions}"
+    - shell: "echo Deletions: ${workflow.deletions}"
+    ```
 
 ### Variable Reference
 
@@ -109,3 +188,9 @@ Track cumulative changes across all steps:
 | `workflow.commit_count` | Workflow | Total commits in workflow |
 | `workflow.insertions` | Workflow | Total lines added in workflow |
 | `workflow.deletions` | Workflow | Total lines deleted in workflow |
+
+## Related Pages
+
+- **[Shell-Based Filtering](shell-filtering.md)** - Format and filter git context variables using shell commands
+- **[Use Cases](use-cases.md)** - Practical workflow patterns for code review, testing, and documentation
+- **[Best Practices](best-practices.md)** - Performance tips, troubleshooting, and recommendations
