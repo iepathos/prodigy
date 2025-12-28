@@ -2,6 +2,10 @@
 
 Prodigy has two distinct retry systems that serve different purposes. Understanding when to use each is critical for effective error handling.
 
+!!! tip "Quick Reference"
+    **Command-level retry** (`retry_config`): Fast recovery from transient errors within a single command.
+    **Workflow-level retry** (`error_policy`): Work item failure handling with DLQ integration for MapReduce workflows.
+
 ### Overview
 
 | Feature | Command-Level (retry_v2) | Workflow-Level (error_policy) |
@@ -16,7 +20,8 @@ Prodigy has two distinct retry systems that serve different purposes. Understand
 
 The **enhanced retry system** (`retry_v2`) provides sophisticated retry capabilities for individual command execution.
 
-**Source**: `src/cook/retry_v2.rs`
+!!! info "Source Code"
+    Implementation: `src/cook/retry_v2.rs`
 
 #### Key Features
 
@@ -51,22 +56,31 @@ The **enhanced retry system** (`retry_v2`) provides sophisticated retry capabili
 
 #### Configuration
 
-```yaml
+```yaml title="Command-level retry configuration"
 commands:
   - shell: "curl https://api.example.com/data"
     retry_config:
-      attempts: 5
-      backoff: exponential
-      initial_delay: "1s"
-      max_delay: "30s"
-      jitter: true
+      attempts: 5              # (1)!
+      backoff: exponential     # (2)!
+      initial_delay: "1s"      # (3)!
+      max_delay: "30s"         # (4)!
+      jitter: true             # (5)!
       jitter_factor: 0.3
-      retry_on:
+      retry_on:                # (6)!
         - network
         - timeout
-      retry_budget: "5m"
-      on_failure: stop
+      retry_budget: "5m"       # (7)!
+      on_failure: stop         # (8)!
 ```
+
+1. Maximum number of retry attempts before giving up
+2. Backoff strategy: `exponential`, `linear`, `fibonacci`, `fixed`, or `custom`
+3. Initial delay between retries
+4. Maximum delay cap (prevents delays from growing too large)
+5. Enable jitter to prevent thundering herd in distributed systems
+6. Only retry on these error types; other errors fail immediately
+7. Total time budget for all retries combined
+8. Action on final failure: `stop`, `continue`, or `fallback`
 
 **RetryConfig Fields** (src/cook/retry_v2.rs:14-52):
 - `attempts: u32` - Maximum retry attempts
@@ -102,7 +116,11 @@ commands:
 
 The **workflow-level retry system** handles failures in MapReduce work items, integrating with the Dead Letter Queue (DLQ).
 
-**Source**: `src/cook/workflow/error_policy.rs`
+!!! info "Source Code"
+    Implementation: `src/cook/workflow/error_policy.rs`
+
+!!! note "Related Documentation"
+    For detailed DLQ operations and debugging, see [Dead Letter Queue (DLQ)](../mapreduce/dlq/index.md).
 
 #### Key Features
 
@@ -134,22 +152,22 @@ The **workflow-level retry system** handles failures in MapReduce work items, in
 
 #### Configuration
 
-```yaml
+```yaml title="Workflow-level error policy configuration"
 name: mapreduce-workflow
 mode: mapreduce
 
 error_policy:
-  on_item_failure: dlq          # Send failures to DLQ
-  continue_on_failure: true     # Keep processing other items
-  max_failures: 10              # Stop after 10 failures
-  failure_threshold: 0.25       # Or stop at 25% failure rate
-  error_collection: aggregate   # Collect errors before reporting
-  circuit_breaker:
+  on_item_failure: dlq          # (1)!
+  continue_on_failure: true     # (2)!
+  max_failures: 10              # (3)!
+  failure_threshold: 0.25       # (4)!
+  error_collection: aggregate   # (5)!
+  circuit_breaker:              # (6)!
     failure_threshold: 5        # Open after 5 failures
     success_threshold: 3        # Close after 3 successes
     timeout: "30s"              # Recovery timeout
     half_open_requests: 3       # Test requests in half-open
-  retry_config:                 # Workflow-level retry (simpler)
+  retry_config:                 # (7)!
     max_attempts: 3
     backoff: exponential
 
@@ -159,6 +177,14 @@ map:
   agent_template:
     - shell: "process ${item.id}"
 ```
+
+1. Failed items are sent to the Dead Letter Queue for later retry
+2. Continue processing other work items even when some fail
+3. Stop the entire workflow after 10 failures
+4. Alternative to `max_failures`: stop at 25% failure rate
+5. Error collection strategy: `aggregate`, `immediate`, or `batched`
+6. Circuit breaker prevents cascading failures
+7. Simplified retry config for workflow-level retries
 
 **WorkflowErrorPolicy Fields** (src/cook/workflow/error_policy.rs:131-179):
 - `on_item_failure: ItemFailureAction` - What to do when item fails
@@ -191,7 +217,45 @@ error_policy:
 
 ### Using Both Systems Together
 
-You can combine both retry systems for comprehensive error handling:
+You can combine both retry systems for comprehensive error handling.
+
+#### Retry Flow Diagram
+
+```mermaid
+flowchart TD
+    A[Command Execution] --> B{Command Failed?}
+    B -->|No| C[Command Success]
+    B -->|Yes| D{Error Matches<br/>retry_on?}
+
+    D -->|No| E[Command Fails<br/>Immediately]
+    D -->|Yes| F{Attempts<br/>Remaining?}
+
+    F -->|Yes| G[Backoff + Jitter]
+    G --> H[Retry Command]
+    H --> B
+
+    F -->|No| I{on_failure?}
+    I -->|stop| J[Agent Fails]
+    I -->|continue| K[Continue<br/>Next Command]
+    I -->|fallback| L[Execute<br/>Fallback Command]
+
+    J --> M{error_policy?}
+    M -->|dlq| N[Send to DLQ]
+    M -->|retry| O[Retry Work Item]
+    M -->|skip| P[Skip Item<br/>Continue Workflow]
+    M -->|stop| Q[Stop Workflow]
+
+    N --> R{max_failures<br/>reached?}
+    R -->|No| S[Continue<br/>Other Items]
+    R -->|Yes| Q
+
+    style A fill:#e1f5fe
+    style C fill:#c8e6c9
+    style Q fill:#ffcdd2
+    style N fill:#fff9c4
+```
+
+The diagram shows how command-level retry (`retry_config`) and workflow-level retry (`error_policy`) work together:
 
 ```yaml
 name: robust-mapreduce
@@ -242,6 +306,10 @@ map:
 - **Manual review** of failed items before retry
 
 ### Key Differences
+
+!!! warning "Important Distinction"
+    **Command-level retry** happens within a single agent execution with backoff delays.
+    **Workflow-level retry** creates a new agent execution (via DLQ) with a fresh environment.
 
 #### Scope of Retry
 
@@ -399,9 +467,19 @@ reduce:
 ```
 
 **Retry flow**:
+
 1. Command fails with network error
 2. Command retries (attempt 2, 3) with exponential backoff
 3. All command retries fail → Agent fails
 4. Work item sent to DLQ
 5. Other work items continue processing
 6. After workflow completes → `prodigy dlq retry <job_id>` to retry failed items
+
+---
+
+### Related Documentation
+
+- [Dead Letter Queue (DLQ)](../mapreduce/dlq/index.md) - Detailed DLQ operations and debugging
+- [Error Collection Strategies](../mapreduce/error-collection-strategies.md) - Configure how errors are collected and reported
+- [Retry Metrics and Observability](retry-metrics-and-observability.md) - Monitor retry behavior
+- [Complete Examples](complete-examples.md) - Full workflow examples with retry configuration
