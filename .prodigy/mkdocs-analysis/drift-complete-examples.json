@@ -1,0 +1,78 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "complete-examples",
+  "page_title": "complete examples",
+  "page_file": "docs/composition/complete-examples.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page provides comprehensive examples with accurate source references. Examples align well with implementation. Minor improvements needed for consistency with actual API structures and visual enhancements.",
+  "issues": [
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Example 1: Multi-Environment CI/CD Pipeline",
+      "description": "The WorkflowTemplate structure in examples shows simplified syntax that differs from actual API. WorkflowTemplate struct has separate 'name' and 'source' fields, but examples only show 'source' at template level.",
+      "current_content": "template:\n  source: \"ci-pipeline-template\"",
+      "should_be": "template:\n  name: ci-pipeline-template\n  source: \"ci-pipeline-template\"\n  with: { ... }",
+      "fix_suggestion": "Clarify that the template syntax shown is a simplified shorthand. Add a note explaining the full WorkflowTemplate structure has both 'name' and 'source' fields.",
+      "source_reference": "src/cook/workflow/composition/mod.rs:67-83 (WorkflowTemplate struct)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Example 4: Complex Composition with Multiple Features",
+      "description": "Example shows variable interpolation in sub-workflow source paths (e.g., workflows/${language}/lint.yml), but the validation code (registry.rs:199-208) treats these as non-existent paths unless they start with '${'. This is a known limitation that should be documented.",
+      "current_content": "source: \"workflows/${language}/lint.yml\"",
+      "fix_suggestion": "Add a note explaining that variable interpolation in sub-workflow source paths requires the paths to exist at composition time, or starts with '${' to skip validation.",
+      "source_reference": "src/cook/workflow/composition/registry.rs:199-208"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Overall Page",
+      "description": "Page lacks MkDocs Material visual enhancements that would improve readability and user experience for examples.",
+      "fix_suggestion": "Add visual features: admonition boxes for prerequisites/notes, tabs for comparing similar examples, mermaid diagram showing composition flow, code annotations for complex YAML examples.",
+      "source_reference": "N/A - MkDocs Material enhancement opportunity"
+    }
+  ],
+  "positive_aspects": [
+    "Accurate source references with line numbers throughout (e.g., src/cook/workflow/composition/mod.rs:75-129)",
+    "Examples correctly show that workflows use HashMap not array (line 49 reference is accurate)",
+    "Good variety of practical examples covering templates, imports, extends, and sub-workflows",
+    "Progressive complexity from simple to advanced examples",
+    "Clear running instructions section at the end",
+    "Proper coverage of template registry pattern with storage locations"
+  ],
+  "improvement_suggestions": [
+    "Add an overview diagram showing how the examples relate to each other",
+    "Include a 'Prerequisites' admonition at the top explaining what features are fully implemented vs planned",
+    "Add tabbed examples showing alternative approaches where applicable",
+    "Include expected output examples for the running commands",
+    "Add cross-references to the index.md implementation roadmap for feature availability"
+  ],
+  "cross_references": [
+    "index.md",
+    "template-system.md",
+    "workflow-extension-inheritance.md",
+    "parameter-definitions.md",
+    "sub-workflows.md"
+  ],
+  "links_validation": {
+    "internal_links_found": 0,
+    "broken_links": [],
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T00:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "CI/CD pipelines",
+      "template usage",
+      "workflow inheritance",
+      "sub-workflows",
+      "parameter passing",
+      "template registry"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
