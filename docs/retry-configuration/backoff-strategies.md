@@ -6,6 +6,17 @@ Prodigy supports five backoff strategies for controlling delay between retries. 
 
 All backoff strategies use `initial_delay` as the base delay and respect the `max_delay` cap. Delays are calculated per attempt and can be combined with [jitter](jitter-for-distributed-systems.md) to avoid thundering herd problems.
 
+| Strategy | Growth Pattern | Use Case |
+|----------|---------------|----------|
+| **Fixed** | Constant | Simple scenarios, testing |
+| **Linear** | Additive | Rate limiting, predictable growth |
+| **Exponential** | Multiplicative (default) | Network calls, distributed systems |
+| **Fibonacci** | Natural sequence | Balanced backoff |
+| **Custom** | User-defined | Specific timing requirements |
+
+!!! info "max_delay Capping"
+    All calculated delays are capped at `max_delay` (default: 30s). For example, with exponential backoff (base=2, initial=1s), attempt 7 would calculate 64s but be capped to `max_delay`. This prevents unbounded delays while still allowing aggressive backoff.
+
 **Source**: BackoffStrategy enum defined in `src/cook/retry_v2.rs:70-98`
 
 **Default Strategy**: If no backoff strategy is specified, Prodigy uses **Exponential** backoff with a base of 2.0 (src/cook/retry_v2.rs:92-98).
@@ -224,8 +235,8 @@ map:
         backoff:
           exponential:
             base: 2.0
-        jitter: true             # Add randomization (±25% by default)
-        jitter_factor: 0.25
+        jitter: true             # Add randomization (±30% by default)
+        jitter_factor: 0.3       # Default is 0.3; override if needed
         retry_on:
           - timeout              # Built-in timeout matcher
           - pattern: "connection refused"  # Custom pattern for specific errors
