@@ -34,6 +34,44 @@ Computed variables are dynamically evaluated at runtime, providing access to ext
 
 **Source:** src/cook/execution/variables.rs:100-305
 
+```mermaid
+flowchart LR
+    subgraph Input["Variable Reference"]
+        A["${prefix:value}"]
+    end
+
+    subgraph Resolution["Prefix Resolution"]
+        B{"Prefix Type?"}
+        B -->|env.*| C["Environment Lookup"]
+        B -->|file:| D["File Read"]
+        B -->|cmd:| E["Command Execute"]
+        B -->|json:| F["JSON Parse"]
+        B -->|date:| G["Format Date"]
+        B -->|uuid| H["Generate UUID"]
+    end
+
+    subgraph Caching["Caching Decision"]
+        C --> I{"In Cache?"}
+        D --> I
+        E --> I
+        I -->|Yes| J["Return Cached"]
+        I -->|No| K["Execute & Cache"]
+        F --> L["Always Execute"]
+        G --> L
+        H --> L
+    end
+
+    subgraph Output["Result"]
+        J --> M["Interpolated Value"]
+        K --> M
+        L --> M
+    end
+
+    A --> B
+```
+
+**Figure**: Computed variable resolution flow showing caching behavior for expensive operations.
+
 | Variable Type | Syntax | Description | Cached | Example |
 |---------------|--------|-------------|--------|---------|
 | **Environment** | `${env.VAR_NAME}` | Read environment variable | Yes | `${env.HOME}`, `${env.PATH}` |
@@ -85,7 +123,8 @@ Read file contents directly into variables. Useful for configuration, templates,
 
 **Caching:** File reads are cached (file content is expensive to read repeatedly).
 
-**Note:** File paths are relative to workflow execution directory.
+!!! note "Path Resolution"
+    File paths are relative to the workflow execution directory, not the location of the workflow YAML file. In MapReduce agents, this is the agent's worktree directory.
 
 #### Command Output (`cmd:`)
 
@@ -120,6 +159,13 @@ Extract values from JSON data using JSONPath syntax. Useful for processing compl
 **Source:** src/cook/execution/variables.rs:350-379
 
 **Syntax:** `${json:path:from:source_variable}`
+
+!!! example "Common JSONPath Patterns"
+    - `$.field` - Top-level field
+    - `$.nested.field` - Nested field access
+    - `$[0]` or `$.items[0]` - Array index access
+    - `$[*].name` - All names from array
+    - `$.items[?(@.status=='active')]` - Filtered selection
 
 **Examples:**
 ```yaml
@@ -698,6 +744,41 @@ Prodigy supports two modes for handling undefined variables:
 
 #### Scope by Phase
 
+```mermaid
+flowchart LR
+    subgraph Common["All Phases"]
+        direction TB
+        S["Standard Variables"]
+        W["Workflow Context"]
+        ST["Step Context"]
+        G["Git Context"]
+        C["Custom Captured"]
+    end
+
+    subgraph Setup["Setup Phase"]
+        SU["+ Setup captures"]
+    end
+
+    subgraph Map["Map Phase"]
+        M["+ Item Variables<br/>(item.*, item_index)"]
+    end
+
+    subgraph Reduce["Reduce Phase"]
+        R["+ MapReduce Variables<br/>(map.*, worker.id)"]
+    end
+
+    subgraph Merge["Merge Phase"]
+        MG["+ Merge Variables<br/>(merge.*)"]
+    end
+
+    Common --> Setup
+    Common --> Map
+    Common --> Reduce
+    Common --> Merge
+```
+
+**Figure**: Variable availability by workflow phase. All phases share common variables, with phase-specific additions.
+
 | Phase | Variables Available |
 |-------|---------------------|
 | Setup | Standard, workflow context, step context, git context, custom captured |
@@ -764,6 +845,9 @@ flowchart TB
 Variable resolution walks up a parent context chain when variables are not found in the current context. This enables variable inheritance across workflow phases and nested contexts.
 
 **Source:** src/cook/execution/interpolation.rs:200-226, InterpolationContext struct at :376-381
+
+!!! tip "Practical Implication"
+    Variables captured in setup phase are automatically available to all map agents and the reduce phase - no explicit passing required. This is ideal for shared configuration like workspace paths or base commit hashes.
 
 **Resolution Order:**
 1. Check current context
