@@ -2,6 +2,9 @@
 
 MapReduce workflows support comprehensive environment variable configuration, enabling parameterized workflows with secrets management, multi-environment deployment, and secure credential handling.
 
+!!! tip "Quick Reference"
+    Environment variables can be defined in four locations: `env:` block, `secrets:` block, `env_files:`, and `profiles:`. Later definitions override earlier ones, with command-line variables taking highest precedence.
+
 ### Configuration Fields
 
 MapReduce workflows support four types of environment configuration:
@@ -21,7 +24,10 @@ env:
 
 **2. Secrets Configuration**
 
-Secrets are defined in a dedicated `secrets:` block (separate from `env:`). Secret values are automatically masked in logs, output, events, and checkpoints.
+!!! warning "Security Note"
+    Secret values are automatically masked in logs, output, events, and checkpoints. Always use environment references (`${env:SECRET_NAME}`) rather than hardcoding secret values in workflow files.
+
+Secrets are defined in a dedicated `secrets:` block (separate from `env:`).
 
 **Source**: `src/config/workflow.rs:24-26` - WorkflowConfig with `secrets: HashMap<String, SecretValue>` field
 
@@ -177,16 +183,35 @@ map:
 
 ### Environment Precedence
 
-When the same variable is defined in multiple places, Prodigy uses the following precedence order (highest to lowest):
+When the same variable is defined in multiple places, Prodigy applies them in layers. Later layers override earlier ones:
 
-1. **Command-line environment variables** - Set when invoking prodigy
-2. **Step-level environment** - Variables defined in individual command `env:` blocks
-3. **Active profile values** - Variables from the selected profile
-4. **Global env block** - Base workflow environment variables
-5. **Environment files** - Variables loaded from .env files (later files override earlier)
-6. **System environment** - Parent process environment (if `inherit: true`)
+```mermaid
+graph TD
+    A[1. System Environment] -->|if inherit: true| B[2. Environment Files]
+    B --> C[3. Global env Block]
+    C --> D[4. Active Profile]
+    D --> E[5. Step-level env]
+    E --> F[6. Secrets]
+    F --> G[7. Command-line Variables]
 
-**Source**: `src/cook/environment/config.rs:11-36` - EnvironmentConfig structure and `tests/environment_workflow_test.rs:225-256` - precedence verification
+    style G fill:#e8f5e9
+    style A fill:#fff3e0
+```
+
+**Precedence order (lowest to highest):**
+
+1. **System environment** - Parent process environment (if `inherit: true`)
+2. **Environment files** - Variables loaded from `.env` files (later files override earlier)
+3. **Global env block** - Base workflow environment variables
+4. **Active profile values** - Variables from the selected profile (`--profile`)
+5. **Step-level environment** - Variables defined in individual command `env:` blocks
+6. **Secrets** - Resolved and applied after regular variables
+7. **Command-line environment variables** - Set when invoking prodigy (highest precedence)
+
+!!! info "Understanding Precedence"
+    Variables are applied in sequence during environment setup. Each layer can reference variables from previous layers using `${VAR}` interpolation.
+
+**Source**: `src/cook/environment/manager.rs:88-156` - Environment setup implementation
 
 **Example**:
 ```bash
@@ -196,7 +221,8 @@ MAX_WORKERS=10 prodigy run workflow.yml --profile prod
 
 ### Complete Example
 
-Here's a complete MapReduce workflow demonstrating all environment features:
+!!! example "Full Configuration"
+    This example demonstrates all four environment configuration types working together: `env`, `secrets`, `env_files`, and `profiles`.
 
 ```yaml
 name: configurable-mapreduce
@@ -267,9 +293,7 @@ echo "MAX_WORKERS=3" > .env
 prodigy run workflow.yml
 ```
 
-**Precedence Note**: Command-line environment variables override profile settings, which override the base env block.
-
-**Source**: Precedence behavior verified in `src/cook/environment/manager.rs:43-52` and `tests/mapreduce_env_execution_test.rs:225-256`
+**Source**: Precedence behavior verified in `src/cook/environment/manager.rs:88-156`
 
 ### Step-Level Environment Overrides
 
@@ -293,6 +317,9 @@ Step-level variables inherit from global `env` and active `profiles`, with step-
 - `temporary: true` - Restore environment after step execution
 - `working_dir` - Set working directory for the step
 
+**Debug Environment Resolution:**
+
+```bash
 # Run with debug output to see environment resolution
 prodigy run workflow.yml -vv --profile dev
 
