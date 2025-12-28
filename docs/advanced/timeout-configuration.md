@@ -2,6 +2,24 @@
 
 Set execution timeouts to prevent workflows from hanging indefinitely. Prodigy supports two distinct timeout mechanisms: command-level timeouts for standard workflows and MapReduce-specific timeouts with advanced configuration options.
 
+```mermaid
+flowchart LR
+    subgraph Standard["Standard Workflows"]
+        direction LR
+        CMD[Command Timeout] --> NUM[Numeric Only]
+        NUM --> SEC[Seconds]
+    end
+
+    subgraph MapReduce["MapReduce Workflows"]
+        direction LR
+        MR[Timeout Config] --> ENV[Env Var Support]
+        ENV --> POL[Policy Selection]
+        POL --> ACT[Timeout Action]
+    end
+```
+
+**Figure**: Timeout configuration options - standard workflows use simple numeric timeouts while MapReduce supports advanced policies.
+
 ### Command-Level Timeouts
 
 Command-level timeouts apply to individual commands in standard workflows. These accept numeric values only (in seconds).
@@ -39,7 +57,8 @@ From `workflows/documentation-drift.yml:47-51`:
     claude: "/prodigy-debug-test-failure --output ${shell.output}"
 ```
 
-**Important**: Command-level timeouts only accept numeric values. For environment variable support, use MapReduce timeouts (see below).
+!!! warning "Numeric Values Only"
+    Command-level timeouts only accept numeric values. For environment variable support, use MapReduce timeouts (see below).
 
 ### MapReduce Timeouts
 
@@ -134,6 +153,37 @@ timeout_config:
 
 **Source**: `src/cook/execution/mapreduce/timeout.rs:79-88` - `TimeoutPolicy` enum
 
+```mermaid
+flowchart TD
+    Start[Agent Starts] --> Policy{Timeout Policy?}
+
+    Policy -->|per_agent| PA["Total Agent Timeout
+    All commands share limit"]
+    Policy -->|per_command| PC["Per Command Timeout
+    Each command gets full limit"]
+    Policy -->|hybrid| HY["Hybrid Mode
+    Check command_timeouts first"]
+
+    PA --> Execute[Execute Commands]
+    PC --> Execute
+    HY --> Override{"command_timeouts
+    defined?"}
+    Override -->|Yes| UseOverride[Use Command Timeout]
+    Override -->|No| UseAgent[Use Agent Timeout]
+    UseOverride --> Execute
+    UseAgent --> Execute
+
+    Execute --> Timeout{Timeout?}
+    Timeout -->|Yes| Action[Apply timeout_action]
+    Timeout -->|No| Complete[Agent Complete]
+
+    style PA fill:#e1f5ff
+    style PC fill:#fff3e0
+    style HY fill:#f3e5f5
+```
+
+**Figure**: Timeout policy decision flow showing how per_agent, per_command, and hybrid policies are applied.
+
 - **`per_agent`** (default): Timeout applies to entire agent execution
   - Agent must complete all commands within timeout
   - Best for workflows where total time matters
@@ -145,6 +195,9 @@ timeout_config:
 - **`hybrid`**: Per-agent timeout with command-specific overrides
   - Commands use `command_timeouts` if specified, otherwise agent timeout
   - Most flexible option
+
+!!! tip "Choosing a Policy"
+    Use `per_agent` when total execution time matters. Use `per_command` when commands have unpredictable durations. Use `hybrid` when you need fine-grained control over specific command types.
 
 **Example: Per-command policy**
 ```yaml
@@ -161,6 +214,9 @@ timeout_config:
 - **`skip`**: Skip the item and continue with other items
 - **`fail`**: Fail the entire MapReduce job
 - **`graceful_terminate`**: Attempt graceful shutdown before force kill
+
+!!! note "DLQ Integration"
+    When using `dlq` action (default), timed-out items are preserved with full context and can be retried later with `prodigy dlq retry <job_id>`.
 
 ```yaml
 timeout_config:
