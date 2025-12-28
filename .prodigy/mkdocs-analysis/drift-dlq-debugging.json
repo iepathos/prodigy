@@ -1,0 +1,136 @@
+{
+  "item_type": "section-page",
+  "section_id": "dlq",
+  "section_title": "Dead Letter Queue",
+  "page_id": "debugging",
+  "page_title": "debugging",
+  "page_file": "docs/mapreduce/dlq/debugging.md",
+  "feature_mappings": [
+    "error_handling.advanced_features.dead_letter_queue",
+    "observability.claude_observability",
+    "mapreduce_workflows.core_capabilities.failure_handling"
+  ],
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is mostly accurate but has CLI command naming discrepancies and could benefit from visual enhancements. The core concepts are correct but some CLI examples don't match actual implementation.",
+  "issues": [
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Common Debugging Workflow",
+      "description": "CLI command uses 'prodigy dlq list --job-id' but actual CLI parameter is just '--job-id', and there is no 'show' command - 'list' and 'stats' are separate",
+      "current_content": "prodigy dlq list --job-id mapreduce-1234567890",
+      "should_be": "prodigy dlq list --job-id mapreduce-1234567890",
+      "fix_suggestion": "The 'list' command is correct. Verify all CLI examples match src/cli/args.rs:DlqCommands enum",
+      "source_reference": "src/cli/args.rs:534-600"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Accessing Claude JSON Logs",
+      "description": "The command 'prodigy dlq inspect item-123' is missing required context - the actual CLI requires explicit job context",
+      "current_content": "prodigy dlq inspect item-123",
+      "should_be": "prodigy dlq inspect <item_id> [--job-id <job_id>]",
+      "fix_suggestion": "Update example to show the full command syntax with job-id parameter",
+      "source_reference": "src/cli/args.rs:549-556"
+    },
+    {
+      "type": "incorrect_example",
+      "severity": "medium",
+      "section": "Common Debugging Workflow",
+      "description": "The 'prodigy dlq analyze' command syntax is correct but example could be clearer about what output to expect",
+      "current_content": "prodigy dlq analyze --job-id mapreduce-1234567890",
+      "should_be": "prodigy dlq analyze --job-id mapreduce-1234567890",
+      "fix_suggestion": "Add expected output example showing pattern groups and error distribution",
+      "source_reference": "src/cli/args.rs:558-567"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "medium",
+      "section": "Failure Flow",
+      "description": "The flow diagram shows path ending at storage location but the actual storage path format is slightly different",
+      "current_content": "~/.prodigy/dlq/{repo}/{job_id}/mapreduce/dlq/{job_id}/items/{item_id}.json",
+      "should_be": "~/.prodigy/dlq/{repo}/mapreduce/dlq/{job_id}/items/{item_id}.json",
+      "fix_suggestion": "Correct the storage path in the flow diagram to match DLQStorage::item_path() implementation",
+      "source_reference": "src/cook/execution/dlq.rs:539-543"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Available Policies",
+      "description": "Documentation lists 'custom' policy as 'User-defined failure handler' but implementation shows it's not fully implemented (logs warning and skips)",
+      "feature_reference": "error_handling.levels.item_failure_actions",
+      "fix_suggestion": "Add note that custom handlers are planned but not fully implemented, or document how to implement custom handlers",
+      "source_reference": "src/cook/workflow/error_policy.rs:415-418"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Integration with MapReduce",
+      "description": "Missing documentation about error_context field in FailureDetail which provides full context trail for debugging",
+      "feature_reference": "error_handling.advanced_features.dead_letter_queue",
+      "fix_suggestion": "Add section explaining error_context field and how it shows operation stack for debugging",
+      "source_reference": "src/cook/execution/dlq.rs:52-54"
+    }
+  ],
+  "positive_aspects": [
+    "Clear explanation of FailureDetail structure with json_log_location field",
+    "Good step-by-step debugging workflow with practical commands",
+    "Proper cross-reference to retry-metrics-and-observability.md for log details",
+    "Accurate list of on_item_failure policies (dlq, retry, skip, stop, custom)",
+    "Helpful flow diagram showing failure handling path",
+    "Uses MkDocs Material admonition for debugging example"
+  ],
+  "improvement_suggestions": [
+    "Add visual flowchart using Mermaid for failure flow instead of ASCII art",
+    "Include tabbed examples showing different verbosity levels for CLI output",
+    "Add code annotations to YAML examples explaining each field",
+    "Consider adding troubleshooting section for common DLQ issues",
+    "Add grid cards linking to related DLQ pages (retry, overview, index)"
+  ],
+  "visual_enhancements_needed": [
+    {
+      "type": "mermaid_diagram",
+      "section": "Failure Flow",
+      "description": "Replace ASCII flow diagram with Mermaid flowchart for better visualization"
+    },
+    {
+      "type": "tabbed_content",
+      "section": "Common Debugging Workflow",
+      "description": "Use tabs to show different output formats (json, csv, etc.) for analyze command"
+    },
+    {
+      "type": "code_annotations",
+      "section": "Integration with MapReduce",
+      "description": "Add annotations explaining on_item_failure and agent_template fields"
+    },
+    {
+      "type": "admonitions",
+      "section": "Available Policies",
+      "description": "Add tip admonitions for when to use each policy"
+    }
+  ],
+  "cross_references": [
+    {
+      "link": "../../retry-configuration/retry-metrics-and-observability.md",
+      "status": "valid"
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T19:13:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "DLQ debugging",
+      "Claude JSON logs",
+      "failure patterns",
+      "CLI commands"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "cli_commands_analyzed": [
+      "prodigy dlq list",
+      "prodigy dlq inspect",
+      "prodigy dlq analyze",
+      "prodigy dlq retry"
+    ]
+  }
+}
