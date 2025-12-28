@@ -10,6 +10,57 @@ Gap detection runs in the **setup phase** of the book workflow (workflows/book-d
 6. **Updates** SUMMARY.md with proper hierarchy
 7. **Generates** flattened-items.json for the map phase (mandatory)
 
+```mermaid
+flowchart LR
+    subgraph Input["Input Sources"]
+        direction TB
+        Features["features.json"]
+        Chapters["chapters.json"]
+        Files["Existing Files"]
+    end
+
+    subgraph Analysis["Gap Analysis"]
+        direction TB
+        Compare["Compare Features
+        vs Documentation"]
+        Classify["Classify Gaps
+        by Severity"]
+        Validate["Validate Content
+        Sufficiency"]
+    end
+
+    subgraph Output["Output Actions"]
+        direction TB
+        Create["Create Missing
+        Chapters/Stubs"]
+        Sync["Sync chapters.json
+        with Files"]
+        Generate["Generate
+        flattened-items.json"]
+    end
+
+    Features --> Compare
+    Chapters --> Compare
+    Files --> Compare
+
+    Compare --> Classify
+    Classify --> Validate
+
+    Validate --> Create
+    Validate --> Sync
+    Validate --> Generate
+
+    Generate --> MapPhase["Map Phase
+    Processing"]
+
+    style Input fill:#e1f5ff
+    style Analysis fill:#fff3e0
+    style Output fill:#e8f5e9
+    style MapPhase fill:#f3e5f5
+```
+
+**Figure**: Gap detection workflow showing input sources, analysis steps, and output actions.
+
 !!! info "Purpose"
     The gap detection process ensures that:
 
