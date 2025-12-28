@@ -1,0 +1,86 @@
+{
+  "item_type": "page",
+  "page_id": "storage",
+  "page_title": "storage",
+  "page_file": "docs/advanced/storage.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Good documentation with accurate storage structure. Minor issues with DLQ path representation and session-job mapping storage format.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Storage Structure",
+      "description": "DLQ storage path in diagram and text shows 'dlq/{repo_name}/{job_id}/dlq-items.json' but actual implementation stores items as individual files per item in 'state/{repo_name}/mapreduce/dlq/{job_id}/items/{item_id}.json' with an index.json file",
+      "current_content": "dlq/{repo_name}/{job_id}/dlq-items.json",
+      "should_be": "state/{repo_name}/mapreduce/dlq/{job_id}/items/{item_id}.json",
+      "fix_suggestion": "Update DLQ storage path to reflect actual implementation structure with per-item storage under state directory",
+      "source_reference": "src/cook/execution/dlq.rs:536-544 (DLQStorage.item_path)"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "Session-Job Mapping",
+      "description": "Documentation shows separate session-to-job.json and job-to-session.json files, but actual implementation stores each mapping as individual {session_id}.json and {job_id}.json files that contain the full bidirectional mapping",
+      "current_content": "mappings/session-to-job.json and mappings/job-to-session.json",
+      "should_be": "mappings/{session_id}.json and mappings/{job_id}.json (duplicate files containing same mapping data)",
+      "fix_suggestion": "Update mappings section to show individual mapping files per session/job ID rather than consolidated files",
+      "source_reference": "src/storage/session_job_mapping.rs:40-51 (SessionJobMapping.store)"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Storage Structure",
+      "description": "Missing documentation for logs/{repo_name}/ directory which exists in GlobalStorage implementation",
+      "fix_suggestion": "Add logs directory to storage structure documentation",
+      "source_reference": "src/storage/global.rs:147-155 (get_logs_dir)"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "DLQ Item Format",
+      "description": "DLQ item format shown in documentation is simplified. The actual implementation has additional fields like 'error_signature', 'worktree_artifacts', 'reprocess_eligible', 'manual_review_required'",
+      "fix_suggestion": "Expand DLQ item format example to include all fields from DeadLetteredItem struct",
+      "source_reference": "src/cook/execution/dlq.rs:31-43 (DeadLetteredItem struct)"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent Mermaid diagram visualization of storage hierarchy",
+    "Comprehensive coverage of all major storage components",
+    "Good use of MkDocs Material admonitions for tips and warnings",
+    "Detailed checkpoint format examples with code annotations",
+    "Well-documented performance characteristics section",
+    "Accurate documentation of resume locks path (~/.prodigy/resume_locks/)",
+    "Accurate documentation of orphaned worktrees path (~/.prodigy/orphaned_worktrees/)",
+    "Good cross-worktree aggregation diagram",
+    "Helpful storage maintenance commands section"
+  ],
+  "improvement_suggestions": [
+    "Consider adding a cross-reference to the MapReduce documentation for checkpoint details",
+    "Add example showing DLQ directory structure with items subdirectory",
+    "Include information about DLQ index.json file that tracks all item IDs"
+  ],
+  "cross_references": [
+    "mapreduce",
+    "dlq",
+    "checkpoints"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "global storage",
+      "events",
+      "dlq",
+      "checkpoints",
+      "sessions",
+      "worktrees",
+      "session-job mapping",
+      "JSONL streaming",
+      "storage maintenance"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_checked": 0,
+    "broken_links_found": 0
+  }
+}
