@@ -44,6 +44,28 @@ graph LR
 
 For each feature area in `features.json`, the command checks if any of these conditions match:
 
+```mermaid
+flowchart TD
+    Start[Feature Category] --> Norm[Normalize Category]
+    Norm --> C1{Chapter ID<br/>contains category?}
+    C1 -->|Yes| Match[✓ Match Found]
+    C1 -->|No| C2{Category contains<br/>chapter ID?}
+    C2 -->|Yes| Match
+    C2 -->|No| C3{Chapter title<br/>contains category?}
+    C3 -->|Yes| Match
+    C3 -->|No| C4{Chapter topics<br/>contain category?}
+    C4 -->|Yes| Match
+    C4 -->|No| C5{Section headings<br/>match category?}
+    C5 -->|Yes| Match
+    C5 -->|No| C6{Feature mapping<br/>array matches?}
+    C6 -->|Yes| Match
+    C6 -->|No| Gap[Gap Detected]
+
+    style Match fill:#c8e6c9
+    style Gap fill:#ffcdd2
+    style Norm fill:#e3f2fd
+```
+
 1. Chapter ID contains the normalized category
 2. Normalized category contains the chapter ID
 3. Chapter title contains the normalized category
