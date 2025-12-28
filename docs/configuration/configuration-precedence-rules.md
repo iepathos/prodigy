@@ -7,10 +7,14 @@ Prodigy loads configuration from multiple sources with a clear precedence hierar
 From highest to lowest priority:
 
 ```mermaid
-graph TD
-    A[Environment Variables<br/>PRODIGY_*] --> B[Project Config<br/>.prodigy/config.yml]
-    B --> C[Global Config<br/>~/.prodigy/config.yml]
-    C --> D[Defaults<br/>Built-in values]
+graph LR
+    A["Environment Variables
+    PRODIGY_*"] --> B["Project Config
+    .prodigy/config.yml"]
+    B --> C["Global Config
+    ~/.prodigy/config.yml"]
+    C --> D["Defaults
+    Built-in values"]
 
     style A fill:#ff6b6b,stroke:#c92a2a,color:#fff
     style B fill:#ffa94d,stroke:#d9480f
