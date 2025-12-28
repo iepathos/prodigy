@@ -1,5 +1,41 @@
 # Log Management
 
+Prodigy generates logs at multiple layers to support debugging, monitoring, and auditing. Understanding log flow helps you diagnose issues and maintain storage efficiently.
+
+```mermaid
+graph LR
+    subgraph Generation["Log Generation"]
+        direction LR
+        WF["Workflow
+        Execution"] --> Events["Event Logs
+        .jsonl"]
+        WF --> Claude["Claude Logs
+        JSON sessions"]
+        WF --> State["Session State
+        Checkpoints"]
+    end
+
+    subgraph Storage["Storage Layer"]
+        direction LR
+        Events --> EP["~/.prodigy/events/"]
+        Claude --> CP["~/.claude/projects/"]
+        State --> SP["~/.prodigy/sessions/"]
+    end
+
+    subgraph Access["Access and Cleanup"]
+        direction LR
+        EP --> View["prodigy logs"]
+        CP --> View
+        SP --> Sessions["prodigy sessions"]
+        View --> Clean["prodigy clean"]
+        Sessions --> Clean
+    end
+
+    style Generation fill:#e1f5ff
+    style Storage fill:#fff3e0
+    style Access fill:#e8f5e9
+```
+
 ## Log Locations
 
 === "Linux"
@@ -52,32 +88,42 @@
 
 ## Viewing Logs
 
+!!! tip "Real-time Monitoring"
+    For live debugging during workflow execution, use the `-v` flag with your workflow command (`prodigy run workflow.yml -v`) to see Claude output in real-time, rather than inspecting logs after the fact.
+
 Use the `prodigy logs` command to view and analyze Claude execution logs:
 
 ```bash
-# Source: src/cli/args.rs:253-270
 # List recent Claude logs
-prodigy logs
+prodigy logs                        # (1)!
 
 # View the latest log
-prodigy logs --latest
+prodigy logs --latest               # (2)!
 
 # Follow latest log in real-time (useful during execution)
-prodigy logs --latest --tail
+prodigy logs --latest --tail        # (3)!
 
 # Show summary of latest log
-prodigy logs --latest --summary
+prodigy logs --latest --summary     # (4)!
 
 # View logs for a specific session
-prodigy logs <session-id>
+prodigy logs <session-id>           # (5)!
 ```
 
+1. Lists all available Claude logs sorted by recency
+2. Opens the most recent log file for inspection
+3. Continuously streams new log entries as they're written
+4. Displays token usage, duration, and key events
+5. Filters logs to a specific workflow session
+
 ## Cleanup
+
+!!! note "Dry Run First"
+    Always use `--dry-run` before cleanup operations to preview what will be deleted. This prevents accidental removal of logs you may still need for debugging.
 
 ### Using Prodigy Commands
 
 ```bash
-# Source: src/cli/args.rs:736-747
 # Clean Claude logs older than 30 days (preview first)
 prodigy clean logs --older-than 30d --dry-run
 
@@ -89,7 +135,6 @@ prodigy clean logs --older-than 30d -f
 ```
 
 ```bash
-# Source: src/cli/args.rs:307-316
 # Clean all old sessions
 prodigy sessions clean --all
 
@@ -104,11 +149,15 @@ prodigy sessions clean --all -f
 find ~/.prodigy/events -name "*.jsonl" -mtime +30 -delete
 
 # Clean old Claude logs (.jsonl is the primary format)
-# Source: src/cli/commands/logs.rs:147-151
 find ~/.claude/projects -name "*.jsonl" -mtime +30 -delete
 ```
 
 ## Examples
+
+The following examples demonstrate common log management scenarios.
+
+!!! example "Quick Debugging Workflow"
+    When a workflow fails: (1) check the event log for `AgentFailed` events, (2) extract the `json_log_location` from the failure, (3) inspect the Claude log for tool calls and error context.
 
 ### Debug Workflow Failure
 
@@ -139,7 +188,6 @@ tail -f ~/.prodigy/events/prodigy/mapreduce-123/events-*.jsonl | \
 
 ```bash
 # Extract token usage from all agents
-# Source: src/cli/commands/logs.rs:33-36
 for log in ~/.claude/projects/**/*.jsonl; do
   echo "$log:"
   jq '.usage' "$log" 2>/dev/null || true
