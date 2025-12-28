@@ -1,0 +1,97 @@
+{
+  "item_type": "page",
+  "page_id": "commands",
+  "page_title": "commands",
+  "page_file": "docs/commands.md",
+  "drift_detected": true,
+  "severity": "medium",
+  "quality_assessment": "Page is well-structured and comprehensive but contains examples using deprecated/incorrect field names and minor documentation inaccuracies",
+  "issues": [
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Capture Format Examples",
+      "description": "Examples use 'capture:' field which is not available in the user-facing YAML WorkflowStepCommand. The internal WorkflowStep struct has 'capture' field but YAML should use 'capture_output'",
+      "current_content": "capture: \"commit_hash\"",
+      "should_be": "capture_output: \"commit_hash\"",
+      "fix_suggestion": "Replace all occurrences of 'capture:' with 'capture_output:' in the Capture Format Examples section (lines 352-375) and Cross-References example section (lines 515-516)",
+      "source_reference": "src/config/command.rs:362-364 - WorkflowStepCommand uses capture_output field, not capture"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "low",
+      "section": "OnFailure Handler Configuration",
+      "description": "Documentation references TestDebugConfig for on_failure but the actual on_failure uses OnFailureConfig enum which has more variants including Advanced and Detailed configurations",
+      "current_content": "on_failure: Option<TestDebugConfig> in line references",
+      "should_be": "on_failure uses OnFailureConfig enum with multiple format variants (IgnoreErrors, SingleCommand, MultipleCommands, Detailed, Advanced, FailControl, Handler)",
+      "fix_suggestion": "The OnFailure section already documents Advanced format well, but could clarify that simple 'claude:' or 'shell:' handlers auto-convert to Advanced format",
+      "source_reference": "src/cook/workflow/on_failure.rs:67-115 - OnFailureConfig enum"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Command Reference",
+      "description": "The analyze command type is referenced in WorkflowStepCommand but not documented in the command types section",
+      "fix_suggestion": "Either document the analyze command type or clarify it is internal/deprecated. WorkflowStepCommand shows analyze: Option<HashMap<String, serde_json::Value>>",
+      "source_reference": "src/config/command.rs:330-332 - analyze field exists in WorkflowStepCommand"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Cross-References Example",
+      "description": "The final example shows 'when: \"${build_output contains 'warning'}'\" but this string comparison syntax is not documented. The 'contains' operator behavior should be explained or the example should use documented operators",
+      "fix_suggestion": "Either document the 'contains' operator in conditional expressions or update the example to use a documented pattern",
+      "source_reference": "docs/workflow-basics/conditional-execution.md should be cross-referenced for expression syntax"
+    }
+  ],
+  "positive_aspects": [
+    "Excellent organization with clear sections for each command type",
+    "Good use of collapsible Technical Notes section for implementation details",
+    "Comprehensive documentation of WorkflowStepCommand fields with source references",
+    "Clear deprecation warnings with migration guidance",
+    "Well-documented on_failure handler configuration with multiple format examples",
+    "Helpful workaround examples for missing YAML fields (cwd, env, on_exit_code)",
+    "Good cross-references section linking to related documentation",
+    "Real-world examples from actual workflow files (coverage.yml, implement.yml)"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for warnings and notes instead of plain blockquotes",
+    "Add a quick reference table summarizing all command types at the top of the page",
+    "Consider adding diagrams showing command execution flow with on_failure handling",
+    "Add code tabs for showing equivalent YAML vs internal representation for advanced users"
+  ],
+  "cross_references": [
+    {
+      "link": "./variables/custom-variable-capture.md",
+      "status": "valid"
+    },
+    {
+      "link": "./environment/index.md",
+      "status": "valid"
+    },
+    {
+      "link": "./workflow-basics/error-handling.md#command-level-error-handling",
+      "status": "valid"
+    },
+    {
+      "link": "./mapreduce/index.md#complete-structure",
+      "status": "valid"
+    }
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:25:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "shell commands",
+      "claude commands",
+      "foreach commands",
+      "write_file commands",
+      "validation commands",
+      "on_failure handlers",
+      "capture_output configuration",
+      "capture_format options",
+      "conditional execution"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
