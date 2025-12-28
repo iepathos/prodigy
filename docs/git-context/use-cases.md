@@ -112,6 +112,9 @@ Focus on test-related changes:
 
 ## Conditional Execution
 
+!!! example "Pattern: Guard Clauses"
+    Use shell conditionals to guard expensive operations. Only run linters, tests, or analysis when relevant files actually changed.
+
 Use git context with shell conditions:
 
 ```yaml
@@ -155,9 +158,12 @@ flowchart TB
     end
 
     subgraph Map["Map Phase (parallel agents)"]
-        M1["Agent 1<br/>step.* = agent 1 changes"]
-        M2["Agent 2<br/>step.* = agent 2 changes"]
-        M3["Agent N<br/>step.* = agent N changes"]
+        M1["Agent 1
+        step.* = agent 1 changes"]
+        M2["Agent 2
+        step.* = agent 2 changes"]
+        M3["Agent N
+        step.* = agent N changes"]
     end
 
     subgraph Reduce["Reduce Phase"]
@@ -178,22 +184,23 @@ name: review-changes
 mode: mapreduce
 
 setup:
-  # Workflow-level tracking starts here
   - shell: "git diff main --name-only > changed-files.txt"
-  - shell: "echo Setup modified: ${step.files_changed}"
+  - shell: "echo Setup modified: ${step.files_changed}"  # (1)!
 
 map:
   input: "changed-files.txt"
   agent_template:
-    # Each agent has its own step tracking
     - claude: "/review ${item}"
-    - shell: "echo Agent changed: ${step.files_changed}"
+    - shell: "echo Agent changed: ${step.files_changed}"  # (2)!
 
 reduce:
-  # Access workflow-level changes from all agents
-  - shell: "echo Total changes: ${workflow.files_changed}"
+  - shell: "echo Total changes: ${workflow.files_changed}"  # (3)!
   - shell: "echo Total commits: ${workflow.commit_count}"
 ```
+
+1. `step.*` tracks changes made during setup phase only
+2. Each agent has isolated `step.*` tracking - sees only its own changes
+3. `workflow.*` aggregates ALL changes from setup, all agents, and reduce
 
 For more on MapReduce workflows, see the [MapReduce documentation](../mapreduce/index.md).
 
