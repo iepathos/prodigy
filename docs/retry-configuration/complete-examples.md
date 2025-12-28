@@ -4,6 +4,27 @@ This section provides complete, runnable YAML workflow examples demonstrating va
 
 **Source**: Examples based on test patterns from src/cook/retry_v2.rs:463-748
 
+### How Retry Configuration Flows
+
+```mermaid
+flowchart LR
+    Exec[Execute Command] --> Check{Success?}
+    Check -->|Yes| Next[Next Command]
+    Check -->|No| Retry{Attempts
+    remaining?}
+
+    Retry -->|Yes| Wait["Wait (backoff)"] --> Exec
+    Retry -->|No| Action{on_failure?}
+
+    Action -->|stop| Fail[Fail Workflow]
+    Action -->|continue| Next
+    Action -->|fallback| Fallback[Run Fallback] --> Next
+
+    style Check fill:#e8f5e9
+    style Action fill:#fff3e0
+    style Fail fill:#ffebee
+```
+
 ### Example 1: Basic Retry with Exponential Backoff
 
 Simple API call with standard exponential backoff:
@@ -58,7 +79,8 @@ map:
         jitter_factor: 0.3    # 30% randomization
 ```
 
-**Why jitter matters**: Without jitter, all 10 parallel agents would retry at exactly the same time, overwhelming the recovering service.
+!!! warning "Thundering Herd Problem"
+    Without jitter, all 10 parallel agents would retry at exactly the same time, overwhelming the recovering service. **Always enable jitter for parallel agents.**
 
 !!! note "Understanding jitter range"
     With `jitter_factor: 0.3`, actual delays vary by ±15% of the calculated value. For example, a 2s base delay becomes 1.7s-2.3s (half the jitter factor applied in each direction).
@@ -93,6 +115,9 @@ commands:
 **Source**: ErrorMatcher enum in src/cook/retry_v2.rs:100-151
 
 ### Example 4: Retry Budget to Prevent Infinite Loops
+
+!!! tip "Best Practice"
+    Use `retry_budget` when you need many retry attempts but want guaranteed completion within a time window.
 
 High retry attempts with time-based cap:
 
@@ -225,6 +250,32 @@ commands:
 
 **Source**: ErrorMatcher::Pattern in src/cook/retry_v2.rs:113
 
+### Backoff Strategy Comparison
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 600
+    height: 300
+---
+xychart-beta
+    title "Delay Growth by Attempt (initial_delay: 1s)"
+    x-axis "Attempt" [1, 2, 3, 4, 5, 6, 7, 8]
+    y-axis "Delay (seconds)" 0 --> 35
+    line "Exponential" [1, 2, 4, 8, 16, 32, 32, 32]
+    line "Fibonacci" [1, 2, 3, 5, 8, 13, 21, 34]
+    line "Linear (+3s)" [1, 4, 7, 10, 13, 16, 19, 22]
+    line "Fixed" [5, 5, 5, 5, 5, 5, 5, 5]
+```
+
+| Strategy | Growth Pattern | Best For |
+|----------|---------------|----------|
+| **Exponential** | Doubles each attempt | General-purpose, API calls |
+| **Fibonacci** | Gradual increase | Services needing recovery time |
+| **Linear** | Constant increment | Predictable, testing |
+| **Fixed** | No change | Polling, health checks |
+
 ### Example 9: Fibonacci Backoff for Gradual Recovery
 
 Gentler backoff curve for services needing recovery time:
@@ -294,6 +345,9 @@ commands:
 
 ### Example 12: Complex Multi-Command Workflow
 
+!!! example "Real-World Pattern"
+    This example demonstrates how to combine multiple retry strategies in a single deployment workflow, balancing reliability with responsiveness.
+
 Real-world example combining multiple retry strategies:
 
 ```yaml
@@ -352,6 +406,9 @@ commands:
 ```
 
 ### Example 13: MapReduce with DLQ and Retry
+
+!!! tip "MapReduce Best Practice"
+    Combine per-agent retries with DLQ for robust parallel processing. Agents retry transient failures locally, while persistent failures are captured for investigation and manual retry.
 
 MapReduce workflow with error handling:
 
