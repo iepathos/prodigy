@@ -14,11 +14,18 @@ This chapter documents the WorkflowConfig layer - the fields you write in workfl
 **Internal vs. User-Facing Capabilities:**
 
 The internal `EnvironmentConfig` supports richer environment value types through the `EnvValue` enum:
-- `Static`: Simple string values (what WorkflowConfig exposes)
-- `Dynamic`: Values from command output (internal only)
-- `Conditional`: Expression-based values (internal only)
 
-In workflow YAML, the `env` field only supports static string values (`HashMap<String, String>`). The Dynamic and Conditional variants are internal runtime features not exposed in workflow configuration.
+- `Static`: Simple string values (what WorkflowConfig exposes)
+
+!!! info "Internal Runtime Features"
+    The following `EnvValue` variants are internal runtime features not exposed in workflow YAML:
+
+    - `Dynamic`: Values computed from command output at runtime
+    - `Conditional`: Expression-based values with conditional logic
+
+    In workflow YAML, the `env` field only supports static string values (`HashMap<String, String>`).
+
+    <!-- Source: src/cook/environment/config.rs:41-48 -->
 
 **Note on Internal Features:** The `EnvironmentConfig` runtime layer includes a `StepEnvironment` struct with fields like `env`, `working_dir`, `clear_env`, and `temporary`. These are internal implementation details not exposed in `WorkflowStepCommand` YAML syntax. Per-command environment changes must use shell syntax (e.g., `ENV=value command`).
 
@@ -168,6 +175,11 @@ commands:
       content: "..."
 ```
 
+!!! tip "write_file Options"
+    The `write_file` command also supports `format` (text/json/yaml), `mode` (file permissions), and `create_dirs` (auto-create parent directories). See [Command Types](../workflow-basics/command-types.md) for details.
+
+    <!-- Source: src/config/command.rs:280-298 -->
+
 **MapReduce configurations:**
 Combine with MapReduce variables like `${item}`:
 ```yaml
@@ -197,24 +209,32 @@ commands:
   - shell: "echo Price: $$100"
 ```
 
-# Both acceptable
-- shell: "echo Port: $PORT"
-- shell: "echo Port: ${PORT}"
+### Quick Syntax Comparison
+
+**Simple case (both acceptable):**
+
+```yaml
+commands:
+  - shell: "echo Port: $PORT"
+  - shell: "echo Port: ${PORT}"
 ```
 
 **Complex case (requires `${VAR}`):**
+
 ```yaml
 env:
   PROJECT: api
   VERSION: "1.0"
   ENVIRONMENT: prod
 
-# Required - variables adjacent to text and in paths
-- shell: "deploy-${PROJECT}-v${VERSION}.sh --env ${ENVIRONMENT}"
-- shell: "cp /src/config.${ENVIRONMENT}.json /etc/${PROJECT}/config.json"
+commands:
+  # Required - variables adjacent to text and in paths
+  - shell: "deploy-${PROJECT}-v${VERSION}.sh --env ${ENVIRONMENT}"
+  - shell: "cp /src/config.${ENVIRONMENT}.json /etc/${PROJECT}/config.json"
 ```
 
 **Recommended approach (always use `${VAR}`):**
+
 ```yaml
 env:
   DATABASE: myapp
