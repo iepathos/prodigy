@@ -1,0 +1,95 @@
+{
+  "item_type": "page",
+  "page_id": "sub-workflows",
+  "page_title": "sub workflows",
+  "page_file": "docs/composition/sub-workflows.md",
+  "drift_detected": true,
+  "severity": "low",
+  "quality_assessment": "Well-documented page with accurate implementation details; minor issues with line number references and missing MkDocs Material visual enhancements",
+  "issues": [
+    {
+      "type": "incorrect_line_reference",
+      "severity": "low",
+      "section": "Sub-Workflow Configuration",
+      "description": "Line reference 'src/cook/workflow/composition/composer.rs:381-395' points to selective import processing code, not sub-workflow validation",
+      "current_content": "**Validation**: Sub-workflow validation in src/cook/workflow/composition/composer.rs:381-395",
+      "should_be": "**Validation**: Sub-workflow validation in src/cook/workflow/composition/composer.rs:627-642",
+      "fix_suggestion": "Update line reference to point to the actual validate_sub_workflows function",
+      "source_reference": "src/cook/workflow/composition/composer.rs:627-642"
+    },
+    {
+      "type": "incorrect_line_reference",
+      "severity": "low",
+      "section": "Sub-Workflow Configuration",
+      "description": "Line reference 'src/cook/workflow/composition/sub_workflow.rs:13-66' is slightly off",
+      "current_content": "defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:13-66",
+      "should_be": "defined in `SubWorkflow` struct, src/cook/workflow/composition/sub_workflow.rs:14-46",
+      "fix_suggestion": "Update line numbers to match actual struct definition boundaries",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:14-46"
+    },
+    {
+      "type": "missing_visual_features",
+      "severity": "low",
+      "section": "Overall Page",
+      "description": "Page lacks MkDocs Material visual enhancements like admonitions, icons, tabs, or code annotations",
+      "fix_suggestion": "Add visual features: 1) Admonition for Implementation Status note, 2) Tabs for different use cases, 3) Code annotations for complex YAML examples, 4) Icons for section headers"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Error Handling",
+      "description": "Missing information about how sub-workflow failures propagate error context and what error types are returned",
+      "fix_suggestion": "Add section explaining error propagation chain and how continue_on_error affects SubWorkflowResult error field",
+      "source_reference": "src/cook/workflow/composition/sub_workflow.rs:158-176"
+    }
+  ],
+  "positive_aspects": [
+    "Comprehensive coverage of all SubWorkflow configuration fields",
+    "Clear explanation of parent-child context isolation with step-by-step process",
+    "Good examples of parallel execution with behavior explanation",
+    "Accurate documentation of working_dir implementation status (parsed but not applied)",
+    "Detailed SubWorkflowResult struct documentation",
+    "Complete implementation status tracking with clear checkmarks",
+    "Multiple real-world use case examples (modular testing, multi-language, environment-specific)",
+    "Complete monorepo example showing all features together",
+    "Source code references for key implementation components"
+  ],
+  "improvement_suggestions": [
+    "Add admonition box for the Implementation Status section at the end",
+    "Add icons to section headers (e.g., :material-folder-multiple: for Sub-Workflows)",
+    "Use tabbed content to show different sub-workflow patterns (sequential vs parallel)",
+    "Add code annotations to explain key YAML fields in complex examples",
+    "Consider adding a flowchart showing sub-workflow execution lifecycle",
+    "Add cross-reference to error handling patterns in composition troubleshooting",
+    "Update all line number references to be precise"
+  ],
+  "cross_references": [
+    "index.md#workflow-imports",
+    "template-system.md",
+    "parameter-definitions.md"
+  ],
+  "links_validated": {
+    "total_internal_links": 3,
+    "broken_links": 0,
+    "all_links_valid": true
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T21:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "sub-workflows",
+      "workflow composition",
+      "parallel execution",
+      "context isolation",
+      "output extraction",
+      "error handling"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "source_files_verified": [
+      "src/cook/workflow/composition/sub_workflow.rs",
+      "src/cook/workflow/composition/composer.rs",
+      "tests/workflow_composition_test.rs"
+    ],
+    "implementation_accuracy": "High - documentation accurately reflects current implementation including in-progress features"
+  }
+}
