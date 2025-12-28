@@ -142,70 +142,70 @@ env:
 
 The workflow supports flexible documentation directory configuration through the `DOCS_DIR` variable:
 
-#### Option 1: Standard MkDocs Directory (Default)
-
-```yaml
-env:
-  DOCS_DIR: "docs"
-  CHAPTERS_FILE: "workflows/data/mkdocs-chapters.json"
-```
-
-**Use this when:**
-
-- You have a standard MkDocs project structure
-- You want MkDocs-specific documentation separate from mdbook
-- You need a curated subset of documentation for MkDocs
-
-**Structure:**
-
-```
-docs/
-├── index.md
-├── workflow-basics/
-│   ├── variables.md
-│   └── environment.md
-└── mapreduce/
-    └── overview.md
-mkdocs.yml (docs_dir: docs)
-```
-
-#### Option 2: Shared Source with mdbook
-
-```yaml
-env:
-  DOCS_DIR: "book/src"
-  CHAPTERS_FILE: "workflows/data/prodigy-chapters.json"
-```
-
-**Use this when:**
-
-- You want a single source of truth for both mdbook and MkDocs
-- You're migrating from mdbook to MkDocs
-- You want complete documentation in both formats
-
-**Structure:**
-
-```
-book/src/
-├── index.md
-├── SUMMARY.md (for mdbook)
-├── workflow-basics/
-│   ├── index.md
-│   └── *.md
-└── mapreduce/
-    ├── index.md
-    └── *.md
-mkdocs.yml (docs_dir: book/src, exclude: SUMMARY.md)
-```
-
-!!! warning "MkDocs Configuration Required"
-    When using `book/src`, update your `mkdocs.yml` to exclude mdbook-specific files:
+=== "Standard MkDocs (Default)"
 
     ```yaml
-    docs_dir: book/src
-    exclude_docs: |
-      SUMMARY.md
+    env:
+      DOCS_DIR: "docs"
+      CHAPTERS_FILE: "workflows/data/mkdocs-chapters.json"
     ```
+
+    **Use this when:**
+
+    - You have a standard MkDocs project structure
+    - You want MkDocs-specific documentation separate from mdbook
+    - You need a curated subset of documentation for MkDocs
+
+    **Structure:**
+
+    ```
+    docs/
+    ├── index.md
+    ├── workflow-basics/
+    │   ├── variables.md
+    │   └── environment.md
+    └── mapreduce/
+        └── overview.md
+    mkdocs.yml (docs_dir: docs)
+    ```
+
+=== "Shared Source with mdbook"
+
+    ```yaml
+    env:
+      DOCS_DIR: "book/src"
+      CHAPTERS_FILE: "workflows/data/prodigy-chapters.json"
+    ```
+
+    **Use this when:**
+
+    - You want a single source of truth for both mdbook and MkDocs
+    - You're migrating from mdbook to MkDocs
+    - You want complete documentation in both formats
+
+    **Structure:**
+
+    ```
+    book/src/
+    ├── index.md
+    ├── SUMMARY.md (for mdbook)
+    ├── workflow-basics/
+    │   ├── index.md
+    │   └── *.md
+    └── mapreduce/
+        ├── index.md
+        └── *.md
+    mkdocs.yml (docs_dir: book/src, exclude: SUMMARY.md)
+    ```
+
+    !!! warning "MkDocs Configuration Required"
+        When using `book/src`, update your `mkdocs.yml` to exclude mdbook-specific files:
+
+        ```yaml
+        docs_dir: book/src
+        exclude_docs: |
+          SUMMARY.md
+        ```
 
 ### Chapter Definitions
 
@@ -258,6 +258,18 @@ map:
 ## Error Handling
 
 The workflow includes robust error handling to ensure documentation quality while allowing recovery from failures.
+
+```mermaid
+flowchart LR
+    Process[Process Page] --> Check{Success?}
+    Check -->|Yes| Next[Next Page]
+    Check -->|No| DLQ[Dead Letter Queue]
+    DLQ --> Continue{Max Failures?}
+    Continue -->|No| Next
+    Continue -->|Yes| Stop[Stop Workflow]
+    DLQ -.->|Later| Retry[Retry Failed Items]
+    Retry --> Process
+```
 
 ```yaml
 # Source: workflows/mkdocs-drift.yml:127-131
