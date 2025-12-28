@@ -195,14 +195,14 @@ cat /path/to/claude/logs/session-xyz.json | jq '.messages[] | select(.content[]?
 #### 3. Check DLQ for Pattern Analysis
 
 ```bash
-# View DLQ items for the job
-prodigy dlq show <job-id>
+# List DLQ items for the job
+prodigy dlq list --job-id <job-id>
 
-# Look for commit validation failures
-prodigy dlq show <job-id> | jq '.items[] | select(.failure_history[].error_type == "CommitValidationFailed")'
+# Inspect a specific DLQ item for details
+prodigy dlq inspect <item-id> --job-id <job-id>
 
 # Analyze failure patterns
-prodigy dlq analyze <job-id>
+prodigy dlq analyze --job-id <job-id>
 ```
 
 #### 4. Test Agent Command Manually
@@ -213,56 +213,55 @@ mkdir test-agent
 cd test-agent
 git init
 
-# Set up test item data
-export item.id=1
-export item.type=process
+# Set up test item data (simulate workflow variables)
+ITEM_ID=1
+ITEM_TYPE=process
 
 # Run the agent command manually
-shell: |
-  echo "content" > file.txt
-  git add file.txt
-  git commit -m "Test commit"
+echo "content" > file.txt
+git add file.txt
+git commit -m "Test commit for item ${ITEM_ID}"
 
 # Check if commit was created
-git log
+git log --oneline
 ```
 
 ### Prevention Best Practices
 
-1. **Use `commit_required` Sparingly**
-   - Only mark commands as `commit_required` when you genuinely expect a commit
-   - For optional commits, use `on_failure` handlers instead
+!!! tip "Use `commit_required` Sparingly"
+    Only mark commands as `commit_required` when you genuinely expect a commit.
+    For optional commits, use `on_failure` handlers instead.
 
-2. **Test Workflows with Dry-Run Mode**
-   ```bash
-   prodigy run workflow.yml --dry-run
-   ```
+!!! tip "Test Workflows with Dry-Run Mode"
+    ```bash
+    prodigy run workflow.yml --dry-run
+    ```
 
-3. **Use Filters to Ensure Commit Eligibility**
-   ```yaml
-   map:
-     filter: "item.needs_commit == true"
-     agent_template:
-       - shell: |
-           process-and-commit.sh
-         commit_required: true
-   ```
+!!! tip "Use Filters to Ensure Commit Eligibility"
+    ```yaml
+    map:
+      filter: "item.needs_commit == true"
+      agent_template:
+        - shell: |
+            process-and-commit.sh
+          commit_required: true
+    ```
 
-4. **Add Explicit Validation**
-   ```yaml
-   agent_template:
-     - shell: |
-         process-item.sh
-         git add .
-         git commit -m "Process ${item.id}"
-     - shell: |
-         # Verify commit was created
-         if ! git log -1 --oneline | grep -q "Process"; then
-           echo "ERROR: Commit validation failed"
-           exit 1
-         fi
-       commit_required: true
-   ```
+!!! tip "Add Explicit Validation"
+    ```yaml
+    agent_template:
+      - shell: |
+          process-item.sh
+          git add .
+          git commit -m "Process ${item.id}"
+      - shell: |
+          # Verify commit was created
+          if ! git log -1 --oneline | grep -q "Process"; then
+            echo "ERROR: Commit validation failed"
+            exit 1
+          fi
+        commit_required: true
+    ```
 
 ### Related Documentation
 
