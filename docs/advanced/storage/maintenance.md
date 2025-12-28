@@ -117,26 +117,26 @@ Deduplication across worktrees:
 # Clean old events (30+ days)
 find ~/.prodigy/events -name "*.jsonl" -mtime +30 -delete  # (1)!
 
-# Clean completed sessions
-prodigy sessions clean --completed  # (2)!
+# Clean all sessions
+prodigy sessions clean --all  # (2)!
 
 # Clean orphaned worktrees
 prodigy worktree clean-orphaned <job_id>  # (3)!
 
 # Clean DLQ after successful retry
-prodigy dlq clear <job_id>  # (4)!
+prodigy dlq clear <workflow_id> --yes  # (4)!
 ```
 
 1. Removes event logs older than 30 days to prevent unbounded growth
-2. Removes session files for completed workflows (preserves failed/paused)
+2. Removes all session files. Add `--force` to skip confirmation prompt
 3. Cleans up worktrees that failed to cleanup during agent execution
-4. Removes DLQ items after successful retry (only use after verifying retry succeeded)
+4. Removes DLQ items for the specified workflow. Use `--yes` to skip confirmation
 
 !!! warning "Data Loss Prevention"
     Always verify jobs are complete before cleaning:
     ```bash
     # Check if job is truly complete
-    prodigy events show <job_id> | tail -1 | jq '.type'
+    prodigy events ls --job_id <job_id> --limit 1 | jq '.type'
     # Should show "JobCompleted" or "JobFailed"
     ```
 
