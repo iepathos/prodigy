@@ -2,6 +2,30 @@
 
 This guide covers installing Prodigy and the prerequisite tools needed to run AI-powered workflow automation.
 
+```mermaid
+graph LR
+    Start[Start] --> Check{"Have Rust
+    installed?"}
+    Check -->|No| Rustup["Install via
+    rustup.rs"]
+    Check -->|Yes| Claude{"Have Claude
+    Code CLI?"}
+    Rustup --> Claude
+    Claude -->|No| InstallClaude[Install Claude Code]
+    Claude -->|Yes| Install["cargo install
+    prodigy"]
+    InstallClaude --> Install
+    Install --> Verify["prodigy
+    --version"]
+    Verify --> Done[Ready to Use]
+
+    style Start fill:#e8f5e9
+    style Done fill:#e8f5e9
+    style Install fill:#e1f5ff
+```
+
+**Figure**: Installation decision flow - ensure prerequisites are met before installing Prodigy.
+
 !!! success "Quick Install"
     ```bash
     cargo install prodigy && prodigy --version
@@ -135,6 +159,13 @@ prodigy init
 # Should create .claude/commands/ directory
 ls -la .claude/commands/
 ```
+
+!!! tip "Verify Claude Code Authentication"
+    Before running workflows, ensure Claude Code is authenticated:
+    ```bash
+    claude --version  # Verify CLI is installed
+    ```
+    If you haven't authenticated yet, Claude Code will prompt you on first use.
 
 ## Troubleshooting
 
