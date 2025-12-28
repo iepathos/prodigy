@@ -1,0 +1,89 @@
+{
+  "item_type": "page",
+  "page_id": "mapreduce-worktree-architecture",
+  "page_title": "mapreduce worktree architecture",
+  "page_file": "docs/mapreduce-worktree-architecture.md",
+  "drift_detected": false,
+  "severity": "low",
+  "quality_assessment": "Comprehensive and accurate documentation with verified source references",
+  "issues": [],
+  "positive_aspects": [
+    "Accurate source code references with verified line numbers",
+    "Clear visual hierarchy diagram showing worktree architecture",
+    "Thorough coverage of worktree allocation strategies (pool vs direct)",
+    "Detailed merge flow documentation with sequential processing",
+    "Comprehensive debugging section with practical commands",
+    "Accurate documentation of branch naming conventions (prodigy-{name})",
+    "Good explanation of WorktreeRequest::Anonymous for pool allocation",
+    "Correct PRODIGY_AUTOMATION environment variable documentation",
+    "Claude-assisted merge fallback documented accurately",
+    "Merge queue channel architecture correctly described"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for important warnings (e.g., worktree isolation guarantees)",
+    "Add code annotations to YAML examples using MkDocs Material syntax",
+    "Consider adding a Mermaid diagram for the merge flow visualization",
+    "Add tabbed examples showing different scenarios (successful merge vs conflict)",
+    "Add cross-reference links to related pages (DLQ, checkpoint-resume, event-tracking)",
+    "Consider adding content tabs for 'Pool Allocation' vs 'Direct Creation' worktree strategies"
+  ],
+  "cross_references": [
+    "mapreduce/dlq/index.md",
+    "mapreduce/checkpoint-and-resume.md",
+    "mapreduce/event-tracking.md",
+    "advanced/git-integration.md",
+    "advanced/storage/worktree-storage.md"
+  ],
+  "source_references_verified": [
+    {
+      "doc_reference": "src/worktree/builder.rs:176-178",
+      "actual_location": "src/worktree/builder.rs:178",
+      "content": "let branch = format!(\"prodigy-{name}\");",
+      "verified": true
+    },
+    {
+      "doc_reference": "src/cook/execution/mapreduce/resources/worktree.rs:42",
+      "actual_location": "src/cook/execution/mapreduce/resources/worktree.rs:42",
+      "content": ".acquire(WorktreeRequest::Anonymous)",
+      "verified": true
+    },
+    {
+      "doc_reference": "src/cook/execution/mapreduce/merge_queue.rs:70",
+      "actual_location": "src/cook/execution/mapreduce/merge_queue.rs:70",
+      "content": "let (tx, mut rx) = mpsc::unbounded_channel::<MergeRequest>();",
+      "verified": true
+    },
+    {
+      "doc_reference": "src/cook/execution/mapreduce/merge_queue.rs:98-99",
+      "actual_location": "src/cook/execution/mapreduce/merge_queue.rs:98-99",
+      "content": "env_vars.insert(\"PRODIGY_AUTOMATION\".to_string(), \"true\".to_string());",
+      "verified": true
+    },
+    {
+      "doc_reference": ".claude/commands/prodigy-merge-worktree.md",
+      "actual_location": ".claude/commands/prodigy-merge-worktree.md",
+      "content": "Command file exists with correct usage documentation",
+      "verified": true
+    }
+  ],
+  "link_validation": {
+    "total_internal_links": 0,
+    "broken_links": 0,
+    "note": "Page contains no internal markdown links to validate"
+  },
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:15:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": [
+      "git worktrees",
+      "branch naming",
+      "merge flow",
+      "agent isolation",
+      "worktree pool allocation",
+      "merge queue",
+      "conflict resolution",
+      "debugging"
+    ],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features"
+  }
+}
