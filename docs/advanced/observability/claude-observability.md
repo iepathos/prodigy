@@ -4,14 +4,40 @@ Detailed Claude execution logs capture complete interactions.
 
 ## JSON Log Location
 
-Every Claude command creates a JSON log file:
+Every Claude command creates a JSONL (newline-delimited JSON) log file in the project-based storage:
+
 ```
-~/.local/state/claude/logs/session-{session_id}.json
+~/.claude/projects/{sanitized-project-path}/{session-id}.jsonl
+```
+
+!!! note "Path Sanitization"
+    Claude sanitizes project paths by replacing `/` with `-` and removing leading slashes.
+    For example, a project at `/Users/glen/prodigy` creates logs in:
+    ```
+    ~/.claude/projects/Users-glen-prodigy/{session-id}.jsonl
+    ```
+
+## Log Detection Strategies
+
+Prodigy uses multiple strategies to detect Claude log locations:
+
+1. **Parse CLI output** - Look for log location in Claude's output (e.g., "Session log: /path/to/log.jsonl")
+2. **Search recent files** - Find `.jsonl` files modified after command execution start
+3. **Infer from project path** - Calculate expected location based on sanitized project path
+
+```rust
+// Source: src/cook/execution/claude_log_detection.rs:25-57
+pub async fn detect_json_log_location(
+    project_path: &Path,
+    cli_output: &str,
+    execution_start: SystemTime,
+) -> Option<PathBuf>
 ```
 
 ## Log Contents
 
 Complete conversation history:
+
 - User messages and prompts
 - Claude responses
 - Tool invocations with parameters
@@ -21,6 +47,15 @@ Complete conversation history:
 
 ## Accessing JSON Logs
 
+**Via Prodigy Logs Command (Recommended)**:
+```bash
+# View the most recent Claude log
+prodigy logs --latest
+
+# Follow live execution
+prodigy logs --latest --tail
+```
+
 **Via Verbose Output (-v flag)**:
 ```bash
 prodigy run workflow.yml -v
@@ -29,7 +64,7 @@ prodigy run workflow.yml -v
 Output includes log location:
 ```
 Executing: claude /my-command
-Claude JSON log: /Users/user/.local/state/claude/logs/session-abc123.json
+Claude JSON log: /Users/user/.claude/projects/Users-user-myproject/abc123.jsonl
 ✓ Command completed
 ```
 
@@ -38,7 +73,7 @@ Claude JSON log: /Users/user/.local/state/claude/logs/session-abc123.json
 {
   "type": "AgentCompleted",
   "agent_id": "agent-1",
-  "json_log_location": "/path/to/logs/session-xyz.json"
+  "json_log_location": "/Users/user/.claude/projects/.../session-xyz.jsonl"
 }
 ```
 
@@ -48,7 +83,7 @@ Claude JSON log: /Users/user/.local/state/claude/logs/session-abc123.json
   "item_id": "item-1",
   "failure_history": [{
     "error": "Command failed",
-    "json_log_location": "/path/to/logs/session-xyz.json"
+    "json_log_location": "/Users/user/.claude/projects/.../session-xyz.jsonl"
   }]
 }
 ```
@@ -56,29 +91,44 @@ Claude JSON log: /Users/user/.local/state/claude/logs/session-abc123.json
 ## Analyzing JSON Logs
 
 !!! example "Common Log Analysis Tasks"
-    The examples below show how to extract specific information from Claude JSON logs using `jq`. These patterns are useful for debugging agent failures, tracking token usage, and understanding Claude's decision-making process.
+    The examples below show how to extract specific information from Claude JSONL logs using `jq`. Note that `.jsonl` files contain newline-delimited JSON (one JSON object per line), so you need to process each line separately.
 
-**View complete conversation**:
+**View assistant messages**:
 ```bash
-cat ~/.local/state/claude/logs/session-abc123.json | jq '.messages'
+# Source: Each line is a separate JSON object
+cat ~/.claude/projects/{project-path}/{session-id}.jsonl | \
+  jq -c 'select(.type == "assistant")'
 ```
 
 **Check tool invocations**:
 ```bash
-cat ~/.local/state/claude/logs/session-abc123.json | \
-  jq '.messages[].content[] | select(.type == "tool_use")'
+cat ~/.claude/projects/{project-path}/{session-id}.jsonl | \
+  jq -c 'select(.type == "tool_use")'
 ```
 
 **Analyze token usage**:
 ```bash
-cat ~/.local/state/claude/logs/session-abc123.json | jq '.usage'
+cat ~/.claude/projects/{project-path}/{session-id}.jsonl | \
+  jq -c 'select(.usage != null) | .usage'
 ```
 
 **Extract errors**:
 ```bash
-cat ~/.local/state/claude/logs/session-abc123.json | \
-  jq '.messages[] | select(.role == "assistant") | .content[] | select(.type == "error")'
+cat ~/.claude/projects/{project-path}/{session-id}.jsonl | \
+  jq -c 'select(.type == "error" or .error != null)'
 ```
+
+**View last 3 messages**:
+```bash
+cat ~/.claude/projects/{project-path}/{session-id}.jsonl | \
+  jq -c 'select(.type == "assistant" or .type == "user")' | tail -3
+```
+
+!!! tip "Finding Log Paths"
+    Use `prodigy logs --latest` to quickly find the most recent log file path, or check the DLQ for failed agent log locations:
+    ```bash
+    prodigy dlq show <job_id> | jq '.items[].failure_history[].json_log_location'
+    ```
 
 ## Verbosity Control
 
@@ -90,21 +140,25 @@ Granular output control with verbosity flags:
 ### Levels
 
 **Default (verbosity = 0)**:
+
 - Clean, minimal output
 - Progress indicators
 - Results only
 
 **Verbose (-v, verbosity = 1)**:
+
 - Claude streaming JSON output
 - Command execution details
 - Log file locations
 
 **Debug (-vv, verbosity = 2)**:
+
 - Internal debug logs
 - Execution traces
 - State transitions
 
 **Trace (-vvv, verbosity = 3)**:
+
 - Trace-level internal logging
 - Full execution details
 - Performance metrics
@@ -125,10 +179,16 @@ prodigy run workflow.yml -vv
 prodigy run workflow.yml -vvv
 ```
 
-### Environment Override
+### Environment Overrides
 
-Force streaming output regardless of verbosity:
+**Force streaming output** regardless of verbosity:
 ```bash
 export PRODIGY_CLAUDE_CONSOLE_OUTPUT=true
+prodigy run workflow.yml
+```
+
+**Disable JSON streaming** (useful for CI/automated environments):
+```bash
+export PRODIGY_CLAUDE_STREAMING=false
 prodigy run workflow.yml
 ```
