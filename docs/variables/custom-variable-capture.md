@@ -2,6 +2,9 @@
 
 Custom capture variables allow you to save command output with explicit names for later use. This provides fine-grained control over what data is captured, how it's formatted, and when it's available to subsequent steps.
 
+!!! tip "Recommendation"
+    Use custom variable names (e.g., `capture_output: "file_count"`) instead of `capture_output: true` for clarity and to avoid accidentally overwriting previous captures.
+
 ### Basic Syntax
 
 The `capture_output` field can be used with any command type (shell, claude, handler):
@@ -29,8 +32,6 @@ When using `capture_output: true`, the variable name depends on the command type
 | `shell:` | `${shell.output}` | `echo ${shell.output}` |
 | `claude:` | `${claude.output}` | `echo ${claude.output}` |
 | `handler:` | `${handler.output}` | `echo ${handler.output}` |
-
-**Recommendation:** Use custom variable names for clarity and to avoid overwriting previous captures.
 
 ### Capture Formats
 
@@ -104,9 +105,8 @@ Customize which streams and metadata are captured using `capture_streams`:
     duration: true    # default: true
 ```
 
-**Default Behavior Explained:**
-
-**Source:** src/cook/workflow/variables.rs:269-291
+!!! note "Default Behavior"
+    **Source:** `src/cook/workflow/variables.rs:269-291`
 
 - `stdout: true` - Command output is captured (default)
 - `stderr: false` - Error output is NOT captured by default (prevents noise from warnings)
@@ -114,14 +114,14 @@ Customize which streams and metadata are captured using `capture_streams`:
 - `success: true` - Boolean success status (exit_code == 0) is always captured
 - `duration: true` - Execution duration is always captured
 
-**When stderr is false (default):**
-- Error output is discarded
-- Only stdout is captured in the variable
-- Use this when stderr contains progress bars, warnings, or noise
+=== "stderr: false (default)"
+    - Error output is discarded
+    - Only stdout is captured in the variable
+    - Use this when stderr contains progress bars, warnings, or noise
 
-**When stderr is true:**
-- Both stdout and stderr are combined in the captured output
-- Useful for debugging failures or when errors contain useful information
+=== "stderr: true"
+    - Both stdout and stderr are combined in the captured output
+    - Useful for debugging failures or when errors contain useful information
 
 **Common Patterns:**
 ```yaml
@@ -161,7 +161,8 @@ Captured variables have different scopes depending on the workflow phase:
 | Reduce | Step-forward | Current and subsequent reduce steps |
 | Merge | Merge-local | Only merge phase commands |
 
-**Important:** Setup phase captures are the only way to share data across all map agents.
+!!! warning "Important"
+    Setup phase captures are the only way to share data across all map agents.
 
 **Example:**
 ```yaml
@@ -196,10 +197,11 @@ When using `capture_format: "json"`, access nested fields with dot notation:
 - shell: "echo 'Version: ${metadata.packages[0].version}'"
 ```
 
-**Tip:** Use `jq` to explore JSON structure first:
-```yaml
-- shell: "cargo metadata --format-version 1 | jq -r '.packages[0] | keys'"
-```
+!!! tip "Exploring JSON Structure"
+    Use `jq` to explore JSON structure before writing field access:
+    ```yaml
+    - shell: "cargo metadata --format-version 1 | jq -r '.packages[0] | keys'"
+    ```
 
 ### Complete Examples
 
@@ -297,19 +299,25 @@ reduce:
     fi
 ```
 
-# Access fields directly
-- shell: "cd ${metadata.workspace_root}"
-- shell: "echo 'Package: ${metadata.packages[0].name}'"
-```
+### JSON Parsing: capture_format vs jq
 
-**Use manual jq parsing when:**
-- You need complex filtering or transformations
-- You want to extract only specific fields (reduce memory)
-- The JSON structure varies or is deeply nested
-- You need to combine or reshape data
-- You want error handling for invalid JSON
+When to use each approach for JSON data:
 
-**Example:**
+=== "Use capture_format: json"
+    - Direct field access is sufficient
+    - You need the full JSON structure
+    - Simple navigation with dot notation
+    - Performance is important (parsed once)
+
+=== "Use manual jq parsing"
+    - Complex filtering or transformations needed
+    - Extract only specific fields (reduce memory)
+    - JSON structure varies or is deeply nested
+    - Combine or reshape data
+    - Error handling for invalid JSON
+
+**Complex jq transformations:**
+
 ```yaml
 # Complex transformation with jq
 - shell: |
@@ -328,7 +336,8 @@ reduce:
   capture_format: "json"
 ```
 
-**Combined Approach:**
+**Combined approach (recommended for complex workflows):**
+
 ```yaml
 # Capture full JSON for direct field access
 - shell: "cargo metadata --format-version 1"
@@ -345,12 +354,10 @@ reduce:
   capture_format: "json"
 ```
 
-**Performance Considerations:**
-- **capture_format: json** parses once, enables direct field access
-- **Manual jq** can filter early to reduce memory for large JSON
-- **Combined approach** gives both direct access and complex queries
-
-**Source:** Examples from book/src/variables/custom-variable-capture.md:143-161, 289-297
+!!! info "Performance Considerations"
+    - **capture_format: json** - Parses once, enables direct field access
+    - **Manual jq** - Can filter early to reduce memory for large JSON
+    - **Combined approach** - Gives both direct access and complex queries
 
 ### Common Patterns
 
