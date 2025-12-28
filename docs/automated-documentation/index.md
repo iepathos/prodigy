@@ -28,15 +28,20 @@ The generalized commands work for any codebase: Rust, Python, JavaScript, etc.
 
 **Real Results**: This documentation you're reading right now is maintained by this system. Every code example references actual source files. When Prodigy's features change, the docs update automatically.
 
+!!! warning "Prerequisites"
+    Before using the book workflow, ensure you have an existing mdBook or MkDocs project. The workflow enhances existing documentation - it doesn't create documentation structure from scratch.
+
 ## Quick Start
 
 Ready to get started? Here's the fastest path:
 
+!!! tip "Choose Your Path"
+    **Quick Start (15-20 min)**: Best if you want to get automated docs running quickly.
+    **Tutorial (30 min)**: Best if you want to understand how the system works under the hood.
+
 1. **[Install Prodigy](../installation.md)** - Prodigy, Claude Code CLI, Rust
 2. **[Follow the Quick Start guide](quick-start.md)** - 15-20 minute setup for automated docs
 3. **Or dive deeper with the [Tutorial](tutorial.md)** - 30 minute comprehensive walkthrough
-
-Choose your path based on your time and experience level
 
 
 ## How It Works
@@ -150,7 +155,11 @@ The workflow enforces quality through multiple mechanisms:
 
 ### Worktree Isolation
 
+!!! info "Safe Experimentation"
+    Your main repository is never modified during workflow execution. All changes happen in isolated worktrees and only merge back after successful completion.
+
 All phases execute in an isolated git worktree:
+
 - Your main repository remains untouched during execution
 - Each map agent runs in its own child worktree
 - Changes merge back only after successful completion
