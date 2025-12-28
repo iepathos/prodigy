@@ -2,6 +2,78 @@
 
 This chapter provides comprehensive guidance for diagnosing and resolving common issues with Prodigy workflows. Whether you're experiencing MapReduce failures, checkpoint issues, or variable interpolation problems, you'll find practical solutions here.
 
+## Troubleshooting Decision Flow
+
+Use this diagram to quickly identify your issue category:
+
+```mermaid
+flowchart LR
+    Start[Issue Observed] --> Type{What type?}
+
+    Type -->|Variable/Output| Vars["Variables
+    Not Working"]
+    Type -->|Execution| Exec["Commands
+    Failing"]
+    Type -->|State/Resume| State["Checkpoint
+    Issues"]
+    Type -->|Cleanup| Clean["Worktree
+    Problems"]
+
+    Vars --> V1["Literal ${var}
+    in output"]
+    Vars --> V2["Env vars
+    not resolved"]
+    Vars --> V3["Git context
+    empty"]
+
+    Exec --> E1["Timeout
+    errors"]
+    Exec --> E2["Claude
+    not found"]
+    Exec --> E3["Foreach
+    failures"]
+    Exec --> E4["Validate
+    failures"]
+
+    State --> S1["Resume starts
+    from beginning"]
+    State --> S2["DLQ retry
+    fails"]
+
+    Clean --> C1["Orphaned
+    worktrees"]
+    Clean --> C2["Permission
+    denied"]
+
+    V1 --> Fix1["Check syntax
+    and scope"]
+    V2 --> Fix1
+    V3 --> Fix2["Check commits
+    created"]
+    E1 --> Fix3["Increase timeout
+    or split work"]
+    E2 --> Fix4["Install/configure
+    Claude CLI"]
+    E3 --> Fix5["Enable
+    continue_on_error"]
+    E4 --> Fix6["Check schema
+    and threshold"]
+    S1 --> Fix7["Verify checkpoint
+    files exist"]
+    S2 --> Fix8["Fix underlying
+    issue first"]
+    C1 --> Fix9["prodigy worktree
+    clean-orphaned"]
+    C2 --> Fix9
+
+    style Start fill:#e1f5ff
+    style Type fill:#fff3e0
+    style Vars fill:#e8f5e9
+    style Exec fill:#ffebee
+    style State fill:#f3e5f5
+    style Clean fill:#fff8e1
+```
+
 ## Quick Reference
 
 Find your issue by symptom:
@@ -140,6 +212,9 @@ See [MapReduce Checkpoint and Resume](../mapreduce/checkpoint-and-resume.md) for
 See [Dead Letter Queue (DLQ)](../mapreduce/dead-letter-queue-dlq.md) for complete DLQ management details.
 
 ### Worktree cleanup failures
+
+!!! info "Resource Management"
+    Worktrees are temporary git checkouts used for isolation. Orphaned worktrees consume disk space but don't affect workflow correctness.
 
 **Symptoms:** Orphaned worktrees after failures, "permission denied" on cleanup
 
@@ -340,6 +415,9 @@ Example write_file configuration:
 ### Claude command fails with "command not found"
 
 **Symptoms:** Shell error about claude command not existing
+
+!!! note "Prerequisites"
+    Claude Code CLI must be installed and accessible in your PATH for Prodigy to execute `claude:` commands in workflows.
 
 **Causes:**
 - Claude Code not installed
