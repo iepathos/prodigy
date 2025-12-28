@@ -1,0 +1,78 @@
+{
+  "item_type": "page",
+  "page_id": "worktree-storage",
+  "page_title": "worktree storage",
+  "page_file": "docs/advanced/storage/worktree-storage.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Page has significant drift in orphaned worktree registry format and session-job mapping storage structure. The documented formats do not match the actual implementation.",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Orphaned Worktree Tracking - Registry Format",
+      "description": "The documented registry format shows a wrapper object with 'job_id' and 'orphaned_worktrees' fields, but the actual implementation stores an array of OrphanedWorktree directly (Vec<OrphanedWorktree>)",
+      "current_content": "{\n  \"job_id\": \"mapreduce-123\",\n  \"orphaned_worktrees\": [...]",
+      "should_be": "[\n  {\n    \"path\": \"/Users/user/.prodigy/worktrees/prodigy/agent-1\",\n    \"agent_id\": \"agent-1\",\n    \"item_id\": \"item-1\",\n    \"failed_at\": \"2025-01-11T12:00:00Z\",\n    \"error\": \"Permission denied\"\n  }\n]",
+      "fix_suggestion": "Update the registry format example to show a direct array of orphaned worktree objects without the wrapper",
+      "source_reference": "src/cli/commands/worktree/orphaned_cleanup.rs:160-165"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "medium",
+      "section": "Orphaned Worktree Tracking - Registry Format",
+      "description": "The documented OrphanedWorktree fields use different names than the actual implementation: 'worktree_path' should be 'path', 'timestamp' should be 'failed_at'",
+      "current_content": "\"worktree_path\": \"/Users/user/.prodigy/worktrees/prodigy/agent-1\",\n\"timestamp\": \"2025-01-11T12:00:00Z\"",
+      "should_be": "\"path\": \"/Users/user/.prodigy/worktrees/prodigy/agent-1\",\n\"failed_at\": \"2025-01-11T12:00:00Z\"",
+      "fix_suggestion": "Update field names to match the OrphanedWorktree struct: path, agent_id, item_id, failed_at, error",
+      "source_reference": "src/cook/execution/mapreduce/coordination/executor.rs:42-53"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Session-Job Mapping - Mapping Format",
+      "description": "Documentation shows two separate mapping files (session-to-job.json and job-to-session.json), but actual implementation creates individual files per mapping with the ID as filename ({session_id}.json and {job_id}.json), each containing the full SessionJobMapping struct",
+      "current_content": "session-to-job.json:\n{ \"session-mapreduce-xyz\": \"mapreduce-123\" }\n\njob-to-session.json:\n{ \"mapreduce-123\": \"session-mapreduce-xyz\" }",
+      "should_be": "{session_id}.json and {job_id}.json files:\n{\n  \"session_id\": \"session-mapreduce-xyz\",\n  \"job_id\": \"mapreduce-123\",\n  \"workflow_name\": \"my-workflow\",\n  \"created_at\": \"2025-01-11T12:00:00Z\"\n}",
+      "fix_suggestion": "Update the mapping format section to show individual mapping files named by session/job ID, each containing the full SessionJobMapping struct with session_id, job_id, workflow_name, and created_at fields",
+      "source_reference": "src/storage/session_job_mapping.rs:12-26"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Session-Job Mapping",
+      "description": "Documentation shows mappings directory structure with two files, but actual implementation creates one file per session ID and one per job ID in the same mappings directory",
+      "current_content": "~/.prodigy/state/{repo_name}/mappings/\n├── session-to-job.json\n└── job-to-session.json",
+      "should_be": "~/.prodigy/state/{repo_name}/mappings/\n├── session-mapreduce-xyz.json\n└── mapreduce-123.json",
+      "fix_suggestion": "Update directory structure to show that each mapping creates two files: one named with session ID and one with job ID",
+      "source_reference": "src/storage/session_job_mapping.rs:40-51"
+    }
+  ],
+  "positive_aspects": [
+    "Clear documentation of worktree lifecycle stages (Creation, Execution, Persistence, Cleanup)",
+    "Good explanation of orphaned worktree concept and tracking purpose",
+    "Accurate base path for worktrees (~/.prodigy/worktrees/{repo_name}/)",
+    "Accurate base path for orphaned worktrees registry (~/.prodigy/orphaned_worktrees/{repo_name}/)",
+    "Clear explanation of bidirectional mapping purpose for resume operations"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for important notes about cleanup behavior",
+    "Include a practical example of using prodigy worktree clean-orphaned command",
+    "Add cross-reference links to related pages (session management, MapReduce checkpoint/resume)",
+    "Include a code annotation showing how the mappings are used during resume",
+    "Add a troubleshooting section for common worktree issues"
+  ],
+  "cross_references": [
+    "sessions",
+    "mapreduce-checkpoint-resume",
+    "git-integration"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T12:00:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["worktree storage", "orphaned worktree tracking", "session-job mapping"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_found": 0,
+    "broken_links_found": 0
+  }
+}
