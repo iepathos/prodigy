@@ -13,6 +13,38 @@
 
 Prodigy provides comprehensive CLI commands for managing the DLQ. The following sections describe the planned command interface.
 
+```mermaid
+flowchart LR
+    subgraph Discovery["Discovery"]
+        direction TB
+        List[list<br/>View items]
+        Stats[stats<br/>View statistics]
+    end
+
+    subgraph Investigation["Investigation"]
+        direction TB
+        Inspect[inspect<br/>Examine details]
+        Analyze[analyze<br/>Find patterns]
+        Export[export<br/>External analysis]
+    end
+
+    subgraph Resolution["Resolution"]
+        direction TB
+        Retry[retry<br/>Reprocess items]
+        Clear[clear<br/>Remove items]
+        Purge[purge<br/>Clean old items]
+    end
+
+    Discovery --> Investigation
+    Investigation --> Resolution
+
+    style Discovery fill:#e1f5ff
+    style Investigation fill:#fff3e0
+    style Resolution fill:#e8f5e9
+```
+
+**Figure**: DLQ command workflow showing progression from discovery through investigation to resolution.
+
 !!! info "Related Documentation"
     - [DLQ Overview](overview.md) - Core concepts and architecture
     - [DLQ Internals](internals.md) - Implementation details
