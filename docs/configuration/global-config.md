@@ -7,7 +7,7 @@ Global configuration settings apply across all Prodigy projects and workflows. T
 The global configuration is defined by the `GlobalConfig` struct, which contains system-wide settings for Prodigy's behavior, external tool integration, and operational parameters.
 
 ```rust
-// Source: src/config/mod.rs:45-59
+// Source: src/config/mod.rs:68-77
 /// Global configuration settings for Prodigy
 ///
 /// These settings apply across all projects and workflows. Can be overridden
@@ -49,7 +49,7 @@ The global configuration file is stored in the Prodigy data directory:
 The global directory location is determined by platform-specific conventions:
 
 ```rust
-// Source: src/config/mod.rs:26-31
+// Source: src/config/mod.rs:40-44
 pub fn get_global_prodigy_dir() -> Result<PathBuf> {
     ProjectDirs::from("com", "prodigy", "prodigy")
         .map(|dirs| dirs.data_dir().to_path_buf())
@@ -88,9 +88,13 @@ Prodigy uses a hierarchical configuration system where settings can be overridde
 
 ```mermaid
 graph TD
-    Env[Environment Variables<br/>PRODIGY_*] --> Project[Project Config<br/>.prodigy/config.yml]
-    Project --> Global[Global Config<br/>~/.prodigy/config.yml]
-    Global --> Defaults[Default Values<br/>Hardcoded]
+    Env["Environment Variables
+    PRODIGY_*"] --> Project["Project Config
+    .prodigy/config.yml"]
+    Project --> Global["Global Config
+    ~/.prodigy/config.yml"]
+    Global --> Defaults["Default Values
+    Hardcoded"]
 
     Env -.->|Highest Priority| Resolution[Final Value]
     Project -.->|Override Global| Resolution
@@ -114,7 +118,7 @@ graph TD
 **Claude API Key Resolution:**
 
 ```rust
-// Source: src/config/mod.rs:133-138
+// Source: src/config/mod.rs:205-210
 pub fn get_claude_api_key(&self) -> Option<&str> {
     self.project
         .as_ref()
@@ -131,7 +135,7 @@ pub fn get_claude_api_key(&self) -> Option<&str> {
 **Auto-Commit Behavior:**
 
 ```rust
-// Source: src/config/mod.rs:140-146
+// Source: src/config/mod.rs:212-218
 pub fn get_auto_commit(&self) -> bool {
     self.project
         .as_ref()
@@ -161,7 +165,7 @@ Environment variables provide the highest-priority configuration mechanism, usef
 ### Supported Environment Variables
 
 ```rust
-// Source: src/config/mod.rs:111-131
+// Source: src/config/mod.rs:183-203
 pub fn merge_env_vars(&mut self) {
     if let Ok(api_key) = std::env::var("PRODIGY_CLAUDE_API_KEY") {
         self.global.claude_api_key = Some(api_key);
@@ -254,7 +258,7 @@ Prodigy uses a multi-stage configuration loading process with clear precedence r
 ### Loading Hierarchy
 
 ```rust
-// Source: src/config/loader.rs:31-55
+// Source: src/config/loader.rs:35-55
 pub async fn load_with_explicit_path(
     &self,
     project_path: &Path,
@@ -313,7 +317,7 @@ validate_config_format(extension)
 When no configuration is explicitly provided, Prodigy uses these default values:
 
 ```rust
-// Source: src/config/mod.rs:88-99
+// Source: src/config/mod.rs:108-120
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
@@ -346,13 +350,16 @@ The plugin system allows extending Prodigy with custom commands and workflows.
 ### Plugin Structure
 
 ```rust
-// Source: src/config/mod.rs:81-86
-pub struct PluginConfig {
+// Source: src/config/mod.rs:101-106 (legacy, see note below)
+pub struct OldPluginConfig {
     pub enabled: bool,
     pub directory: PathBuf,
     pub auto_load: Vec<String>,
 }
 ```
+
+!!! note "Plugin Configuration Migration"
+    The `OldPluginConfig` struct shown above is a legacy type. New code should use [`PluginConfig`](../reference/prodigy-config.md) from the `prodigy_config` module, which provides enhanced functionality and is the recommended approach for plugin configuration.
 
 ### Enabling Plugins
 
