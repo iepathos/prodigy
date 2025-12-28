@@ -2,6 +2,8 @@
 
 Since git context variables are provided as space-separated strings, all filtering and formatting must be done using shell commands. This section shows practical patterns for common tasks.
 
+For variable definitions, see the [Git Context Overview](index.md).
+
 ## Default Format (Space-Separated)
 
 Git context variables are always formatted as space-separated strings:
@@ -28,6 +30,10 @@ This format works well with most shell commands:
 ## Filtering by File Extension
 
 Use `grep` to filter files by extension or pattern:
+
+!!! tip "Filtering Multiple Extensions"
+    Use `grep -E` (extended regex) to match multiple file extensions in a single pattern.
+    This is more efficient than chaining multiple `grep` commands.
 
 ```yaml
 # Only Rust files
@@ -60,6 +66,14 @@ Use `grep` to filter files by extension or pattern:
 
 Use `jq` to convert space-separated files to JSON arrays:
 
+!!! info "Understanding the jq Pipeline"
+    The pattern `jq -R | jq -s` works in two stages:
+
+    - `jq -R` reads each line as a raw string (not parsed as JSON)
+    - `jq -s` collects all inputs into a single array
+
+    Together, they convert newline-separated text into a JSON array of strings.
+
 ```yaml
 # Convert to JSON array
 - shell: "echo ${step.files_added} | tr ' ' '\n' | jq -R | jq -s"
@@ -78,6 +92,16 @@ Use `jq` to convert space-separated files to JSON arrays:
 ## Converting to Newline-Separated Format
 
 Use `tr` to convert space-separated to newline-separated:
+
+!!! note "Parallel Processing with xargs"
+    When processing many files, `xargs -P` can run commands in parallel:
+
+    ```bash
+    echo "${files}" | tr ' ' '\n' | xargs -P 4 -I {} process {}
+    ```
+
+    The `-P 4` flag runs up to 4 processes concurrently. See
+    [Best Practices](best-practices.md) for performance tips.
 
 ```yaml
 # One file per line
@@ -131,3 +155,5 @@ Practical examples combining multiple operations:
 #    12 rs
 #    3 toml
 ```
+
+For more patterns and optimization techniques, see [Use Cases](use-cases.md).
