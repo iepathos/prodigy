@@ -1,0 +1,96 @@
+{
+  "item_type": "auto-discovered",
+  "page_id": "project-configuration-structure",
+  "page_title": "project configuration structure",
+  "page_file": "docs/configuration/project-configuration-structure.md",
+  "drift_detected": true,
+  "severity": "high",
+  "quality_assessment": "Documentation has critical inaccuracies: incorrect default values, missing required field clarification, and outdated storage configuration syntax",
+  "issues": [
+    {
+      "type": "outdated_information",
+      "severity": "high",
+      "section": "Fields - name (required)",
+      "description": "Documentation states 'name' is required but code shows it's optional. In ProjectSettings, 'name' is Option<String> with no enforcement. Documentation should clarify that while recommended, name is not strictly required by the parser.",
+      "current_content": "#### `name` (required)\n\n**Type**: String\n**Default**: None (required field)",
+      "should_be": "#### `name` (recommended)\n\n**Type**: String (optional)\n**Default**: None",
+      "fix_suggestion": "Update to indicate name is recommended but optional. If Prodigy requires it at runtime, document that validation requirement separately.",
+      "source_reference": "src/config/prodigy_config.rs:97-98 - pub name: Option<String>"
+    },
+    {
+      "type": "incorrect_examples",
+      "severity": "high",
+      "section": "storage - backend_config",
+      "description": "Storage configuration uses incorrect field name. Documentation shows 'backend_config.base_dir' but actual code uses 'base_path' directly under storage.",
+      "current_content": "storage:\n  backend: file\n  backend_config:\n    base_dir: /custom/project/storage",
+      "should_be": "storage:\n  backend: filesystem\n  base_path: /custom/project/storage",
+      "fix_suggestion": "Update storage example to use correct field names: 'filesystem' (not 'file') and 'base_path' (not 'backend_config.base_dir')",
+      "source_reference": "src/config/prodigy_config.rs:126-139 - StorageSettings struct"
+    },
+    {
+      "type": "outdated_information",
+      "severity": "medium",
+      "section": "Relationship to Global Config - example",
+      "description": "Example shows 'max_concurrent_specs: 1' as default but code defaults to 4",
+      "current_content": "max_concurrent_specs: 1",
+      "should_be": "max_concurrent_specs: 4",
+      "fix_suggestion": "Update the global config example to show the actual default value of 4",
+      "source_reference": "src/config/prodigy_config.rs:192-194 - fn default_max_concurrent() -> usize { 4 }"
+    },
+    {
+      "type": "missing_content",
+      "severity": "medium",
+      "section": "Fields",
+      "description": "Missing documentation for 'plugins' configuration in project config. PluginConfig struct exists with enabled, directory, and auto_load fields.",
+      "feature_reference": "configuration_system.plugin_config",
+      "fix_suggestion": "Add a section documenting the plugins configuration: enabled (bool), directory (path), auto_load (list of plugin names)",
+      "source_reference": "src/config/prodigy_config.rs:141-158 - PluginConfig struct"
+    },
+    {
+      "type": "missing_content",
+      "severity": "low",
+      "section": "Fields - storage",
+      "description": "Storage section doesn't document 'compression_level' field which is available for checkpoint compression (0-9 range)",
+      "feature_reference": "configuration_system.storage_settings",
+      "fix_suggestion": "Document compression_level field under storage configuration with its valid range (0-9)",
+      "source_reference": "src/config/prodigy_config.rs:136-138 - compression_level: u8"
+    },
+    {
+      "type": "incomplete_explanation",
+      "severity": "low",
+      "section": "Fields - storage - backend",
+      "description": "Documentation shows 'backend: file' but valid values are 'filesystem' or 'memory'. The enum uses lowercase serialization.",
+      "current_content": "backend: file",
+      "should_be": "backend: filesystem",
+      "fix_suggestion": "Update backend value to 'filesystem' and document that 'memory' is also valid (for testing)",
+      "source_reference": "src/config/prodigy_config.rs:161-169 - BackendType enum"
+    }
+  ],
+  "positive_aspects": [
+    "Clear structure with well-organized sections for each field",
+    "Good documentation of the configuration precedence hierarchy",
+    "Excellent secrets management section with multiple approaches (env vars, local file, secret services)",
+    "Helpful examples showing how to create project config manually or via prodigy init",
+    "Good cross-references to related documentation pages (environment variables, storage, precedence rules)",
+    "Clear explanation of how project config overrides global config"
+  ],
+  "improvement_suggestions": [
+    "Add MkDocs Material admonitions for security warnings and tips",
+    "Add a field type summary table at the top for quick reference",
+    "Include validation rules (e.g., spec_dir must be relative path, max_concurrent_specs 1-100)",
+    "Add code annotations to YAML examples explaining each field"
+  ],
+  "cross_references": [
+    "environment-variables",
+    "storage-configuration",
+    "configuration-precedence-rules"
+  ],
+  "metadata": {
+    "analyzed_at": "2025-12-27T03:20:00Z",
+    "feature_inventory": ".prodigy/mkdocs-analysis/features.json",
+    "topics_covered": ["project configuration", "YAML config", "storage", "variables", "secrets"],
+    "validation_focus": "Auto-discovered page - check for drift and enhance with visual features",
+    "internal_links_validated": true,
+    "broken_links_count": 0
+  }
+}
