@@ -17,6 +17,48 @@ Gap detection runs in the **setup phase** of the book workflow and performs seve
 4. **Updates** SUMMARY.md with proper hierarchy
 5. **Generates** flattened-items.json for the map phase (mandatory)
 
+```mermaid
+flowchart LR
+    subgraph Input["Input Files"]
+        Features["features.json
+        (from analysis)"]
+        Chapters["chapters.json
+        (existing)"]
+    end
+
+    subgraph Process["Gap Detection"]
+        Compare["Compare Features
+        vs Chapters"]
+        Classify["Classify Gaps
+        by Severity"]
+        Generate["Generate Missing
+        Chapters"]
+    end
+
+    subgraph Output["Output Files"]
+        NewChapters["New chapter
+        definitions"]
+        Stubs["Stub markdown
+        files"]
+        Flattened["flattened-items.json
+        (for map phase)"]
+    end
+
+    Features --> Compare
+    Chapters --> Compare
+    Compare --> Classify
+    Classify --> Generate
+    Generate --> NewChapters
+    Generate --> Stubs
+    Generate --> Flattened
+
+    style Input fill:#e1f5ff
+    style Process fill:#fff3e0
+    style Output fill:#e8f5e9
+```
+
+**Figure**: Gap detection pipeline showing input analysis, gap classification, and output generation.
+
 !!! warning "Focus on Feature Coverage"
     Gap detection focuses on **feature coverage** - ensuring all major features have documentation. It does NOT analyze chapter sizes or create subsections. For that, use `/prodigy-analyze-chapter-structure`.
 
@@ -259,12 +301,43 @@ map:
     - claude: "/prodigy-fix-subsection-drift --project $PROJECT_NAME --json '${item}'"
 ```
 
+!!! tip "Parallel Processing Benefit"
+    By flattening chapters and subsections into individual items, each map agent can work independently on a single documentation unit. This enables efficient parallel processing - 10 agents can process 10 chapters simultaneously.
+
 !!! info "Why Required"
     Without flattened-items.json, the map phase cannot parallelize drift analysis and fixing across chapters/subsections.
 
 ## Topic Normalization
 
 Gap detection uses normalization logic to accurately match feature categories against documented topics.
+
+```mermaid
+flowchart TD
+    Feature["Feature Category
+    e.g., 'MapReduce Workflows'"] --> Normalize["Normalize
+    lowercase, no punctuation"]
+    Normalize --> Terms["Extract Terms
+    ['mapreduce', 'workflows']"]
+
+    Terms --> Match{"Match Against
+    Chapters?"}
+
+    Match -->|"ID contains term"| Found["Chapter Found"]
+    Match -->|"Title fuzzy match ≥0.7"| Found
+    Match -->|"Topics include term"| Found
+    Match -->|"No match found"| Gap["Gap Detected
+    (High Severity)"]
+
+    Gap --> Create["Create Chapter
+    Definition + Stub"]
+
+    style Feature fill:#e1f5ff
+    style Match fill:#fff3e0
+    style Found fill:#e8f5e9
+    style Gap fill:#ffebee
+```
+
+**Figure**: Topic normalization and matching flow for gap detection.
 
 ### Normalization Steps
 
