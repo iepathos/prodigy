@@ -480,6 +480,12 @@ This allows you to see exactly what tools Claude invoked and why the agent faile
 
 ## Example 8: Generating Configuration Files
 
+Use `write_file` to generate configuration files with variable interpolation. Choose the format based on your target system's requirements:
+
+- **json**: Machine-readable, strict syntax, ideal for APIs and config stores
+- **yaml**: Human-readable, supports comments (in source), ideal for Kubernetes/Docker configs
+- **text**: Raw output, preserves formatting, ideal for scripts and reports
+
 ```yaml
 # Generate a JSON configuration file
 - write_file:
@@ -1087,3 +1093,17 @@ merge:
 ```
 
 This is equivalent to `merge.commands` but more concise.
+
+---
+
+## Summary
+
+These examples demonstrate Prodigy's workflow capabilities from simple build pipelines to complex parallel processing:
+
+| Complexity | Examples | Key Concepts |
+|------------|----------|--------------|
+| **Basic** | 1-2, 4 | Shell commands, foreach, conditionals |
+| **Intermediate** | 3, 5-6, 8-9 | MapReduce, validation, environment config |
+| **Advanced** | 7, 10-13 | Error handling, circuit breakers, retry strategies, composition |
+
+For more details on specific features, see the corresponding documentation sections in the navigation.
