@@ -92,14 +92,54 @@ This book itself is maintained using Prodigy's automated documentation system! L
 
 ## Key Concepts
 
-- **[Workflows](workflow-basics/index.md)**: YAML files defining sequences of commands
-- **[Commands](commands.md)**: Shell commands, Claude AI invocations, or control flow
-- **[Variables](environment/index.md)**: Capture output from commands and use throughout workflow with `${VAR}` syntax. Supports nested fields, defaults, and environment variables
-- **[Environment](environment/index.md)**: Configuration with secrets management and profile-based values
-- **[MapReduce](mapreduce/index.md)**: Parallel processing across multiple git worktrees
-- **[Checkpoints](mapreduce/checkpoint-and-resume.md)**: Save and resume workflow state for long-running operations
-- **[Validation](commands.md)**: Workflow structure and syntax validation, implementation completeness checking with the validate command, and runtime validation
-- **[Observability](mapreduce/event-tracking.md)**: Event tracking, Claude execution logs, and comprehensive debugging tools
+```mermaid
+graph LR
+    subgraph Core["Core Components"]
+        direction LR
+        Workflow["Workflows
+        YAML definitions"] --> Commands["Commands
+        Shell, Claude, Control"]
+        Commands --> Variables["Variables
+        ${VAR} interpolation"]
+    end
+
+    subgraph Execution["Execution Features"]
+        direction LR
+        MapReduce["MapReduce
+        Parallel processing"] --> Checkpoints["Checkpoints
+        Save and resume"]
+    end
+
+    subgraph Operations["Operations"]
+        direction LR
+        Environment["Environment
+        Secrets and profiles"] --> Validation["Validation
+        Structure checks"]
+        Validation --> Observability["Observability
+        Logs and events"]
+    end
+
+    Core --> Execution
+    Core --> Operations
+
+    style Workflow fill:#e8f5e9
+    style Commands fill:#e1f5ff
+    style MapReduce fill:#fff3e0
+    style Checkpoints fill:#f3e5f5
+```
+
+**Figure**: Key Prodigy concepts organized by function - core workflow components, parallel execution features, and operational tools.
+
+| Concept | Description | Learn More |
+|---------|-------------|------------|
+| **Workflows** | YAML files defining sequences of commands | [Workflow Basics](workflow-basics/index.md) |
+| **Commands** | Shell commands, Claude AI invocations, or control flow | [Command Types](commands.md) |
+| **Variables** | Capture output and use with `${VAR}` syntax. Supports nested fields and defaults | [Variables](environment/index.md) |
+| **Environment** | Configuration with secrets management and profile-based values | [Environment](environment/index.md) |
+| **MapReduce** | Parallel processing across multiple git worktrees | [MapReduce](mapreduce/index.md) |
+| **Checkpoints** | Save and resume workflow state for long-running operations | [Checkpoint & Resume](mapreduce/checkpoint-and-resume.md) |
+| **Validation** | Structure, syntax, and implementation completeness checking | [Validation](commands.md) |
+| **Observability** | Event tracking, Claude logs, and debugging tools | [Event Tracking](mapreduce/event-tracking.md) |
 
 !!! tip "Start Simple, Scale Up"
     Begin with simple sequential workflows to learn the basics, then progress to MapReduce for parallel processing when you need to handle 10+ similar tasks concurrently.
