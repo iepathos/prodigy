@@ -19,7 +19,27 @@ Every Claude command creates a JSONL (newline-delimited JSON) log file in the pr
 
 ## Log Detection Strategies
 
-Prodigy uses multiple strategies to detect Claude log locations:
+Prodigy uses multiple strategies to detect Claude log locations, trying each in sequence until successful:
+
+```mermaid
+flowchart LR
+    Start[Command<br/>Executes] --> Parse["Parse CLI Output
+    Look for 'Session log:'"]
+    Parse -->|Found| Success[Log Location<br/>Detected]
+    Parse -->|Not Found| Search["Search Recent Files
+    Find .jsonl modified
+    after start time"]
+    Search -->|Found| Success
+    Search -->|Not Found| Infer["Infer from Path
+    Calculate from
+    project path"]
+    Infer -->|Found| Success
+    Infer -->|Not Found| None[No Log<br/>Available]
+
+    style Start fill:#e1f5ff
+    style Success fill:#e8f5e9
+    style None fill:#fff3e0
+```
 
 1. **Parse CLI output** - Look for log location in Claude's output (e.g., "Session log: /path/to/log.jsonl")
 2. **Search recent files** - Find `.jsonl` files modified after command execution start
@@ -44,6 +64,9 @@ Complete conversation history:
 - Tool results
 - Token usage statistics
 - Error details and stack traces
+
+!!! warning "Log Storage Considerations"
+    Claude logs can grow large for long-running sessions, especially with verbose tool outputs. For MapReduce workflows with many agents, monitor disk usage in `~/.claude/projects/`. Consider periodic cleanup of old log files.
 
 ## Accessing JSON Logs
 
@@ -133,6 +156,30 @@ cat ~/.claude/projects/{project-path}/{session-id}.jsonl | \
 ## Verbosity Control
 
 Granular output control with verbosity flags:
+
+```mermaid
+flowchart LR
+    V0["Default
+    -
+    Clean output
+    Progress only"] --> V1["-v
+    Verbose
+    Claude streaming
+    Log locations"]
+    V1 --> V2["-vv
+    Debug
+    Internal logs
+    State traces"]
+    V2 --> V3["-vvv
+    Trace
+    Full details
+    Performance"]
+
+    style V0 fill:#e8f5e9
+    style V1 fill:#e1f5ff
+    style V2 fill:#fff3e0
+    style V3 fill:#ffebee
+```
 
 !!! tip "Choosing the Right Verbosity Level"
     Start with default output for production workflows. Use `-v` when debugging Claude interactions or when you need to see streaming output. Reserve `-vv` and `-vvv` for deep troubleshooting of Prodigy internals.
