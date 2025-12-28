@@ -2,6 +2,81 @@
 
 Common issues with workflow composition and their solutions.
 
+### Quick Diagnosis Guide
+
+Use this diagram to quickly identify your issue based on the error message:
+
+```mermaid
+flowchart LR
+    Error[Error Message] --> Type{Error Type?}
+
+    Type -->|"Circular dependency"| Circular[Circular Dependency]
+    Type -->|"Template not found"| Template[Template Not Found]
+    Type -->|"Parameter validation"| Param[Parameter Issues]
+    Type -->|"Failed to load import"| Import[Import Path Errors]
+    Type -->|"Type mismatch"| TypeErr[Type Mismatch]
+    Type -->|"Failed to resolve base"| Base[Base Workflow Issues]
+    Type -->|"Variable appears literally"| Subst[Parameter Substitution]
+    Type -->|"Sub-workflow not executing"| SubWf[Sub-Workflow Issues]
+
+    Circular --> Fix1["Use common base workflow"]
+    Template --> Fix2["Check template search paths"]
+    Param --> Fix3["Verify types and validation"]
+    Import --> Fix4["Check relative paths"]
+    TypeErr --> Fix5["Match value to definition type"]
+    Base --> Fix6["Verify extends path"]
+    Subst --> Fix7["Use dollar-brace syntax"]
+    SubWf --> Fix8["Check source path and params"]
+
+    style Error fill:#ffebee
+    style Type fill:#fff3e0
+    style Fix1 fill:#e8f5e9
+    style Fix2 fill:#e8f5e9
+    style Fix3 fill:#e8f5e9
+    style Fix4 fill:#e8f5e9
+    style Fix5 fill:#e8f5e9
+    style Fix6 fill:#e8f5e9
+    style Fix7 fill:#e8f5e9
+    style Fix8 fill:#e8f5e9
+```
+
+### Composition Resolution Order
+
+Understanding how Prodigy resolves workflow composition helps diagnose many issues:
+
+```mermaid
+flowchart TD
+    Start[Load Workflow] --> Extends{Has extends?}
+    Extends -->|Yes| LoadBase[Load Base Workflow]
+    LoadBase --> MergeBase[Merge Base into Current]
+    MergeBase --> Imports
+    Extends -->|No| Imports{Has imports?}
+
+    Imports -->|Yes| LoadImports[Load Import Files]
+    LoadImports --> MergeImports[Merge Imports]
+    MergeImports --> Template
+    Imports -->|No| Template{Has template?}
+
+    Template -->|Yes| ResolveTemplate[Resolve Template Source]
+    ResolveTemplate --> ApplyTemplate[Apply Template]
+    ApplyTemplate --> Params
+    Template -->|No| Params[Apply Parameters]
+
+    Params --> Defaults[Apply Defaults]
+    Defaults --> Validate[Validate Result]
+    Validate --> Ready[Workflow Ready]
+
+    style Start fill:#e1f5ff
+    style Ready fill:#e8f5e9
+    style Validate fill:#fff3e0
+```
+
+**Key Points:**
+- `extends` is resolved first (base workflow loaded recursively)
+- `imports` are merged next (can override base values)
+- `template` is applied after imports
+- Parameters and defaults are applied last
+
 ### Circular Dependency Errors
 
 !!! danger "Error"
