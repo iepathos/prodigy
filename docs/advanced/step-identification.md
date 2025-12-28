@@ -22,6 +22,39 @@ When you assign an ID to a step, you can reference multiple fields from that ste
 
 **Source**: Field resolution implemented in `src/cook/expression/mod.rs:187-200`
 
+```mermaid
+graph LR
+    subgraph Step["Step Execution"]
+        direction LR
+        Cmd["shell: cargo test
+        id: test-step"] --> Exec[Execute Command]
+    end
+
+    subgraph Capture["Auto-Captured Fields"]
+        direction LR
+        Exec --> Output["${test-step.output}
+        stdout content"]
+        Exec --> ExitCode["${test-step.exit_code}
+        0 = success"]
+        Exec --> Success["${test-step.success}
+        true/false"]
+    end
+
+    subgraph Reference["Reference in Later Steps"]
+        direction LR
+        Output --> Next["when: ${test-step.exit_code != 0}
+        claude: /analyze ${test-step.output}"]
+        ExitCode --> Next
+        Success --> Next
+    end
+
+    style Step fill:#e1f5ff
+    style Capture fill:#e8f5e9
+    style Reference fill:#fff3e0
+```
+
+*Step IDs enable referencing execution results in subsequent steps.*
+
 These fields are automatically available for any step with an `id` field. They're commonly used in conditionals and error handling:
 
 ### Basic Step IDs with Auto-Captured Fields
