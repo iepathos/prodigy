@@ -2,6 +2,9 @@
 
 This section provides pointers to the source code implementing the retry system. These references are useful for developers who want to understand implementation details, extend the retry functionality, or troubleshoot issues.
 
+!!! tip "Developer Quick Reference"
+    For most retry customization needs, start with `src/cook/retry_v2.rs`. For workflow-level settings, see `src/cook/workflow/error_policy.rs`. Command-level overrides are in `src/config/command.rs`.
+
 ### Core Retry System
 
 #### Enhanced Retry Configuration (`src/cook/retry_v2.rs:14-461`)
@@ -37,7 +40,7 @@ let config = RetryConfig {
     jitter_factor: 0.1,
     retry_on: vec![ErrorMatcher::Network, ErrorMatcher::Timeout],
     retry_budget: Some(Duration::from_secs(300)),
-    on_failure: FailureAction::Fail,
+    on_failure: FailureAction::Stop,
 };
 ```
 
@@ -55,7 +58,7 @@ Simpler retry configuration used at the workflow level:
   - `Exponential { initial, multiplier }`: Exponential backoff with configurable base
   - `Fibonacci { initial }`: Fibonacci sequence starting from initial delay
 
-- **WorkflowErrorPolicy struct** (lines 131-140+): Workflow-level error handling with:
+- **WorkflowErrorPolicy struct** (lines 131-161): Workflow-level error handling with:
   - `on_item_failure`: Action to take when items fail
   - `continue_on_failure`: Whether to continue processing after failures
 
@@ -69,7 +72,33 @@ retry_config:
       multiplier: 2.0
 ```
 
-#### Command Metadata (`src/config/command.rs:135`)
+#### Retry Executor (`src/cook/retry_v2.rs:167-172`)
+
+The main entry point for executing operations with retry logic:
+
+- **RetryExecutor struct** (lines 167-172): Orchestrates retry execution with:
+  - `config`: RetryConfig with all retry settings
+  - `metrics`: Arc-wrapped RetryMetrics for observability
+  - `circuit_breaker`: Optional circuit breaker for failure protection
+
+The RetryExecutor provides the primary interface for wrapping operations with retry behavior, automatically applying backoff strategies, jitter, and circuit breaker logic.
+
+**Example usage** (from src/cook/retry_v2.rs):
+```rust
+// Source: src/cook/retry_v2.rs:167-180
+let executor = RetryExecutor::new(config);
+
+// Optionally add circuit breaker protection
+let executor = executor.with_circuit_breaker(5, Duration::from_secs(30));
+
+// Execute with retry logic
+let result = executor.execute(|| async {
+    // Your operation here
+    perform_network_call().await
+}).await?;
+```
+
+#### Command Metadata (`src/config/command.rs:132-154`)
 
 Command-level retry override configuration:
 
@@ -135,6 +164,33 @@ Protection against cascading failures:
   - `Open { until }`: Failing, requests blocked until timeout
   - `HalfOpen`: Testing recovery, limited requests allowed
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: Initialize
+
+    Closed --> Open: Failures >= threshold
+    Open --> HalfOpen: Recovery timeout elapsed
+    HalfOpen --> Closed: Request succeeds
+    HalfOpen --> Open: Request fails
+
+    note right of Closed
+        Normal operation
+        All requests allowed
+    end note
+
+    note right of Open
+        Circuit tripped
+        Requests blocked
+    end note
+
+    note right of HalfOpen
+        Testing recovery
+        Limited requests
+    end note
+```
+
+**Figure**: Circuit breaker state machine showing transitions between Closed, Open, and HalfOpen states.
+
 - **State transitions**:
   - `is_open()` (lines 351-367): Check state and transition from Open to HalfOpen after timeout
   - `record_success()` (lines 369-379): Reset failures, close circuit if in HalfOpen
@@ -168,12 +224,11 @@ match operation().await {
 
 Tracking retry behavior for monitoring:
 
-- **RetryMetrics struct** (lines 399-422): Statistics collection including:
+- **RetryMetrics struct** (lines 399-406): Statistics collection including:
   - `total_attempts`: Total retry attempts made
   - `successful_attempts`: Number of successful retries
   - `failed_attempts`: Number of failed retries
-  - `total_delay`: Cumulative delay time across all retries
-  - Additional timing and success rate metrics
+  - `retries`: Vec of `(attempt, Duration)` pairs tracking retry delays
 
 These metrics enable monitoring of retry effectiveness, identifying problematic operations, and tuning retry configurations for optimal performance.
 
@@ -190,8 +245,36 @@ println!("Success rate: {}/{}",
 
 The retry system is organized into logical components:
 
+```mermaid
+graph LR
+    subgraph Configuration["Configuration Layer"]
+        direction LR
+        WF[Workflow Config] --> CMD[Command Override]
+        CMD --> RC[RetryConfig]
+    end
+
+    subgraph Execution["Execution Layer"]
+        direction LR
+        RC --> RE[RetryExecutor]
+        RE --> EM[ErrorMatcher]
+        RE --> CB[CircuitBreaker]
+    end
+
+    subgraph Observability["Observability Layer"]
+        direction LR
+        RE --> RM[RetryMetrics]
+    end
+
+    style Configuration fill:#e1f5ff
+    style Execution fill:#fff3e0
+    style Observability fill:#f3e5f5
+```
+
+**Figure**: Retry system architecture showing configuration flow through execution to observability.
+
 **Core Retry System**:
 - Main retry configuration and execution (src/cook/retry_v2.rs)
+- RetryExecutor entry point (src/cook/retry_v2.rs:167-172)
 - Workflow-level configuration (src/cook/workflow/error_policy.rs)
 - Command-level overrides (src/config/command.rs)
 
