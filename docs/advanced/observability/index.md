@@ -41,9 +41,52 @@ graph TD
 
 **Figure**: Prodigy's observability architecture showing event tracking, Claude logs, and verbosity control.
 
+!!! tip "Quick Access"
+    View the latest Claude execution log:
+    ```bash
+    prodigy logs --latest
+    ```
+    Follow live execution output:
+    ```bash
+    prodigy logs --latest --tail
+    ```
+
+## When to Use Each Feature
+
+| Situation | Feature | Command/Location |
+|-----------|---------|------------------|
+| Understanding workflow execution flow | Event Tracking | `~/.prodigy/events/{repo}/{job_id}/` |
+| Debugging Claude command failures | Claude Observability | `prodigy logs --latest` |
+| Increasing output detail for troubleshooting | Verbosity Control | `-v`, `-vv`, or `-vvv` flags |
+| Investigating MapReduce agent failures | Debugging | DLQ + JSON logs |
+| Cleaning up old logs | Log Management | `prodigy logs clean` |
+
 ## Subpages
 
-- [Event Tracking](event-tracking.md) - JSONL event streams and event types
-- [Claude Observability](claude-observability.md) - Claude execution logs and verbosity control
-- [Debugging](debugging.md) - Debugging MapReduce failures, performance metrics, and event queries
-- [Log Management](log-management.md) - Log locations, cleanup, and practical examples
+<div class="grid cards" markdown>
+
+-   :material-format-list-bulleted-type: **[Event Tracking](event-tracking.md)**
+
+    ---
+
+    JSONL event streams capturing workflow lifecycle: AgentStarted, AgentCompleted, AgentFailed, and more. Query events with `jq` for custom analysis.
+
+-   :material-robot: **[Claude Observability](claude-observability.md)**
+
+    ---
+
+    Detailed Claude execution logs with complete message history, tool invocations, and token usage. Access via `prodigy logs` command.
+
+-   :material-bug: **[Debugging](debugging.md)**
+
+    ---
+
+    Debug MapReduce failures using DLQ integration, analyze performance metrics, and query events for monitoring.
+
+-   :material-folder-cog: **[Log Management](log-management.md)**
+
+    ---
+
+    Log storage locations, cleanup strategies, retention policies, and practical examples for log analysis.
+
+</div>
