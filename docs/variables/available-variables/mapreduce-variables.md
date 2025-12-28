@@ -6,16 +6,18 @@ This section covers variables available during MapReduce workflow execution, inc
 flowchart LR
     subgraph Map["Map Phase"]
         I["Work Items"]
-        IV["${item.*} variables"]
+        IV["item.* variables"]
         A1["Agent 1"]
         A2["Agent 2"]
         AN["Agent N"]
     end
 
     subgraph Reduce["Reduce Phase"]
-        MR["${map.results}"]
-        MO["${map.outputs}"]
-        MS["${map.successful}<br>${map.failed}<br>${map.success_rate}"]
+        MR["map.results"]
+        MO["map.outputs"]
+        MS["map.successful
+        map.failed
+        map.success_rate"]
     end
 
     I --> IV
@@ -47,6 +49,9 @@ Variables for accessing work item data during parallel processing. The `${item.*
 **Available in:** Map phase only
 
 ### Arbitrary Field Access
+
+!!! tip "Design Your JSON for Variable Access"
+    Structure your work items with descriptive field names—they become your variable names directly. Fields like `priority`, `owner`, and `metadata.reviewer` are immediately accessible as `${item.priority}`, `${item.owner}`, and `${item.metadata.reviewer}`.
 
 The `${item.*}` syntax provides full access to any field in your JSON work items. This includes:
 
@@ -113,6 +118,9 @@ Variables for accessing aggregated results from map phase. Map results support *
 
 ### Indexed Access to Map Results
 
+!!! warning "Index Bounds"
+    Ensure your index is within range—accessing `${map.results[10]}` when only 5 items were processed will result in an empty value. Use `${map.total}` to verify the result count before indexed access.
+
 You can access individual agent results using bracket notation `[index]` and drill into nested fields with dot notation.
 
 **Syntax patterns:**
@@ -144,6 +152,9 @@ reduce:
 ```
 
 ### Full Array Processing
+
+!!! example "When to Use Full Array Processing"
+    Use `jq` with `${map.results}` for aggregations across all results: counting errors, calculating averages, filtering by status, or extracting specific fields from every result.
 
 For processing all results, use `${map.results}` with JSON tools like `jq`:
 
