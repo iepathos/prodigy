@@ -1,0 +1,21 @@
+[default.extend-words]
+# ment is a valid suffix (e.g., management, placement)
+ment = "ment"
+# rror appears in regex patterns like [Ee]rror for case-insensitive matching
+rror = "rror"
+# HashiCorp is a company name
+HashiCorp = "HashiCorp"
+Hashi = "Hashi"
+# unparseable is valid alternative spelling
+unparseable = "unparseable"
+
+[default.extend-identifiers]
+# These are valid identifier patterns
+validat = "validat"
+# pn is short for pre_norm
+pn = "pn"
+# nknown is a partial match for "Unknown" in test assertions
+nknown = "nknown"
+
+[files]
+extend-exclude = []
