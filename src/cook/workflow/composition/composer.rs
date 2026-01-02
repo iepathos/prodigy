@@ -243,15 +243,15 @@ impl WorkflowComposer {
 
         // Apply parameter defaults if defined
         if let Some(params) = &mut workflow.parameters {
-            params
+            for param in params
                 .optional
                 .iter_mut()
                 .filter(|param| param.default.is_none())
-                .for_each(|param| {
-                    if let Some(default_value) = defaults.get(&param.name) {
-                        param.default = Some(default_value.clone());
-                    }
-                });
+            {
+                if let Some(default_value) = defaults.get(&param.name) {
+                    param.default = Some(default_value.clone());
+                }
+            }
         }
 
         Ok(())
@@ -628,17 +628,15 @@ impl WorkflowComposer {
         &self,
         sub_workflows: &HashMap<String, super::SubWorkflow>,
     ) -> Result<()> {
-        // Check for missing sources using functional approach
-        sub_workflows
-            .iter()
-            .find(|(_, sub)| !sub.source.exists())
-            .map_or(Ok(()), |(name, sub)| {
-                anyhow::bail!(
-                    "Sub-workflow '{}' source does not exist: {:?}",
-                    name,
-                    sub.source
-                )
-            })
+        // Check for missing sources
+        if let Some((name, sub)) = sub_workflows.iter().find(|(_, sub)| !sub.source.exists()) {
+            anyhow::bail!(
+                "Sub-workflow '{}' source does not exist: {:?}",
+                name,
+                sub.source
+            )
+        }
+        Ok(())
     }
 }
 

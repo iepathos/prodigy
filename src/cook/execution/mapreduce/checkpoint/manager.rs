@@ -157,18 +157,19 @@ impl CheckpointManager {
             );
         }
 
-        // Validate agent state consistency using functional find
-        checkpoint
+        // Validate agent state consistency
+        if let Some(agent_id) = checkpoint
             .agent_state
             .agent_assignments
             .keys()
             .find(|agent_id| !checkpoint.agent_state.active_agents.contains_key(*agent_id))
-            .map_or(Ok(()), |agent_id| {
-                Err(anyhow!(
-                    "Agent {} has assignments but is not active",
-                    agent_id
-                ))
-            })
+        {
+            return Err(anyhow!(
+                "Agent {} has assignments but is not active",
+                agent_id
+            ));
+        }
+        Ok(())
     }
 
     /// Validate checkpoint integrity

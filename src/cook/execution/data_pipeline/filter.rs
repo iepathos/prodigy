@@ -610,13 +610,12 @@ impl FilterExpression {
     /// Pure function: Compare string against regex pattern
     pub(crate) fn compare_regex(actual: Option<&Value>, expected: &Value) -> bool {
         match (actual, expected) {
-            (Some(Value::String(a)), Value::String(pattern)) => Regex::new(pattern).map_or_else(
-                |e| {
+            (Some(Value::String(a)), Value::String(pattern)) => Regex::new(pattern)
+                .map(|re| re.is_match(a))
+                .unwrap_or_else(|e| {
                     warn!("Invalid regex pattern '{}': {}", pattern, e);
                     false
-                },
-                |re| re.is_match(a),
-            ),
+                }),
             _ => false,
         }
     }
@@ -728,13 +727,12 @@ impl FilterExpression {
 
     /// Pure function: Check if string matches regex pattern
     pub(crate) fn regex_matches(text: &str, pattern: &str) -> bool {
-        Regex::new(pattern).map_or_else(
-            |e| {
+        Regex::new(pattern)
+            .map(|re| re.is_match(text))
+            .unwrap_or_else(|e| {
                 warn!("Invalid regex pattern '{}': {}", pattern, e);
                 false
-            },
-            |re| re.is_match(text),
-        )
+            })
     }
 }
 

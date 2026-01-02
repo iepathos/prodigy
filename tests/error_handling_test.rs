@@ -29,9 +29,9 @@ fn test_option_handling_without_unwrap() -> Result<()> {
     assert_eq!(some_value.unwrap_or(0), 42);
     assert_eq!(none_value.unwrap_or(0), 0);
 
-    // Using map_or for transformations
-    assert_eq!(some_value.map_or(0, |v| v * 2), 84);
-    assert_eq!(none_value.map_or(0, |v| v * 2), 0);
+    // Using map + unwrap_or for transformations
+    assert_eq!(some_value.map(|v| v * 2).unwrap_or(0), 84);
+    assert_eq!(none_value.map(|v| v * 2).unwrap_or(0), 0);
 
     Ok(())
 }
@@ -56,9 +56,9 @@ fn test_result_handling_without_unwrap() -> Result<()> {
     assert_eq!(ok_result.as_ref().unwrap_or(&0), &42);
     assert_eq!(err_result.as_ref().unwrap_or(&0), &0);
 
-    // Using map_or for transformations
-    assert_eq!(ok_result.as_ref().map_or(0, |v| v * 2), 84);
-    assert_eq!(err_result.map_or(0, |v| v * 2), 0);
+    // Using map + unwrap_or for transformations
+    assert_eq!(ok_result.as_ref().map(|v| v * 2).unwrap_or(0), 84);
+    assert_eq!(err_result.map(|v| v * 2).unwrap_or(0), 0);
 
     Ok(())
 }

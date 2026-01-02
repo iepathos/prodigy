@@ -539,11 +539,13 @@ mod tests {
             ),
         ];
 
-        // Apply all validations using functional approach
-        validations
+        // Apply all validations
+        let failures: Vec<_> = validations
             .iter()
             .filter(|(condition, _)| !condition)
-            .for_each(|(_, msg)| panic!("{}", msg));
+            .map(|(_, msg)| *msg)
+            .collect();
+        assert!(failures.is_empty(), "Validation failures: {:?}", failures);
 
         // Modified files check - we created 2 files across 2 commits
         // The exact count depends on deduplication logic

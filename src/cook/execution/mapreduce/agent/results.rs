@@ -174,28 +174,24 @@ impl AgentResultAggregator for DefaultResultAggregator {
             context.set("map.results", results_value);
         }
 
-        // Add individual successful results using iterator
-        results
-            .successful
-            .iter()
-            .enumerate()
-            .for_each(|(i, result)| {
-                context.set(
-                    format!("map.successful.{}.item_id", i),
-                    json!(result.item_id),
-                );
-                if let Some(output) = &result.output {
-                    context.set(format!("map.successful.{}.output", i), json!(output));
-                }
-            });
+        // Add individual successful results
+        for (i, result) in results.successful.iter().enumerate() {
+            context.set(
+                format!("map.successful.{}.item_id", i),
+                json!(result.item_id),
+            );
+            if let Some(output) = &result.output {
+                context.set(format!("map.successful.{}.output", i), json!(output));
+            }
+        }
 
-        // Add individual failed results using iterator
-        results.failed.iter().enumerate().for_each(|(i, result)| {
+        // Add individual failed results
+        for (i, result) in results.failed.iter().enumerate() {
             context.set(format!("map.failed.{}.item_id", i), json!(result.item_id));
             if let Some(error) = &result.error {
                 context.set(format!("map.failed.{}.error", i), json!(error));
             }
-        });
+        }
 
         context
     }

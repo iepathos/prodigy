@@ -744,10 +744,10 @@ impl ProgressWebServer {
             let connections = self.connections.read().await;
             let message = serde_json::to_string(&update).unwrap_or_default();
 
-            // Broadcast to all connections using functional iteration
-            connections.values().for_each(|sender| {
+            // Broadcast to all connections
+            for sender in connections.values() {
                 let _ = sender.send(message.clone());
-            });
+            }
         }
     }
 
@@ -893,13 +893,13 @@ impl ProgressWebServer {
         output.push_str("# HELP mapreduce_agent_states Count of agents by state\n");
         output.push_str("# TYPE mapreduce_agent_states gauge\n");
 
-        // Build state metrics using functional iteration
-        state_counts.iter().for_each(|(state, count)| {
+        // Build state metrics
+        for (state, count) in &state_counts {
             output.push_str(&format!(
                 "mapreduce_agent_states{{job_id=\"{}\",state=\"{}\"}} {}\n",
                 server.tracker.job_id, state, count
             ));
-        });
+        }
 
         // Job duration
         let duration = server.tracker.start_time.elapsed().as_secs();

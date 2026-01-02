@@ -216,7 +216,7 @@ impl OutputFormatter {
         // Show available variables
         let total_vars = preview.setup_variables.len()
             + preview.reduce_variables.len()
-            + preview.item_variables.first().map_or(0, |v| v.len());
+            + preview.item_variables.first().map(|v| v.len()).unwrap_or(0);
 
         writeln!(output, "  Available variables: {}", total_vars).unwrap();
     }
