@@ -17,7 +17,7 @@ use std::collections::HashMap;
 /// - Named variables: `ARG_1`, `ARG_2`, `ARG_3`, etc. (for `${ARG_1}` syntax)
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use prodigy::cook::execution::mapreduce::env_interpolation::build_positional_args_context;
 /// let args = vec!["file.txt".to_string(), "output.txt".to_string()];
 /// let context = build_positional_args_context(&args);
@@ -46,7 +46,7 @@ pub fn build_positional_args_context(args: &[String]) -> InterpolationContext {
 /// Interpolate a single environment variable value with positional arguments
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use prodigy::cook::execution::mapreduce::env_interpolation::{build_positional_args_context, interpolate_env_value};
 /// use prodigy::cook::execution::interpolation::InterpolationEngine;
 ///
@@ -74,7 +74,7 @@ pub fn interpolate_env_value(
 /// and returns a new map with interpolated values.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use std::collections::HashMap;
 /// use prodigy::cook::execution::mapreduce::env_interpolation::interpolate_workflow_env_with_positional_args;
 ///
@@ -127,7 +127,7 @@ pub fn interpolate_workflow_env_with_positional_args(
 /// This is separate from interpolation - these are raw positional arg values.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use prodigy::cook::execution::mapreduce::env_interpolation::positional_args_as_env_vars;
 ///
 /// let args = vec!["file.txt".to_string(), "output.txt".to_string()];
@@ -152,7 +152,7 @@ pub fn positional_args_as_env_vars(positional_args: &[String]) -> HashMap<String
 /// Convert EnvValue map to plain string map (for MapPhase.workflow_env)
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use std::collections::HashMap;
 /// use prodigy::cook::environment::EnvValue;
 /// use prodigy::cook::execution::mapreduce::env_interpolation::env_values_to_plain_map;

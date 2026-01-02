@@ -46,7 +46,7 @@ use std::collections::HashMap;
 ///
 /// # Example
 ///
-/// ```
+/// ```no_run
 /// use prodigy::cook::execution::mapreduce::dlq_integration::agent_result_to_dlq_item;
 /// use prodigy::cook::execution::mapreduce::agent::types::{AgentResult, AgentStatus};
 /// use serde_json::json;

@@ -78,7 +78,11 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
         // Handle test mode
-        let test_mode = self.test_config.as_ref().map(|c| c.test_mode).unwrap_or(false);
+        let test_mode = self
+            .test_config
+            .as_ref()
+            .map(|c| c.test_mode)
+            .unwrap_or(false);
         if test_mode {
             return self.handle_test_mode_execution(command).await;
         }
@@ -110,7 +114,11 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
 
     async fn check_claude_cli(&self) -> Result<bool> {
         // Always return true in test mode
-        let test_mode = self.test_config.as_ref().map(|c| c.test_mode).unwrap_or(false);
+        let test_mode = self
+            .test_config
+            .as_ref()
+            .map(|c| c.test_mode)
+            .unwrap_or(false);
         if test_mode {
             return Ok(true);
         }

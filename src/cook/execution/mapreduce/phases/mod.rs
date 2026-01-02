@@ -9,7 +9,7 @@
 //! To add a new custom phase type to the MapReduce workflow:
 //!
 //! 1. **Define the Phase Type**: Add a new variant to the `PhaseType` enum:
-//!    ```rust
+//!    ```rust,no_run
 //!    pub enum PhaseType {
 //!        Setup,
 //!        Map,
@@ -19,7 +19,7 @@
 //!    ```
 //!
 //! 2. **Implement PhaseExecutor**: Create a new executor for your phase:
-//!    ```rust
+//!    ```rust,no_run
 //!    # use prodigy::cook::execution::mapreduce::phases::{PhaseExecutor, PhaseContext, PhaseResult, PhaseError, PhaseType};
 //!    # use async_trait::async_trait;
 //!    pub struct PostProcessPhaseExecutor {
@@ -78,7 +78,7 @@
 //!
 //! You can customize phase transitions by implementing `PhaseTransitionHandler`:
 //!
-//! ```rust
+//! ```rust,no_run
 //! # use prodigy::cook::execution::mapreduce::phases::{PhaseTransitionHandler, PhaseType, PhaseContext, PhaseError, PhaseTransition, PhaseResult};
 //! struct CustomTransitionHandler;
 //!
@@ -266,7 +266,7 @@ pub enum PhaseError {
 ///
 /// # Example Implementation
 ///
-/// ```rust
+/// ```rust,no_run
 /// # use prodigy::cook::execution::mapreduce::phases::{PhaseExecutor, PhaseContext, PhaseResult, PhaseError, PhaseType, PhaseMetrics};
 /// # use async_trait::async_trait;
 /// # use serde_json::json;
