@@ -86,7 +86,8 @@ pub fn validate_claude_result(result: &crate::cook::execution::ExecutionResult) 
 ///
 /// Verifies that the worktree branch has been successfully merged into the
 /// target branch by checking if it appears in the list of merged branches.
-/// Provides specific error messages for permission denial cases.
+/// Provides specific error messages for different failure scenarios including
+/// permission denial and wrong-direction merges.
 ///
 /// # Arguments
 ///
@@ -105,6 +106,7 @@ pub fn validate_claude_result(result: &crate::cook::execution::ExecutionResult) 
 /// Returns error if:
 /// - Branch is not found in merged branches list
 /// - Permission was denied during merge
+/// - Merge was executed in the wrong direction
 /// - Merge was aborted or failed silently
 pub fn validate_merge_success(
     worktree_branch: &str,
@@ -113,12 +115,31 @@ pub fn validate_merge_success(
     merge_output: &str,
 ) -> Result<()> {
     if !merged_branches.contains(worktree_branch) {
+        // Check for specific failure patterns to provide better error messages
         if is_permission_denied(merge_output) {
             anyhow::bail!(
                 "Merge was not completed - Claude requires permission to proceed. \
                 Please run the command again and grant permission when prompted."
             );
         }
+
+        // Check if this looks like a wrong-direction merge
+        if is_wrong_direction_merge(merge_output, target_branch) {
+            anyhow::bail!(
+                "Merge direction error - Claude merged '{}' into the worktree instead of \
+                merging the worktree into '{}'. The output indicates 'Already up to date' \
+                which suggests the target branch was already an ancestor of the worktree branch.\n\n\
+                To fix this manually:\n\
+                  1. git checkout {}\n\
+                  2. git merge --no-ff {}\n\n\
+                This is a known issue with the merge skill argument parsing.",
+                target_branch,
+                target_branch,
+                target_branch,
+                worktree_branch
+            );
+        }
+
         anyhow::bail!(
             "Merge verification failed - branch '{}' is not merged into '{}'. \
             The merge may have been aborted or failed silently.",
@@ -129,10 +150,78 @@ pub fn validate_merge_success(
     Ok(())
 }
 
+/// Check if merge output indicates a wrong-direction merge
+///
+/// Detects when Claude merged the target branch into the worktree instead
+/// of the worktree into the target. This typically produces "Already up to date"
+/// when the target is an ancestor of the worktree.
+///
+/// # Arguments
+///
+/// * `merge_output` - Output from the merge command
+/// * `target_branch` - Name of the intended target branch
+///
+/// # Returns
+///
+/// * `true` if the output indicates a wrong-direction merge
+/// * `false` otherwise
+///
+/// # Examples
+///
+/// ```
+/// use prodigy::worktree::manager_validation::is_wrong_direction_merge;
+///
+/// // Typical wrong-direction merge output
+/// assert!(is_wrong_direction_merge("Already up to date.", "main"));
+/// assert!(is_wrong_direction_merge("Already up-to-date.", "main"));
+///
+/// // Target branch mentioned as being merged (wrong direction)
+/// assert!(is_wrong_direction_merge(
+///     "Source: main, Target: worktree-branch\nAlready up to date",
+///     "main"
+/// ));
+///
+/// // Successful merge should not trigger
+/// assert!(!is_wrong_direction_merge("Merge made by the 'ort' strategy.", "main"));
+/// ```
+pub fn is_wrong_direction_merge(merge_output: &str, target_branch: &str) -> bool {
+    let output_lower = merge_output.to_lowercase();
+
+    // Check for "Already up to date" which indicates no merge was needed
+    // This happens when the source is already an ancestor of the current branch
+    let already_up_to_date =
+        output_lower.contains("already up to date") || output_lower.contains("already up-to-date");
+
+    if !already_up_to_date {
+        return false;
+    }
+
+    // Additional heuristics to confirm wrong direction:
+    // 1. The output mentions the target branch as the "source" being merged
+    // 2. The merge result mentions the target branch being merged into something else
+
+    // Check if the output explicitly mentions the target as source
+    let target_as_source_pattern = format!("source.*{}", target_branch.to_lowercase());
+    let mentions_target_as_source = output_lower.contains(&target_as_source_pattern)
+        || output_lower.contains(&format!(
+            "branch `{}` is already",
+            target_branch.to_lowercase()
+        ));
+
+    // If we see "already up to date" and no indication of the target being a source,
+    // we still report it as wrong direction since this is the most common case
+    // when prodigy calls merge with (worktree_branch, target_branch) but Claude
+    // interprets it incorrectly
+    already_up_to_date && (mentions_target_as_source || !output_lower.contains("merge made"))
+}
+
 /// Check if command output indicates permission was denied
 ///
 /// Analyzes command output to detect if the operation failed due to
 /// permission denial, which requires user intervention.
+///
+/// Uses specific phrase patterns to avoid false positives from JSONL
+/// metadata fields like "permissionMode" or "permission_denials".
 ///
 /// # Arguments
 ///
@@ -150,10 +239,29 @@ pub fn validate_merge_success(
 ///
 /// assert!(is_permission_denied("Error: permission denied"));
 /// assert!(is_permission_denied("Please grant permission to proceed"));
+/// assert!(is_permission_denied("requires permission to continue"));
 /// assert!(!is_permission_denied("Merge completed successfully"));
+/// // Should NOT match JSONL metadata fields
+/// assert!(!is_permission_denied(r#""permissionMode":"bypassPermissions""#));
+/// assert!(!is_permission_denied(r#""permission_denials":[]"#));
 /// ```
 pub fn is_permission_denied(output: &str) -> bool {
-    output.contains("permission") || output.contains("grant permission")
+    // Use specific phrases to avoid false positives from JSONL metadata
+    // like "permissionMode" or "permission_denials"
+    let denial_patterns = [
+        "permission denied",
+        "permission to proceed",
+        "requires permission",
+        "grant permission",
+        "waiting for permission",
+        "need permission",
+        "permission required",
+    ];
+
+    let output_lower = output.to_lowercase();
+    denial_patterns
+        .iter()
+        .any(|pattern| output_lower.contains(pattern))
 }
 
 /// Check if a branch has been merged into a target branch
