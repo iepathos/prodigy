@@ -1,10 +1,276 @@
 //! Resume command implementations
 //!
 //! This module handles resuming interrupted workflows and MapReduce jobs.
+//!
+//! Architecture follows "pure core, imperative shell" pattern:
+//! - Pure functions for validation and data transformation
+//! - Small focused async functions for I/O operations
+//! - Main functions compose these smaller units
 
 use anyhow::{anyhow, Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs;
+
+// ============================================================================
+// Pure Functions - No I/O, easily testable
+// ============================================================================
+
+/// Check if a session status allows resuming (pure function)
+fn is_session_resumable(status: &crate::unified_session::SessionStatus) -> Result<()> {
+    use crate::unified_session::SessionStatus;
+
+    match status {
+        SessionStatus::Completed => Err(anyhow!(
+            "Session has already completed and cannot be resumed.\n\
+             There is nothing to resume for this session."
+        )),
+        SessionStatus::Cancelled => Err(anyhow!("Session was cancelled and cannot be resumed.")),
+        _ => Ok(()), // Paused, Running, Failed are resumable
+    }
+}
+
+/// Build error context string from session data (pure function)
+fn build_error_context(session: Option<&crate::unified_session::UnifiedSession>) -> String {
+    session
+        .and_then(|s| s.error.as_ref())
+        .map(|error| format!("\n\nThe session failed with:\n{}", error))
+        .unwrap_or_default()
+}
+
+/// Check if a path is a checkpoint JSON file (pure function)
+fn is_checkpoint_file(path: &Path) -> bool {
+    path.extension().and_then(|s| s.to_str()) == Some("json")
+        && path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .map(|s| s.ends_with(".checkpoint.json"))
+            .unwrap_or(false)
+}
+
+/// Build the checkpoint not found error message (pure function)
+fn checkpoint_not_found_error(
+    session_id: &str,
+    error_context: &str,
+    checkpoint_dir: &Path,
+    dir_exists: bool,
+) -> anyhow::Error {
+    let dir_status = if dir_exists {
+        format!(
+            "Checkpoint directory exists but contains no checkpoint files: {}",
+            checkpoint_dir.display()
+        )
+    } else {
+        format!(
+            "Checkpoint directory does not exist: {}",
+            checkpoint_dir.display()
+        )
+    };
+
+    anyhow!(
+        "Cannot resume session {}: No checkpoints found.\n\
+         This workflow failed before any checkpoints were created.{}\n\n\
+         {}\n\n\
+         You cannot resume from this failure. Please fix the issue and run the workflow again.",
+        session_id,
+        error_context,
+        dir_status
+    )
+}
+
+/// Build the CookCommand for resume execution (pure function)
+fn build_cook_command(
+    workflow_path: &str,
+    worktree_path: PathBuf,
+    session_id: &str,
+) -> crate::cook::command::CookCommand {
+    crate::cook::command::CookCommand {
+        playbook: PathBuf::from(workflow_path),
+        path: Some(worktree_path),
+        max_iterations: 1,
+        map: vec![],
+        args: vec![],
+        fail_fast: false,
+        auto_accept: false,
+        resume: Some(session_id.to_string()),
+        verbosity: 0,
+        quiet: false,
+        dry_run: false,
+        params: std::collections::HashMap::new(),
+    }
+}
+
+// ============================================================================
+// Small Focused Async Functions - Single responsibility I/O operations
+// ============================================================================
+
+/// Acquire a resume lock for the session
+async fn acquire_resume_lock(
+    prodigy_home: &Path,
+    session_id: &str,
+) -> Result<crate::cook::execution::ResumeLock> {
+    let lock_manager = crate::cook::execution::ResumeLockManager::new(prodigy_home.to_path_buf())
+        .context("Failed to create resume lock manager")?;
+
+    lock_manager
+        .acquire_lock(session_id)
+        .await
+        .context("Failed to acquire resume lock")
+}
+
+/// Load session and validate it's resumable, returns session data if found
+async fn load_and_validate_session(
+    session_id: &str,
+) -> Result<Option<crate::unified_session::UnifiedSession>> {
+    let storage =
+        crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
+    let session_manager = crate::unified_session::SessionManager::new(storage)
+        .await
+        .context("Failed to create session manager")?;
+    let session_id_obj = crate::unified_session::SessionId::from_string(session_id.to_string());
+
+    match session_manager.load_session(&session_id_obj).await {
+        Ok(session) => {
+            is_session_resumable(&session.status).map_err(|e| {
+                anyhow!(
+                    "Session {}: {}",
+                    session_id,
+                    e.to_string()
+                        .trim_start_matches("Session has already completed")
+                        .trim_start_matches("Session was cancelled")
+                        .trim_start()
+                )
+            })?;
+            Ok(Some(session))
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+/// Check if checkpoint directory exists and contains checkpoint files
+fn validate_checkpoint_directory(checkpoint_dir: &Path) -> Result<bool> {
+    if !checkpoint_dir.exists() {
+        return Ok(false);
+    }
+
+    let has_checkpoints = std::fs::read_dir(checkpoint_dir)
+        .ok()
+        .and_then(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .any(|entry| is_checkpoint_file(&entry.path()))
+                .then_some(true)
+        })
+        .unwrap_or(false);
+
+    Ok(has_checkpoints)
+}
+
+/// Find the specified checkpoint file or the latest one
+async fn find_checkpoint_file(
+    checkpoint_dir: &Path,
+    from_checkpoint: Option<&str>,
+) -> Result<PathBuf> {
+    if let Some(checkpoint_id) = from_checkpoint {
+        let file = checkpoint_dir.join(format!("{}.checkpoint.json", checkpoint_id));
+        if !file.exists() {
+            return Err(anyhow!(
+                "Checkpoint not found: {}\nExpected at: {}",
+                checkpoint_id,
+                file.display()
+            ));
+        }
+        return Ok(file);
+    }
+
+    find_latest_checkpoint(checkpoint_dir).await
+}
+
+/// Find the most recent checkpoint file in a directory
+async fn find_latest_checkpoint(checkpoint_dir: &Path) -> Result<PathBuf> {
+    let mut entries = fs::read_dir(checkpoint_dir)
+        .await
+        .context("Failed to read checkpoint directory")?;
+
+    let mut latest: Option<(PathBuf, std::time::SystemTime)> = None;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if !is_checkpoint_file(&path) {
+            continue;
+        }
+
+        if let Ok(metadata) = entry.metadata().await {
+            if let Ok(modified) = metadata.modified() {
+                if latest.is_none() || modified > latest.as_ref().unwrap().1 {
+                    latest = Some((path, modified));
+                }
+            }
+        }
+    }
+
+    latest
+        .map(|(path, _)| path)
+        .ok_or_else(|| anyhow!("No checkpoint files found in {}", checkpoint_dir.display()))
+}
+
+/// Read checkpoint file and extract workflow path
+async fn read_workflow_path_from_checkpoint(
+    checkpoint_file: &Path,
+    session_id: &str,
+) -> Result<String> {
+    let checkpoint_json = fs::read_to_string(checkpoint_file)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to read checkpoint file: {}",
+                checkpoint_file.display()
+            )
+        })?;
+
+    let checkpoint: serde_json::Value =
+        serde_json::from_str(&checkpoint_json).context("Failed to parse checkpoint JSON")?;
+
+    checkpoint
+        .get("workflow_path")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .ok_or_else(|| {
+            anyhow!(
+                "Checkpoint does not contain workflow_path field.\n\n\
+                This checkpoint was created with an older version of Prodigy that didn't save\n\
+                the workflow file path. You can resume this session using:\n\n\
+                  prodigy run <workflow-file>.yml --resume {}\n\n\
+                Where <workflow-file>.yml is the original workflow file you used.",
+                session_id
+            )
+        })
+}
+
+/// Print resume status information
+fn print_resume_status(
+    session_id: &str,
+    workflow_path: &str,
+    checkpoint_file: &Path,
+    worktree_path: &Path,
+    from_checkpoint: Option<&str>,
+) {
+    println!("Resuming session: {}", session_id);
+    println!("Workflow: {}", workflow_path);
+    println!(
+        "Checkpoint: {}",
+        checkpoint_file.file_name().unwrap().to_string_lossy()
+    );
+
+    println!();
+    println!("Note: Resuming from worktree: {}", worktree_path.display());
+    if let Some(cp) = from_checkpoint {
+        println!("      Using specific checkpoint: {}", cp);
+    } else {
+        println!("      Using latest checkpoint");
+    }
+    println!("      Project root: {}", worktree_path.display());
+    println!();
+}
 
 /// Resume an interrupted workflow or MapReduce job
 ///
@@ -192,239 +458,64 @@ fn detect_id_type(id: &str) -> IdType {
 }
 
 /// Try to resume a regular workflow session
+///
+/// This function composes smaller, focused functions to:
+/// 1. Acquire resume lock
+/// 2. Validate session status
+/// 3. Find and validate checkpoint
+/// 4. Locate worktree
+/// 5. Execute resume
 async fn try_resume_regular_workflow(
     session_id: &str,
     from_checkpoint: Option<String>,
 ) -> Result<()> {
-    // Find checkpoint directory for this session using storage abstraction
     let prodigy_home = crate::storage::get_default_storage_dir()
         .context("Failed to determine Prodigy storage directory")?;
 
-    // Acquire resume lock to prevent concurrent resume attempts
-    let lock_manager = crate::cook::execution::ResumeLockManager::new(prodigy_home.clone())
-        .context("Failed to create resume lock manager")?;
+    // Acquire lock to prevent concurrent resume
+    let _lock = acquire_resume_lock(&prodigy_home, session_id).await?;
 
-    let _lock = lock_manager
-        .acquire_lock(session_id)
-        .await
-        .context("Failed to acquire resume lock")?;
+    // Load and validate session status
+    let session_data = load_and_validate_session(session_id).await?;
 
-    // Check if session exists and is resumable by loading session metadata
-    let storage =
-        crate::storage::GlobalStorage::new().context("Failed to create global storage")?;
-    let session_manager = crate::unified_session::SessionManager::new(storage)
-        .await
-        .context("Failed to create session manager")?;
-    let session_id_obj = crate::unified_session::SessionId::from_string(session_id.to_string());
-
-    // Try to load the session to check its status
-    let session_data = if let Ok(session) = session_manager.load_session(&session_id_obj).await {
-        use crate::unified_session::SessionStatus;
-
-        // Check if session is in a non-resumable state
-        match session.status {
-            SessionStatus::Completed => {
-                return Err(anyhow!(
-                    "Session {} has already completed and cannot be resumed.\n\
-                     There is nothing to resume for this session.",
-                    session_id
-                ));
-            }
-            SessionStatus::Cancelled => {
-                return Err(anyhow!(
-                    "Session {} was cancelled and cannot be resumed.",
-                    session_id
-                ));
-            }
-            _ => {
-                // Session is resumable (Paused, Running, Failed, etc.)
-            }
-        }
-
-        Some(session)
-    } else {
-        None
-    };
-
+    // Validate checkpoint directory and files exist
     let checkpoint_dir = prodigy_home
         .join("state")
         .join(session_id)
         .join("checkpoints");
 
-    // Check if checkpoint directory exists and contains checkpoint files
-    if !checkpoint_dir.exists() {
-        let error_context = if let Some(ref session) = session_data {
-            if let Some(error) = &session.error {
-                format!("\n\nThe session failed with:\n{}", error)
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        };
-
-        return Err(anyhow!(
-            "Cannot resume session {}: No checkpoints found.\n\
-             This workflow failed before any checkpoints were created.{}\n\n\
-             Checkpoint directory does not exist: {}\n\n\
-             You cannot resume from this failure. Please fix the issue and run the workflow again.",
-            session_id,
-            error_context,
-            checkpoint_dir.display()
-        ));
-    }
-
-    // Check if there are any checkpoint files in the directory
-    let has_checkpoints = std::fs::read_dir(&checkpoint_dir)
-        .ok()
-        .and_then(|entries| {
-            entries
-                .filter_map(Result::ok)
-                .any(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("json"))
-                .then_some(true)
-        })
-        .unwrap_or(false);
-
+    let has_checkpoints = validate_checkpoint_directory(&checkpoint_dir)?;
     if !has_checkpoints {
-        let error_context = if let Some(ref session) = session_data {
-            if let Some(error) = &session.error {
-                format!("\n\nThe session failed with:\n{}", error)
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        };
-
-        return Err(anyhow!(
-            "Cannot resume session {}: No checkpoints found.\n\
-             This workflow failed before any checkpoints were created.{}\n\n\
-             Checkpoint directory exists but contains no checkpoint files: {}\n\n\
-             You cannot resume from this failure. Please fix the issue and run the workflow again.",
+        let error_context = build_error_context(session_data.as_ref());
+        return Err(checkpoint_not_found_error(
             session_id,
-            error_context,
-            checkpoint_dir.display()
+            &error_context,
+            &checkpoint_dir,
+            checkpoint_dir.exists(),
         ));
     }
 
-    // Find checkpoint file - either specified or the latest one
-    let checkpoint_file = if let Some(checkpoint_id) = &from_checkpoint {
-        let file = checkpoint_dir.join(format!("{}.checkpoint.json", checkpoint_id));
-        if !file.exists() {
-            return Err(anyhow!(
-                "Checkpoint not found: {}\nExpected at: {}",
-                checkpoint_id,
-                file.display()
-            ));
-        }
-        file
-    } else {
-        // Find the most recent checkpoint file
-        let mut entries = fs::read_dir(&checkpoint_dir)
-            .await
-            .context("Failed to read checkpoint directory")?;
+    // Find the checkpoint file
+    let checkpoint_file =
+        find_checkpoint_file(&checkpoint_dir, from_checkpoint.as_deref()).await?;
 
-        let mut latest_checkpoint: Option<(PathBuf, std::time::SystemTime)> = None;
+    // Extract workflow path from checkpoint
+    let workflow_path = read_workflow_path_from_checkpoint(&checkpoint_file, session_id).await?;
 
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("json")
-                && path
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.ends_with(".checkpoint.json"))
-                    .unwrap_or(false)
-            {
-                if let Ok(metadata) = entry.metadata().await {
-                    if let Ok(modified) = metadata.modified() {
-                        if latest_checkpoint.is_none()
-                            || modified > latest_checkpoint.as_ref().unwrap().1
-                        {
-                            latest_checkpoint = Some((path.clone(), modified));
-                        }
-                    }
-                }
-            }
-        }
-
-        latest_checkpoint
-            .ok_or_else(|| anyhow!("No checkpoint files found in {}", checkpoint_dir.display()))?
-            .0
-    };
-
-    // Read checkpoint to extract workflow path
-    let checkpoint_json = fs::read_to_string(&checkpoint_file)
-        .await
-        .with_context(|| {
-            format!(
-                "Failed to read checkpoint file: {}",
-                checkpoint_file.display()
-            )
-        })?;
-
-    let checkpoint: serde_json::Value =
-        serde_json::from_str(&checkpoint_json).context("Failed to parse checkpoint JSON")?;
-
-    let workflow_path = checkpoint
-        .get("workflow_path")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow!(
-                "Checkpoint does not contain workflow_path field.\n\n\
-                This checkpoint was created with an older version of Prodigy that didn't save\n\
-                the workflow file path. You can resume this session using:\n\n\
-                  prodigy run <workflow-file>.yml --resume {}\n\n\
-                Where <workflow-file>.yml is the original workflow file you used.",
-                session_id
-            )
-        })?;
-
-    println!("🔄 Resuming session: {}", session_id);
-    println!("📄 Workflow: {}", workflow_path);
-    println!(
-        "📍 Checkpoint: {}",
-        checkpoint_file.file_name().unwrap().to_string_lossy()
-    );
-
-    // Find the worktree for this session by searching in the worktrees directory
+    // Find the worktree for this session
     let worktrees_dir = prodigy_home.join("worktrees");
-
     let worktree_path = find_worktree_for_session(&worktrees_dir, session_id).await?;
 
-    println!();
-    println!("Note: Resuming from worktree: {}", worktree_path.display());
-    if from_checkpoint.is_some() {
-        println!(
-            "      Using specific checkpoint: {}",
-            from_checkpoint.as_ref().unwrap()
-        );
-    } else {
-        println!("      Using latest checkpoint");
-    }
+    // Print status and execute
+    print_resume_status(
+        session_id,
+        &workflow_path,
+        &checkpoint_file,
+        &worktree_path,
+        from_checkpoint.as_deref(),
+    );
 
-    // Use the worktree path as the project root for resuming
-    // This ensures the orchestrator can find the correct session files
-    println!("      Project root: {}", worktree_path.display());
-    println!();
-
-    // Execute prodigy run with --resume flag
-    // This tells the orchestrator to use the existing worktree instead of creating a new one
-    let workflow_pathbuf = PathBuf::from(workflow_path);
-    let cook_cmd = crate::cook::command::CookCommand {
-        playbook: workflow_pathbuf,
-        path: Some(worktree_path.clone()), // Use worktree path, not current dir
-        max_iterations: 1,
-        map: vec![],
-        args: vec![],
-        fail_fast: false,
-        auto_accept: false,
-        resume: Some(session_id.to_string()), // This is the key - tells orchestrator to resume
-        verbosity: 0,
-        quiet: false,
-        dry_run: false,
-        params: std::collections::HashMap::new(),
-    };
-
+    let cook_cmd = build_cook_command(&workflow_path, worktree_path, session_id);
     crate::cook::cook(cook_cmd).await
 }
 
