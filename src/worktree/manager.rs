@@ -39,6 +39,10 @@ use std::fs;
 use std::path::PathBuf;
 use tracing::{debug, info};
 
+use super::list_detailed_pure::{
+    apply_mapreduce_progress, apply_workflow_info, calculate_summary, extract_mapreduce_progress,
+    extract_workflow_info, sort_by_last_activity,
+};
 use super::manager_queries::load_state_from_file;
 use super::manager_utilities;
 use super::manager_validation;
@@ -181,114 +185,106 @@ impl WorktreeManager {
     /// This method gathers enhanced session information from both worktree state
     /// and session state files to provide comprehensive details about each session.
     ///
+    /// # Architecture
+    ///
+    /// This method follows the "pure core, imperative shell" pattern:
+    /// - I/O operations (file reads, git queries) are performed here
+    /// - Data transformation uses pure functions from `list_detailed_pure`
+    /// - This separation enables comprehensive unit testing of the business logic
+    ///
     /// # Returns
     /// * `Result<DetailedWorktreeList>` - Detailed list of sessions with enhanced info
     ///
     /// # Errors
     /// Returns error if unable to read session information
     pub async fn list_detailed(&self) -> Result<super::display::DetailedWorktreeList> {
-        use super::display::{DetailedWorktreeList, EnhancedSessionInfo, WorktreeSummary};
+        use super::display::DetailedWorktreeList;
 
-        // Get basic session list
+        // Get basic session list (I/O)
         let sessions = self.list_sessions().await?;
         let mut enhanced_sessions = Vec::new();
-        let mut summary = WorktreeSummary::default();
 
         for session in sessions {
-            // Load worktree state
-            let state_file = self
-                .base_dir
-                .join(".metadata")
-                .join(format!("{}.json", session.name));
-
-            if let Ok(state_json) = std::fs::read_to_string(&state_file) {
-                if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
-                    // Create enhanced info from worktree state
-                    let mut enhanced = EnhancedSessionInfo::from(&state);
-                    enhanced.worktree_path = session.path.clone();
-
-                    // Try to load session state for workflow information
-                    let session_state_path =
-                        session.path.join(".prodigy").join("session_state.json");
-                    if let Ok(session_json) = std::fs::read_to_string(&session_state_path) {
-                        if let Ok(session_state) =
-                            serde_json::from_str::<serde_json::Value>(&session_json)
-                        {
-                            // Extract workflow information from session state
-                            if let Some(workflow_state) = session_state.get("workflow_state") {
-                                if let Some(path) =
-                                    workflow_state.get("workflow_path").and_then(|p| p.as_str())
-                                {
-                                    enhanced.workflow_path = Some(PathBuf::from(path));
-                                }
-
-                                if let Some(args) =
-                                    workflow_state.get("input_args").and_then(|a| a.as_array())
-                                {
-                                    enhanced.workflow_args = args
-                                        .iter()
-                                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                                        .collect();
-                                }
-
-                                if let Some(current_step) =
-                                    workflow_state.get("current_step").and_then(|s| s.as_u64())
-                                {
-                                    enhanced.current_step = current_step as usize;
-                                }
-
-                                if let Some(completed) = workflow_state
-                                    .get("completed_steps")
-                                    .and_then(|s| s.as_array())
-                                {
-                                    enhanced.total_steps = Some(completed.len());
-                                }
-                            }
-
-                            // Extract MapReduce progress if available
-                            if let Some(mapreduce_state) = session_state.get("mapreduce_state") {
-                                if let Some(processed) = mapreduce_state
-                                    .get("items_processed")
-                                    .and_then(|p| p.as_u64())
-                                {
-                                    enhanced.items_processed = Some(processed as u32);
-                                }
-                                if let Some(total) =
-                                    mapreduce_state.get("total_items").and_then(|t| t.as_u64())
-                                {
-                                    enhanced.total_items = Some(total as u32);
-                                }
-                            }
-                        }
-                    }
-
-                    // Try to determine parent branch from git
-                    enhanced.parent_branch = self.get_parent_branch(&session.branch).await.ok();
-
-                    // Update summary counts
-                    summary.total += 1;
-                    match state.status {
-                        WorktreeStatus::InProgress => summary.in_progress += 1,
-                        WorktreeStatus::Interrupted => summary.interrupted += 1,
-                        WorktreeStatus::Failed => summary.failed += 1,
-                        WorktreeStatus::Completed | WorktreeStatus::Merged => {
-                            summary.completed += 1
-                        }
-                        _ => {}
-                    }
-
-                    enhanced_sessions.push(enhanced);
-                }
+            if let Some(enhanced) = self.enhance_session_info(&session).await {
+                enhanced_sessions.push(enhanced);
             }
         }
 
-        // Sort by last activity (most recent first)
-        enhanced_sessions.sort_by(|a, b| b.last_activity.cmp(&a.last_activity));
+        // Calculate summary using pure function
+        let summary = calculate_summary(&enhanced_sessions);
+
+        // Sort by last activity using pure function
+        sort_by_last_activity(&mut enhanced_sessions);
 
         Ok(DetailedWorktreeList {
             sessions: enhanced_sessions,
             summary,
         })
+    }
+
+    /// Enhance a basic session with detailed information
+    ///
+    /// Loads worktree state and session state to create an enhanced session info.
+    /// Returns None if the worktree state cannot be loaded.
+    async fn enhance_session_info(
+        &self,
+        session: &WorktreeSession,
+    ) -> Option<super::display::EnhancedSessionInfo> {
+        use super::display::EnhancedSessionInfo;
+
+        // Load worktree state (I/O)
+        let state = self.load_worktree_state_for_session(&session.name)?;
+
+        // Create enhanced info from worktree state (pure transformation)
+        let mut enhanced = EnhancedSessionInfo::from(&state);
+        enhanced.worktree_path = session.path.clone();
+
+        // Load and apply session state information (I/O + pure transformation)
+        if let Some(session_state) = self.load_session_state_json(&session.path) {
+            let workflow_info = extract_workflow_info(&session_state);
+            apply_workflow_info(&mut enhanced, &workflow_info);
+
+            let mapreduce_progress = extract_mapreduce_progress(&session_state);
+            apply_mapreduce_progress(&mut enhanced, &mapreduce_progress);
+        }
+
+        // Determine parent branch from git (I/O)
+        enhanced.parent_branch = self.get_parent_branch(&session.branch).await.ok();
+
+        Some(enhanced)
+    }
+
+    /// Load worktree state from metadata file
+    ///
+    /// # Arguments
+    /// * `session_name` - Name of the session
+    ///
+    /// # Returns
+    /// * `Option<WorktreeState>` - The loaded state, or None if not found/invalid
+    fn load_worktree_state_for_session(&self, session_name: &str) -> Option<WorktreeState> {
+        let state_file = self
+            .base_dir
+            .join(".metadata")
+            .join(format!("{session_name}.json"));
+
+        std::fs::read_to_string(&state_file)
+            .ok()
+            .and_then(|json| serde_json::from_str(&json).ok())
+    }
+
+    /// Load session state JSON from worktree path
+    ///
+    /// # Arguments
+    /// * `worktree_path` - Path to the worktree directory
+    ///
+    /// # Returns
+    /// * `Option<Value>` - The parsed JSON, or None if not found/invalid
+    fn load_session_state_json(&self, worktree_path: &std::path::Path) -> Option<serde_json::Value> {
+        let session_state_path = worktree_path.join(".prodigy").join("session_state.json");
+
+        std::fs::read_to_string(&session_state_path)
+            .ok()
+            .and_then(|json| serde_json::from_str(&json).ok())
     }
 
     /// List sessions from metadata files

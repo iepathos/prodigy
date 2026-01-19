@@ -65,6 +65,7 @@ use std::path::PathBuf;
 
 pub mod builder;
 pub mod display;
+pub mod list_detailed_pure;
 pub mod manager;
 pub mod manager_construction;
 pub mod manager_queries;
