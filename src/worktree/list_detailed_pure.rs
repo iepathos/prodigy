@@ -144,17 +144,19 @@ pub fn apply_mapreduce_progress(info: &mut EnhancedSessionInfo, progress: &MapRe
 /// * `WorktreeSummary` - Aggregated summary statistics
 #[must_use]
 pub fn calculate_summary(sessions: &[EnhancedSessionInfo]) -> WorktreeSummary {
-    sessions.iter().fold(WorktreeSummary::default(), |mut summary, session| {
-        summary.total += 1;
-        match session.status {
-            WorktreeStatus::InProgress => summary.in_progress += 1,
-            WorktreeStatus::Interrupted => summary.interrupted += 1,
-            WorktreeStatus::Failed => summary.failed += 1,
-            WorktreeStatus::Completed | WorktreeStatus::Merged => summary.completed += 1,
-            WorktreeStatus::CleanedUp | WorktreeStatus::Abandoned => {}
-        }
-        summary
-    })
+    sessions
+        .iter()
+        .fold(WorktreeSummary::default(), |mut summary, session| {
+            summary.total += 1;
+            match session.status {
+                WorktreeStatus::InProgress => summary.in_progress += 1,
+                WorktreeStatus::Interrupted => summary.interrupted += 1,
+                WorktreeStatus::Failed => summary.failed += 1,
+                WorktreeStatus::Completed | WorktreeStatus::Merged => summary.completed += 1,
+                WorktreeStatus::CleanedUp | WorktreeStatus::Abandoned => {}
+            }
+            summary
+        })
 }
 
 /// Sort sessions by last activity (most recent first)
@@ -184,7 +186,10 @@ mod tests {
 
         let info = extract_workflow_info(&session_state);
 
-        assert_eq!(info.workflow_path, Some(PathBuf::from("/path/to/workflow.yaml")));
+        assert_eq!(
+            info.workflow_path,
+            Some(PathBuf::from("/path/to/workflow.yaml"))
+        );
         assert_eq!(info.workflow_args, vec!["arg1", "arg2", "arg3"]);
         assert_eq!(info.current_step, 5);
         assert_eq!(info.total_steps, Some(10));

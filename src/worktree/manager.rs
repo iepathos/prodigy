@@ -279,7 +279,10 @@ impl WorktreeManager {
     ///
     /// # Returns
     /// * `Option<Value>` - The parsed JSON, or None if not found/invalid
-    fn load_session_state_json(&self, worktree_path: &std::path::Path) -> Option<serde_json::Value> {
+    fn load_session_state_json(
+        &self,
+        worktree_path: &std::path::Path,
+    ) -> Option<serde_json::Value> {
         let session_state_path = worktree_path.join(".prodigy").join("session_state.json");
 
         std::fs::read_to_string(&session_state_path)

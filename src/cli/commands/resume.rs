@@ -218,14 +218,12 @@ async fn read_workflow_path_from_checkpoint(
     checkpoint_file: &Path,
     session_id: &str,
 ) -> Result<String> {
-    let checkpoint_json = fs::read_to_string(checkpoint_file)
-        .await
-        .with_context(|| {
-            format!(
-                "Failed to read checkpoint file: {}",
-                checkpoint_file.display()
-            )
-        })?;
+    let checkpoint_json = fs::read_to_string(checkpoint_file).await.with_context(|| {
+        format!(
+            "Failed to read checkpoint file: {}",
+            checkpoint_file.display()
+        )
+    })?;
 
     let checkpoint: serde_json::Value =
         serde_json::from_str(&checkpoint_json).context("Failed to parse checkpoint JSON")?;
@@ -496,8 +494,7 @@ async fn try_resume_regular_workflow(
     }
 
     // Find the checkpoint file
-    let checkpoint_file =
-        find_checkpoint_file(&checkpoint_dir, from_checkpoint.as_deref()).await?;
+    let checkpoint_file = find_checkpoint_file(&checkpoint_dir, from_checkpoint.as_deref()).await?;
 
     // Extract workflow path from checkpoint
     let workflow_path = read_workflow_path_from_checkpoint(&checkpoint_file, session_id).await?;
