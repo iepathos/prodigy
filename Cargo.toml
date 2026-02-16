@@ -28,7 +28,7 @@ chrono = { version = "0.4", features = ["serde"] }
 toml = "0.9"
 directories = "6.0"
 notify = "8.2"
-tempfile = "3.23"
+tempfile = "3.25"
 shell-words = "1.1"
 async-trait = "0.1"
 sha2 = "0.10"
@@ -71,7 +71,7 @@ flate2 = "1.0"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }
-tempfile = "3.23"
+tempfile = "3.25"
 libc = "0.2"
 proptest = "1.9.0"
 serial_test = "3.3.1"
