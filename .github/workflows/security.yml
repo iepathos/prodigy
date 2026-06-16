@@ -109,7 +109,8 @@ jobs:
     
     - name: Check for unused dependencies
       run: |
-        cargo install cargo-machete
+        # 0.9.2+ pulls cargo-platform 0.3.3 (MSRV 1.91); pin until toolchain bumps
+        cargo install cargo-machete --version 0.9.1 --locked
         cargo machete --with-metadata || true
 
   supply-chain:

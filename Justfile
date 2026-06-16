@@ -327,7 +327,7 @@ install-tools:
 
 # Install additional development tools
 install-extras:
-    cargo install cargo-expand cargo-machete cargo-deny cargo-udeps
+    cargo install cargo-expand cargo-machete@0.9.1 cargo-deny cargo-udeps
 
 # Install git hooks
 install-hooks:

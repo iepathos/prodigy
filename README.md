@@ -3,9 +3,9 @@
 [![CI](https://github.com/iepathos/prodigy/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/ci.yml)
 [![Security](https://github.com/iepathos/prodigy/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/security.yml)
 [![Release](https://github.com/iepathos/prodigy/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/release.yml)
-[![Crates.io](https://img.shields.io/crates/v/prodigy)](https://crates.io/crates/prodigy)
+[![Crates.io](https://badgen.net/crates/v/prodigy)](https://crates.io/crates/prodigy)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Downloads](https://img.shields.io/crates/d/prodigy)](https://crates.io/crates/prodigy)
+[![Downloads](https://badgen.net/crates/d/prodigy)](https://crates.io/crates/prodigy)
 
 > Transform ad-hoc Claude sessions into reproducible development pipelines with parallel execution, automatic retry, and full state management.
 
